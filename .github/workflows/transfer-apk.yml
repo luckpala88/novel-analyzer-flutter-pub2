@@ -1,0 +1,71 @@
+name: transfer-apk
+permissions:
+  contents: write # v503：wipe步骤删release/push源码需要，默认read-only全403
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'tag to transfer (e.g. v497)'
+        required: true
+jobs:
+  transfer:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish draft release
+        run: |
+          # v498：删tag重打会产生draft Release，先发布否则下载404
+          TOKEN="${{ secrets.UPD_TOKEN }}"
+          REL_ID=$(curl -s -H "Authorization: token $TOKEN" "https://api.github.com/repos/luckpala88/novel-analyzer-flutter-pub2/releases/tags/${{ inputs.tag }}" | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))")
+          if [ -n "$REL_ID" ]; then curl -s -X PATCH -H "Authorization: token $TOKEN" -H "Content-Type: application/json" -d '{"draft":false}' "https://api.github.com/repos/luckpala88/novel-analyzer-flutter-pub2/releases/$REL_ID" -o /dev/null && echo "draft已发布"; fi
+      - name: Download from mirror release
+        run: |
+          curl -sL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -o /tmp/app.apk \
+            "https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/novel_analyzer_flutter.apk"
+          ls -la /tmp/app.apk
+          # v498：win zip一并下载（存在才下）
+          curl -sL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -o /tmp/win.zip \
+            "https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/novel_analyzer_win.zip" || true
+          ls -la /tmp/win.zip || echo "无win zip"
+      - name: Upload to private release
+        env:
+          TOKEN: ${{ secrets.UPD_TOKEN }}
+        run: |
+          TAG="${{ inputs.tag }}"
+          REPO="luckpala88/novel-analyzer-flutter"
+          REL_ID=$(curl -s -H "Authorization: token $TOKEN" "https://api.github.com/repos/$REPO/releases/tags/$TAG" | python3 -c "import json,sys; r=json.load(sys.stdin); print(r.get('id','MISS'))")
+          if [ "$REL_ID" = "MISS" ]; then
+            # 私有仓可能没有该tag（快照只在镜像仓打tag）——先创建tag指向私有仓main
+            MAIN_SHA=$(curl -s -H "Authorization: token $TOKEN" "https://api.github.com/repos/$REPO/git/ref/heads/main" | python3 -c "import json,sys; print(json.load(sys.stdin)['object']['sha'])")
+            curl -s -X POST -H "Authorization: token $TOKEN" -H "Content-Type: application/json" \
+              -d "{\"ref\":\"refs/tags/$TAG\",\"sha\":\"$MAIN_SHA\"}" "https://api.github.com/repos/$REPO/git/refs" -o /dev/null
+            REL_ID=$(curl -s -X POST -H "Authorization: token $TOKEN" -H "Content-Type: application/json" \
+              -d "{\"tag_name\":\"$TAG\",\"name\":\"$TAG\",\"body\":\"CI build via pub mirror\",\"target_commitish\":\"main\"}" \
+              "https://api.github.com/repos/$REPO/releases" | python3 -c "import json,sys; r=json.load(sys.stdin); print(r.get('id') or 'ERR:'+str(r.get('errors','')))")
+          fi
+          # 删旧同名asset（覆盖）
+          OLD=$(curl -s -H "Authorization: token $TOKEN" "https://api.github.com/repos/$REPO/releases/tags/$TAG" | python3 -c "import json,sys; r=json.load(sys.stdin); print([a['id'] for a in r.get('assets',[]) if a['name']=='novel_analyzer_flutter.apk'][0] if any(a['name']=='novel_analyzer_flutter.apk' for a in r.get('assets',[])) else '')")
+          [ -n "$OLD" ] && curl -s -X DELETE -H "Authorization: token $TOKEN" "https://api.github.com/repos/$REPO/releases/assets/$OLD" && echo "旧asset已删"
+          curl -s -X POST -H "Authorization: token $TOKEN" -H "Content-Type: application/vnd.android.package-archive" \
+            --data-binary @/tmp/app.apk "https://uploads.github.com/repos/$REPO/releases/$REL_ID/assets?name=novel_analyzer_flutter.apk" | python3 -c "import json,sys; r=json.load(sys.stdin); print('uploaded:', r.get('name'), r.get('state'))"
+          # v498：win zip转存（文件有效才传）
+          WINSIZE=$(stat -c%s /tmp/win.zip 2>/dev/null || echo 0)
+          if [ "$WINSIZE" -gt 1000000 ]; then
+            OLDW=$(curl -s -H "Authorization: token $TOKEN" "https://api.github.com/repos/$REPO/releases/tags/$TAG" | python3 -c "import json,sys; r=json.load(sys.stdin); print([a['id'] for a in r.get('assets',[]) if a['name']=='novel_analyzer_win.zip'][0] if any(a['name']=='novel_analyzer_win.zip' for a in r.get('assets',[])) else '')")
+            [ -n "$OLDW" ] && curl -s -X DELETE -H "Authorization: token $TOKEN" "https://api.github.com/repos/$REPO/releases/assets/$OLDW"
+            curl -s -X POST -H "Authorization: token $TOKEN" -H "Content-Type: application/zip" \
+              --data-binary @/tmp/win.zip "https://uploads.github.com/repos/$REPO/releases/$REL_ID/assets?name=novel_analyzer_win.zip" | python3 -c "import json,sys; r=json.load(sys.stdin); print('win uploaded:', r.get('name'), r.get('state'))"
+          else
+            echo "无win zip或太小，跳过"
+          fi
+      - name: Wipe mirror (source + release + tags)
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 转存完成后清空公共镜像：删release（连assets）→删全部tag→源码抹空（保留.github）
+          REL_ID=$(curl -s -H "Authorization: token $TOKEN" "https://api.github.com/repos/${{ github.repository }}/releases" | python3 -c "import json,sys; ids=[str(r['id']) for r in json.load(sys.stdin)]; print(' '.join(ids))")
+          for ID in $REL_ID; do curl -s -X DELETE -H "Authorization: token $TOKEN" "https://api.github.com/repos/${{ github.repository }}/releases/$ID"; done
+          git config --global user.email ci@bot && git config --global user.name ci-bot
+          git clone -q "https://x-access-token:$TOKEN@github.com/${{ github.repository }}.git" /tmp/mirror
+          cd /tmp/mirror && find . -mindepth 1 -maxdepth 1 ! -name '.git' ! -name '.github' -exec rm -rf {} + && git add -A && git commit -qm "wipe" && git push -q origin main
+          for T in $(git tag -l); do git push -q origin :refs/tags/$T; done
+          echo "镜像已清空（release+tag+源码）"
