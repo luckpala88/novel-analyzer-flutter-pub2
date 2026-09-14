@@ -14,6 +14,8 @@ on:
 
 jobs:
   build-windows:
+    # v530：仅镜像库执行——私有库同tag触发直接跳过（消除秒挂失败邮件噪音）
+    if: github.repository == 'luckpala88/novel-analyzer-flutter-pub2'
     runs-on: windows-latest
     permissions:
       contents: write

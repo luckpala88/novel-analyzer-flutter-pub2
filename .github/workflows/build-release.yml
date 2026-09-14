@@ -15,6 +15,8 @@ on:
         type: boolean
 jobs:
   build-android:
+    # v530：仅镜像库执行——私有库同tag触发直接跳过（消除秒挂失败邮件噪音）
+    if: github.repository == 'luckpala88/novel-analyzer-flutter-pub2'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -94,7 +96,8 @@ jobs:
 
       - name: Trigger transfer
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # v531：GITHUB_TOKEN触发的workflow_dispatch不会真正触发新运行（防递归），换UPD_TOKEN
+          GH_TOKEN: ${{ secrets.UPD_TOKEN }}
         run: |
           curl -s -X POST -H "Authorization: token $GH_TOKEN" -H "Content-Type: application/json" \
             -d '{"ref":"main","inputs":{"tag":"${{ github.ref_name }}"}}' \
