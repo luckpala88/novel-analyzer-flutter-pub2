@@ -1258,7 +1258,29 @@ class AppState extends ChangeNotifier {
 
   /// v388b：映射表增量抽取——总结条目/场景划分/分镜填充每步成功后调用，
   /// 抽出新名称追加到nameMapping（已有原著名不覆盖，保留用户手改）
-  Future<void> extractNameMapIncrement(String sourceContent) async {
+  /// v574：adaptedInput=true 表示素材是改编后文本（产物名词全是新名）——
+  /// 构建禁收名单（映射表右列+起名要求里的新名）防止"新名→另一个新名"的
+  /// 二次映射污染（实测：晏知微等用户创建名被当原著名再映射）
+  /// v574：映射表右列新名清单（防改编产物二次映射）
+  List<String> _mapRightColumnNames() {
+    final names = <String>[];
+    final rowRe = RegExp(r'^\s*([^\s→>]+?)\s*[→>]\s*([^\s（(]+)', multiLine: true);
+    for (final m in rowRe.allMatches(worldBook!.nameMapping)) {
+      final right = m.group(2)!.trim();
+      if (right.isNotEmpty) names.add(right);
+    }
+    // 起名要求里"XX→YY"形态的YY也是新名
+    for (final m in rowRe.allMatches(worldBook!.nameMapReq)) {
+      final right = m.group(2)!.trim();
+      if (right.isNotEmpty) names.add(right);
+    }
+    return names.toSet().toList();
+  }
+
+  Future<void> extractNameMapIncrement(
+    String sourceContent, {
+    bool adaptedInput = false,
+  }) async {
     try {
       if (worldBook == null) return;
       final config = wbApi.effectiveApiKey.isNotEmpty || wbApi.useCustom
@@ -1276,6 +1298,8 @@ class AppState extends ChangeNotifier {
           existing,
           sourceContent,
           nameReq: worldBook!.nameMapReq,
+          forbiddenNames: adaptedInput ? _mapRightColumnNames() : const [],
+          adaptedInput: adaptedInput,
         ),
         temperature: 0.3,
         maxTokens: 4000,

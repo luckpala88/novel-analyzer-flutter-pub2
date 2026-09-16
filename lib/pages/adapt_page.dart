@@ -1802,6 +1802,9 @@ class _AdaptPageState extends State<AdaptPage>
   }
 
   @override
+  String _layerName() =>
+      ['all', 'arc', 'scene', 'shot'][_adaptLayer == 0 ? 0 : _adaptLayer];
+
   Widget _layerTab(String label, int idx) {
     final selected = _adaptLayer == idx;
     return GestureDetector(
@@ -1853,7 +1856,9 @@ class _AdaptPageState extends State<AdaptPage>
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   MiniButton(
-                    label: _isGenerating ? '生成中…' : '批量',
+                    label: _isGenerating
+                        ? '生成中…'
+                        : ['批量·概述', '批量·场景', '批量·分镜'][_adaptLayer],
                     primary: true,
                     onTap: _isGenerating || allArcs.isEmpty
                         ? null
@@ -2553,7 +2558,7 @@ class _AdaptPageState extends State<AdaptPage>
 
     if (generatedCount == 0) {
       // 全新生成，直接开始
-      _generateAll(state, allArcs, 'full');
+      _generateAll(state, allArcs, 'full', layer: _layerName());
       return;
     }
 
@@ -2584,7 +2589,7 @@ class _AdaptPageState extends State<AdaptPage>
       ),
     ).then((mode) {
       if (mode != null && mode != 'cancel') {
-        _generateAll(state, allArcs, mode);
+        _generateAll(state, allArcs, mode, layer: _layerName());
       }
     });
   }
@@ -2593,8 +2598,9 @@ class _AdaptPageState extends State<AdaptPage>
   Future<void> _generateAll(
     AppState state,
     List<Arc> allArcs,
-    String mode,
-  ) async {
+    String mode, {
+    String layer = 'all', // v574：批量跟随当前子页层
+  }) async {
     // v212：无分镜的弧线先警告（继续=只生成场景框架，取消=跳场景页拆分镜）
     final noShotArcs = allArcs.where((a) => !_hasShots(state, a)).toList();
     if (noShotArcs.isNotEmpty) {
@@ -2652,7 +2658,7 @@ class _AdaptPageState extends State<AdaptPage>
     // v285：批量全程try/finally——异常逃逸会永久卡死_isGenerating（所有按钮
     // 置灰、进度条空转、再点无反应），且原实现无catch=终端连异常都看不到
     try {
-      _addLog('⚡ 一键生成开始（$mode模式，${allArcs.length}条弧线）');
+      _addLog('⚡ 批量改编开始（$mode模式·${_layerName() == 'all' ? '贯穿三层' : _layerName() + '层'}，${allArcs.length}条弧线）');
       // 全量模式：清空所有弧线条目和状态
       if (mode == 'full') {
         state.worldBook!.entries.removeWhere(
@@ -2683,6 +2689,7 @@ class _AdaptPageState extends State<AdaptPage>
             arc,
             allArcs.length,
             incremental: mode == 'incremental',
+            layer: layer,
           );
           if (state.worldBook!.arcStatus[arcKey] == 'generated') successCount++;
         } catch (e) {
@@ -3111,7 +3118,7 @@ class _AdaptPageState extends State<AdaptPage>
       state.saveWorldBook();
       // v388b：映射表增量抽取（不阻塞主流程）
       // v392：await串行——unawaited会与下一步请求撞车（API单任务守卫拒绝框架请求=停机）
-      await state.extractNameMapIncrement(sumResult.content);
+      await state.extractNameMapIncrement(sumResult.content, adaptedInput: true); // v574
       if (layer == 'arc') {
         // v570：弧线层到此为止——条目重写已级联清空场景/分镜段
         _addLog('✓ 弧线${arc.number}概述重改编完成（场景/分镜段已级联清空，请到下层重生成）');
@@ -3291,7 +3298,7 @@ class _AdaptPageState extends State<AdaptPage>
         );
         // v388b：映射表增量抽取（不阻塞主流程）
         // v392：await串行防撞车
-        await state.extractNameMapIncrement(frameResult.content);
+        await state.extractNameMapIncrement(frameResult.content, adaptedInput: true); // v574
         } // v214 skipFrame else结束
 
         // C：该场景分镜填充（v570：scene层到此为止，分镜留给分镜层重改编）
@@ -3372,7 +3379,7 @@ class _AdaptPageState extends State<AdaptPage>
         state.refresh();
         // v388b：分镜填充后映射表增量抽取
         // v392：await串行防撞车
-        await state.extractNameMapIncrement(fillResult.content);
+        await state.extractNameMapIncrement(fillResult.content, adaptedInput: true); // v574
       }
 
       state.worldBook!.arcStatus[arcKey] = 'generated';

@@ -1714,6 +1714,8 @@ class PromptBuilder {
     String existingMap,
     String sourceContent, {
     String nameReq = '',
+    List<String> forbiddenNames = const [], // v574：改编后输入的禁收新名
+    bool adaptedInput = false,
   }) {
     final sb = StringBuffer();
     if (nameReq.trim().isNotEmpty) {
@@ -1731,6 +1733,12 @@ class PromptBuilder {
     sb.writeln(src);
     sb.writeln();
     sb.writeln('请输出新增的映射行。');
+    if (adaptedInput) {
+      sb.writeln('【⚠️ 输入性质】以下素材是【改编后】的产物文本——其中的人名/地名/术语绝大多数是映射表右列的新名（改编要求指定），不是原著名！');
+      sb.writeln('🚫 绝对禁止收录为左列的名称（禁收名单）：${forbiddenNames.join('、')}');
+      sb.writeln('只允许收录：素材中新出现的、且不在映射表左列也不在禁收名单里的【原著名】（通常来自原著独有的次要元素）。如果拿不准一个名称是新名还是原著名，输出？确认行或直接不收录。');
+      sb.writeln();
+    }
     return sb.toString();
   }
 
