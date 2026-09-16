@@ -19,8 +19,21 @@ jobs:
           if [ -n "$REL_ID" ]; then curl -s -X PATCH -H "Authorization: token $TOKEN" -H "Content-Type: application/json" -d '{"draft":false}' "https://api.github.com/repos/luckpala88/novel-analyzer-flutter-pub2/releases/$REL_ID" -o /dev/null && echo "draft已发布"; fi
       - name: Download from mirror release
         run: |
-          curl -sL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -o /tmp/app.apk \
-            "https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/novel_analyzer_flutter.apk"
+          # v580：重试+大小校验——镜像release未就绪时404的"Not Found"(9字节)
+          # 会被当APK上传（v578事故），<1MB判定为无效
+          for i in 1 2 3 4 5; do
+            curl -sL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -o /tmp/app.apk \
+              "https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/novel_analyzer_flutter.apk"
+            APKSIZE=$(stat -c%s /tmp/app.apk 2>/dev/null || echo 0)
+            echo "第${i}次下载：$APKSIZE 字节"
+            if [ "$APKSIZE" -gt 1000000 ]; then break; fi
+            sleep 30
+          done
+          APKSIZE=$(stat -c%s /tmp/app.apk 2>/dev/null || echo 0)
+          if [ "$APKSIZE" -lt 1000000 ]; then
+            echo "APK下载异常（$APKSIZE 字节，镜像release缺失或未就绪）——中止转存"
+            exit 1
+          fi
           ls -la /tmp/app.apk
           # v498：win zip一并下载（存在才下）
           curl -sL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -o /tmp/win.zip \
