@@ -2041,6 +2041,10 @@ class _AdaptPageState extends State<AdaptPage>
     if (status == 'generated') {
       statusColor = Colors.green;
       statusText = '✓ 已生成';
+    } else if (status == 'arc_done') {
+      // v570：弧线层完成（场景/分镜待下层改编）
+      statusColor = Colors.teal;
+      statusText = '◇ 概述已改编';
     } else if (status == 'generating') {
       statusColor = Colors.orange;
       statusText = '⟳ 生成中';
@@ -2691,10 +2695,19 @@ class _AdaptPageState extends State<AdaptPage>
             incremental: mode == 'incremental',
             layer: layer,
           );
-          if (state.worldBook!.arcStatus[arcKey] == 'generated') successCount++;
+          if (state.worldBook!.arcStatus[arcKey] == 'generated' ||
+              state.worldBook!.arcStatus[arcKey] == 'arc_done') {
+            successCount++;
+          }
         } catch (e) {
           _addLog('❌ 弧线${arc.number}异常：$e');
           state.worldBook!.arcStatus[arcKey] = 'failed';
+        }
+        // v575：失败停机铁律（v268/v277）——本弧线失败必须停，禁止跳到下一条
+        // （continue跳过=顺序错乱+下层产物与上层失配，修好后重跑只补未处理弧线）
+        if (state.worldBook!.arcStatus[arcKey] == 'failed') {
+          _addLog('⏹ 弧线${arc.number}失败——批量停机（修正后重跑，从未完成的弧线继续）');
+          break;
         }
       }
 
