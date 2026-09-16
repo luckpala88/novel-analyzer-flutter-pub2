@@ -212,7 +212,7 @@ class TTSMediaService : MediaBrowserServiceCompat() {
 
     override fun onLoadChildren(
         parentId: String,
-        result: MediaBrowserServiceCompat.Result<MutableList<android.media.browse.MediaBrowser.MediaItem>>
+        result: MediaBrowserServiceCompat.Result<MutableList<androidx.media.MediaBrowserCompat.MediaItem>>
     ) {
         result.sendResult(mutableListOf())
     }
