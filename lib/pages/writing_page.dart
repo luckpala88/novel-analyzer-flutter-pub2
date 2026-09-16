@@ -1532,17 +1532,11 @@ class _WritingPageState extends State<WritingPage>
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-          child: TextField(
+          child: _AutoExpandField(
             controller: TextEditingController(text: decl)
               ..selection = TextSelection.collapsed(offset: decl.length),
-            maxLines: null,
-            minLines: 6,
             style: const TextStyle(fontSize: 12, height: 1.5),
-            decoration: const InputDecoration(
-              isDense: true,
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.all(8),
-            ),
+            contentPadding: const EdgeInsets.all(8),
             onChanged: (v) =>
                 state.worldBook?.arcDeclarations[arcKey] = v,
           ),
@@ -1668,23 +1662,18 @@ class _WritingPageState extends State<WritingPage>
               ],
             ),
             // per-scene创作要求（与全局综合生效）
-            TextField(
+            _AutoExpandField(
               controller: TextEditingController(text: scenePrompt)
                 ..selection = TextSelection.collapsed(
                   offset: scenePrompt.length,
                 ),
               style: const TextStyle(fontSize: 11),
-              maxLines: 3,
-              minLines: 1,
-              decoration: const InputDecoration(
-                isDense: true,
-                hintText: '本场景创作要求（与全局综合生效）...',
-                hintStyle: TextStyle(fontSize: 10),
-                border: OutlineInputBorder(borderSide: BorderSide(width: 0.5)),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 6,
-                  vertical: 6,
-                ),
+              hintText: '本场景创作要求（与全局综合生效）...',
+              hintStyle: const TextStyle(fontSize: 10),
+              borderSide: const BorderSide(width: 0.5),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 6,
+                vertical: 6,
               ),
               onChanged: (v) => state.setScenePrompt(wkey, v),
             ),
@@ -3876,4 +3865,70 @@ class _PseudoArc {
   final String title;
   final String chapterRange;
   const _PseudoArc(this.number, this.title, this.chapterRange);
+}
+
+/// v564：创作页自动增高输入框——编辑态撑开显示全部文字(maxLines=null)，
+/// 点框外收缩单行；框内拖动不收缩（对齐改编页_CollapseReqField逻辑）
+class _AutoExpandField extends StatefulWidget {
+  const _AutoExpandField({
+    required this.controller,
+    this.style,
+    this.hintText,
+    this.hintStyle,
+    this.borderSide,
+    this.contentPadding,
+    this.onChanged,
+  });
+  final TextEditingController controller;
+  final TextStyle? style;
+  final String? hintText;
+  final TextStyle? hintStyle;
+  final BorderSide? borderSide;
+  final EdgeInsetsGeometry? contentPadding;
+  final ValueChanged<String>? onChanged;
+
+  @override
+  State<_AutoExpandField> createState() => _AutoExpandFieldState();
+}
+
+class _AutoExpandFieldState extends State<_AutoExpandField> {
+  final _focus = FocusNode();
+  bool _expanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() {
+      if (mounted && _focus.hasFocus) setState(() => _expanded = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: widget.controller,
+      focusNode: _focus,
+      style: widget.style,
+      maxLines: _expanded ? null : 1,
+      minLines: 1,
+      keyboardType: TextInputType.multiline,
+      onTapOutside: (_) {
+        if (mounted) setState(() => _expanded = false); // 点框外才缩回
+      },
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: widget.hintText,
+        hintStyle: widget.hintStyle,
+        border: OutlineInputBorder(borderSide: widget.borderSide ?? const BorderSide()),
+        contentPadding: widget.contentPadding ?? const EdgeInsets.all(8),
+      ),
+      onChanged: widget.onChanged,
+    );
+  }
 }
