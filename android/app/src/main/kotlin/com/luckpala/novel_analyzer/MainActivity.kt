@@ -135,7 +135,6 @@ class MainActivity : FlutterActivity() {
                             // v552：兜底——部分ROM不走onMediaButtonEvent直接回调onPlay/onPause
                             override fun onPlay() { ttsMediaChannel?.invokeMethod("playPause", null) }
                             override fun onPause() { ttsMediaChannel?.invokeMethod("playPause", null) }
-                            override fun onPlayPause() { ttsMediaChannel?.invokeMethod("playPause", null) }
                         })
                     }
                 }
