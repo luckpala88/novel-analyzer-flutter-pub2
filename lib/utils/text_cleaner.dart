@@ -174,7 +174,7 @@ class TextCleaner {
   static String stripJsonShells(String t) {
     // v551：键名泛化——改写链AI用rewritten_text等键包壳（截图实证），不只content
     final re = RegExp(
-      r'\{\s*"(?:content|rewritten_text|text|body|正文|output|result)"\s*:\s*"((?:[^"\\]|\\.)*)"\s*\}',
+      r'\{\s*"(?:content|rewritten_\w+|text|body|正文|output|result)"\s*:\s*"((?:[^"\\]|\\.)*)"\s*\}',
       dotAll: true,
     );
     t = t.replaceAllMapped(re, (m) {
@@ -199,7 +199,7 @@ class TextCleaner {
       if (RegExp(r'^"overview"\s*[:：]').hasMatch(s)) continue;
       // v551：rewritten_text等改写壳键——剥前缀保正文（值跨行自然保留）
       final contentKey = RegExp(
-        r'^"(?:content|rewritten_text|text|body|正文|output|result)"\s*[:：]\s*(.*)$',
+        r'^"(?:content|rewritten_\w+|text|body|正文|output|result)"\s*[:：]\s*(.*)$',
       ).firstMatch(s);
       if (contentKey != null) {
         kept.add(contentKey.group(1) ?? '');
