@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -12,46 +11,20 @@ import 'package:flutter_tts/flutter_tts.dart';
 class TTSService {
   static final TTSService _instance = TTSService._internal();
   factory TTSService() => _instance;
-  TTSService._internal() {
-    // v550：接收原生媒体按键回调
-    _mediaCh.setMethodCallHandler((call) async {
-      if (call.method == 'playPause') {
-        onMediaDebug?.call('媒体按键回调到达Dart');
-        onMediaButton?.call();
-      } else if (call.method == 'mediaAction') {
-        // v558：语义化动作（play/pause/toggle）
-        onMediaDebug?.call('动作到达Dart: ${call.arguments}');
-        onMediaAction?.call(call.arguments?.toString() ?? 'toggle');
-      } else if (call.method == 'mediaDebug') {
-        onMediaDebug?.call(call.arguments?.toString() ?? '');
-      }
-    });
-  }
+  TTSService._internal();
 
   final AudioPlayer _player = AudioPlayer();
   FlutterTts? _flutterTts;
   final Map<int, Uint8List> _cache = {};
   bool _playing = false;
 
-  // v550：蓝牙耳机媒体按键——原生MediaSession回调playPause，阅读页
-  // 设onMediaButton接自己的暂停/继续逻辑
-  static const MethodChannel _mediaCh = MethodChannel(
-    'com.luckpala.novel_analyzer/tts_media',
-  );
+  // v561：蓝牙媒体按键方案撤除（原生ROM不路由按键，详见TOOLS.md 2026-09-16）。
+  // 字段保留为空操作，兼容阅读页现有赋值
   VoidCallback? onMediaButton;
-  void Function(String action)? onMediaAction; // v558：语义化play/pause/toggle
-  void Function(String msg)? onMediaDebug; // v555：原生按键探针
+  void Function(String action)? onMediaAction;
+  void Function(String msg)? onMediaDebug;
 
-  Future<void> setMediaSession({required bool active, bool playing = false}) async {
-    try {
-      await _mediaCh.invokeMethod('setActive', {
-        'active': active,
-        'playing': playing,
-      });
-    } catch (_) {
-      // 媒体会话失败不影响朗读本身
-    }
-  }
+  Future<void> setMediaSession({required bool active, bool playing = false}) async {}
 
   // 配置
   String engine = 'silicon'; // 'silicon' or 'native'

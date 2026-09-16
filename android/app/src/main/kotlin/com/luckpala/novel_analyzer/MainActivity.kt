@@ -17,7 +17,6 @@ class MainActivity : FlutterActivity() {
     private val REQUEST_CODE = 1001
     private var pendingResult: MethodChannel.Result? = null
     private var storagePermResult: MethodChannel.Result? = null // v386：存储权限异步回调
-    private var ttsMediaChannel: MethodChannel? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -49,25 +48,6 @@ class MainActivity : FlutterActivity() {
                     }
                 }
                 else -> result.notImplemented()
-            }
-        }
-        // v550：TTS媒体按键桥——蓝牙耳机播放/暂停键（AVRCP）经MediaSession回调Dart
-        // v556：服务按键回调→Dart
-        TTSMediaService.onMediaButton = { runOnUiThread { ttsMediaChannel?.invokeMethod("playPause", null) } }
-        TTSMediaService.onMediaDebug = { msg -> runOnUiThread { ttsMediaChannel?.invokeMethod("mediaDebug", msg) } }
-        ttsMediaChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.luckpala.novel_analyzer/tts_media").also { ch ->
-            ch.setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "setActive" -> {
-                        val active = call.argument<Boolean>("active") ?: false
-                        val playing = call.argument<Boolean>("playing") ?: false
-                        // v556：会话迁移到前台媒体服务（ROM路由蓝牙按键的前提）
-                        if (active) TTSMediaService.start(this, playing)
-                        else TTSMediaService.stop(this)
-                        result.success(true)
-                    }
-                    else -> result.notImplemented()
-                }
             }
         }
         // 生成任务前台服务桥：Dart调startGen/stopGen（计数器管理，最后一个任务结束才停服务）

@@ -176,16 +176,6 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
     _ttsHlEnd = -1;
     // v550：蓝牙耳机播放/暂停键接管
     final st0 = context.read<AppState>();
-    st0.tts.onMediaButton = _togglePauseTTS;
-    st0.tts.onMediaAction = _handleMediaAction; // v558：语义化幂等
-    // v555：探针——原生收到蓝牙按键即弹提示（定位路由断点）
-    st0.tts.onMediaDebug = (msg) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('🎧 $msg'),
-        duration: const Duration(seconds: 2),
-      ));
-    };
     st0.tts.setMediaSession(active: true, playing: true);
     setState(() {});
     if (_ttsSpans.isEmpty) {
@@ -275,11 +265,7 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
     _ttsHlStart = -1;
     _ttsHlEnd = -1;
     final state = context.read<AppState>();
-    // v550：停读释放媒体会话（蓝牙按键不再劫持）
-    state.tts.onMediaButton = null;
-    state.tts.onMediaAction = null;
-    state.tts.onMediaDebug = null;
-    state.tts.setMediaSession(active: false);
+    state.tts.setMediaSession(active: false); // v561：媒体会话已撤，空操作
     await state.tts.stop();
     setState(() {});
   }

@@ -50,10 +50,6 @@ kotlin {
     }
 }
 
-dependencies {
-    implementation("androidx.media:media:1.7.0") // v550: MediaSessionCompat(蓝牙耳机媒体按键)
-}
-
 flutter {
     source = "../.."
 }
