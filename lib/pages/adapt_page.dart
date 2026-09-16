@@ -3351,8 +3351,10 @@ class _AdaptPageState extends State<AdaptPage>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
+                '素材=原著扫描数据（概述/场景摘要，永远原著脸；改编后的世界书条目不进素材防污染）。'
+                '流程：扫描→圣经定稿→生成世界书（圣经注入）。'
                 '四段式：【全书基调】/【人物映射】原→新（定位·别称层次）/【设定映射】/【规则映射】。'
-                '拿不准的行用"？原著名（疑似…）"标出。生成链路（概述/框架/分镜/创作）全部强制注入，禁止出现未替换的原著元素。',
+                '拿不准的行用"？原著名（疑似…）"标出。',
                 style: TextStyle(fontSize: 10.5, color: Colors.grey),
               ),
               const SizedBox(height: 6),
@@ -3417,22 +3419,10 @@ class _AdaptPageState extends State<AdaptPage>
       final arcKey = arc.number.toString();
       final item = _buildArcItemData(state, arc);
       final chars = (item['characters'] as List?)?.take(10).join('、') ?? '';
-      // v568：素材优先级重排——世界书条目第一（两遍式工作流：先生成世界书
-      // 打底再提炼圣经，条目素材最全），弧线概述→场景摘要兜底
-      var body = '';
-      final wbEntries = state.worldBook?.entries.values
-              .where((e) => e.arcKey == arcKey)
-              .take(2) ??
-          [];
-      for (final e in wbEntries) {
-        final c = e.content.trim();
-        if (c.isNotEmpty) {
-          body += (body.isEmpty ? '' : '\n') +
-              (c.length > 300 ? c.substring(0, 300) : c);
-        }
-      }
-      body = body.trim();
-      if (body.isEmpty) body = (item['summary'] ?? '').toString().trim();
+      // v569：素材源锁死扫描数据（纯粹性铁律）——世界书条目在圣经生效
+      // 重生成后是改编脸，混入素材必然污染映射表。概述→场景摘要两级，
+      // 都来自原著拆解，永远原著脸
+      var body = (item['summary'] ?? '').toString().trim();
       if (body.isEmpty) {
         final scenes = (item['scenes'] as List?) ?? const [];
         final sceneBuf = StringBuffer();
