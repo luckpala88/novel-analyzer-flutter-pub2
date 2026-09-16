@@ -18,6 +18,10 @@ class TTSService {
       if (call.method == 'playPause') {
         onMediaDebug?.call('媒体按键回调到达Dart');
         onMediaButton?.call();
+      } else if (call.method == 'mediaAction') {
+        // v558：语义化动作（play/pause/toggle）
+        onMediaDebug?.call('动作到达Dart: ${call.arguments}');
+        onMediaAction?.call(call.arguments?.toString() ?? 'toggle');
       } else if (call.method == 'mediaDebug') {
         onMediaDebug?.call(call.arguments?.toString() ?? '');
       }
@@ -35,6 +39,7 @@ class TTSService {
     'com.luckpala.novel_analyzer/tts_media',
   );
   VoidCallback? onMediaButton;
+  void Function(String action)? onMediaAction; // v558：语义化play/pause/toggle
   void Function(String msg)? onMediaDebug; // v555：原生按键探针
 
   Future<void> setMediaSession({required bool active, bool playing = false}) async {

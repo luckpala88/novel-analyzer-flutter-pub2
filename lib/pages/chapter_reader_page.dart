@@ -177,6 +177,7 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
     // v550：蓝牙耳机播放/暂停键接管
     final st0 = context.read<AppState>();
     st0.tts.onMediaButton = _togglePauseTTS;
+    st0.tts.onMediaAction = _handleMediaAction; // v558：语义化幂等
     // v555：探针——原生收到蓝牙按键即弹提示（定位路由断点）
     st0.tts.onMediaDebug = (msg) {
       if (!mounted) return;
@@ -276,6 +277,7 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
     final state = context.read<AppState>();
     // v550：停读释放媒体会话（蓝牙按键不再劫持）
     state.tts.onMediaButton = null;
+    state.tts.onMediaAction = null;
     state.tts.onMediaDebug = null;
     state.tts.setMediaSession(active: false);
     await state.tts.stop();
@@ -292,6 +294,50 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
 
   // TTS暂停状态（暂停当前句，不重置进度）
   bool _ttsPaused = false;
+
+  /// v558：语义化媒体按键处理（幂等——收到PAUSE必暂停、PLAY必恢复，
+  /// 防双击双事件"暂停又恢复"假象）
+  Future<void> _handleMediaAction(String action) async {
+    if (!_ttsPlaying) return;
+    if (action == 'pause' && !_ttsPaused) {
+      await _doPauseTTS();
+    } else if (action == 'play' && _ttsPaused) {
+      await _doResumeTTS();
+    } else if (action == 'toggle') {
+      await _togglePauseTTS();
+    }
+  }
+
+  Future<void> _doPauseTTS() async {
+    final state = context.read<AppState>();
+    _ttsPaused = true;
+    state.tts.setMediaSession(active: true, playing: false); // v550
+    await state.tts.stop();
+    setState(() {});
+  }
+
+  Future<void> _doResumeTTS() async {
+    final state = context.read<AppState>();
+    _ttsPaused = false;
+    setState(() {});
+    state.tts.setMediaSession(active: true, playing: true); // v550
+    final sentence = widget.chapters[_currentIndex].content.substring(
+      _ttsHlStart,
+      _ttsHlEnd,
+    );
+    await state.tts.speak(
+      sentence,
+      onDone: () {
+        if (!_ttsPlaying || _ttsPaused) return;
+        _ttsSentenceIdx++;
+        _playNextSentence();
+      },
+      onError: () {
+        _ttsPlaying = false;
+        setState(() {});
+      },
+    );
+  }
 
   /// 暂停/继续朗读
   Future<void> _togglePauseTTS() async {

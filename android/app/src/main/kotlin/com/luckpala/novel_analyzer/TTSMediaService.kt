@@ -36,6 +36,7 @@ class TTSMediaService : MediaBrowserServiceCompat() {
         /// 按键回调（MainActivity注册→invokeMethod到Dart）
         @Volatile
         var onMediaButton: (() -> Unit)? = null
+        var onMediaAction: ((String) -> Unit)? = null // v558：语义化动作play/pause/toggle
         @Volatile
         var onMediaDebug: ((String) -> Unit)? = null
 
@@ -108,19 +109,27 @@ class TTSMediaService : MediaBrowserServiceCompat() {
                     val ev = mediaButtonEvent.getParcelableExtra<android.view.KeyEvent>(Intent.EXTRA_KEY_EVENT)
                         ?: return false
                     when (ev.keyCode) {
+                        android.view.KeyEvent.KEYCODE_MEDIA_PLAY -> {
+                            onMediaAction?.invoke("play")
+                            onMediaDebug?.invoke("收到PLAY(播放)")
+                            return true
+                        }
+                        android.view.KeyEvent.KEYCODE_MEDIA_PAUSE -> {
+                            onMediaAction?.invoke("pause")
+                            onMediaDebug?.invoke("收到PAUSE(暂停)")
+                            return true
+                        }
                         android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
-                        android.view.KeyEvent.KEYCODE_MEDIA_PLAY,
-                        android.view.KeyEvent.KEYCODE_MEDIA_PAUSE,
                         android.view.KeyEvent.KEYCODE_HEADSETHOOK -> {
-                            onMediaButton?.invoke()
-                            onMediaDebug?.invoke("前台服务收到keyCode=${ev.keyCode}")
+                            onMediaAction?.invoke("toggle")
+                            onMediaDebug?.invoke("收到PLAY_PAUSE(切换)")
                             return true
                         }
                     }
                     return super.onMediaButtonEvent(mediaButtonEvent)
                 }
-                override fun onPlay() { onMediaButton?.invoke() }
-                override fun onPause() { onMediaButton?.invoke() }
+                override fun onPlay() { onMediaAction?.invoke("play"); onMediaDebug?.invoke("onPlay(播放)") }
+                override fun onPause() { onMediaAction?.invoke("pause"); onMediaDebug?.invoke("onPause(暂停)") }
             })
         }
         session?.isActive = true
