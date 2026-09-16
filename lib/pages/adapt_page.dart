@@ -3417,8 +3417,22 @@ class _AdaptPageState extends State<AdaptPage>
       final arcKey = arc.number.toString();
       final item = _buildArcItemData(state, arc);
       final chars = (item['characters'] as List?)?.take(10).join('、') ?? '';
-      // v567：素材三级兜底——弧线概述→场景摘要→世界书条目
-      var body = (item['summary'] ?? '').toString().trim();
+      // v568：素材优先级重排——世界书条目第一（两遍式工作流：先生成世界书
+      // 打底再提炼圣经，条目素材最全），弧线概述→场景摘要兜底
+      var body = '';
+      final wbEntries = state.worldBook?.entries.values
+              .where((e) => e.arcKey == arcKey)
+              .take(2) ??
+          [];
+      for (final e in wbEntries) {
+        final c = e.content.trim();
+        if (c.isNotEmpty) {
+          body += (body.isEmpty ? '' : '\n') +
+              (c.length > 300 ? c.substring(0, 300) : c);
+        }
+      }
+      body = body.trim();
+      if (body.isEmpty) body = (item['summary'] ?? '').toString().trim();
       if (body.isEmpty) {
         final scenes = (item['scenes'] as List?) ?? const [];
         final sceneBuf = StringBuffer();
@@ -3431,20 +3445,6 @@ class _AdaptPageState extends State<AdaptPage>
           }
         }
         body = sceneBuf.toString().trim();
-      }
-      if (body.isEmpty) {
-        final entries = state.worldBook?.entries.values
-                .where((e) => e.arcKey == arcKey)
-                .take(2) ??
-            [];
-        for (final e in entries) {
-          final c = e.content.trim();
-          body += c.isEmpty
-              ? ''
-              : (body.isEmpty ? '' : '\n') +
-                  (c.length > 300 ? c.substring(0, 300) : c);
-        }
-        body = body.trim();
       }
       if (body.isEmpty) continue; // 本弧线无素材
       filled++;
