@@ -3622,8 +3622,10 @@ class _CollapseReqFieldState extends State<_CollapseReqField> {
   @override
   void initState() {
     super.initState();
+    // v564：展开后只在点框外才收缩（onTapOutside）——框内拖动选区时
+    // 焦点抖动不再误触发收缩
     _focus.addListener(() {
-      if (mounted) setState(() => _expanded = _focus.hasFocus);
+      if (mounted && _focus.hasFocus) setState(() => _expanded = true);
     });
   }
 
@@ -3645,6 +3647,9 @@ class _CollapseReqFieldState extends State<_CollapseReqField> {
         maxLines: _expanded ? null : 1,
         minLines: 1,
         keyboardType: TextInputType.multiline,
+        onTapOutside: (_) {
+          if (mounted) setState(() => _expanded = false); // v564：点框外才缩回
+        },
         decoration: InputDecoration(
           labelText: widget.labelText,
           hintText: _expanded ? widget.hintText : null,
