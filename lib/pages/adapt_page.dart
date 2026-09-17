@@ -2205,7 +2205,7 @@ class _AdaptPageState extends State<AdaptPage>
                                   state, arc, totalArcs,
                                   layer: 'arc'),
                         ),
-                      if (layer == 1)
+                      if (layer == 1) ...[
                         FilledButton.tonalIcon(
                           icon: const Icon(Icons.auto_fix_high, size: 16),
                           label: const Text('改编场景',
@@ -2216,6 +2216,13 @@ class _AdaptPageState extends State<AdaptPage>
                                   state, arc, totalArcs,
                                   layer: 'scene'),
                         ),
+                        const SizedBox(width: 6),
+                        MiniButton(
+                          label: '批量生成声明',
+                          primary: false,
+                          onTap: () => _generateSceneDeclarations(state, arc),
+                        ),
+                      ],
                       if (layer == 2)
                         FilledButton.tonalIcon(
                           icon: const Icon(Icons.auto_fix_high, size: 16),
@@ -2943,12 +2950,8 @@ class _AdaptPageState extends State<AdaptPage>
     }
   }
 
+  /// v585：批量分步生成全场景声明（逐场景一次请求，失败停机+已有跳过）
   Future<void> _generateSceneDeclarations(AppState state, Arc arc) async {
-    if (_isGenerating) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('正在生成中，请等待')));
-      return;
-    }
     final arcKey = arc.number.toString();
     final entryKey = _arcEntryKey(state, arcKey);
     if (entryKey == null) {
@@ -2968,55 +2971,55 @@ class _AdaptPageState extends State<AdaptPage>
     final arcContext = firstScene0 == null
         ? entryContent
         : entryContent.substring(0, firstScene0.start).trim();
-    final mapTable = state.worldBook?.nameMapping.trim() ?? '';
     final config = state.getApiConfig('wb');
-
+    var done = 0, skipped = 0;
     setState(() => _isGenerating = true);
     try {
-      _addLog('━━ 生成弧线${arc.number}场景改编声明（${scenes.length}场景）…');
-      final result = await state.api.callApi(
-        systemPrompt: PromptBuilder.buildSceneDeclarationSystemPrompt(),
-        userPrompt: PromptBuilder.buildSceneDeclarationUserPrompt(
-          arcContext: arcContext,
-          mapTable: mapTable,
-          sceneName: '全部场景（逐场景输出，每段以"### 场景N"开头）',
-          sceneSummary: scenes
-              .asMap()
-              .entries
-              .map((e) =>
-                  '场景${e.key + 1}：${e.value.name}\n${e.value.summary}')
-              .join('\n'),
-          userReq: state.worldBook!.arcRequirements[arcKey] ?? '',
-        ),
-        apiConfig: config,
-      );
-      if (!result.isSuccess) {
-        _addLog('❌ 场景声明生成失败：${result.error}');
-        return;
-      }
-      final raw = TextCleaner.normalizeAiOutput(
-        result.content,
-        jsonMode: config.formatMode == 'json',
-      );
-      // 按"### 场景N"切段分发入库
-      final segRe = RegExp(r'#{0,3}\s*场景\s*(\d+)\s*[^\n]*');
-      final matches = segRe.allMatches(raw).toList();
-      if (matches.isEmpty) {
-        _addLog('⚠️ 声明输出未识别到"### 场景N"分段，全文存弧线级备查');
-        state.worldBook!.sceneDeclarations['${arcKey}_0'] = raw.trim();
-      } else {
-        for (var i = 0; i < matches.length; i++) {
-          final n = int.tryParse(matches[i].group(1)!) ?? 0;
-          final start = matches[i].end;
-          final end = i + 1 < matches.length ? matches[i + 1].start : raw.length;
-          final seg = raw.substring(start, end).trim();
-          if (seg.isNotEmpty) {
-            state.worldBook!.sceneDeclarations['${arcKey}_${n - 1}'] = seg;
-          }
+      for (var bi = 0; bi < scenes.length; bi++) {
+        final sceneReqKey = '${arcKey}_$bi';
+        if ((state.worldBook!.sceneDeclarations[sceneReqKey] ?? '')
+            .trim()
+            .isNotEmpty) {
+          skipped++;
+          continue; // 增量：已有声明跳过
         }
-        _addLog('✓ 场景声明已分发入库（${matches.length}段）');
+        final scene = scenes[bi];
+        _addLog('━━ 批量声明 ${bi + 1}/${scenes.length}：${scene.name}');
+        final result = await state.api.callApi(
+          systemPrompt: PromptBuilder.buildSceneDeclarationSystemPrompt(),
+          userPrompt: PromptBuilder.buildSceneDeclarationUserPrompt(
+            arcContext: arcContext,
+            mapTable: state.worldBook?.nameMapping.trim() ?? '',
+            sceneName: scene.name,
+            sceneSummary: scene.summary,
+            userReq:
+                state.worldBook!.sceneRequirements[sceneReqKey] ?? '',
+          ),
+          apiConfig: config,
+        );
+        if (!result.isSuccess) {
+          // 失败停机铁律：停在原地明示断点，续跑从断点继续（已有跳过）
+          _addLog('❌ 场景${bi + 1}声明生成失败，批量停止：${result.error}');
+          _addLog('断点：场景${bi + 1}——处理后再次点击批量生成，从本场景续跑');
+          state.worldBook!.arcStatus[arcKey] = 'failed';
+          return;
+        }
+        final decl = TextCleaner.normalizeAiOutput(
+          result.content,
+          jsonMode: config.formatMode == 'json',
+        ).trim();
+        if (decl.isEmpty) {
+          _addLog('⚠️ 场景${bi + 1}声明生成为空，批量停止');
+          state.worldBook!.arcStatus[arcKey] = 'failed';
+          return;
+        }
+        state.worldBook!.sceneDeclarations[sceneReqKey] = decl;
+        state.saveWorldBook();
+        done++;
+        _addLog('✓ 场景${bi + 1}声明已生成（${decl.length}字）');
       }
-      state.saveWorldBook();
+      state.worldBook!.arcStatus[arcKey] = 'done';
+      _addLog('✓ 批量声明完成：新生成$done，跳过已有$skipped');
       if (mounted) setState(() {});
     } finally {
       if (mounted) setState(() => _isGenerating = false);
