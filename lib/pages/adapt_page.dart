@@ -51,6 +51,8 @@ class _AdaptPageState extends State<AdaptPage>
     });
   // 展开的弧线 key（arc number string）
   final Set<String> _expandedArcs = {};
+  // v586：场景声明手动展开开关（替代ExpansionTile——ExpansionTile+SelectionArea+TabBarView叠加展开冻死）
+  final Set<String> _declOpen = {};
   // 就地编辑状态（替代弹窗）
   String? _editingUid;
   final _editContentCtrl = TextEditingController();
@@ -1975,7 +1977,7 @@ class _AdaptPageState extends State<AdaptPage>
     );
   }
 
-  /// v584：单层弧线列表视图（PageStorageKey恢复各页滚动位置）
+  /// v584：单层弧线列表视图（v587：去PageStorageKey——与ExpansionTile桶类型冲突崩溃）
   Widget _arcListView(AppState state, List<Arc> allArcs, int layer) {
     return ContentFont.area(
       context,
@@ -2002,19 +2004,18 @@ class _AdaptPageState extends State<AdaptPage>
                 ],
               ),
             )
-          : SelectionArea(
-              child: ListView.builder(
-                key: PageStorageKey('adapt_layer_$layer'),
-                itemCount: allArcs.length + 1, // +1 自定义条目区
-                itemBuilder: (ctx, i) {
-                  if (i == allArcs.length) {
-                    return _buildCustomEntrySection(state);
-                  }
-                  return _buildArcItem(
-                      state, allArcs[i], allArcs.length,
-                      layer: layer);
-                },
-              ),
+          // v586修：摘掉SelectionArea——条目数万字时点按/展开触发全子树可选中会话
+          // =布局爆炸冻死+复制出8万字大块；复制走各条目/场景自带的复制按键
+          : ListView.builder(
+              itemCount: allArcs.length + 1, // +1 自定义条目区
+              itemBuilder: (ctx, i) {
+                if (i == allArcs.length) {
+                  return _buildCustomEntrySection(state);
+                }
+                return _buildArcItem(
+                    state, allArcs[i], allArcs.length,
+                    layer: layer);
+              },
             ),
     );
   }
@@ -2430,28 +2431,53 @@ class _AdaptPageState extends State<AdaptPage>
                                 ),
                               ],
                             ),
-                            // v581：场景改编声明（折叠预览+编辑+删除）
+                            // v586：场景改编声明（手动开关替代ExpansionTile——修展开冻死）
                             Builder(builder: (ctx) {
                               final decl0 =
                                   state.worldBook?.sceneDeclarations[
                                       sceneReqKey] ??
                                   '';
-                              return ExpansionTile(
-                                dense: true,
-                                tilePadding:
-                                    const EdgeInsets.symmetric(horizontal: 4),
-                                title: Text(
-                                  decl0.isEmpty
-                                      ? '📝场景改编声明（未生成，点"生成场景声明"批量生成）'
-                                      : '📝场景改编声明✓（${decl0.length}字）',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: decl0.isEmpty
-                                        ? Colors.grey
-                                        : const Color(0xFF92400E),
-                                  ),
-                                ),
+                              final open = _declOpen.contains(sceneReqKey);
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  InkWell(
+                                    onTap: () => setState(() {
+                                      open
+                                          ? _declOpen.remove(sceneReqKey)
+                                          : _declOpen.add(sceneReqKey);
+                                    }),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 4, vertical: 6),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            open
+                                                ? Icons.expand_less
+                                                : Icons.expand_more,
+                                            size: 16,
+                                            color: Colors.grey,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Expanded(
+                                            child: Text(
+                                              decl0.isEmpty
+                                                  ? '📝场景改编声明（未生成，可批量生成或单场景生成）'
+                                                  : '📝场景改编声明✓（${decl0.length}字）',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: decl0.isEmpty
+                                                    ? Colors.grey
+                                                    : const Color(
+                                                        0xFF92400E),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                                   // v583：单场景生成/删除按钮行
                                   Padding(
                                     padding:
@@ -2490,12 +2516,12 @@ class _AdaptPageState extends State<AdaptPage>
                                     const Padding(
                                       padding:
                                           EdgeInsets.fromLTRB(8, 0, 8, 6),
-                                      child: Text('暂无声明内容（可点上方单独生成，或点顶部"生成场景声明"批量生成）',
+                                      child: Text('暂无声明内容（可点上方单独生成，或点"批量生成声明"批量生成）',
                                           style: TextStyle(
                                               fontSize: 10.5,
                                               color: Colors.grey)),
                                     )
-                                  else ...[
+                                  else
                                     Padding(
                                       padding: const EdgeInsets.fromLTRB(
                                           8, 0, 8, 6),
@@ -2536,7 +2562,6 @@ class _AdaptPageState extends State<AdaptPage>
                                         },
                                       ),
                                     ),
-                                  ],
                                 ],
                               );
                             }),
