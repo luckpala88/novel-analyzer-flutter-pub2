@@ -1314,6 +1314,14 @@ class AppState extends ChangeNotifier {
           nameReq: worldBook!.nameMapReq,
           forbiddenNames: adaptedInput ? _mapRightColumnNames() : const [],
           adaptedInput: adaptedInput,
+          // v617：全部改编要求注入——新名出处的判定依据（用户起的名都在这些文本里）
+          allRequirements: [
+            worldBook!.requirements,
+            ...worldBook!.arcRequirements.values,
+            ...worldBook!.sceneRequirements.values,
+            ...worldBook!.arcRequirementsAI.values,
+            ...worldBook!.sceneRequirementsAI.values,
+          ].where((t) => t.trim().isNotEmpty).join('\n\n'),
         ),
         temperature: 0.3,
         maxTokens: 4000,

@@ -1750,11 +1750,20 @@ class PromptBuilder {
     String nameReq = '',
     List<String> forbiddenNames = const [], // v574：改编后输入的禁收新名
     bool adaptedInput = false,
+    String allRequirements = '', // v617：全部改编要求——新名出处的判定依据
   }) {
     final sb = StringBuffer();
     if (nameReq.trim().isNotEmpty) {
       sb.writeln('## 用户起名要求（⚠️最高优先级，逐条遵守；与已有映射表风格冲突时以本要求为准）');
       sb.writeln(nameReq.trim());
+      sb.writeln();
+    }
+    if (allRequirements.trim().isNotEmpty) {
+      sb.writeln('## 用户改编要求全文（⚠️ 新名出处判定依据）');
+      sb.writeln('下面是用户写的全部改编要求。凡是在这些文本里出现的人名/地名/物品名，');
+      sb.writeln('都是用户起的新名（映射表右列）——绝对禁止把它们放进左列，也禁止为它们生成映射行；');
+      sb.writeln('它们对应的原著角色名才是左列候选（从原著数据里找）:');
+      sb.writeln(allRequirements.trim());
       sb.writeln();
     }
     final src = sourceContent.length > 6000
