@@ -130,7 +130,7 @@ class AppState extends ChangeNotifier {
   bool writingPromptPreview = false;
   bool writingImitateAuthor = false; // v313：模仿原文作者（创作时注入弧线原文范文）
   bool writingFreeMode = false; // v545：自由创作——不注入世界书分镜结构（其余照注）
-  bool writingLeanShots = false; // v592：精简分镜——屏蔽投放信息/转场/文笔/语感/笔墨维度（防搬运原著细节）
+  bool writingLeanShots = false; // v592：精简分镜——屏蔽投放信息/文笔节奏/语感/笔墨（v612转场手法移出：它是镜间衔接指令）
   bool writingModelNote = false;
   bool nameReplaceEnabled = false; // v388：二创页按映射表替换原著名（flag持久化）
   /// v266：逐镜分步生成开关（默认开）——每镜单独API，结构行由代码从
