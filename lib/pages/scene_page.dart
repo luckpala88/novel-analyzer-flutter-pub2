@@ -150,9 +150,20 @@ class _ScenePageState extends State<ScenePage>
                         height: 40,
                         enabled: !state.sceneStreamBusy && state.chapters.isNotEmpty,
                         child: Text(
-                          state.globalSceneScannedUpTo > 0
-                              ? '扫描场景（从第${state.globalSceneScannedUpTo + 1}章继续）'
-                              : '扫描场景（全书场景流）',
+                          // v651：标签与实际续扫起点一致——字符级锚点有效时
+                          // 续扫自锚点章半章起（不+1），此前固定scannedUpTo+1
+                          // 与终端"从第N章起（字符级续切）"差一章
+                          (state.sceneResumeChapIdx >= 0 &&
+                                  state.sceneResumeChapIdx <
+                                      state.chapters.length &&
+                                  state.sceneResumeOffset > 0 &&
+                                  state.sceneResumeOffset <
+                                      state.chapters[state.sceneResumeChapIdx]
+                                          .content.length)
+                              ? '扫描场景（从第${state.chapters[state.sceneResumeChapIdx].number > 0 ? state.chapters[state.sceneResumeChapIdx].number : state.sceneResumeChapIdx + 1}章锚点处继续）'
+                              : state.globalSceneScannedUpTo > 0
+                                  ? '扫描场景（从第${state.globalSceneScannedUpTo + 1}章继续）'
+                                  : '扫描场景（全书场景流）',
                           style: const TextStyle(fontSize: 13),
                         ),
                       ),
