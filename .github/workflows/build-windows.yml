@@ -1,0 +1,97 @@
+name: Build Windows
+
+# v347：独立win构建（手动触发指定tag）——不动Android流程，避免重推tag打断已有release
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要编译的tag（如v346），APK将上传到该tag的Release'
+        required: true
+        default: 'v346'
+
+jobs:
+  build-windows:
+    # v530：仅镜像库执行——私有库同tag触发直接跳过（消除秒挂失败邮件噪音）
+    if: github.repository == 'luckpala88/novel-analyzer-flutter-pub2'
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main  # v383b：checkout main（与tag v383内容一致+Runner.rc版本号修正；tag已推无法重打，重打会杀release）
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      # 缓存CMake/VS中间产物：首次慢（35-60min），第2轮起~10min
+      - name: Cache Windows build intermediates
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/windows
+            .dart_tool
+          key: win-build-${{ github.event.inputs.tag || github.ref_name }}
+          restore-keys: win-build-
+
+      # v368fix：清旧产物——restore-keys会捡到上个tag的缓存，增量编译
+      # 判断失效时exe还是旧代码（v368 zip内装v366事故）。删Release强制重编
+      - name: Clean stale build outputs
+        shell: pwsh
+        run: |
+          if (Test-Path "build/windows/x64/runner/Release") {
+            Remove-Item "build/windows/x64/runner/Release" -Recurse -Force
+            Write-Host "STALE Release removed"
+          }
+
+      - name: Build Windows
+        run: |
+          flutter pub get
+          flutter config --enable-windows-desktop
+          flutter build windows --release
+          # 版本自检：打包前打印pubspec版本号，肉眼核对zip与tag一致
+          $v = (Select-String -Path pubspec.yaml -Pattern '^version:\s*(.+)$').Matches.Groups[1].Value
+          Write-Host "BUILD_VERSION=$v"
+
+      - name: Zip release bundle
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "novel_analyzer_win.zip" -Force
+          Write-Host "ZIP_OK $((Get-Item novel_analyzer_win.zip).Length) bytes"
+
+      - name: Upload zip to Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "${{ github.event.inputs.tag || github.ref_name }}"
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/vnd.github+json" }
+          try { $release = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases/tags/$tag" -Headers $headers } catch {
+            Write-Host "release不存在，创建..."
+            $body = @{ tag_name = $tag; name = $tag } | ConvertTo-Json
+            $release = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases" -Method Post -Headers $headers -ContentType "application/json" -Body $body
+          }
+          # 已有同名资产先删（重编译重传防409）
+          $assets = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases/$($release.id)/assets" -Headers $headers
+          foreach ($a in $assets) { if ($a.name -eq "novel_analyzer_win.zip") { Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases/assets/$($a.id)" -Method Delete -Headers $headers; Write-Host "已删除旧资产" } }
+          $uploadUrl = "https://uploads.github.com/repos/${{ github.repository }}/releases/$($release.id)/assets?name=novel_analyzer_win.zip"
+          Invoke-RestMethod -Uri $uploadUrl -Method Post -Headers @{ Authorization = "Bearer $env:GH_TOKEN" } -ContentType "application/zip" -InFile "novel_analyzer_win.zip"
+          Write-Host "WIN_UPLOAD_OK"
+
+      - name: Trigger transfer
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "${{ github.event.inputs.tag || github.ref_name }}"
+          curl -s -X POST -H "Authorization: token $env:GH_TOKEN" -H "Content-Type: application/json" `
+            -d ('{"ref":"main","inputs":{"tag":"' + $tag + '"}}') `
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/transfer-apk.yml/dispatches"
+          Write-Host "transfer已触发"

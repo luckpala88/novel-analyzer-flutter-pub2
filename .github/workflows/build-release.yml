@@ -1,0 +1,105 @@
+name: Build Release
+
+# v300：免费额度耗尽，改为手动触发（Actions页Run workflow按钮），省额度
+# v301：只编Android（win job 2x倍率烧额度，需要win包时从git历史恢复build-windows job）
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      build_android:
+        description: '同时编译Android版'
+        required: false
+        default: false
+        type: boolean
+jobs:
+  build-android:
+    # v530：仅镜像库执行——私有库同tag触发直接跳过（消除秒挂失败邮件噪音）
+    if: github.repository == 'luckpala88/novel-analyzer-flutter-pub2'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      # ===== 加速缓存（v188）：pub依赖+Gradle依赖+Flutter SDK，首次慢后续快 =====
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-
+
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties', 'android/app/build.gradle.kts') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Cache Flutter SDK
+        uses: actions/cache@v4
+        with:
+          path: /opt/hostedtoolcache/flutter
+          key: flutter-stable-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: flutter-stable-${{ runner.os }}-
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Inject update token
+        run: |
+          # v497：镜像仓编译时注入更新token（源码存占位符，token走secret）
+          sed -i "s/__UPD_TOKEN__/${{ secrets.UPD_TOKEN }}/g; s/__UPD_TOKEN_OLD__/${{ secrets.UPD_TOKEN_OLD }}/g" lib/pages/home_page.dart
+          grep -c "__UPD_TOKEN" lib/pages/home_page.dart && echo "⚠ 占位符残留" || echo "✓ token注入完成"
+          # v505：APP内版本常量自动同步pubspec build号（v500后忘递增，更新判断失效）
+          BUILD=$(grep -oP 'version:\s*1\.0\.\d+\+\K\d+' pubspec.yaml)
+          sed -i "s/static const int _appVersion = [0-9]*/static const int _appVersion = $BUILD/" lib/pages/home_page.dart
+          grep -o "static const int _appVersion = [0-9]*" lib/pages/home_page.dart
+
+      - name: Build APK
+        run: |
+          flutter pub get
+          flutter build apk --release
+          # 版本自检：pubspec版本必须与tag一致（v380事故：sed静默失灵，
+          # v374-v379六版全显示v373）
+          echo "BUILD_VERSION=$(grep '^version:' pubspec.yaml)" 
+
+      - name: Upload APK to Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/vnd.github+json" }
+          try { $release = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases/tags/$tag" -Headers $headers } catch {
+            Write-Host "release不存在，创建..."
+            $body = @{ tag_name = $tag; name = $tag } | ConvertTo-Json
+            $release = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases" -Method Post -Headers $headers -ContentType "application/json" -Body $body
+          }
+          $uploadUrl = "https://uploads.github.com/repos/${{ github.repository }}/releases/$($release.id)/assets?name=novel_analyzer_flutter.apk"
+          Invoke-RestMethod -Uri $uploadUrl -Method Post -Headers @{ Authorization = "Bearer $env:GH_TOKEN" } -ContentType "application/vnd.android.package-archive" -InFile "build/app/outputs/flutter-apk/app-release.apk"
+          Write-Host "APK_UPLOAD_OK"
+
+      - name: Trigger transfer
+        env:
+          # v531：GITHUB_TOKEN触发的workflow_dispatch不会真正触发新运行（防递归），换UPD_TOKEN
+          GH_TOKEN: ${{ secrets.UPD_TOKEN }}
+        run: |
+          curl -s -X POST -H "Authorization: token $GH_TOKEN" -H "Content-Type: application/json" \
+            -d '{"ref":"main","inputs":{"tag":"${{ github.ref_name }}"}}' \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/transfer-apk.yml/dispatches"
+          echo "transfer已触发"

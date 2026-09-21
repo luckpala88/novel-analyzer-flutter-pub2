@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>网文拆解器 APP 使用教程 · v635</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=Noto+Serif+SC:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#FAF6EF; --card:#FFFDF8; --ink:#3B3226; --sub:#7A6A50; --gold:#8B6914; --gold-l:#C9A85C; --line:#E8E0D5;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:'Noto Sans SC',sans-serif;font-size:15px;line-height:1.75;}
+/* ── 封面 ── */
+.cover{max-width:760px;margin:0 auto;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:center;min-height:88vh;padding:64px 32px;background:var(--bg);}
+.cover .ring{position:absolute;border-radius:50%;border:1.5px solid rgba(201,168,92,.35);}
+.cover .r1{width:420px;height:420px;top:-160px;right:-140px;}
+.cover .r2{width:280px;height:280px;bottom:-90px;left:-80px;}
+.cover .kicker{color:var(--gold);letter-spacing:.4em;font-size:13px;font-weight:500;margin-bottom:18px;}
+.cover h1{font-family:'Noto Serif SC',serif;font-weight:900;font-size:52px;line-height:1.25;margin:0 0 16px;}
+.cover .lead{color:var(--sub);font-size:16px;max-width:420px;}
+.cover .meta{margin-top:48px;color:var(--sub);font-size:12px;letter-spacing:.15em;}
+.cover .bar{width:64px;height:4px;background:var(--gold);margin:28px 0;}
+/* ── 目录 ── */
+.toc{max-width:760px;margin:0 auto;padding:20px 32px 56px;background:var(--bg);}
+.toc h2{font-family:'Noto Serif SC',serif;color:var(--gold);font-size:22px;border-bottom:2px solid var(--gold-l);padding-bottom:10px;}
+.toc a{display:flex;justify-content:space-between;align-items:baseline;gap:12px;color:var(--ink);text-decoration:none;padding:11px 14px;border-bottom:1px dashed var(--line);font-weight:500;}
+.toc a:hover{background:var(--card);color:var(--gold);}
+.toc a .no{color:var(--gold-l);font-weight:900;font-family:'Noto Serif SC',serif;min-width:2em;}
+.toc .hint{color:var(--sub);font-size:13px;margin-top:14px;}
+/* ── 章节 ── */
+.ch{max-width:760px;margin:0 auto;padding:52px 32px 30px;border-top:3px solid var(--gold-l);background:var(--bg);}
+.ch .chno{color:var(--gold-l);font-weight:900;font-family:'Noto Serif SC',serif;font-size:15px;letter-spacing:.3em;}
+.ch h2{font-family:'Noto Serif SC',serif;font-weight:900;font-size:30px;margin:4px 0 8px;}
+.ch .chdesc{color:var(--sub);margin:0 0 22px;}
+.ch header{position:relative;}
+.backtoc{position:absolute;top:0;right:0;font-size:12px;color:var(--gold);text-decoration:none;border:1px solid var(--gold-l);border-radius:20px;padding:3px 12px;background:var(--card);}
+.backtoc:hover{background:var(--gold);color:#fff;}
+/* ── 组件 ── */
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:0 0 14px;box-shadow:0 1px 3px rgba(139,105,20,.06);}
+.card h3{margin:0 0 8px;font-size:17px;color:var(--gold);display:flex;align-items:center;gap:8px;}
+.card h3 .tag{font-size:11px;color:var(--sub);font-weight:400;border:1px solid var(--line);border-radius:10px;padding:1px 8px;}
+.card p{margin:6px 0;}
+.card ul{margin:6px 0;padding-left:1.2em;}
+.card li{margin:4px 0;}
+b.k{color:var(--gold);font-weight:700;}
+.tip{background:#F4EDDC;border-left:4px solid var(--gold-l);border-radius:0 10px 10px 0;padding:10px 14px;margin:10px 0;font-size:14px;color:#5C4E33;}
+.warn{background:#FBEFE8;border-left:4px solid #C07840;border-radius:0 10px 10px 0;padding:10px 14px;margin:10px 0;font-size:14px;color:#6E4526;}
+.steps{counter-reset:st;margin:8px 0;padding:0;list-style:none;}
+.steps li{counter-increment:st;position:relative;padding:6px 0 6px 40px;}
+.steps li::before{content:counter(st);position:absolute;left:0;top:8px;width:24px;height:24px;border-radius:50%;background:var(--gold);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+table{width:100%;border-collapse:collapse;margin:8px 0;font-size:13.5px;}
+th{background:#F1E8D6;color:var(--gold);text-align:left;padding:7px 10px;border:1px solid var(--line);font-weight:700;white-space:nowrap;}
+td{padding:7px 10px;border:1px solid var(--line);vertical-align:top;}
+td:first-child{white-space:nowrap;font-weight:500;}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:12px 0;}
+.flow .fnode{background:var(--card);border:1.5px solid var(--gold-l);border-radius:10px;padding:6px 12px;font-weight:700;font-size:13px;color:var(--gold);}
+.flow .farr{color:var(--gold-l);font-weight:900;}
+.ending{max-width:760px;margin:0 auto;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;min-height:50vh;padding:64px 32px;background:var(--bg);}
+.ending .ring{position:absolute;border-radius:50%;border:1.5px solid rgba(201,168,92,.35);}
+.ending .r1{width:360px;height:360px;top:-140px;left:-120px;}
+.ending .r2{width:240px;height:240px;bottom:-80px;right:-70px;}
+.ending .big{font-family:'Noto Serif SC',serif;font-weight:900;font-size:34px;margin-bottom:14px;}
+.ending .sm{color:var(--sub);font-size:13px;line-height:2;}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ 封面 ═══════════ -->
+<div class="cover" id="top">
+  <div class="ring r1"></div><div class="ring r2"></div>
+  <div class="kicker">网文拆解器 · 完整使用教程</div>
+  <h1>从原著拆解<br>到改编创作</h1>
+  <div class="bar"></div>
+  <div class="lead">全书 8 个功能页 + 阅读器 + 存储备份，每个按钮和设置项逐一说明。写给第一次打开这个 APP 的你。</div>
+  <div class="meta">对应版本 v635 · Designed by luckpala</div>
+</div>
+
+<!-- ═══════════ 目录 ═══════════ -->
+<div class="toc" id="toc">
+  <h2>目 录</h2>
+  <a href="#c1"><span><span class="no">01</span>快速上手：整个 APP 的工作流</span><span>先读这页</span></a>
+  <a href="#c2"><span><span class="no">02</span>主页：书目、章节与更新</span><span>起点</span></a>
+  <a href="#c3"><span><span class="no">03</span>API 设置（每页顶部 ⚙）</span><span>通用面板</span></a>
+  <a href="#c4"><span><span class="no">04</span>场景页：划分场景</span><span>第一步</span></a>
+  <a href="#c5"><span><span class="no">05</span>弧线页：扫描叙事弧线</span><span>第二步</span></a>
+  <a href="#c6"><span><span class="no">06</span>分镜页：拆解分镜</span><span>第三步</span></a>
+  <a href="#c7"><span><span class="no">07</span>改编页：总结 / 框架 / 分镜 / 圣经 / 映射表</span><span>核心</span></a>
+  <a href="#c8"><span><span class="no">08</span>世界页：世界书生成与导出</span><span>素材库</span></a>
+  <a href="#c9"><span><span class="no">09</span>创作页：基于世界书写正文</span><span>产出</span></a>
+  <a href="#c10"><span><span class="no">10</span>二创页：体检与换名</span><span>质检</span></a>
+  <a href="#c11"><span><span class="no">11</span>阅读器：翻页 / 滚动 / 朗读</span><span>工具</span></a>
+  <a href="#c12"><span><span class="no">12</span>存储、备份与数据安全</span><span>保命</span></a>
+  <a href="#c13"><span><span class="no">13</span>常见问题与参数速查</span><span>急救</span></a>
+  <div class="hint">💡 点任意条目跳转到对应章节；每个章节右上角有「↑目录」按钮返回。</div>
+</div>
+
+<!-- ═══════════ 01 快速上手 ═══════════ -->
+<div class="ch" id="c1">
+  <header><a class="backtoc" href="#toc">↑目录</a><div class="chno">CHAPTER 01</div><h2>快速上手：整个 APP 的工作流</h2>
+  <p class="chdesc">这个 APP 做一件事：把几百万字的网文拆成"零件"（弧线 → 场景 → 分镜），再基于零件改写成你自己的新书。</p></header>
+  <div class="card"><h3>流水线总览（严格按顺序）</h3>
+    <div class="flow">
+      <span class="fnode">上传章节</span><span class="farr">→</span>
+      <span class="fnode">场景页<br>划分场景</span><span class="farr">→</span>
+      <span class="fnode">弧线页<br>扫描弧线</span><span class="farr">→</span>
+      <span class="fnode">分镜页<br>拆解分镜</span><span class="farr">→</span>
+      <span class="fnode">改编页<br>改编产物</span><span class="farr">→</span>
+      <span class="fnode">世界页<br>世界书</span><span class="farr">→</span>
+      <span class="fnode">创作页<br>写正文</span><span class="farr">→</span>
+      <span class="fnode">二创页<br>质检换名</span>
+    </div>
+    <p>底部导航共 8 个 Tab：<b class="k">主页 / 场景 / 弧线 / 分镜 / 改编 / 世界 / 创作 / 二创</b>。扫描类步骤（场景→弧线→分镜）是拆解原著；改编之后的步骤是基于拆解产物创作。平板/横屏下 8 栏并排显示，可手动分栏。</p>
+  </div>
+  <div class="card"><h3>第一次使用的最短路径</h3>
+    <ol class="steps">
+      <li>主页 → 新建书目 → 上传原著 txt 章节</li>
+      <li>主页 → 随便打开一个功能页 → 顶部 ⚙ 填 API（见第 3 章）</li>
+      <li>场景页 → 设步进 → 逐弧线划分场景</li>
+      <li>弧线页 → 弧线扫描 + 分组</li>
+      <li>分镜页 → 逐场景拆分镜</li>
+      <li>改编页 → 生成改编总结/框架/分镜（顺手生成故事圣经与映射表）</li>
+      <li>世界页 → 生成世界书，创作页写正文</li>
+    </ol>
+    <div class="tip">💡 不必一次跑完。每一步的产物都会保存，任何时候关掉 APP 都能续跑。</div>
+  </div>
+</div>
+
+<!-- ═══════════ 02 主页 ═══════════ -->
+<div class="ch" id="c2">
+  <header><a class="backtoc" href="#toc">↑目录</a><div class="chno">CHAPTER 02</div><h2>主页：书目、章节与更新</h2>
+  <p class="chdesc">管理你的所有"书"（每本书=独立的数据空间），以及章节文件和 APP 更新。</p></header>
+  <div class="card"><h3>书目管理</h3>
+    <ul>
+      <li><b class="k">新建书目</b>：一本书一个空间，拆解产物、世界书、创作稿互不干扰。测试时建议多建几本，坏了一本不影响别的。</li>
+      <li><b class="k">切换书目</b>：点书目卡片即切换；底部导航每个 Tab 显示的都是当前书的数据。</li>
+      <li><b class="k">删除书目</b>：删除前会确认。删的是数据不是源文件，txt 原文还在存储目录里。</li>
+    </ul>
+  </div>
+  <div class="card"><h3>章节上传</h3>
+    <ul>
+      <li>支持 <b class="k">txt 纯文本</b>，一个 txt 一个章节（文件名即章节名）。可多选批量导入。</li>
+      <li>上传后按章节顺序排列；建议文件名带章节序号（如 0001.txt、0002.txt），乱序会影响扫描顺序。</li>
+      <li>章节列表可直接打开进阅读器（见第 11 章），也能查看/微调正文。</li>
+    </ul>
+  </div>
+  <div class="card"><h3>检查更新</h3>
+    <ul>
+      <li>点<b class="k">检查更新</b>会对比 GitHub Release 上的最新版本号，有新版直接下载 APK 安装，数据不受影响。</li>
+      <li>更新包下载到本地后调起安装，和普通 APK 一样确认权限即可。</li>
+    </ul>
+  </div>
+  <div class="card"><h3>存储模式</h3>
+    <ul>
+      <li><b class="k">公共目录</b>：文件管理器能看到，方便拷贝迁移（推荐新手机用）。</li>
+      <li><b class="k">专属目录</b>：APP 私有空间，旧手机兼容性最好。</li>
+      <li>切换存储模式后建议立刻做一次备份（第 12 章）。</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ═══════════ 03 API ═══════════ -->
+<div class="ch" id="c3">
+  <header><a class="backtoc" href="#toc">↑目录</a><div class="chno">CHAPTER 03</div><h2>API 设置（每页顶部 ⚙）</h2>
+  <p class="chdesc">所有需要 AI 的功能，其设置都在<b>各自页面顶部的 ⚙ 折叠面板</b>里，每个页面独立保存，互不影响。</p></header>
+  <div class="card"><h3>面板里的每个字段</h3>
+    <table>
+      <tr><th>字段</th><th>说明</th></tr>
+      <tr><td>服务提供商</td><td>内置：智谱 / DeepSeek / Gemini官方 / 自定义 / 自定义2。切换提供商<b>不清 Key</b>，每家独立保存</td></tr>
+      <tr><td>API Key</td><td>填了 Key 后模型框自动去 /models 拉真实列表；也可手动输入模型名</td></tr>
+      <tr><td>模型</td><td>从下拉选（自动获取），或手动填。不写死任何模型名</td></tr>
+      <tr><td>温度</td><td>拆解扫描建议 <b class="k">0.3</b>（0.1 会让 AI 偷懒合并场景，太高放飞）</td></tr>
+      <tr><td>输出格式</td><td>文本 / JSON，一般保持默认</td></tr>
+      <tr><td>max_tokens</td><td>上限可到 100 万，不会被 JS 截断；长章节拆解给足余量防"砍尾"</td></tr>
+    </table>
+  </div>
+  <div class="tip">💡 常用中转/代理也能用：选「自定义」填中转地址+Key。DeepSeek 中转偶发 60 秒超时多是网络抖动，重跑即可。</div>
+  <div class="warn">⚠ 发给 AI 的内容全程<b>零 emoji 纯文本</b>（不给 AI 添负担）；图标和颜色只在你看到的界面上。</div>
+</div>
+
+<!-- ═══════════ 04 场景页 ═══════════ -->
+<div class="ch" id="c4">
+  <header><a class="backtoc" href="#toc">↑目录</a><div class="chno">CHAPTER 04</div><h2>场景页：划分场景</h2>
+  <p class="chdesc">流水线第一步：把连续章节切成"场景"（最小叙事单位）。后续弧线、分镜都在场景之上做。</p></header>
+  <div class="card"><h3>核心操作</h3>
+    <ul>
+      <li><b class="k">步进</b>：每次让 AI 看几个章。小章书（2500字/章）设 <b class="k">1-2</b>，普通章设 5-10。步进影响闭合早晚：太小闭合偏早、太大偏晚，与模型强相关。</li>
+      <li><b class="k">逐弧线划分</b>：按弧线范围调 AI 输出场景切分，场景名 + 概述会展示在列表里。</li>
+      <li><b class="k">场景正文切片物化</b>：划分成功后自动把弧线正文按场景边界切片，供分镜/创作引用。</li>
+      <li><b class="k">映射表增量抽取</b>：场景名/概述里发现的新原著名称会自动追加到映射表（改编页可查看）。</li>
+    </ul>
+  </div>
+  <div class="card"><h3>重跑与修复</h3>
+    <ul>
+      <li>对结果不满意可对单条弧线<b class="k">重新划分</b>；已有场景会先备份，失败自动恢复。</li>
+      <li>场景列表必须保持<b class="k">无丢失、无重叠、顺序对应</b>原文——这是后面一切步骤的地基。怀疑乱了就重划该弧线。</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ═══════════ 05 弧线页 ═══════════ -->
+<div class="ch" id="c5">
+  <header><a class="backtoc" href="#toc">↑目录</a><div class="chno">CHAPTER 05</div><h2>弧线页：扫描叙事弧线</h2>
+  <p class="chdesc">把场景串成"弧线"（一段有头有尾的叙事单元：主角发生不可逆变化 + 叙事段收束）。</p></header>
+  <div class="card"><h3>弧线扫描</h3>
+    <ul>
+      <li><b class="k">开始扫描</b>：AI 按场景序列识别弧线，输出每条弧线的概述、主角、变化类型（💎不可逆变化 / 🔒闭合变化 / 🔗伪闭合）。</li>
+      <li><b class="k">从弧线N续扫</b>：中断后接着扫，不用从头来。</li>
+      <li><b class="k">截断续扫</b>：最后一条弧线扫到一半断了，从断点续上。</li>
+      <li>扫描配方：<b class="k">Pro 系模型 + 温度 0.3 + 步进 10</b> 是实测甜区；Flash 系只适合摸底试跑。</li>
+    </ul>
+  </div>
+  <div class="card"><h3>弧线分组</h3>
+    <ul>
+      <li>扫描出的是"散弧"，<b class="k">批量分组</b>把它们按<b class="k">场景/批（步进）</b>组织成正式弧线单元（含逐弧线零件提取：人物/伏笔/冲突/脑洞等元数据）。</li>
+      <li><b class="k">重新生成全部弧线</b>：清空现有分组从头发（会提示确认）。</li>
+      <li><b class="k">剪断重分</b>：某条弧线内发现某场景开始剧情跑偏，可"从场景N剪断重分"——把那条弧线从该场景一剪两半分别重扫。</li>
+      <li><b class="k">清空重分</b>：分组整体推倒重来。</li>
+    </ul>
+  </div>
+  <div class="card"><h3>质量校验</h3>
+    <ul>
+      <li><b class="k">弧线划分体检</b>：自动查三类硬伤——<b>丢失</b>（有场景没被任何弧线覆盖）、<b>重叠</b>（场景被两条弧线重复覆盖）、<b>顺序</b>（弧线顺序与原文不符）。✅完整 / ⚠️不完整一目了然。</li>
+      <li><b class="k">弧线扫描词链预览 / 分组词链预览</b>：发送给 AI 的实际内容预览，想确认"AI 到底看到了什么"就点它。</li>
+    </ul>
+  </div>
+  <div class="tip">💡 对"伪闭合"宽容一点：拿不准就切，多切无害、漏切有害（漏切会让后续场景/分镜与原文错位）。</div>
+</div>
+
+<!-- ═══════════ 06 分镜页 ═══════════ -->
+<div class="ch" id="c6">
+  <header><a class="backtoc" href="#toc">↑目录</a><div class="chno">CHAPTER 06</div><h2>分镜页：拆解分镜</h2>
+  <p class="chdesc">把每个场景进一步拆成"分镜"（镜头级节拍：谁、在哪、干了什么）。这是最细的拆解粒度。</p></header>
+  <div class="card"><h3>拆解操作</h3>
+    <ul>
+      <li>按弧线/场景逐个拆，产物包含每镜的<b class="k">焦点、正文概要、功能位</b>等字段。</li>
+      <li>同页支持<b class="k">批量分组</b>（把零散分镜归组）、<b class="k">续扫 / 剪断重分 / 清空重分</b>，操作逻辑与弧线页一致。</li>
+      <li>分镜结果与场景切片联动：切好的场景正文按镜级锚点定位，保证顺序不乱。</li>
+    </ul>
+  </div>
+  <div class="tip">💡 分镜不必全书拆完才进改编——按需拆，改编页用到哪条弧线拆到哪条。</div>
+</div>
+
+<!-- ═══════════ 07 改编页 ═══════════ -->
+<div class="ch" id="c7">
+  <header><a class="backtoc" href="#toc">↑目录</a><div class="chno">CHAPTER 07</div><h2>改编页：总结 / 框架 / 分镜 / 圣经 / 映射表</h2>
+  <p class="chdesc">整个 APP 的核心页。基于原著零件生成"改编后的骨架"，同时维护两样全局资产：<b>故事圣经</b>和<b>名称映射表</b>。</p></header>
+  <div class="card"><h3>分层重改编（重要概念）</h3>
+    <table>
+      <tr><th>层级</th><th>重跑范围</th><th>适用场景</th></tr>
+      <tr><td>全层 all</td><td>总结+框架+分镜 全重跑</td><td>改编要求大改</td></tr>
+      <tr><td>弧线层 arc</td><td>该弧线全部重写（级联清空）</td><td>单弧线剧情重推演</td></tr>
+      <tr><td>场景层 scene</td><td>只重写场景框架（分镜保留）</td><td>框架微调</td></tr>
+      <tr><td>仅分镜填充 shot</td><td>只重填分镜（框架不动）</td><td>分镜数量/内容返工</td></tr>
+    </table>
+    <p>批量入口在弧线列表：全量 / 增量可选。<b class="k">增量补缺</b>=保留已有内容只补缺失项（省 API）；<b class="k">全量</b>=推倒重跑。</p>
+  </div>
+  <div class="card"><h3>三级产物</h3>
+    <ol class="steps">
+      <li><b class="k">弧线总结条目</b>：每条弧线的改编后概述，写入世界书（含世界观 10 体系校验补齐）。</li>
+      <li><b class="k">场景框架</b>：每场景的改编后框架（改编声明驱动）。</li>
+      <li><b class="k">分镜填充</b>：把原著分镜按新剧情逐镜重推演。数量/顺序锁死原著骨架（节奏载体），内容每镜按新剧情推演。</li>
+    </ol>
+  </div>
+  <div class="card"><h3>故事圣经</h3>
+    <ul>
+      <li>全书级设定总纲（人物/世界/因果），<b class="k">弧线1 初始化，弧线2+ 增量回流合并</b>新事实。</li>
+      <li>圣经里的人物/设定条目按剧情使用名称：原著角色用<b class="k">原著原名</b>，你因剧情需要新增的名称（写在改编要求里的）直接用新名——这两类都正常。</li>
+      <li><b class="k">污染的定义</b>：映射表右列的"替换名"（原著角色被 AI 换掉后的名字）混进了圣经——那说明名字替换渗透进了中间产物，会顺数据流扩散到创作端。判断标准：一个名字出自你的改编要求=合法新名；原著角色被换成了映射表里的新名=污染。</li>
+    </ul>
+  </div>
+  <div class="card"><h3>名称映射表</h3>
+    <ul>
+      <li>格式：每行 <b class="k">原著名 → 新名（定位）</b>。生成端全程原著原名零损失；只有二创输出时才做换名替换。</li>
+      <li><b class="k">自动追加</b>：总结/场景/分镜每步成功后自动增量抽取新名称追加（同名不覆盖，你的手改不会被冲掉）。</li>
+      <li><b class="k">三道防污染卫兵</b>：①改编要求里出现的名字=新名，禁止进左列（代码级拦截，日志显示"🛡已拦截"）②已有映射表右列新名禁止被二次映射 ③AI 拿不出的别名会输出"？确认行"等你在弹窗里人工确认。</li>
+      <li><b class="k">起名要求</b>：指定主角新名/命名规范，生成与增量抽取共用；写在这里的名字全部视为新名。</li>
+      <li>同一角色不同称呼（婆婆/圣姑/盈盈）会映射到<b>不同的新别称</b>，保留原称呼的韵味——手改时也请保持这个习惯。</li>
+    </ul>
+  </div>
+  <div class="card"><h3>其他功能</h3>
+    <ul>
+      <li><b class="k">AI 优化要求</b>：🤖 按钮把你的大白话要求改写成结构化要求（勾选才发给 AI，也可直接手填）。</li>
+      <li><b class="k">字体 A- / A+</b>：页面字号调节。</li>
+      <li>日志面板（终端日志）可复制、多行选择、自动滚动到底，出错先看这里。</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ═══════════ 08 世界页 ═══════════ -->
+<div class="ch" id="c8">
+  <header><a class="backtoc" href="#toc">↑目录</a><div class="chno">CHAPTER 08</div><h2>世界页：世界书生成与导出</h2>
+  <p class="chdesc">改编产物整理成"世界书"——创作的唯一依据。世界书在，创作就能继续，不依赖扫描数据。</p></header>
+  <div class="card"><h3>生成</h3>
+    <ul>
+      <li><b class="k">一键生成</b>：部分已生成时弹窗选 <b class="k">增量</b>（只生成剩余条目）或 <b class="k">全量</b>；全新直接全量。</li>
+      <li><b class="k">弧线内增量补缺</b>：半成品续传，跳过已完成场景只补缺（省 API）。</li>
+      <li>条目与人设一律<b class="k">原著原名</b>，禁止起新名——改名统一由映射表在输出层处理。</li>
+      <li><b class="k">层级折叠</b>：条目按分组折叠显示，点开看内容。</li>
+    </ul>
+  </div>
+  <div class="card"><h3>导出与查看</h3>
+    <ul>
+      <li>支持 <b class="k">ST（SillyTavern）格式导出</b>，可直接导入 SillyTavern 世界书使用；纯文本导出只含正文+标题，无结构标记。</li>
+      <li>列表<b class="k">限高滚动</b>（约 3 条高），不会把页面撑爆；章节标题全显不截断。</li>
+    </ul>
+  </div>
+  <div class="tip">💡 改编后场景在世界书里优先级最高：创作列表、场景名、发送内容都以它为准。</div>
+</div>
+
+<!-- ═══════════ 09 创作页 ═══════════ -->
+<div class="ch" id="c9">
+  <header><a class="backtoc" href="#toc">↑目录</a><div class="chno">CHAPTER 09</div><h2>创作页：基于世界书写正文</h2>
+  <p class="chdesc">选择场景/弧线，AI 依据世界书条目写改编后的正文。</p></header>
+  <div class="card"><h3>主要操作</h3>
+    <ul>
+      <li><b class="k">单场景创作</b>：选中场景点生成；产出挂在对应分镜块下。</li>
+      <li><b class="k">⚡批量</b>：队列连续创作，可选"全部 / 仅未创作场景"；连续失败会自动终止批量并告警；随时 ⏹ 终止。</li>
+      <li><b class="k">✨生成分镜正文</b>：以分镜为单位逐镜写。</li>
+      <li><b class="k">创作声明</b>：可 AI 生成或手填，决定这一段怎么写（人物/冲突/作者意图等）。</li>
+      <li><b class="k">✎编辑 / ✓已保存</b>：正文可直接改；保存时按分镜块定位写回，定位失败会提示（跳过写回不覆盖原稿）。</li>
+      <li><b class="k">写回世界书</b>：创作结果回写条目（世界书为空时跳过并提示）。</li>
+      <li><b class="k">✂️ 剪切</b>：把不要的段落从稿里剪掉。</li>
+    </ul>
+  </div>
+  <div class="tip">💡 创作始终基于<b>改编后的世界书</b>，不会回退到原始分析数据——发现它"写回原著剧情"了，检查改编产物是否完整。</div>
+</div>
+
+<!-- ═══════════ 10 二创页 ═══════════ -->
+<div class="ch" id="c10">
+  <header><a class="backtoc" href="#toc">↑目录</a><div class="chno">CHAPTER 10</div><h2>二创页：体检与换名</h2>
+  <p class="chdesc">最后一步：质检创作稿，并在输出时把原著名批量替换成新名。</p></header>
+  <div class="card"><h3>功能清单</h3>
+    <ul>
+      <li><b class="k">文件列表</b>：一创/二创文稿分开列出，支持 filter（全部/一创/二创），txt 导出（文件名自动带"_二创"后缀）。</li>
+      <li><b class="k">体检（detect）</b>：AI 找问题——设定冲突、范文搬运、逻辑硬伤；结果按问题类型统计（problem_count），可一键把修改意见填进编辑框再改稿。跑体检前先确认改编页映射表已生成。</li>
+      <li><b class="k">换名输出</b>：依据映射表把正文里的原著名替换成新名——这是全书唯一做替换的地方；映射表为空会提示先去改编页生成。</li>
+      <li><b class="k">映射表合并</b>：⤓ 把确认行并入映射表（同名跳过），✕ 删除不采纳。</li>
+      <li><b class="k">二创词链预览</b>：查看发给 AI 的内容。</li>
+      <li><b class="k">A- / A+</b>：字号调节。</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ═══════════ 11 阅读器 ═══════════ -->
+<div class="ch" id="c11">
+  <header><a class="backtoc" href="#toc">↑目录</a><div class="chno">CHAPTER 11</div><h2>阅读器：翻页 / 滚动 / 朗读</h2>
+  <p class="chdesc">从主页章节或书目进入。自带两种阅读模式和 TTS 朗读。</p></header>
+  <div class="card"><h3>两种模式</h3>
+    <ul>
+      <li><b class="k">📑 翻页模式</b>：电子书式，圆形 ↑↓ 按钮翻页，页边界自动跨文件接着读。</li>
+      <li><b class="k">📜 滚动模式</b>：正文可编辑、可保存；编辑状态下锁定模式切换，防止丢内容。</li>
+      <li>顶部信息行塞了页码+标题（不留空 AppBar）；按钮全是文字按钮（A-/A+/本页读/暂停/目录）。</li>
+      <li><b class="k">目录</b>：章节跳转。<b class="k">本页读/暂停</b>：TTS 朗读当前页，朗读自动跟随翻页/滚动。</li>
+    </ul>
+  </div>
+  <div class="tip">💡 换字体/改字号会自动重排版分页，不用担心页码错位。</div>
+</div>
+
+<!-- ═══════════ 12 存储备份 ═══════════ -->
+<div class="ch" id="c12">
+  <header><a class="backtoc" href="#toc">↑目录</a><div class="chno">CHAPTER 12</div><h2>存储、备份与数据安全</h2>
+  <p class="chdesc">拆解一次烧不少 API 钱，数据安全请当回事。</p></header>
+  <div class="card"><h3>备份</h3>
+    <ul>
+      <li>主页 <b class="k">备份</b>：当前书全部数据存到 backups/ 目录；<b class="k">全部书目备份</b>一键备份所有书。</li>
+      <li>备份格式与云同步格式和 v318 互通——旧版本备份可导入新版。</li>
+      <li>建议节奏：每完成一条弧线的改编就备份一次；换存储模式后立即备份。</li>
+    </ul>
+  </div>
+  <div class="card"><h3>数据都在哪</h3>
+    <ul>
+      <li>公共目录模式：文件管理器直接可见，可整目录拷走迁移。</li>
+      <li>专属目录模式：需用 APP 内的备份/恢复功能迁移。</li>
+      <li>删除书目只删数据不删 txt 原文。</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ═══════════ 13 FAQ ═══════════ -->
+<div class="ch" id="c13">
+  <header><a class="backtoc" href="#toc">↑目录</a><div class="chno">CHAPTER 13</div><h2>常见问题与参数速查</h2>
+  <p class="chdesc">出问题先对号入座，再翻对应章节。</p></header>
+  <div class="card"><h4>故障速查</h4>
+  <table>
+    <tr><th>现象</th><th>处理</th></tr>
+    <tr><td>AI 输出被砍尾</td><td>调大 max_tokens；解析失败时产物会从备份恢复，重跑即可</td></tr>
+    <tr><td>批量请求被拒、直接停机</td><td>API 单任务守卫在工作——批量流程内置串行，别另开任务并发</td></tr>
+    <tr><td>中转接口超时</td><td>60 秒超时=网络抖动，重跑即可；连续失败检查中转服务</td></tr>
+    <tr><td>映射表没有新增</td><td>看日志有无"🛡拦截新名"——被拦的是你起的新名，正常；v635 起改编产物按原著口径抽取</td></tr>
+    <tr><td>场景/弧线数量对不上</td><td>跑"体检"定位丢失/重叠段，用剪断重分修复</td></tr>
+    <tr><td>更新失败</td><td>检查网络与 GitHub Release 可达性；APK 更新包从 Release 下载</td></tr>
+  </table>
+</div>
+<div class="card"><h4>参数速记卡</h4>
+  <table>
+    <tr><th>参数</th><th>推荐值</th><th>说明</th></tr>
+    <tr><td>扫描温度</td><td>0.3（甜区0.3-0.5）</td><td>0.1 会偷懒合并场景</td></tr>
+    <tr><td>场景步进（小章书）</td><td>1-2</td><td>2500字/章的书</td></tr>
+    <tr><td>场景步进（标准章）</td><td>5-10</td><td>普通网文章节</td></tr>
+    <tr><td>弧线分组步进</td><td>先用默认试跑</td><td>敏感度与模型强相关</td></tr>
+    <tr><td>max_tokens</td><td>按需，最大100万</td><td>不会被JS硬截断</td></tr>
+  </table>
+</div>
+
+</div>
+
+<!-- ═══════════ 结尾 ═══════════ -->
+<div class="ending">
+  <div class="ring r1"></div><div class="ring r2"></div>
+  <div class="big">拆到零件，写出新书</div>
+  <div class="sm">本手册对应网文拆解器 v635<br>有疑问先看第 13 章速查表，再翻对应章节<br><br>Designed by luckpala</div>
+</div>
+
+</body>
+</html>
