@@ -318,6 +318,8 @@ const Spacer(), // ⚙API推到最右
                         child: Scrollbar(
                           controller: _listCtl,
                           thumbVisibility: true,
+                          thickness: 14, // v657：默认8px手指点不到
+                          radius: const Radius.circular(7),
                           child: ListView.builder(
                             controller: _listCtl,
                             itemCount: state.globalScenes.length,
