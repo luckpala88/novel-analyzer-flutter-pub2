@@ -28,8 +28,8 @@ class VScrollBar extends StatefulWidget {
   const VScrollBar(
     this.ctl, {
     super.key,
-    this.thickness = 14,
-    this.hitWidth = 28,
+    this.thickness = 28, // v668：宽度翻倍(14→28),手指好按
+    this.hitWidth = 40,
   });
 
   @override
@@ -145,7 +145,7 @@ class _VScrollBarState extends State<VScrollBar> {
                 width: widget.thickness,
                 height: thumbH,
                 decoration: BoxDecoration(
-                  color: cs.primary.withOpacity(0.55),
+                  color: cs.primary.withOpacity(0.28), // v668：更透更浅,不抢内容视线
                   borderRadius: BorderRadius.circular(7),
                 ),
               ),
