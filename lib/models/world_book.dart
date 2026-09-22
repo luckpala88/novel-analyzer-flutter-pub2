@@ -172,6 +172,21 @@ class WorldBook {
   Map<String, String> arcDeclarations; // per-弧线改编声明（场景功能声明/禁令/行为模式卡，生成条目的指导）
   Map<String, bool> arcDeclEnabled; // v385：per-弧线声明是否注入生成（默认true，不勾选=声明保留但不注入）
   Map<String, String> sceneDeclarations; // v573：场景改编声明（key=arcKey_si，场景层注入）
+
+  /// v658：弧线/场景重扫后清空改编派生数据——arcStatus等按弧线号存,
+  /// 重扫后新弧线撞旧状态会显示"已生成"且增量模式跳过改编(幽灵状态)
+  void clearAdaptDerived() {
+    entries.clear();
+    arcStatus.clear();
+    arcRequirements.clear();
+    sceneRequirements.clear();
+    deduceSkeletons.clear();
+    arcDeclarations.clear();
+    arcDeclEnabled.clear();
+    sceneDeclarations.clear();
+    adaptBible = '';
+    // originalBible保留：原著圣经源于原著静态因果链,与改编重扫无关
+  }
   Map<String, String> arcRequirementsAI; // v588：弧线改编要求AI优化稿（独立框，勾选才生效）
   Map<String, String> sceneRequirementsAI; // v588：场景改编要求AI优化稿
   Map<String, bool> reqEnabled; // v588：要求勾选开关 key=u_弧线/a_弧线/u_弧线_si/a_弧线_si（u=用户稿默认勾选 a=AI稿默认不勾）

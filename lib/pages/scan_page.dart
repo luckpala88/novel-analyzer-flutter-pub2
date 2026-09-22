@@ -913,6 +913,10 @@ class _ScanPageState extends State<ScanPage>
       state.arcAnalyses.clear();
       state.arcScenes.clear();
       state.globalGroupedUpTo = 0;
+      // v658：旧弧线的改编派生数据一并作废——arcStatus按弧线号存,新弧线
+      // 撞旧状态显示"已生成"且增量模式跳过(幽灵状态污染改编流程)
+      state.worldBook?.clearAdaptDerived();
+      state.saveWorldBook();
       state.saveArcScan();
       state.saveArcAnalyses();
       state.saveArcScenes();
