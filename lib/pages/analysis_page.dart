@@ -56,7 +56,6 @@ class _AnalysisPageState extends State<AnalysisPage>
   }
 
   bool _isAnalyzing = false;
-  bool _useTokenLength = true; // token篇幅默认开（拆解时篇幅维度更精确）
   String _statusText = '';
   final List<String> _logs = [];
   int? _selectedArcIdx;
@@ -96,37 +95,6 @@ class _AnalysisPageState extends State<AnalysisPage>
       'analysis',
       'expandedShots',
       _expandedShots.toList(),
-    );
-  }
-
-  Widget _toggleChip(String label, bool value, ValueChanged<bool?> onChanged) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: () => onChanged(!value),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: value
-              ? Theme.of(context).colorScheme.primaryContainer
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: value
-                ? Theme.of(context).colorScheme.primary
-                : V469Style.border,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: value ? FontWeight.w600 : FontWeight.w400,
-            color: value
-                ? Theme.of(context).colorScheme.primary
-                : V469Style.textSec,
-          ),
-        ),
-      ),
     );
   }
 
@@ -209,13 +177,7 @@ class _AnalysisPageState extends State<AnalysisPage>
                       !state.shotPromptPreview,
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  _toggleChip(
-                    'token篇幅',
-                    _useTokenLength,
-                    (v) => setState(() => _useTokenLength = v ?? false),
-                  ),
-                  const SizedBox(width: 5),
+
                   if (state.arcAnalyses.isNotEmpty) ...[
                     MiniButton(
                       label: '导出原书酒馆世界书',
@@ -1802,8 +1764,9 @@ const SizedBox(width: 8),
       }
       _addLog('章节文本：${chapterText.length}字');
 
+      // v659：token篇幅必选（开关已删）——篇幅维度恒精确
       final systemPrompt = PromptBuilder.buildShotSystemPrompt(
-        _useTokenLength,
+        true,
         state.funcAbstract,
       );
       final userPrompt = PromptBuilder.buildShotUserPrompt(scene, chapterText);
