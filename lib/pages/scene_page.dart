@@ -285,6 +285,8 @@ const Spacer(), // ⚙API推到最右
                 child: LinearProgressIndicator(minHeight: 2),
               ),
             // v438：全局场景流列表（场景页唯一主体——弧线展示在弧线页）
+            // v662：与弧线页同构——Stack[ListView, Positioned(VScrollBar)]，
+            // 此前手补括号多了一层导致嵌套错位（红字布局异常）
             Expanded(
               child: ContentFont.area(
                 context,
@@ -319,29 +321,31 @@ const Spacer(), // ⚙API推到最右
                         child: Stack(
                           children: [
                             ListView.builder(
-                            controller: _listCtl,
-                            itemCount: state.globalScenes.length,
-                          itemBuilder: (ctx, i) => SceneCardItem(
-                            scene: state.globalScenes[i],
-                            index: i + 1,
-                            onView: () => showSliceViewerSheet(
-                              context,
-                              title:
-                                  '场景${i + 1}：${state.globalScenes[i].name}（${state.globalScenes[i].chapterRange}）',
-                              text: state.globalScenes[i].text,
-                            ),
-                            onCutResume: () =>
-                                _confirmCutResume(state, i),
-                          ),
+                              controller: _listCtl,
+                              itemCount: state.globalScenes.length,
+                              itemBuilder: (ctx, i) => SceneCardItem(
+                                scene: state.globalScenes[i],
+                                index: i + 1,
+                                onView: () => showSliceViewerSheet(
+                                  context,
+                                  title:
+                                      '场景${i + 1}：${state.globalScenes[i].name}（${state.globalScenes[i].chapterRange}）',
+                                  text: state.globalScenes[i].text,
+                                ),
+                                onCutResume: () =>
+                                    _confirmCutResume(state, i),
+                              ),
                             ),
                             Positioned(
-                              right: 0, top: 0, bottom: 0,
+                              right: 0,
+                              top: 0,
+                              bottom: 0,
                               child: VScrollBar(_listCtl),
                             ),
                           ],
                         ),
+                      ),
               ),
-            ),
             ),
             // 统一终端（日志+终止）— v468 api-step-log
           ],

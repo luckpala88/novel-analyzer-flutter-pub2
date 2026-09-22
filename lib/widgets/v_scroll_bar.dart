@@ -22,16 +22,25 @@ class VScrollBar extends StatelessWidget {
       builder: (_, __) => LayoutBuilder(
         builder: (ctx, box) {
           final trackH = box.maxHeight;
-          if (trackH <= 0 || !ctl.hasClients) return const SizedBox.shrink();
+          if (trackH <= 0 ||
+              !trackH.isFinite ||
+              !ctl.hasClients) {
+            return const SizedBox.shrink();
+          }
           final pos = ctl.position;
           final maxScroll = pos.maxScrollExtent;
-          if (maxScroll <= 0) return const SizedBox.shrink();
+          if (maxScroll <= 0 ||
+              !maxScroll.isFinite ||
+              !pos.viewportDimension.isFinite) {
+            return const SizedBox.shrink();
+          }
           final viewRatio =
               (pos.viewportDimension / (pos.viewportDimension + maxScroll))
                   .clamp(0.08, 1.0);
           var thumbH = trackH * viewRatio;
           var top = (ctl.offset / maxScroll) * (trackH - thumbH);
-          top = top.clamp(0.0, trackH - thumbH);
+          top = top.isFinite ? top.clamp(0.0, trackH - thumbH) : 0.0;
+          thumbH = thumbH.isFinite ? thumbH.clamp(24.0, trackH) : 24.0;
           final cs = Theme.of(context).colorScheme;
           return SizedBox(
             width: hitWidth,
@@ -65,7 +74,7 @@ class VScrollBar extends StatelessWidget {
                       width: thickness,
                       height: thumbH,
                       decoration: BoxDecoration(
-                        color: cs.primary.withOpacity(0.45),
+                        color: cs.primary.withOpacity(0.55),
                         borderRadius: BorderRadius.circular(7),
                       ),
                     ),
