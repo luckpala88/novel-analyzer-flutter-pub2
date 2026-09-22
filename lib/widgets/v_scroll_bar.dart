@@ -88,7 +88,11 @@ class _VScrollBarState extends State<VScrollBar> {
   Widget? _build(BuildContext context) {
     final ctl = widget.ctl;
     if (!ctl.hasClients) return null;
-    final pos = ctl.position;
+    // v667：不用ctl.position(=positions.single)——页面切换/重排那一帧
+    // 旧position未detach新position已attach,single撞双挂载抛"Too many
+    // elements"(iqoo实测)。取最新position,瞬时态也稳
+    if (ctl.positions.isEmpty) return null;
+    final pos = ctl.positions.last;
     // hasContentDimensions=false=首帧尺寸未定——等下一帧(postFrame已排)
     if (!pos.hasContentDimensions) return null;
     final trackH = _trackH;
