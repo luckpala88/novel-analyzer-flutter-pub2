@@ -228,8 +228,7 @@ class _ScanPageState extends State<ScanPage>
       final stale = state.arcScan?.arcs
               .where((Arc a) => a.sceneFrom > effKeep)
               .map((a) => '${a.number}')
-              .toSet() ??
-          {};
+              .toSet() ?? <String>{};
       if (stale.isNotEmpty) {
         state.clearArcCascade(arcNumbers: stale);
       }

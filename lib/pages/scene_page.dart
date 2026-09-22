@@ -446,8 +446,7 @@ const Spacer(), // ⚙API推到最右
           final stale = state.arcScan?.arcs
                   .where((Arc a) => a.sceneFrom > effKeep)
                   .map((a) => '${a.number}')
-                  .toSet() ??
-              {};
+                  .toSet() ?? <String>{};
           if (stale.isNotEmpty) {
             state.clearArcCascade(arcNumbers: stale);
             _addLog('ℹ 已级联清空场景$effKeep之后的${stale.length}条弧线及分镜/拆解');
