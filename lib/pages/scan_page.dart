@@ -86,8 +86,11 @@ class _ScanPageState extends State<ScanPage>
     _groupBatchController.text = AppState.instance.groupBatchSize.toString();
   }
 
+  final ScrollController _listCtl = ScrollController(); // v656：列表垂直滚动条
+
   @override
   void dispose() {
+    _listCtl.dispose();
     _logController.dispose();
     _stepController.dispose();
     super.dispose();
@@ -443,8 +446,12 @@ class _ScanPageState extends State<ScanPage>
                       ),
                     )
                   : SelectionArea(
-                    child: ListView.builder(
-                      itemCount: arcs.length,
+                    child: Scrollbar(
+                      controller: _listCtl,
+                      thumbVisibility: true,
+                      child: ListView.builder(
+                        controller: _listCtl,
+                        itemCount: arcs.length,
                       itemBuilder: (ctx, i) {
                         final arc = arcs[i];
                         final isComplete = arc.status == 'complete';
@@ -763,6 +770,7 @@ class _ScanPageState extends State<ScanPage>
                           ),
                         );
                       },
+                      ),
                     ),
                   ),
             )),

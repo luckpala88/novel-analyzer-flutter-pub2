@@ -29,12 +29,19 @@ class AnalysisPage extends StatefulWidget {
 
 class _AnalysisPageState extends State<AnalysisPage>
     with AutomaticKeepAliveClientMixin {
+  final ScrollController _listCtl = ScrollController(); // v656：列表垂直滚动条
   @override
   bool get wantKeepAlive => true; // 页面滑出PageView时保持State：生成任务不中断/表单不清空
 
   // 折叠置顶：tile的GlobalKey注册表（展开时头部自动滚到可视区顶，便于随时折叠）
   final Map<String, GlobalKey> _tileKeys = {};
   GlobalKey _tileKey(String id) => _tileKeys.putIfAbsent(id, () => GlobalKey());
+  @override
+  void dispose() {
+    _listCtl.dispose();
+    super.dispose();
+  }
+
   void _scrollTileToTop(String id) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final ctx = _tileKeys[id]?.currentContext;
@@ -277,10 +284,15 @@ const SizedBox(width: 8),
               child: ContentFont.area(context, scale: _fontScale, child: arcs.isEmpty
                   ? _buildEmpty(context)
                   : SelectionArea(
-                    child: ListView.builder(
-                      itemCount: arcs.length,
-                      itemBuilder: (ctx, i) =>
-                          _buildArcCard(context, state, arcs[i], i),
+                    child: Scrollbar(
+                      controller: _listCtl,
+                      thumbVisibility: true,
+                      child: ListView.builder(
+                        controller: _listCtl,
+                        itemCount: arcs.length,
+                        itemBuilder: (ctx, i) =>
+                            _buildArcCard(context, state, arcs[i], i),
+                      ),
                     ),
                   ),
             )),

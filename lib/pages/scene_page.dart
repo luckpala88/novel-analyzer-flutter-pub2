@@ -32,6 +32,7 @@ class ScenePage extends StatefulWidget {
 
 class _ScenePageState extends State<ScenePage>
     with AutomaticKeepAliveClientMixin {
+  final ScrollController _listCtl = ScrollController(); // v656：列表垂直滚动条
   @override
   bool get wantKeepAlive => true; // 页面滑出PageView时保持State：生成任务不中断/表单不清空
 
@@ -67,6 +68,12 @@ class _ScenePageState extends State<ScenePage>
   // 折叠置顶：tile的GlobalKey注册表（展开时头部自动滚到可视区顶，便于随时折叠）
   final Map<String, GlobalKey> _tileKeys = {};
   GlobalKey _tileKey(String id) => _tileKeys.putIfAbsent(id, () => GlobalKey());
+  @override
+  void dispose() {
+    _listCtl.dispose();
+    super.dispose();
+  }
+
   void _scrollTileToTop(String id) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final ctx = _tileKeys[id]?.currentContext;
@@ -308,8 +315,12 @@ const Spacer(), // ⚙API推到最右
                         ),
                       )
                     : SelectionArea(
-                        child: ListView.builder(
-                          itemCount: state.globalScenes.length,
+                        child: Scrollbar(
+                          controller: _listCtl,
+                          thumbVisibility: true,
+                          child: ListView.builder(
+                            controller: _listCtl,
+                            itemCount: state.globalScenes.length,
                           itemBuilder: (ctx, i) => SceneCardItem(
                             scene: state.globalScenes[i],
                             index: i + 1,
@@ -322,6 +333,7 @@ const Spacer(), // ⚙API推到最右
                             onCutResume: () =>
                                 _confirmCutResume(state, i),
                           ),
+                        ),
                         ),
                       ),
               ),
