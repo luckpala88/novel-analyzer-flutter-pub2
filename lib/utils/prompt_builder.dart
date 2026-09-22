@@ -1955,7 +1955,7 @@ class PromptBuilder {
     sb.writeln('## 已有映射表');
     sb.writeln(existingMap.trim().isEmpty ? '（空——这是第一批）' : existingMap.trim());
     sb.writeln();
-    sb.writeln('## 新生成内容（从中抽取名称）');
+    sb.writeln('## 原著切片（从中抽取原著名称作左列——采集来源铁律v674）');
     sb.writeln(src);
     sb.writeln();
     sb.writeln('请输出新增的映射行。');

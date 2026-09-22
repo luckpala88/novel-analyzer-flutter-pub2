@@ -1330,12 +1330,13 @@ class AppState extends ChangeNotifier {
           sourceContent,
           nameReq: worldBook!.nameMapReq,
           // v617：全部改编要求注入——新名出处的判定依据（用户起的名都在这些文本里）
+          // v674：用户输入稿=右列新名唯一来源（用户定稿铁律）——AI优化稿
+          // (arcRequirementsAI/sceneRequirementsAI)是中间产物应使用原著词，
+          // 其名称不作右列来源也不作判定依据
           allRequirements: [
             worldBook!.requirements,
             ...worldBook!.arcRequirements.values,
             ...worldBook!.sceneRequirements.values,
-            ...worldBook!.arcRequirementsAI.values,
-            ...worldBook!.sceneRequirementsAI.values,
           ].where((t) => t.trim().isNotEmpty).join('\n\n'),
           // v635：A方案下改编产物全部用原著原名，素材按原著口径抽取（adaptedInput
           // 框架是v574改名时代的产物，会让AI"拿不准就不收录"→映射表停更）；

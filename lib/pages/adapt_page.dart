@@ -3810,7 +3810,8 @@ class _AdaptPageState extends State<AdaptPage>
         // v388b：映射表增量抽取（不阻塞主流程）
         // v392：await串行——unawaited会与下一步请求撞车（API单任务守卫拒绝框架请求=停机）
         await state.extractNameMapIncrement(
-          sumResult.content,
+          // v674：采集来源=弧线完整正文切片（用户定稿）——改编输出不当采集源
+          arc.text.isNotEmpty ? arc.text : sumResult.content,
           adaptedInput: false,
         ); // v574
         // v621：故事圣经——弧线1初始化/弧线N+增量回流（失败不阻塞主流程，只告警）
@@ -4012,7 +4013,8 @@ class _AdaptPageState extends State<AdaptPage>
           // v388b：映射表增量抽取（不阻塞主流程）
           // v392：await串行防撞车
           await state.extractNameMapIncrement(
-            frameResult.content,
+            // v674：采集来源=场景正文切片
+            scene.text.isNotEmpty ? scene.text : frameResult.content,
             adaptedInput: false,
           ); // v574
         } // v214 skipFrame else结束
@@ -4218,7 +4220,14 @@ class _AdaptPageState extends State<AdaptPage>
           // v388b：分镜填充后映射表增量抽取
           // v392：await串行防撞车
           await state.extractNameMapIncrement(
-            fillResult.content,
+            // v674：采集来源=分镜切片（未物化回退场景切片）
+            (() {
+              final shotTexts = scene.shots
+                  .map((sh) => sh.text)
+                  .where((t) => t.isNotEmpty)
+                  .join('\n');
+              return shotTexts.isNotEmpty ? shotTexts : scene.text;
+            })(),
             adaptedInput: false,
           ); // v574
         }
