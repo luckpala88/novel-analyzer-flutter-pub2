@@ -1,8 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 
 /// v660：自绘可拖垂直滚动条——Material Scrollbar在触屏上拇指拖拽
 /// 常被列表垂直手势抢占(用户实测"无法选中拖动")。自绘手势层盖在
 /// 列表之上,pan+tap必中
+/// v663：按下即赢手势竞技场——普通GestureDetector的垂直拖拽与列表
+/// 滚动识别器同场竞技,列表常先赢(用户实测"要停顿一会儿才能选中")。
+/// addPointer时立即accept,拇指独占该指针,列表不再抢
+class _ImmediateDrag extends VerticalDragGestureRecognizer {
+  @override
+  void addPointer(PointerDownEvent event) {
+    super.addPointer(event);
+    resolve(GestureDisposition.accepted);
+  }
+}
+
 class VScrollBar extends StatelessWidget {
   final ScrollController ctl;
   final double thickness; // 视觉宽度
@@ -61,15 +73,23 @@ class VScrollBar extends StatelessWidget {
                 Positioned(
                   top: top,
                   right: 2,
-                  child: GestureDetector(
+                  child: RawGestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onVerticalDragUpdate: (d) {
-                      final scale = maxScroll / (trackH - thumbH);
-                      ctl.jumpTo(
-                          (ctl.offset + d.delta.dy * scale)
-                              .clamp(0.0, maxScroll));
+                    gestures: {
+                      _ImmediateDrag:
+                          GestureRecognizerFactoryWithHandlers<
+                              _ImmediateDrag>(
+                        () => _ImmediateDrag(),
+                        (instance) {
+                          instance.onUpdate = (d) {
+                            final scale = maxScroll / (trackH - thumbH);
+                            ctl.jumpTo(
+                                (ctl.offset + d.delta.dy * scale)
+                                    .clamp(0.0, maxScroll));
+                          };
+                        },
+                      ),
                     },
-                    onVerticalDragStart: (_) {},
                     child: Container(
                       width: thickness,
                       height: thumbH,
