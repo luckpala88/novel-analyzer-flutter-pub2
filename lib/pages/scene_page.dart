@@ -369,7 +369,11 @@ const Spacer(), // ⚙API推到最右
         // v521b：旧弧线分组结果同步作废（arcScan残留=幽灵弧线：统计7条只拆6条，
         // 那条在两容器无场景数据被静默跳过）
         state.arcScan = null;
+        // v654b：分组断点同步清零——此前只清arcScan不清globalGroupedUpTo,
+        // 重扫后菜单显示"生成弧线（从场景N继续）"而弧线列表为空(幽灵断点)
+        state.globalGroupedUpTo = 0;
         state.saveArcScenes();
+        state.saveArcScan(); // 断点与arcScan=null一并落盘（防重启幽灵恢复）
         state.saveGlobalScenes();
         _addLog('✅ 场景流+旧拆解容器+旧弧线分组已清空（${state.chapters.length}章），启动重扫：步进${state.sceneStepSize}章/批');
         // v450：await+catch——同步段异常此前被then吞掉（清空后扫描没启动、
