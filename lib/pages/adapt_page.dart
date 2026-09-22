@@ -3813,6 +3813,7 @@ class _AdaptPageState extends State<AdaptPage>
           // v674：采集来源=弧线完整正文切片（用户定稿）——改编输出不当采集源
           arc.text.isNotEmpty ? arc.text : sumResult.content,
           adaptedInput: false,
+          sourceLabel: '弧线${arc.number}完整正文切片',
         ); // v574
         // v621：故事圣经——弧线1初始化/弧线N+增量回流（失败不阻塞主流程，只告警）
         await _updateStoryBible(
@@ -4016,6 +4017,7 @@ class _AdaptPageState extends State<AdaptPage>
             // v674：采集来源=场景正文切片
             scene.text.isNotEmpty ? scene.text : frameResult.content,
             adaptedInput: false,
+            sourceLabel: '弧线${arc.number}场景${si + 1}正文切片',
           ); // v574
         } // v214 skipFrame else结束
 
@@ -4229,6 +4231,7 @@ class _AdaptPageState extends State<AdaptPage>
               return shotTexts.isNotEmpty ? shotTexts : scene.text;
             })(),
             adaptedInput: false,
+            sourceLabel: '弧线${arc.number}场景${si + 1}分镜切片',
           ); // v574
         }
         }
@@ -4440,6 +4443,12 @@ class _AdaptPageState extends State<AdaptPage>
         }
         state.saveWorldBook();
         _addLog('✓ 场景${sceneIdx + 1}框架已生成并合并进弧线条目');
+        // v676：单独改编也追加映射表——采集源=场景正文切片
+        await state.extractNameMapIncrement(
+          scene.text,
+          adaptedInput: false,
+          sourceLabel: '单独改编·场景${sceneIdx + 1}正文切片',
+        ); // v574
       } else {
         _addLog('场景${sceneIdx + 1}框架已存在（直接填分镜）');
       }
@@ -4520,6 +4529,18 @@ class _AdaptPageState extends State<AdaptPage>
         );
         if (merged) {
           _addLog('✓ 场景${sceneIdx + 1}改编完成（已合并进弧线${arc.number}条目）');
+          // v676：单独改编分镜填充后追加映射表——采集源=分镜切片
+          await state.extractNameMapIncrement(
+            (() {
+              final shotTexts = scene.shots
+                  .map((sh) => sh.text)
+                  .where((t) => t.isNotEmpty)
+                  .join('\n');
+              return shotTexts.isNotEmpty ? shotTexts : scene.text;
+            })(),
+            adaptedInput: false,
+            sourceLabel: '单独改编·场景${sceneIdx + 1}分镜切片',
+          ); // v574
         } else {
           _addLog('⚠️ 场景${sceneIdx + 1}分镜合并失败（场景块未找到）');
         }

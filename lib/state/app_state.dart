@@ -1311,9 +1311,15 @@ class AppState extends ChangeNotifier {
   Future<void> extractNameMapIncrement(
     String sourceContent, {
     bool adaptedInput = false,
+    String sourceLabel = '', // v676：采集源标签（终端可见读了什么）
   }) async {
     try {
       if (worldBook == null) return;
+      apiLog(
+        sourceLabel.isEmpty
+            ? '📖 映射表增量抽取（采集源${sourceContent.length}字）…'
+            : '📖 映射表增量抽取（采集源：$sourceLabel，${sourceContent.length}字）…',
+      );
       final config = wbApi.effectiveApiKey.isNotEmpty || wbApi.useCustom
           ? wbApi
           : mainApi;
