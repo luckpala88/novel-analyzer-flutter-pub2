@@ -1301,6 +1301,13 @@ const SizedBox(width: 8),
               shot.voice,
               const Color(0xFFB45309),
             ),
+          if (shot.style.isNotEmpty)
+            dimLine(
+              '📐',
+              '文风/Style',
+              shot.style,
+              const Color(0xFF7C3AED),
+            ),
           if (shot.ink.isNotEmpty)
             dimLine(
               '🖌',
@@ -1431,6 +1438,7 @@ const SizedBox(width: 8),
           sb.writeln('文笔节奏(Prose Style)：${sh.proseStyle}');
           if (sh.voice.isNotEmpty)
             sb.writeln('语感(Voice)：${sh.voice}');
+          if (sh.style.isNotEmpty) sb.writeln('文风(Style)：${sh.style}');
           if (sh.ink.isNotEmpty) sb.writeln('笔墨(Ink)：${sh.ink}');
           if (sh.abstraction.isNotEmpty)
             sb.writeln('功能抽象(Abstract)：${sh.abstraction}');

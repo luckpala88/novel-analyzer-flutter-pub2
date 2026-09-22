@@ -15,6 +15,7 @@ class Shot {
   String abstraction; // 功能抽象（类型层：该分镜的叙事功能，无原著专有名词。推演模式的骨架维度）
   String voice; // 语感锚（v218：修饰密度|句式|语域|原著例句——约束改编与正文的行文质感，治AI文学腔）
   String ink; // 笔墨配额（v219：分镜内各部分字数分配"心理盘算70字·摊主反应30字"——治AI平均用力，作者注意力权重的分镜级量化）
+  String style; // 文风量化标尺（v640：句长N字|短句占比N%|动词密度N|对话占比N%|形容词密度N|比喻密度N——逐镜独立统计，防AI退回默认文风）
   String endText; // v363：镜级分界原句（本分镜结束处的最后一句原文，照抄含标点）
   String text; // v363：镜级锚定切片（拆解后按end_text链式物化；空=未物化回退场景切片）
 
@@ -31,6 +32,7 @@ class Shot {
     this.abstraction = '',
     this.voice = '',
     this.ink = '',
+    this.style = '',
     this.endText = '',
     this.text = '',
   });
@@ -48,6 +50,7 @@ class Shot {
       proseStyle: json['prose_style'] ?? json['proseStyle'] ?? '',
       abstraction: json['abstract'] ?? json['abstraction'] ?? '',
       voice: json['voice'] ?? '',
+      style: json['style'] ?? '',
       ink: json['ink'] ?? '',
       endText: json['end_text'] ?? json['endText'] ?? '',
       text: json['text'] ?? '',
@@ -66,6 +69,7 @@ class Shot {
     if (proseStyle.isNotEmpty) 'prose_style': proseStyle,
     if (abstraction.isNotEmpty) 'abstract': abstraction,
     if (voice.isNotEmpty) 'voice': voice,
+    if (style.isNotEmpty) 'style': style,
     if (ink.isNotEmpty) 'ink': ink,
     if (endText.isNotEmpty) 'end_text': endText,
     if (text.isNotEmpty) 'text': text,
