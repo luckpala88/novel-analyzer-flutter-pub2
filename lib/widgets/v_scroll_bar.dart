@@ -1,6 +1,8 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import '../state/app_state.dart';
+
 /// 按下即赢手势竞技场——普通GestureDetector的垂直拖拽与列表滚动识别器
 /// 同场竞技,列表常先赢(用户实测"要停顿一会儿才能选中")。addPointer时
 /// 立即accept,拇指独占该指针,列表不再抢
@@ -73,7 +75,11 @@ class _VScrollBarState extends State<VScrollBar> {
     Widget? result;
     try {
       result = _build(context);
-    } catch (_) {
+    } catch (e) {
+      // v665：降级不静默——真实原因打进统一终端(用户可复制回报定位)
+      try {
+        AppState.instance.apiLog('⛔ 滚动条布局异常(已降级): $e');
+      } catch (_) {}
       result = const SizedBox.shrink(); // 布局怪癖降级：无滚动条不喷红字
     }
     return result ?? const SizedBox.shrink();
