@@ -318,7 +318,11 @@ Future<void> runGlobalSceneScan({
           final last = state.globalScenes.isNotEmpty
               ? state.globalScenes.last
               : null;
-          if (sc.continuation && last != null) {
+          // v653：合并门槛——仅半章锚点续扫(anchorOffset>0)才允许跨窗合并。
+          // 常规窗口末场景必收束,模型误标continuation会把两个独立场景缝成
+          // 一条(用户实测场景38"夺宝比试"+"回屋报喜"被"；"缝死)。
+          // 宁可多切一条可后并,不可错并难拆
+          if (sc.continuation && last != null && anchorOffset > 0) {
             last.text = last.text.endsWith(sc.text)
                 ? last.text
                 : last.text + sc.text;
@@ -330,6 +334,10 @@ Future<void> runGlobalSceneScan({
             last.endText = sc.endText;
             log('✂ 跨窗口场景合并：「${sc.name}」并入全局场景${state.globalScenes.length}');
           } else {
+            if (sc.continuation && anchorOffset == 0) {
+              log('⚠ 场景「${sc.name}」continuation标记被拒（非锚点续扫）——按新场景落库');
+            }
+            sc.continuation = false;
             sc.globalIndex = state.globalScenes.length;
             state.globalScenes.add(sc);
           }
