@@ -123,9 +123,10 @@ class _VScrollBarState extends State<VScrollBar> {
             ),
           ),
           // 拇指拖拽（按下即赢）
+          // v669：右移出系统边缘手势区——贴右缘会误触成系统右滑返回
           Positioned(
             top: top,
-            right: 2,
+            right: 10,
             child: RawGestureDetector(
               behavior: HitTestBehavior.opaque,
               gestures: {
