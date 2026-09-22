@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import '../widgets/v_scroll_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -246,17 +247,19 @@ const SizedBox(width: 8),
               child: ContentFont.area(context, scale: _fontScale, child: arcs.isEmpty
                   ? _buildEmpty(context)
                   : SelectionArea(
-                    child: Scrollbar(
-                      controller: _listCtl,
-                      thumbVisibility: true,
-                      thickness: 14, // v657：默认8px手指点不到
-                      radius: const Radius.circular(7),
-                      child: ListView.builder(
+                    child: Stack(
+                      children: [
+                        ListView.builder(
                         controller: _listCtl,
                         itemCount: arcs.length,
                         itemBuilder: (ctx, i) =>
                             _buildArcCard(context, state, arcs[i], i),
-                      ),
+                        ),
+                        Positioned(
+                          right: 0, top: 0, bottom: 0,
+                          child: VScrollBar(_listCtl),
+                        ),
+                      ],
                     ),
                   ),
             )),

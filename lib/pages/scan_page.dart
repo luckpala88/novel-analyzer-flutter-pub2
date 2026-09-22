@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import '../widgets/v_scroll_bar.dart';
 
 import '../widgets/slice_viewer_sheet.dart';
 import 'package:flutter/services.dart';
@@ -446,12 +447,9 @@ class _ScanPageState extends State<ScanPage>
                       ),
                     )
                   : SelectionArea(
-                    child: Scrollbar(
-                      controller: _listCtl,
-                      thumbVisibility: true,
-                      thickness: 14, // v657：默认8px手指点不到
-                      radius: const Radius.circular(7),
-                      child: ListView.builder(
+                    child: Stack(
+                      children: [
+                        ListView.builder(
                         controller: _listCtl,
                         itemCount: arcs.length,
                       itemBuilder: (ctx, i) {
@@ -772,7 +770,12 @@ class _ScanPageState extends State<ScanPage>
                           ),
                         );
                       },
-                      ),
+                        ),
+                        Positioned(
+                          right: 0, top: 0, bottom: 0,
+                          child: VScrollBar(_listCtl),
+                        ),
+                      ],
                     ),
                   ),
             )),

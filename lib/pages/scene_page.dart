@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'dart:async';
+import '../widgets/v_scroll_bar.dart';
 import 'package:flutter/material.dart';
 
 import '../widgets/slice_viewer_sheet.dart';
@@ -315,12 +316,9 @@ const Spacer(), // ⚙API推到最右
                         ),
                       )
                     : SelectionArea(
-                        child: Scrollbar(
-                          controller: _listCtl,
-                          thumbVisibility: true,
-                          thickness: 14, // v657：默认8px手指点不到
-                          radius: const Radius.circular(7),
-                          child: ListView.builder(
+                        child: Stack(
+                          children: [
+                            ListView.builder(
                             controller: _listCtl,
                             itemCount: state.globalScenes.length,
                           itemBuilder: (ctx, i) => SceneCardItem(
@@ -335,10 +333,15 @@ const Spacer(), // ⚙API推到最右
                             onCutResume: () =>
                                 _confirmCutResume(state, i),
                           ),
+                            ),
+                            Positioned(
+                              right: 0, top: 0, bottom: 0,
+                              child: VScrollBar(_listCtl),
+                            ),
+                          ],
                         ),
-                        ),
-                      ),
               ),
+            ),
             ),
             // 统一终端（日志+终止）— v468 api-step-log
           ],
