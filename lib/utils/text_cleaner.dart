@@ -57,7 +57,7 @@ class TextCleaner {
     final m = shotRe.firstMatch(content);
     if (m == null || m.start == 0) return content; // 无分镜/分镜已在最前
     final dimRe = RegExp(
-      r'^[^\u4e00-\u9fa5\n\n]*(投放信息|作者意图|意图|转场手法|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能)(\s*[(（][A-Za-z /]+[)）])?\s*[：:]',
+      r'^[^\u4e00-\u9fa5\n\n]*(投放信息|作者意图|意图|转场手法|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能|文风)(\s*[(（][A-Za-z /]+[)）])?\s*[：:]',
     );
     final lines = content.split('\n');
     var headEnd = -1; // 首个分镜头所在行
@@ -133,6 +133,32 @@ class TextCleaner {
     return sb.toString().trim();
   }
 
+  /// v680：行中结构标签分裂——DeepSeek兼容格式下维度行互相粘在同一行
+  /// （截图实证："句类四态:心理100描写铺垫文风(Style)：句长18字|…"两行挤一行），
+  /// 行中出现的"分镜N：/维度标签(English)："前强制补换行，恢复每维度一行。
+  /// 只认带全角括号英文注记或冒号的结构标签，正文误伤概率趋零
+  static String splitGluedLabels(String content) {
+    // 结构标签：中文维度名(英文注记)： / 分镜N：｜ / 英文标签：
+    final labelRe = RegExp(
+      r'([^\n：:])('
+      r'(?:分[镜景]\s*\d+\s*[：:｜])|'
+      r'(?:文风|语感|笔墨|焦点|镜头类型|镜头子类型|视角|投放信息|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|叙事功能|语感锚|笔墨配额)'
+      r'\s*[（(][A-Za-z /]+[)）]\s*[：:]|'
+      r'(?:Focus|Shot Type|POV|Info|Intent|Transition|Length|Prose Style|Abstract|Voice|Ink)\s*[（(][A-Za-z /]*[)）]?\s*[：:]'
+      r')',
+      caseSensitive: false,
+    );
+    var prev = '';
+    var cur = content;
+    var guard = 0;
+    while (prev != cur && guard < 10) {
+      guard++;
+      prev = cur;
+      cur = cur.replaceAllMapped(labelRe, (m) => '${m.group(1)}\n${m.group(2)}');
+    }
+    return cur;
+  }
+
   /// v643：维度行粘连修复——正文粘在维度值后（同一行无换行）时，在值内
   /// 第一个句末标点（。！？）后补换行。仅处理值含≥2个句末标点的行（真维度
   /// 行的值是短语，0-1个句末标点），避免误切语感例句等合法长值
@@ -179,6 +205,7 @@ class TextCleaner {
     // v643：粘连换行修复——DeepSeek等把正文直接粘在维度值后（同一行无
     // 换行，截图实证：功能抽象值后接整段正文），在第一个句末标点后补换行：
     // 维度行恢复独立（可被正常剥离），正文成独立段（不再随维度行被剔）
+    content = splitGluedLabels(content); // v680：行中标签先分裂
     content = _fixGluedDimLines(content);
     final glued = detectGluedBody(content);
     final pure = <String>[];
@@ -207,10 +234,10 @@ class TextCleaner {
       // 正文以维度值身份藏身（伪JSON污染形态：功能抽象：+几千字正文挤
       // 同一行），剥标签留正文（丢标签救正文——渲染/导出兜底）
       final dimCn = RegExp(
-        r'^[^\u4e00-\u9fa5\n]*\s*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|镜头子类型|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能)(\s*[(（][A-Za-z /]+[)）])?\s*(/\s*[A-Za-z /]+)?\s*[：:]\s*(.*)$',
+        r'^[^\u4e00-\u9fa5\n]*\s*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|镜头子类型|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能|文风)(\s*[(（][A-Za-z /]+[)）])?\s*(/\s*[A-Za-z /]+)?\s*[：:]\s*(.*)$',
       ).firstMatch(t);
       final dimEn = RegExp(
-        r'^[^\u4e00-\u9fa5\n]*(Focus|Shot Type|POV|Info|Intent|Transition|Length|Prose Style|Abstract|Voice|Ink)\s*[：:]\s*(.*)$',
+        r'^[^\u4e00-\u9fa5\n]*(Focus|Shot Type|POV|Info|Intent|Transition|Length|Prose Style|Abstract|Voice|Ink|Style)\s*[：:]\s*(.*)$',
         caseSensitive: false,
       ).firstMatch(t);
       final dimM = dimCn ?? dimEn;
@@ -301,7 +328,8 @@ class TextCleaner {
         ? _normalizeJsonOutput(raw)
         : _normalizeTextOutput(raw);
     // v413：嵌入式JSON壳清除（两种模式统一过一遍）
-    return stripJsonShells(out);
+    // v680：行中结构标签分裂（DeepSeek兼容格式维度行互粘，创作/改编通用）
+    return stripJsonShells(splitGluedLabels(out));
   }
 
   /// v413：嵌入式JSON壳清除——AI把某段正文包在{"content":"..."}里输出，
@@ -415,7 +443,7 @@ class TextCleaner {
       r'^[^\u4e00-\u9fa5\n]*#*[\[（(【]?分[镜景](头)?\s*\d*\s*[\]）)】]?\s*[：:]?',
     );
     final dimRe = RegExp(
-      r'^[^\u4e00-\u9fa5\n]*\s*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|镜头子类型|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能)(\s*[(（][A-Za-z /]+[)）])?\s*(/\s*[A-Za-z /]+)?\s*[：:]\s*(.*)$',
+      r'^[^\u4e00-\u9fa5\n]*\s*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|镜头子类型|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能|文风)(\s*[(（][A-Za-z /]+[)）])?\s*(/\s*[A-Za-z /]+)?\s*[：:]\s*(.*)$',
     );
     // 按分镜头行分块（行号列表）
     final blocks = <List<int>>[];
@@ -494,7 +522,7 @@ class TextCleaner {
   static String repairGluedShotEntry(String t) {
     if (!t.contains('分镜') && !t.contains('分景')) return t;
     final re = RegExp(
-      r'^[^\u4e00-\u9fa5\n]*\s*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|镜头子类型|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能)(\s*[(（][A-Za-z /]+[)）])?\s*[：:].*?[\[【]?分[镜景](头)?\s*\d+\s*[\]】]?\s*[：:]?\s*$',
+      r'^[^\u4e00-\u9fa5\n]*\s*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|镜头子类型|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能|文风)(\s*[(（][A-Za-z /]+[)）])?\s*[：:].*?[\[【]?分[镜景](头)?\s*\d+\s*[\]】]?\s*[：:]?\s*$',
     );
     final out = <String>[];
     for (final l in t.split('\n')) {
