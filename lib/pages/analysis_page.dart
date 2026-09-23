@@ -454,9 +454,7 @@ const SizedBox(width: 8),
                       textStyle: const TextStyle(fontSize: 12),
                     ),
                     label: Text(
-                      hasAnalysis
-                          ? '重拆分镜（智能分发）'
-                          : (scenes.isNotEmpty ? '拆分镜（该弧线场景）' : '未划分场景'),
+                      '弧线内批量',
                     ),
                     onPressed: _isAnalyzing || scenes.isEmpty
                         ? null
