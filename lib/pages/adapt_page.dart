@@ -3810,10 +3810,14 @@ class _AdaptPageState extends State<AdaptPage>
         // v388b：映射表增量抽取（不阻塞主流程）
         // v392：await串行——unawaited会与下一步请求撞车（API单任务守卫拒绝框架请求=停机）
         await state.extractNameMapIncrement(
-          // v674：采集来源=弧线完整正文切片（用户定稿）——改编输出不当采集源
-          arc.text.isNotEmpty ? arc.text : sumResult.content,
+          // v678：采集来源=本弧线改编要求+弧线概述（用户定稿v2：大切片不细致，
+          // 专有名词在要求与概述里已够覆盖；场景级名称留给场景步细采）
+          ((state.worldBook!.arcRequirements[arcKey] ?? '').trim().isNotEmpty
+                  ? '${state.worldBook!.arcRequirements[arcKey]}\n\n'
+                  : '') +
+              sumResult.content,
           adaptedInput: false,
-          sourceLabel: '弧线${arc.number}完整正文切片',
+          sourceLabel: '弧线${arc.number}改编要求+概述',
         ); // v574
         // v621：故事圣经——弧线1初始化/弧线N+增量回流（失败不阻塞主流程，只告警）
         await _updateStoryBible(
@@ -4014,10 +4018,11 @@ class _AdaptPageState extends State<AdaptPage>
           // v388b：映射表增量抽取（不阻塞主流程）
           // v392：await串行防撞车
           await state.extractNameMapIncrement(
-            // v674：采集来源=场景正文切片
-            scene.text.isNotEmpty ? scene.text : frameResult.content,
+            // v678：采集来源=场景改编要求+场景正文切片（切片比弧线级小得多，抽得细）
+            ((sceneReqAll.trim().isNotEmpty) ? '$sceneReqAll\n\n' : '') +
+                (scene.text.isNotEmpty ? scene.text : frameResult.content),
             adaptedInput: false,
-            sourceLabel: '弧线${arc.number}场景${si + 1}正文切片',
+            sourceLabel: '弧线${arc.number}场景${si + 1}切片+改编要求',
           ); // v574
         } // v214 skipFrame else结束
 
@@ -4219,20 +4224,7 @@ class _AdaptPageState extends State<AdaptPage>
           }
           state.saveWorldBook();
           state.refresh();
-          // v388b：分镜填充后映射表增量抽取
-          // v392：await串行防撞车
-          await state.extractNameMapIncrement(
-            // v674：采集来源=分镜切片（未物化回退场景切片）
-            (() {
-              final shotTexts = scene.shots
-                  .map((sh) => sh.text)
-                  .where((t) => t.isNotEmpty)
-                  .join('\n');
-              return shotTexts.isNotEmpty ? shotTexts : scene.text;
-            })(),
-            adaptedInput: false,
-            sourceLabel: '弧线${arc.number}场景${si + 1}分镜切片',
-          ); // v574
+          // v678：分镜步不再采集映射表（名称在场景步已细采，分镜无新增专名）
         }
         }
 
@@ -4443,11 +4435,12 @@ class _AdaptPageState extends State<AdaptPage>
         }
         state.saveWorldBook();
         _addLog('✓ 场景${sceneIdx + 1}框架已生成并合并进弧线条目');
-        // v676：单独改编也追加映射表——采集源=场景正文切片
+        // v678：单独改编也追加映射表——采集源=场景改编要求+正文切片
         await state.extractNameMapIncrement(
-          scene.text,
+          ((sceneReqAll.trim().isNotEmpty) ? '$sceneReqAll\n\n' : '') +
+              scene.text,
           adaptedInput: false,
-          sourceLabel: '单独改编·场景${sceneIdx + 1}正文切片',
+          sourceLabel: '单独改编·场景${sceneIdx + 1}切片+改编要求',
         ); // v574
       } else {
         _addLog('场景${sceneIdx + 1}框架已存在（直接填分镜）');
@@ -4529,18 +4522,7 @@ class _AdaptPageState extends State<AdaptPage>
         );
         if (merged) {
           _addLog('✓ 场景${sceneIdx + 1}改编完成（已合并进弧线${arc.number}条目）');
-          // v676：单独改编分镜填充后追加映射表——采集源=分镜切片
-          await state.extractNameMapIncrement(
-            (() {
-              final shotTexts = scene.shots
-                  .map((sh) => sh.text)
-                  .where((t) => t.isNotEmpty)
-                  .join('\n');
-              return shotTexts.isNotEmpty ? shotTexts : scene.text;
-            })(),
-            adaptedInput: false,
-            sourceLabel: '单独改编·场景${sceneIdx + 1}分镜切片',
-          ); // v574
+          // v678：分镜步不再采集映射表（名称在场景步已细采）
         } else {
           _addLog('⚠️ 场景${sceneIdx + 1}分镜合并失败（场景块未找到）');
         }
