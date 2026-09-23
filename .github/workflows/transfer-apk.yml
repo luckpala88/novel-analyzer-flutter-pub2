@@ -24,10 +24,10 @@ jobs:
           TOKEN="${{ secrets.UPD_TOKEN }}"
           # v698：releases/tags/X查不到draft草稿（404）——必须全列表按tag_name过滤draft
           REL_ID=$(curl -s -H "Authorization: token $TOKEN" "https://api.github.com/repos/luckpala88/novel-analyzer-flutter-pub2/releases?per_page=100" | python3 -c "
-import json,sys
-r=json.load(sys.stdin)
-ids=[x['id'] for x in r if x['tag_name']=='${{ env.TAG }}']
-print(ids[0] if ids else '')")
+              import json,sys
+              r=json.load(sys.stdin)
+              ids=[x['id'] for x in r if x['tag_name']=='${{ env.TAG }}']
+              print(ids[0] if ids else '')")
           if [ -n "$REL_ID" ]; then curl -s -X PATCH -H "Authorization: token $TOKEN" -H "Content-Type: application/json" -d '{"draft":false}' "https://api.github.com/repos/luckpala88/novel-analyzer-flutter-pub2/releases/$REL_ID" -o /dev/null && echo "draft已发布"; fi
       - name: Download from mirror release
         run: |
