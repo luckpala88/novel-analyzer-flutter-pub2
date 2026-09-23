@@ -4069,7 +4069,7 @@ class _WritingPageState extends State<WritingPage>
       // 换共享判定dimValuePolluted（>200字或≥3句读），60字误伤语感例句
       // /笔墨配额等真长维度值=用户实测'功能抽象内容反过来混入正文'
       final fld = RegExp(
-        r'^[^\u4e00-\u9fa5\n]*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|语感|笔墨|语感锚|笔墨配额|叙事功能)(\s*[(（][A-Za-z /]+[)）])?\s*[：:]\s*(.*)',
+        r'^[^\u4e00-\u9fa5\n]*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|语感|笔墨|语感锚|笔墨配额|叙事功能|文风)(\s*[(（][A-Za-z /]+[)）])?\s*[：:]\s*(.*)',
       ).firstMatch(t);
       if (fld != null && TextCleaner.dimValuePolluted(fld.group(3) ?? '')) {
         // 污染行：flush维度卡，剥标签的正文按正文段渲染（正文不再被吞）
@@ -4109,6 +4109,7 @@ class _WritingPageState extends State<WritingPage>
           '转场手法' || '转场' => '转场手法/Transition',
           '篇幅' => '篇幅/Length',
           '文笔节奏' => '文笔节奏/Prose Style',
+          '文风' => '文风/Style', // v680：量化标尺维度行进分镜卡
           '语感' || '语感锚' => '语感/Voice',
           '笔墨' || '笔墨配额' => '笔墨/Ink',
           '功能抽象' || '叙事功能' => '功能抽象/Abstract',
@@ -4123,6 +4124,7 @@ class _WritingPageState extends State<WritingPage>
           '转场手法' || '转场' => ('✂️', const Color(0xFF0F766E)),
           '篇幅' => ('📏', const Color(0xFF7C3AED)),
           '文笔节奏' => ('✍', const Color(0xFFDB2777)),
+          '文风' => ('📊', const Color(0xFF6D28D9)), // v680
           '语感' || '语感锚' => ('🎙', const Color(0xFFB45309)),
           '笔墨' || '笔墨配额' => ('🖌', const Color(0xFF0369A1)),
           '功能抽象' => ('🧩', const Color(0xFF0F766E)),
