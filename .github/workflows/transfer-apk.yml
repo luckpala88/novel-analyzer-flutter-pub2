@@ -22,7 +22,12 @@ jobs:
         run: |
           # v498：删tag重打会产生draft Release，先发布否则下载404
           TOKEN="${{ secrets.UPD_TOKEN }}"
-          REL_ID=$(curl -s -H "Authorization: token $TOKEN" "https://api.github.com/repos/luckpala88/novel-analyzer-flutter-pub2/releases/tags/${{ env.TAG }}" | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))")
+          # v698：releases/tags/X查不到draft草稿（404）——必须全列表按tag_name过滤draft
+          REL_ID=$(curl -s -H "Authorization: token $TOKEN" "https://api.github.com/repos/luckpala88/novel-analyzer-flutter-pub2/releases?per_page=100" | python3 -c "
+import json,sys
+r=json.load(sys.stdin)
+ids=[x['id'] for x in r if x['tag_name']=='${{ env.TAG }}']
+print(ids[0] if ids else '')")
           if [ -n "$REL_ID" ]; then curl -s -X PATCH -H "Authorization: token $TOKEN" -H "Content-Type: application/json" -d '{"draft":false}' "https://api.github.com/repos/luckpala88/novel-analyzer-flutter-pub2/releases/$REL_ID" -o /dev/null && echo "draft已发布"; fi
       - name: Download from mirror release
         run: |
