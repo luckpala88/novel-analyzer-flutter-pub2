@@ -1758,8 +1758,9 @@ const SizedBox(width: 8),
     final scene = scenes[sceneIdx];
 
     // v692：函数内防重入（双击落在按钮重建完成前=绕过构建期_isAnalyzing判断，
-    // 实测单场景拆解弹两次词链）——第二道保险，批量路径由调用方守卫
-    if (_isAnalyzing) {
+    // 实测单场景拆解弹两次词链）——仅拦单场景路径；批量路径外层已置
+    // _isAnalyzing=true，v698误伤批量（每场景被自己拦下）此处必须豁免
+    if (!batch && _isAnalyzing) {
       _addLog('已有拆解任务进行中——忽略重复触发（防双击重入）');
       return false;
     }
