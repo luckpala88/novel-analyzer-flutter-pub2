@@ -1796,47 +1796,93 @@ const SizedBox(width: 8),
 
       // v468对齐：分镜拆解用「拆解API」（analyzeSingleScene→getAnalysisAPIConfig），场景划分才用「场景API」
       final config = state.getApiConfig('analysis');
-      // v225：重试1次（对齐改编页v176经验——中转假流式偶发返回极短内容，
-      // 218字无shots的case重试通常就好）+失败dump样本（写parser前先看真实返回）
-      var result = await state.api.callApi(
-        systemPrompt: systemPrompt,
-        userPrompt: userPrompt,
-        apiConfig: config,
-      );
-      var parsed = JsonRepair.parseResponse(result.content);
-      var shotsJson = parsed?['shots'] as List?;
-      var retry = 0;
-      // v684：撤销v683数量守卫（用户定稿：分镜数由分镜定义决定——AI按定义分析
-      // 原文，外部数值锚点（段落/历史/字数）都不是分镜语义。保留v225原有的
-      // "过短无分镜"重试，那才是截断/坏格式的正确信号）
-      var shotsShort = shotsJson == null || shotsJson.isEmpty;
-      while (result.isSuccess &&
-          shotsShort &&
-          result.content.length < 500 &&
-          retry < 1 &&
-          !state.api.isAborted) {
-        retry++;
-        _addLog(
-          '⚠️ 返回过短（${result.content.length}字）无分镜，重试1次...样本头200字：${result.content.length > 200 ? result.content.substring(0, 200) : result.content}',
+      // v687：分批拆镜——输出体量压力实测：3703字切片单次只拆出18镜（合并），
+      // 82镜需约2.3万字输出，模型在万字号级启动压缩倾向（合并分镜=最省力偷懒）。
+      // 切片>4000字按段落边界分批（批边界=段边界，段内完整，按"每段覆盖"定义
+      // 无损），每批独立拆解，程序按序拼接shots；批内每镜end_text必填（物化链需要）
+      final shotBatches = <String>[];
+      if (chapterText.length <= 4000) {
+        shotBatches.add(chapterText);
+      } else {
+        final buf = StringBuffer();
+        for (final line in chapterText.split('\n')) {
+          if (buf.isNotEmpty && buf.length + line.length + 1 > 3500) {
+            shotBatches.add(buf.toString());
+            buf.clear();
+          }
+          buf.writeln(line);
+        }
+        if (buf.isNotEmpty) shotBatches.add(buf.toString());
+      }
+      if (shotBatches.length > 1) {
+        _addLog('分批拆镜：${chapterText.length}字分${shotBatches.length}批（段落边界，每批≤3500字，防输出压缩合并）');
+      }
+      final mergedShots = <Map<String, dynamic>>[];
+      for (var bi = 0; bi < shotBatches.length; bi++) {
+        final isLast = bi == shotBatches.length - 1;
+        final batchPrompt = PromptBuilder.buildShotUserPrompt(
+          scene,
+          shotBatches[bi],
+          batchIdx: bi + 1,
+          totalBatches: shotBatches.length,
+          isLastBatch: isLast,
         );
-        await Future.delayed(const Duration(seconds: 3));
-        if (state.api.isAborted || state.userAborted) break;
-        result = await state.api.callApi(
+        if (bi == 0) {
+          final ok = await PromptPreview.maybePreview(
+            context,
+            sysPrompt: systemPrompt,
+            userPrompt: batchPrompt,
+            title: '分镜拆解词链预览（首批1/${shotBatches.length}）',
+            enabled: state.shotPromptPreview,
+          );
+          if (!ok) {
+            _addLog('用户在预览后终止');
+            return false;
+          }
+        } else if (shotBatches.length > 1) {
+          _addLog('批次${bi + 1}/${shotBatches.length}发送（词链同首批，仅原文段不同）');
+        }
+        var result = await state.api.callApi(
           systemPrompt: systemPrompt,
-          userPrompt: userPrompt,
+          userPrompt: batchPrompt,
           apiConfig: config,
         );
-        parsed = JsonRepair.parseResponse(result.content);
-        shotsJson = parsed?['shots'] as List?;
-        shotsShort = shotsJson == null || shotsJson.isEmpty;
+        var parsed = JsonRepair.parseResponse(result.content);
+        var shotsJson = parsed?['shots'] as List?;
+        var retry = 0;
+        while (result.isSuccess &&
+            (shotsJson == null || shotsJson.isEmpty) &&
+            result.content.length < 500 &&
+            retry < 1 &&
+            !state.api.isAborted) {
+          retry++;
+          _addLog('⚠️ 批次${bi + 1}返回过短（${result.content.length}字）无分镜，重试1次');
+          await Future.delayed(const Duration(seconds: 3));
+          if (state.api.isAborted || state.userAborted) break;
+          result = await state.api.callApi(
+            systemPrompt: systemPrompt,
+            userPrompt: batchPrompt,
+            apiConfig: config,
+          );
+          parsed = JsonRepair.parseResponse(result.content);
+          shotsJson = parsed?['shots'] as List?;
+        }
+        if (!result.isSuccess) {
+          scene.shots = oldShots;
+          _addLog('❌ 批次${bi + 1}/${shotBatches.length}拆解失败：${result.error}——停机（分镜已回滚，重拆全场景）');
+          return false;
+        }
+        if (shotsJson == null || shotsJson.isEmpty) {
+          scene.shots = oldShots;
+          _addLog('❌ 批次${bi + 1}/${shotBatches.length}未解析到分镜——停机（分镜已回滚，重拆全场景）');
+          return false;
+        }
+        _addLog('批次${bi + 1}/${shotBatches.length}：${shotsJson.length}镜（返回${result.content.length}字）');
+        mergedShots.addAll(shotsJson.cast<Map<String, dynamic>>());
       }
-
-      if (result.isSuccess) {
-        _addLog('API返回：${result.content.length}字');
-        if (shotsJson != null && shotsJson.isNotEmpty) {
-          scene.shots = shotsJson
-              .map((e) => Shot.fromJson(e as Map<String, dynamic>))
-              .toList();
+      if (mergedShots.isNotEmpty) {
+        scene.shots =
+            mergedShots.map((e) => Shot.fromJson(e)).toList();
           // v363：镜级切片物化（尽力而为）——从scene.text链式定位每镜end_text。
           // 失败→该镜text留空，创作端回退场景切片，绝不影响拆解落库（与场景
           // 物化的严格模式相反：场景切片是拆解输入必须严，镜切片只是创作范文必须宽）
@@ -1881,14 +1927,9 @@ const SizedBox(width: 8),
           }
           state.refresh();
           return true;
-        } else {
-          scene.shots = oldShots;
-          _addLog('错误：未解析到分镜数据');
-          return false;
-        }
       } else {
         scene.shots = oldShots;
-        _addLog('API错误：${result.error}');
+        _addLog('❌ 未解析到分镜数据');
         return false;
       }
     } catch (e) {

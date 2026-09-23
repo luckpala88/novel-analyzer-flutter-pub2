@@ -292,15 +292,23 @@ class PromptBuilder {
   }
 
   /// buildShotUserPrompt
-  static String buildShotUserPrompt(dynamic scene, dynamic chapterText) {
+  static String buildShotUserPrompt(dynamic scene, dynamic chapterText,
+      {int batchIdx = 1, int totalBatches = 1, bool isLastBatch = true}) {
     // v684：撤销v683数量锚点（用户定稿：分镜数由分镜定义决定，AI按定义分析
     // 原文自然产出数量，段落/历史/字数都不是分镜语义，外部锚点=错误约束）
+    // v687：分批拆镜——长切片按段落边界分批独立拆解，防单次输出体量触发
+    // 模型压缩合并（实测3703字拆18镜 vs 定义粒度80镜）
+    final batchNote = totalBatches > 1
+        ? '⚠️ **分批拆解**：本场景原文共分$totalBatches批（按段落边界切分），本批为第$batchIdx批。逐段覆盖铁律不变，本批原文是场景的连续一段——照常从本批第一段拆到最后一段。**本批每条分镜都必须填end_text（包括本批最后一条）**——它是与下一批的衔接分界句，缺失=批间断裂。' +
+            (isLastBatch ? '本批为最后一批：最后一条分镜不填end_text（默认到场景末尾）。\n\n' : '\n\n')
+        : '';
     return '场景：' +
         scene.name +
         '\n' +
         '章节范围：' +
         (scene.chapterRange ?? '') +
         '\n\n' +
+        batchNote +
         '请为以上场景拆解叙事分镜。场景概述末尾可能带「文风：…」统计（原作者笔法量化指标），拆分镜时以此为基准为每个分镜产出文风行（文风(Style)：句长N字|短句占比N%|动词密度N|对话占比N%——**固定4项**，占比必须带%号；弧级【文风指纹】的"的"字密度/语气词频率/段落均长/标点/句类四态等13项指标不进分镜行），在本镜基础上按分镜节奏微调（动作镜短句密、铺垫镜长句疏）。原文的每一个自然段落（包括旁白、评价、背景介绍、环境描写等非角色段落）都必须有对应的分镜，不要遗漏。\n\n' +'每个分镜的end_text必须从原文逐字照抄该分镜结束处的最后一句（含标点），禁止改写、缩写或拼接。\n\n' +
         '原文：\n' +
         chapterText;
