@@ -1786,19 +1786,8 @@ const SizedBox(width: 8),
         true,
         state.funcAbstract,
       );
-      final userPrompt = PromptBuilder.buildShotUserPrompt(scene, chapterText);
-
-      final ok = await PromptPreview.maybePreview(
-        context,
-        sysPrompt: systemPrompt,
-        userPrompt: userPrompt,
-        title: '分镜拆解词链预览',
-        enabled: state.shotPromptPreview,
-      );
-      if (!ok) {
-        _addLog('用户在预览后终止');
-        return false;
-      }
+      // v694：删除旧单次预览块（v687分批改造时漏删——导致每批预览前先弹
+      // 一次旧词链=用户实证连弹两次、标题不同）
 
       // v468对齐：分镜拆解用「拆解API」（analyzeSingleScene→getAnalysisAPIConfig），场景划分才用「场景API」
       final config = state.getApiConfig('analysis');
