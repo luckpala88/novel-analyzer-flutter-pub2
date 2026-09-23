@@ -21,13 +21,14 @@ jobs:
       - name: Publish draft release
         run: |
           # v498：删tag重打会产生draft Release，先发布否则下载404
-          TOKEN="${{ secrets.UPD_TOKEN }}"
-          # v698：releases/tags/X查不到draft草稿（404）——必须全列表按tag_name过滤draft
-          REL_ID=$(curl -s -H "Authorization: token $TOKEN" "https://api.github.com/repos/luckpala88/novel-analyzer-flutter-pub2/releases?per_page=100" | python3 -c "
+          # v698d：发布草稿改用GITHUB_TOKEN（pub2自身token必然可见草稿）——
+          # UPD_TOKEN是私有库token对pub2草稿可能无读权限；bash -e下查询失败即中止步骤
+          TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          REL_ID=$(curl -s -H "Authorization: token $TOKEN" "https://api.github.com/repos/${{ github.repository }}/releases?per_page=100" | python3 -c "
               import json,sys
               r=json.load(sys.stdin)
               ids=[x['id'] for x in r if x['tag_name']=='${{ env.TAG }}']
-              print(ids[0] if ids else '')")
+              print(ids[0] if ids else '')" || true)
           if [ -n "$REL_ID" ]; then curl -s -X PATCH -H "Authorization: token $TOKEN" -H "Content-Type: application/json" -d '{"draft":false}' "https://api.github.com/repos/luckpala88/novel-analyzer-flutter-pub2/releases/$REL_ID" -o /dev/null && echo "draft已发布"; fi
           exit 0 # v698b：无草稿可发布时if不执行=退出码1会被判步骤失败，兜底归零
       - name: Download from mirror release
