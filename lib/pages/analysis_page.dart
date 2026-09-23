@@ -1827,7 +1827,9 @@ const SizedBox(width: 8),
           totalBatches: shotBatches.length,
           isLastBatch: isLast,
         );
-        if (bi == 0) {
+        // v691：批量模式（增量拆/全部重拆）只在第一个场景弹预览——
+        // 逐场景都弹=N次打断（用户实测弧线1两场景连弹两次）
+        if (bi == 0 && (!batch || sceneIdx == 0)) {
           final ok = await PromptPreview.maybePreview(
             context,
             sysPrompt: systemPrompt,
