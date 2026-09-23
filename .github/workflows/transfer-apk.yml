@@ -29,6 +29,7 @@ jobs:
               ids=[x['id'] for x in r if x['tag_name']=='${{ env.TAG }}']
               print(ids[0] if ids else '')")
           if [ -n "$REL_ID" ]; then curl -s -X PATCH -H "Authorization: token $TOKEN" -H "Content-Type: application/json" -d '{"draft":false}' "https://api.github.com/repos/luckpala88/novel-analyzer-flutter-pub2/releases/$REL_ID" -o /dev/null && echo "draft已发布"; fi
+          exit 0 # v698b：无草稿可发布时if不执行=退出码1会被判步骤失败，兜底归零
       - name: Download from mirror release
         run: |
           # v580：重试+大小校验——镜像release未就绪时404的"Not Found"(9字节)
