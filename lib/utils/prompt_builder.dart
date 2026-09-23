@@ -299,12 +299,20 @@ class PromptBuilder {
 
   /// buildShotUserPrompt
   static String buildShotUserPrompt(dynamic scene, dynamic chapterText) {
+    // v683：数量锚点——统计原文自然段数注入prompt（实测AI跑偏82镜→30+镜，
+    // "禁止合并"口号无数字可核对约束不住；段落数是确定性锚点）
+    final paraCount = chapterText
+        .toString()
+        .split('\n')
+        .where((l) => l.trim().isNotEmpty)
+        .length;
     return '场景：' +
         scene.name +
         '\n' +
         '章节范围：' +
         (scene.chapterRange ?? '') +
         '\n\n' +
+        '⚠️ **数量锚点（硬约束）**：下方原文共**$paraCount个自然段**。分镜数量必须与段落数同量级（允许1段拆多镜，**禁止多段并1镜**）——分镜数低于段落数的80%=合并了段落=节奏信息丢失=失败。输出前自查：shots数组长度≥$paraCount才允许输出。\n\n' +
         '请为以上场景拆解叙事分镜。场景概述末尾可能带「文风：…」统计（原作者笔法量化指标），拆分镜时以此为基准为每个分镜产出文风行（文风(Style)：句长N字|短句占比N%|动词密度N|对话占比N%——**固定4项**，占比必须带%号；弧级【文风指纹】的"的"字密度/语气词频率/段落均长/标点/句类四态等13项指标不进分镜行），在本镜基础上按分镜节奏微调（动作镜短句密、铺垫镜长句疏）。原文的每一个自然段落（包括旁白、评价、背景介绍、环境描写等非角色段落）都必须有对应的分镜，不要遗漏。\n\n' +'每个分镜的end_text必须从原文逐字照抄该分镜结束处的最后一句（含标点），禁止改写、缩写或拼接。\n\n' +
         '原文：\n' +
         chapterText;
