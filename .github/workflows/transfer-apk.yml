@@ -55,22 +55,9 @@ jobs:
               -d "{\"tag_name\":\"$TAG\",\"name\":\"$TAG\",\"body\":\"CI build via pub mirror\",\"target_commitish\":\"main\"}" \
               "https://api.github.com/repos/$REPO/releases" | python3 -c "import json,sys; r=json.load(sys.stdin); print(r.get('id') or 'ERR:'+str(r.get('errors','')))")
           fi
-          # v686：幂等守卫——已有同名且同大小的asset=转存完成，跳过（防重跑互踩：
-          # 多次触发并发时先删后传会造成下载空窗，APP撞上="没有可下载的APK文件"）
-          APKLOCAL=$(stat -c%s /tmp/app.apk)
-          EXIST=$(curl -s -H "Authorization: token $TOKEN" "https://api.github.com/repos/$REPO/releases/tags/$TAG" | python3 -c "
-import json,sys
-r=json.load(sys.stdin)
-a=[x for x in r.get('assets',[]) if x['name']=='novel_analyzer_flutter.apk']
-print(a[0]['id'],a[0]['size'] if a else '')")
-          EXID=$(echo $EXIST | cut -d' ' -f1); EXSZ=$(echo $EXIST | cut -d' ' -f2)
-          if [ -n "$EXID" ] && [ "$EXSZ" = "$APKLOCAL" ]; then
-            echo "已有同大小asset（$EXSZ字节）——跳过APK转存"
-          else
-          [ -n "$EXID" ] && curl -s -X DELETE -H "Authorization: token $TOKEN" "https://api.github.com/repos/$REPO/releases/assets/$EXID" && echo "旧asset已删"
-          curl -s -X POST -H "Authorization: token $TOKEN" -H "Content-Type: application/vnd.android.package-archive" \
-            --data-binary @/tmp/app.apk "https://uploads.github.com/repos/$REPO/releases/$REL_ID/assets?name=novel_analyzer_flutter.apk" | python3 -c "import json,sys; r=json.load(sys.stdin); print('uploaded:', r.get('name'), r.get('state'))"
-          fi
+          # 删旧同名asset（覆盖）
+          OLD=$(curl -s -H "Authorization: token $TOKEN" "https://api.github.com/repos/$REPO/releases/tags/$TAG" | python3 -c "import json,sys; r=json.load(sys.stdin); print([a['id'] for a in r.get('assets',[]) if a['name']=='novel_analyzer_flutter.apk'][0] if any(a['name']=='novel_analyzer_flutter.apk' for a in r.get('assets',[])) else '')")
+          [ -n "$OLD" ] && curl -s -X DELETE -H "Authorization: token $TOKEN" "https://api.github.com/repos/$REPO/releases/assets/$OLD" && echo "旧asset已删"
           curl -s -X POST -H "Authorization: token $TOKEN" -H "Content-Type: application/vnd.android.package-archive" \
             --data-binary @/tmp/app.apk "https://uploads.github.com/repos/$REPO/releases/$REL_ID/assets?name=novel_analyzer_flutter.apk" | python3 -c "import json,sys; r=json.load(sys.stdin); print('uploaded:', r.get('name'), r.get('state'))"
           # v498：win zip转存（文件有效才传）
