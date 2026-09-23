@@ -101,6 +101,7 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
       _config.model = saved is Map ? (saved['model'] ?? '') : '';
       // v679：新供应商调参从stash恢复
       _config.loadParams();
+      _config.apiType = 'openai'; // 内置提供商恒为openai（stash可能残留claude）
       _apiKeyCtrl.text = _config.apiKey;
       _modelCtrl.text = _config.model;
       _fetchStatus = '';
