@@ -20,6 +20,34 @@ class ApiConfig {
   String formatMode; // 'json' or 'compatible'
   String apiType; // 'openai' or 'claude'
   int rpmLimit; // 每分钟最大请求数（0=不限流；中转站RPM限制用）
+  // v679：per-provider参数stash——{providerId: {temperature,maxTokens,formatMode,apiType,rpmLimit}}
+  // 切换供应商时旧参数入stash、新参数从stash恢复，参数跟着供应商走不再全局
+  Map<String, dynamic> paramStash;
+  /// 当前供应商唯一标识：内置=zhipu/deepseek/gemini；自定义=custom/custom2
+  String get providerId =>
+      useCustom ? (customSlot == 'custom2' ? 'custom2' : 'custom') : provider;
+  /// 当前供应商参数入stash（在改参数后/切走前调用）
+  void stashParams() {
+    paramStash[providerId] = {
+      'temperature': temperature,
+      'maxTokens': maxTokens,
+      'formatMode': formatMode,
+      'apiType': apiType,
+      'rpmLimit': rpmLimit,
+    };
+  }
+
+  /// 从stash恢复当前供应商参数（切到新供应商时调用；没有→保持现值=首次使用）
+  void loadParams() {
+    final p = paramStash[providerId];
+    if (p is! Map) return;
+    if (p['temperature'] != null) temperature = (p['temperature'] as num).toDouble();
+    if (p['maxTokens'] != null) maxTokens = p['maxTokens'] as int;
+    if (p['formatMode'] != null) formatMode = p['formatMode'] as String;
+    if (p['apiType'] != null) apiType = p['apiType'] as String;
+    if (p['rpmLimit'] != null) rpmLimit = p['rpmLimit'] as int;
+  }
+
   ApiConfig({
     this.useCustom = false,
     this.provider = 'zhipu',
@@ -38,7 +66,9 @@ class ApiConfig {
     this.formatMode = 'compatible',
     this.apiType = 'openai',
     this.rpmLimit = 5,
-  }) : builtinStash = builtinStash ?? {};
+    Map<String, dynamic>? paramStash,
+  }) : builtinStash = builtinStash ?? {},
+       paramStash = paramStash ?? {};
 
   factory ApiConfig.fromJson(Map<String, dynamic> json) {
     return ApiConfig(
@@ -61,6 +91,9 @@ class ApiConfig {
       formatMode: json['formatMode'] ?? 'compatible',
       apiType: json['apiType'] ?? 'openai',
       rpmLimit: json['rpmLimit'] ?? 5,
+      paramStash: json['paramStash'] is Map
+          ? Map<String, dynamic>.from(json['paramStash'])
+          : {},
     );
   }
 
@@ -82,6 +115,7 @@ class ApiConfig {
     'rpmLimit': rpmLimit,
     'apiType': apiType,
     'builtinStash': builtinStash,
+    'paramStash': paramStash,
   };
 
   /// 获取实际生效的API配置

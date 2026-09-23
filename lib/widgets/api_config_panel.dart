@@ -88,6 +88,8 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
           'model': _config.model,
         };
       }
+      // v679：旧供应商调参入stash（温度/格式/协议/RPM跟着供应商走）
+      _config.stashParams();
       // 2. 切换（apiType回归openai——自定义槽可能是claude类型，残留会让
       // 内置提供商的后续请求走错协议）
       _config.useCustom = false;
@@ -97,6 +99,8 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
       final saved = _config.builtinStash[k];
       _config.apiKey = saved is Map ? (saved['apiKey'] ?? '') : '';
       _config.model = saved is Map ? (saved['model'] ?? '') : '';
+      // v679：新供应商调参从stash恢复
+      _config.loadParams();
       _apiKeyCtrl.text = _config.apiKey;
       _modelCtrl.text = _config.model;
       _fetchStatus = '';
@@ -351,8 +355,10 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
                         _config.useCustom && _config.customSlot != 'custom2',
                     onSelected: (_) {
                       setState(() {
+                        _config.stashParams(); // v679：旧槽调参入stash
                         _config.useCustom = true;
                         _config.customSlot = 'custom';
+                        _config.loadParams(); // v679：新槽调参恢复
                       });
                       _saveNow();
                     },
@@ -366,8 +372,10 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
                         _config.useCustom && _config.customSlot == 'custom2',
                     onSelected: (_) {
                       setState(() {
+                        _config.stashParams(); // v679：旧槽调参入stash
                         _config.useCustom = true;
                         _config.customSlot = 'custom2';
+                        _config.loadParams(); // v679：新槽调参恢复
                       });
                       _saveNow();
                     },
