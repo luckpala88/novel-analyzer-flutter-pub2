@@ -154,7 +154,16 @@ class TextCleaner {
     while (prev != cur && guard < 10) {
       guard++;
       prev = cur;
-      cur = cur.replaceAllMapped(labelRe, (m) => '${m.group(1)}\n${m.group(2)}');
+      cur = cur.replaceAllMapped(labelRe, (m) {
+        // v693：子串标签守卫——前一个字符是汉字/字母/数字时，说明命中的是
+        // 更长标签的一部分（实测："作者意图(Intent)："从行首整体匹配失败后
+        // 引擎回溯到"者"，把"意图(Intent)："当独立标签→在"作|者意图"间插
+        // 换行=每镜都被腰斩出"作者"裸行）。真正的粘连前置字符是标点/符号
+        if (RegExp(r'[一-龥A-Za-z0-9]').hasMatch(m.group(1)!)) {
+          return m.group(0)!;
+        }
+        return '${m.group(1)}\n${m.group(2)}';
+      });
     }
     return cur;
   }
