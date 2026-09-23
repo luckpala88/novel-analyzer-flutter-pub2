@@ -1806,26 +1806,18 @@ const SizedBox(width: 8),
       var parsed = JsonRepair.parseResponse(result.content);
       var shotsJson = parsed?['shots'] as List?;
       var retry = 0;
-      // v683：数量守卫——分镜数低于原文段落数80%=合并了段落（实测82镜→30+镜跑偏），
-      // 自动重试1次；仍不足=⚠告警（不阻塞落库，用户手动决定重拆）
-      final shotParaCount = chapterText
-          .toString()
-          .split('\n')
-          .where((l) => l.trim().isNotEmpty)
-          .length;
-      final minShots = (shotParaCount * 0.8).floor();
-      var shotsShort = shotsJson == null ||
-          shotsJson.isEmpty ||
-          (shotsJson.length < minShots);
+      // v684：撤销v683数量守卫（用户定稿：分镜数由分镜定义决定——AI按定义分析
+      // 原文，外部数值锚点（段落/历史/字数）都不是分镜语义。保留v225原有的
+      // "过短无分镜"重试，那才是截断/坏格式的正确信号）
+      var shotsShort = shotsJson == null || shotsJson.isEmpty;
       while (result.isSuccess &&
           shotsShort &&
+          result.content.length < 500 &&
           retry < 1 &&
           !state.api.isAborted) {
         retry++;
         _addLog(
-          shotsJson == null || shotsJson.isEmpty
-              ? '⚠️ 返回过短（${result.content.length}字）无分镜，重试1次...样本头200字：${result.content.length > 200 ? result.content.substring(0, 200) : result.content}'
-              : '⚠️ 分镜数${shotsJson.length}低于原文段落数$shotParaCount的80%（$minShots）——疑似合并段落，重试1次',
+          '⚠️ 返回过短（${result.content.length}字）无分镜，重试1次...样本头200字：${result.content.length > 200 ? result.content.substring(0, 200) : result.content}',
         );
         await Future.delayed(const Duration(seconds: 3));
         if (state.api.isAborted || state.userAborted) break;
@@ -1836,17 +1828,12 @@ const SizedBox(width: 8),
         );
         parsed = JsonRepair.parseResponse(result.content);
         shotsJson = parsed?['shots'] as List?;
-        shotsShort = shotsJson == null ||
-            shotsJson.isEmpty ||
-            (shotsJson.length < minShots);
+        shotsShort = shotsJson == null || shotsJson.isEmpty;
       }
 
       if (result.isSuccess) {
         _addLog('API返回：${result.content.length}字');
         if (shotsJson != null && shotsJson.isNotEmpty) {
-          if (shotsJson.length < minShots) {
-            _addLog('⚠️ 分镜数${shotsJson.length}仍低于段落数$shotParaCount的80%（$minShots）——本场景拆解疑似合并段落，建议重新拆分镜');
-          }
           scene.shots = shotsJson
               .map((e) => Shot.fromJson(e as Map<String, dynamic>))
               .toList();
