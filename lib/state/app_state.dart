@@ -1325,7 +1325,9 @@ class AppState extends ChangeNotifier {
           : mainApi;
       if (config.effectiveApiKey.isEmpty && !config.useCustom) return;
       final existing = worldBook!.nameMapping;
-      final response = await api.call(
+      // v677：抽取请求失败重试1次（524族掐思考期同主流程待遇），
+      // 仍失败=终止退出并告警（不静默吞掉）
+      Future<ApiResult> nmCall() => api.call(
         apiType: config.effectiveApiType,
         baseUrl: config.effectiveApiBase,
         apiKey: config.effectiveApiKey,
@@ -1352,6 +1354,18 @@ class AppState extends ChangeNotifier {
         temperature: 0.3,
         maxTokens: 4000,
       );
+      var response = await nmCall();
+      var nmRetry = 0;
+      while (!response.isSuccess && nmRetry < 1 && !api.isAborted) {
+        nmRetry++;
+        apiLog('📖 映射表抽取请求失败（${response.error ?? "HTTP ${response.statusCode}"}），重试第$nmRetry/1次…');
+        await Future.delayed(const Duration(seconds: 5));
+        response = await nmCall();
+      }
+      if (!response.isSuccess || response.content.trim().isEmpty) {
+        apiLog('⛔ 映射表增量抽取失败，已终止（采集源：${sourceLabel.isEmpty ? "${sourceContent.length}字" : sourceLabel}）：${response.error ?? "返回为空"}——本次改编成果不受影响，但该来源未进映射表；可对同一内容重新改编补齐');
+        return;
+      }
       var raw = response.content.trim();
       if (config.formatMode == 'json') {
         raw = TextCleaner.normalizeAiOutput(raw, jsonMode: true);
