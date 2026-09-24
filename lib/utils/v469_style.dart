@@ -74,6 +74,7 @@ class V469Style {
     if (_m(l, ['篇幅', 'length'])) return ('📏', const Color(0xFF7C3AED));
     if (_m(l, ['文笔节奏', 'prose_style', '文笔']))
       return ('✍', const Color(0xFFDB2777));
+    if (_m(l, ['段落', 'paras'])) return ('📄', const Color(0xFF475569));
     if (_m(l, ['语感', 'voice'])) return ('🎙', const Color(0xFFB45309));
     if (_m(l, ['笔墨', 'ink'])) return ('🖌', const Color(0xFF0369A1));
     if (_m(l, ['角色', '人物', 'char'])) return ('👤', const Color(0xFF6B21A8));

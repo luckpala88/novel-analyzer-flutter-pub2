@@ -110,7 +110,7 @@ class _WritingPageState extends State<WritingPage>
     final struct = <String>[];
     var started = false;
     final structRe = RegExp(
-      r'^[^\u4e00-\u9fa5\n]*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|镜头子类型|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能)(\s*[(（][A-Za-z /]+[)）])?\s*(/\s*[A-Za-z /]+)?\s*[：:]',
+      r'^[^\u4e00-\u9fa5\n]*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|镜头子类型|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能|段落|Paras)(\s*[(（][A-Za-z /]+[)）])?\s*(/\s*[A-Za-z /]+)?\s*[：:]',
     );
     final enRe = RegExp(
       r'^[^\u4e00-\u9fa5\n]*(Focus|Shot Type|POV|Info|Intent|Transition|Length|Prose Style|Abstract|Voice|Ink)\s*[：:]',
@@ -174,7 +174,7 @@ class _WritingPageState extends State<WritingPage>
     for (final line in newStruct.split('\n')) {
       final t = line.trim();
       final dm = RegExp(
-        r'^[^\u4e00-\u9fa5\n]*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|镜头子类型|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能|Focus|Shot Type|POV|Info|Intent|Transition|Length|Prose Style|Abstract|Voice|Ink)(\s*[(（][A-Za-z /]+[)）])?\s*[：:]\s*(.*)$',
+        r'^[^\u4e00-\u9fa5\n]*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|镜头子类型|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能|段落|Paras|Focus|Shot Type|POV|Info|Intent|Transition|Length|Prose Style|Abstract|Voice|Ink)(\s*[(（][A-Za-z /]+[)）])?\s*[：:]\s*(.*)$',
       ).firstMatch(t);
       if (dm != null && TextCleaner.dimValuePolluted(dm.group(3) ?? '')) {
         _addLog('⚠️ 分镜${shotIdx + 1}结构维度值疑似正文混入（${(dm.group(1) ?? '')}），拒绝写回世界书');
@@ -258,7 +258,7 @@ class _WritingPageState extends State<WritingPage>
       // 行数=写回会让世界书丢维度（粘行内容被_shotStructLines提前截断
       // 的形态：正文粘维度行→收集停→结构缺尾部维度），拒绝写回防降级
       final dimLineRe = RegExp(
-        r'^[^\u4e00-\u9fa5\n]*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|镜头子类型|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能|Focus|Shot Type|POV|Info|Intent|Transition|Length|Prose Style|Abstract|Voice|Ink)(\s*[(（][A-Za-z /]+[)）])?\s*[：:]',
+        r'^[^\u4e00-\u9fa5\n]*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|镜头子类型|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能|段落|Paras|Focus|Shot Type|POV|Info|Intent|Transition|Length|Prose Style|Abstract|Voice|Ink)(\s*[(（][A-Za-z /]+[)）])?\s*[：:]',
       );
       int dimCount(List<String> ls) =>
           ls.where((l) => dimLineRe.hasMatch(l.trim())).length;
@@ -713,7 +713,7 @@ class _WritingPageState extends State<WritingPage>
         // v259/v262：维度行isStruct加污染守卫（共享判定）——污染行
         // （正文藏身）不算结构边界，让正文保留在body里
         final dimM = RegExp(
-          r'^[^\u4e00-\u9fa5\n]*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|镜头子类型|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能)(\s*[(（][A-Za-z /]+[)）])?\s*(/\s*[A-Za-z /]+)?\s*[：:]\s*(.*)$',
+          r'^[^\u4e00-\u9fa5\n]*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|镜头子类型|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能|段落|Paras)(\s*[(（][A-Za-z /]+[)）])?\s*(/\s*[A-Za-z /]+)?\s*[：:]\s*(.*)$',
         ).firstMatch(t);
         final dimValOk = dimM != null &&
             !TextCleaner.dimValuePolluted(dimM.group(4) ?? '');
@@ -3375,7 +3375,7 @@ class _WritingPageState extends State<WritingPage>
       }
       // 字段行：标签：值（焦点/镜头/视角/投放/意图/转场/篇幅/文笔节奏）
       final fld = RegExp(
-        r'^(焦点|镜头类型|镜头子类型|视角|投放信息?|意图|转场|篇幅|文笔节奏|语感|笔墨|语感锚|笔墨配额|功能抽象|叙事功能|内容|关键词|条目)\s*[：:]\s*(.*)',
+        r'^(焦点|镜头类型|镜头子类型|视角|投放信息?|意图|转场|篇幅|文笔节奏|语感|笔墨|语感锚|笔墨配额|功能抽象|叙事功能|段落|Paras|内容|关键词|条目)\s*[：:]\s*(.*)',
       ).firstMatch(t);
       if (fld != null) {
         final label = fld.group(1)!;
@@ -3391,7 +3391,7 @@ class _WritingPageState extends State<WritingPage>
           '文笔节奏' => ('✍', const Color(0xFFDB2777)),
           '语感' => ('🎙', const Color(0xFFB45309)),
           '笔墨' => ('🖌', const Color(0xFF0369A1)),
-          '功能抽象' || '叙事功能' => ('🧩', const Color(0xFF0F766E)),
+          '功能抽象' || '叙事功能|段落|Paras' => ('🧩', const Color(0xFF0F766E)),
           '条目' => ('📖', const Color(0xFF8B6914)),
           '关键词' => ('🔑', const Color(0xFF6B5D54)),
           _ => ('▸', const Color(0xFF475569)),
@@ -4074,7 +4074,7 @@ class _WritingPageState extends State<WritingPage>
       // 换共享判定dimValuePolluted（>200字或≥3句读），60字误伤语感例句
       // /笔墨配额等真长维度值=用户实测'功能抽象内容反过来混入正文'
       final fld = RegExp(
-        r'^[^\u4e00-\u9fa5\n]*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|语感|笔墨|语感锚|笔墨配额|叙事功能|文风)(\s*[(（][A-Za-z /]+[)）])?\s*[：:]\s*(.*)',
+        r'^[^\u4e00-\u9fa5\n]*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|语感|笔墨|语感锚|笔墨配额|叙事功能|段落|Paras|文风)(\s*[(（][A-Za-z /]+[)）])?\s*[：:]\s*(.*)',
       ).firstMatch(t);
       // v703：文风行豁免——三段式例句合法含句读，误判污染会剥标签把
       // 质感=…|标尺=…|例句=…整段漏进正文（用户截图实证，与txt导出同款）
@@ -4122,7 +4122,7 @@ class _WritingPageState extends State<WritingPage>
           '文风' => '文风/Style', // v680：量化标尺维度行进分镜卡
           '语感' || '语感锚' => '语感/Voice',
           '笔墨' || '笔墨配额' => '笔墨/Ink',
-          '功能抽象' || '叙事功能' => '功能抽象/Abstract',
+          '功能抽象' || '叙事功能|段落|Paras' => '功能抽象/Abstract',
           _ => label,
         };
         final (icon, color) = switch (label) {
@@ -4135,7 +4135,8 @@ class _WritingPageState extends State<WritingPage>
           '篇幅' => ('📏', const Color(0xFF7C3AED)),
           '文笔节奏' => ('✍', const Color(0xFFDB2777)),
           '文风' => ('📊', const Color(0xFF6D28D9)), // v680
-          '语感' || '语感锚' => ('🎙', const Color(0xFFB45309)),
+          '段落' || 'Paras' => ('📄', const Color(0xFF475569)), // v711
+'语感' || '语感锚' => ('🎙', const Color(0xFFB45309)),
           '笔墨' || '笔墨配额' => ('🖌', const Color(0xFF0369A1)),
           '功能抽象' => ('🧩', const Color(0xFF0F766E)),
           _ => ('▸', V469Style.textSec),

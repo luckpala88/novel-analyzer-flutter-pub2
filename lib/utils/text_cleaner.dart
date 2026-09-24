@@ -57,7 +57,7 @@ class TextCleaner {
     final m = shotRe.firstMatch(content);
     if (m == null || m.start == 0) return content; // 无分镜/分镜已在最前
     final dimRe = RegExp(
-      r'^[^\u4e00-\u9fa5\n\n]*(投放信息|作者意图|意图|转场手法|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能|文风)(\s*[(（][A-Za-z /]+[)）])?\s*[：:]',
+      r'^[^\u4e00-\u9fa5\n\n]*(投放信息|作者意图|意图|转场手法|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能|段落|Paras|文风)(\s*[(（][A-Za-z /]+[)）])?\s*[：:]',
     );
     final lines = content.split('\n');
     var headEnd = -1; // 首个分镜头所在行
@@ -102,7 +102,7 @@ class TextCleaner {
 
   static String stripShotStructOnly(String content) {
     final dimRe = RegExp(
-      r'^[^\u4e00-\u9fa5\n]*(投放信息|作者意图|意图|转场手法|篇幅|文笔节奏|语感锚|语感|笔墨配额|笔墨|功能抽象|叙事功能|镜头类型|镜头子类型|视角|焦点|叙述)(\s*[(（][A-Za-z /]+[)）])?\s*[：:]',
+      r'^[^\u4e00-\u9fa5\n]*(投放信息|作者意图|意图|转场手法|篇幅|文笔节奏|语感锚|语感|笔墨配额|笔墨|功能抽象|叙事功能|段落|Paras|镜头类型|镜头子类型|视角|焦点|叙述)(\s*[(（][A-Za-z /]+[)）])?\s*[：:]',
     );
     final out = <String>[];
     for (final line in content.split('\n')) {
@@ -142,7 +142,7 @@ class TextCleaner {
     final labelRe = RegExp(
       r'([^\n：:])('
       r'(?:分[镜景]\s*\d+\s*[：:｜])|'
-      r'(?:文风|语感|笔墨|焦点|镜头类型|镜头子类型|视角|投放信息|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|叙事功能|语感锚|笔墨配额)'
+      r'(?:文风|语感|笔墨|焦点|镜头类型|镜头子类型|视角|投放信息|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|叙事功能|段落|Paras|语感锚|笔墨配额)'
       r'\s*[（(][A-Za-z /]+[)）]\s*[：:]|'
       r'(?:Focus|Shot Type|POV|Info|Intent|Transition|Length|Prose Style|Abstract|Voice|Ink)\s*[（(][A-Za-z /]*[)）]?\s*[：:]'
       r')',
@@ -173,7 +173,7 @@ class TextCleaner {
   /// 行的值是短语，0-1个句末标点），避免误切语感例句等合法长值
   static String _fixGluedDimLines(String content) {
     final dimRe = RegExp(
-      r'^([^\u4e00-\u9fa5\n]*\s*(?:投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|镜头子类型|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能|Focus|Shot Type|POV|Info|Intent|Transition|Length|Prose Style|Abstract|Voice|Ink)(\s*[(（][A-Za-z /]+[)）])?(\s*/\s*[A-Za-z /]+)?\s*[：:])(.+)$',
+      r'^([^\u4e00-\u9fa5\n]*\s*(?:投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|镜头子类型|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能|段落|Paras|Focus|Shot Type|POV|Info|Intent|Transition|Length|Prose Style|Abstract|Voice|Ink)(\s*[(（][A-Za-z /]+[)）])?(\s*/\s*[A-Za-z /]+)?\s*[：:])(.+)$',
       caseSensitive: false,
     );
     final lines = content.split('\n');
@@ -243,7 +243,7 @@ class TextCleaner {
       // 正文以维度值身份藏身（伪JSON污染形态：功能抽象：+几千字正文挤
       // 同一行），剥标签留正文（丢标签救正文——渲染/导出兜底）
       final dimCn = RegExp(
-        r'^[^\u4e00-\u9fa5\n]*\s*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|镜头子类型|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能|文风)(\s*[(（][A-Za-z /]+[)）])?\s*(/\s*[A-Za-z /]+)?\s*[：:]\s*(.*)$',
+        r'^[^\u4e00-\u9fa5\n]*\s*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|镜头子类型|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能|段落|Paras|文风)(\s*[(（][A-Za-z /]+[)）])?\s*(/\s*[A-Za-z /]+)?\s*[：:]\s*(.*)$',
       ).firstMatch(t);
       final dimEn = RegExp(
         r'^[^\u4e00-\u9fa5\n]*(Focus|Shot Type|POV|Info|Intent|Transition|Length|Prose Style|Abstract|Voice|Ink|Style)\s*[：:]\s*(.*)$',
@@ -350,7 +350,7 @@ class TextCleaner {
   /// 焦点/镜头类型/视角/投放信息四行JSON壳化→创作草稿大量符号残渣）
   /// → 规范成 焦点(Focus)：xxx。只动带引号壳的行，干净行原样返回
   static final _jsonDimLineRe = RegExp(
-    r'^\s*"((?:焦点|镜头类型|视角|投放信息|作者意图|转场手法|篇幅|文笔节奏|文风|语感|笔墨配额|笔墨|功能抽象|叙事功能)(?:\s*[(（][A-Za-z /]+[)）])?)"?\s*[：:]\s*"?(.*?)"?\s*,?\s*$',
+    r'^\s*"((?:焦点|镜头类型|视角|投放信息|作者意图|转场手法|篇幅|文笔节奏|文风|语感|笔墨配额|笔墨|功能抽象|叙事功能|段落|Paras)(?:\s*[(（][A-Za-z /]+[)）])?)"?\s*[：:]\s*"?(.*?)"?\s*,?\s*$',
   );
   static String repairJsonDimLines(String t) {
     if (!t.contains('"')) return t;
@@ -477,7 +477,7 @@ class TextCleaner {
       r'^[^\u4e00-\u9fa5\n]*#*[\[（(【]?分[镜景](头)?\s*\d*\s*[\]）)】]?\s*[：:]?',
     );
     final dimRe = RegExp(
-      r'^[^\u4e00-\u9fa5\n]*\s*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|镜头子类型|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能|文风)(\s*[(（][A-Za-z /]+[)）])?\s*(/\s*[A-Za-z /]+)?\s*[：:]\s*(.*)$',
+      r'^[^\u4e00-\u9fa5\n]*\s*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|镜头子类型|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能|段落|Paras|文风)(\s*[(（][A-Za-z /]+[)）])?\s*(/\s*[A-Za-z /]+)?\s*[：:]\s*(.*)$',
     );
     // 按分镜头行分块（行号列表）
     final blocks = <List<int>>[];
@@ -556,7 +556,7 @@ class TextCleaner {
   static String repairGluedShotEntry(String t) {
     if (!t.contains('分镜') && !t.contains('分景')) return t;
     final re = RegExp(
-      r'^[^\u4e00-\u9fa5\n]*\s*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|镜头子类型|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能|文风)(\s*[(（][A-Za-z /]+[)）])?\s*[：:].*?[\[【]?分[镜景](头)?\s*\d+\s*[\]】]?\s*[：:]?\s*$',
+      r'^[^\u4e00-\u9fa5\n]*\s*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|镜头子类型|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能|段落|Paras|文风)(\s*[(（][A-Za-z /]+[)）])?\s*[：:].*?[\[【]?分[镜景](头)?\s*\d+\s*[\]】]?\s*[：:]?\s*$',
     );
     final out = <String>[];
     for (final l in t.split('\n')) {
@@ -856,7 +856,7 @@ class TextCleaner {
   static String _mergeDimContinuationLines(String t) {
     final lines = t.split('\n');
     final dimRe = RegExp(
-      r'^[^\u4e00-\u9fa5\n]*\s*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|镜头子类型|语感|笔墨|语感锚|笔墨配额|叙事功能)(\s*[(（][A-Za-z /]+[)）])?\s*(/\s*[A-Za-z /]+)?\s*[：:].*',
+      r'^[^\u4e00-\u9fa5\n]*\s*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|镜头子类型|语感|笔墨|语感锚|笔墨配额|叙事功能|段落|Paras)(\s*[(（][A-Za-z /]+[)）])?\s*(/\s*[A-Za-z /]+)?\s*[：:].*',
     );
     final structRe = RegExp(
       r'^[^\u4e00-\u9fa5\n]*(场景\s*\d+\s*[：:]|分[镜头]头?\s*\d*\s*[：:]?|概[述说]\s*[：:]|第.{1,8}章|【|##)',
