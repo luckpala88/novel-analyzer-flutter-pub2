@@ -4076,7 +4076,12 @@ class _WritingPageState extends State<WritingPage>
       final fld = RegExp(
         r'^[^\u4e00-\u9fa5\n]*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|语感|笔墨|语感锚|笔墨配额|叙事功能|文风)(\s*[(（][A-Za-z /]+[)）])?\s*[：:]\s*(.*)',
       ).firstMatch(t);
-      if (fld != null && TextCleaner.dimValuePolluted(fld.group(3) ?? '')) {
+      // v703：文风行豁免——三段式例句合法含句读，误判污染会剥标签把
+      // 质感=…|标尺=…|例句=…整段漏进正文（用户截图实证，与txt导出同款）
+      final isStyleDim = (fld?.group(1) ?? '') == '文风';
+      if (fld != null &&
+          !isStyleDim &&
+          TextCleaner.dimValuePolluted(fld.group(3) ?? '')) {
         // 污染行：flush维度卡，剥标签的正文按正文段渲染（正文不再被吞）
         if (pendingShotBox != null) {
           widgets.add(

@@ -259,8 +259,12 @@ class TextCleaner {
         // 污染/粘连行：剥标签留正文
         // v643：语感行豁免——语感例句合法值可含2个句末标点（腔调示例句），
         // 按旧阈值≥3判，避免例句被当粘连正文混进纯正文
+        // v703：文风行并入豁免——三段式例句合法含句读（用户截图实证：
+        // 文风标尺行被误判污染剥标签，质感=…|标尺=…|例句=…整段漏进txt正文）
         final isVoiceDim = (dimCn?.group(1) ?? '') == '语感' ||
-            ((dimEn?.group(1) ?? '').toUpperCase() == 'VOICE');
+            (dimCn?.group(1) ?? '') == '文风' ||
+            ((dimEn?.group(1) ?? '').toUpperCase() == 'VOICE') ||
+            ((dimEn?.group(1) ?? '').toUpperCase() == 'STYLE');
         final polluted = isVoiceDim
             ? dimValuePollutedLegacy(val)
             : dimValuePolluted(val);
