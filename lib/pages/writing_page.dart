@@ -2297,7 +2297,7 @@ class _WritingPageState extends State<WritingPage>
           model: config.effectiveModel,
           temperature: config.temperature,
           draft: true,
-          genMode: '逐镜·${state.writingFreeMode ? '自由' : '标准'}',
+          genMode: '逐镜 · ${state.writingFreeMode ? '自由' : '沿分镜'}',
         );
       } else {
         draftItem!.content = content;
@@ -2852,7 +2852,7 @@ class _WritingPageState extends State<WritingPage>
               versions: versions,
               model: config.effectiveModel,
               temperature: config.temperature,
-              genMode: '逐镜·${state.writingFreeMode ? '自由' : '标准'}',
+              genMode: '逐镜 · ${state.writingFreeMode ? '自由' : '沿分镜'}',
             );
           }
           state.writings[wkey] = writing;
@@ -3044,7 +3044,7 @@ class _WritingPageState extends State<WritingPage>
           versions: versions,
           model: config.effectiveModel,
           temperature: config.temperature,
-          genMode: '整场景·${state.writingFreeMode ? '自由' : '标准'}',
+          genMode: '整场景 · ${state.writingFreeMode ? '自由' : '沿分镜'}',
         );
         state.writings[wkey] = writing;
         state.saveWritings();
@@ -3713,8 +3713,8 @@ class _WritingPageState extends State<WritingPage>
   String? _txtNote(AppState state, {String model = '', Object? temp}) {
     if (!state.writingModelNote || model.isEmpty) return null;
     final mode = [
-      state.writingShotByShot ? '逐镜' : '整场景',
-      state.writingFreeMode ? '自由' : '标准',
+      state.writingShotByShot ? '逐镜' : '非逐镜',
+      state.writingFreeMode ? '自由' : '沿分镜',
     ].join('·');
     return '[模型：$model · 温度$temp · $mode]';
   }
