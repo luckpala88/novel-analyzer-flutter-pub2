@@ -597,6 +597,15 @@ class _HomePageState extends State<HomePage>
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(color: Colors.grey),
                           ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '接下来的一百年，我将为您拆解人类脑洞的光辉！',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Colors.grey[400],
+                                  fontSize: 9,
+                                ),
+                          ),
                           const SizedBox(height: 4),
                           Text(
                             'Flutter v$_appVersion',
