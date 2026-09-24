@@ -778,11 +778,6 @@ const Spacer(), // ⚙API推到最右
             state.arcScenes[arc.number.toString()] = scenes;
             state.saveArcScenes();
             _addLog('✓ 识别到${scenes.length}个场景');
-            // v388b：映射表增量抽取（场景名/概述里的名称）
-            // v392：await串行防撞车
-            await state.extractNameMapIncrement(
-              scenes.map((sc) => '${sc.name}：${sc.summary}').join('\n'),
-            );
 
             // v282：跨弧线场景重叠校验（兜底AI不听边界指令）——只告警不删
             // v284降噪：章级交叉是同章多弧线的预期形态，只对"疑似真重复"打⚠——
