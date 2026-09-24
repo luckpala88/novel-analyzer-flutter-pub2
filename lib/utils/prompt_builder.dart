@@ -872,7 +872,7 @@ class PromptBuilder {
     sb.writeln('⚠️ 以下各维度值的文字禁止照抄进正文（尤其功能抽象/投放信息/作者意图），你要用全新的故事叙述呈现它们描述的效果：');
     sb.writeln(shotInfo);
     sb.writeln();
-    sb.writeln('## 前文衔接（上一段正文结尾，你的正文要自然接上）');
+    sb.writeln('## 前文（本场景前面所有分镜已创作的全部正文，一字不少——你的正文是它的直接续写，人物状态/地点/时间/语气必须无缝衔接，禁止复述前文、禁止与之矛盾）');
     sb.writeln(prevTail.isEmpty ? '（这是场景开头第一个分镜，直接开写）' : prevTail);
     // v313：文风范文（模仿原文作者——按场景序号取自弧线物化原文）
     if (styleSample.isNotEmpty) {
