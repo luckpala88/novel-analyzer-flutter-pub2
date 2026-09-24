@@ -2272,6 +2272,9 @@ class _WritingPageState extends State<WritingPage>
     // v276：读侧拆粘连（世界书里的"维度行…分镜N："粘连行——不拆则
     // shotRe行锚定找不到分镜边界→块合并错位→粘连复制进正文）
     sceneBlock = TextCleaner.repairGluedShotEntry(sceneBlock);
+    // v703：JSON壳维度行修复（世界书条目里"焦点(Focus)":"xxx",壳化行
+    // 照抄进草稿=大量符号残渣——组装前先规范化）
+    sceneBlock = TextCleaner.repairJsonDimLines(sceneBlock);
     // 分镜块切分（v265修复版：不吃换行，块从分镜行开始）
     final shotRe = RegExp(
       r'^[^\u4e00-\u9fa5\n]*[\[（(【]*#*[^\S\n]*[\[（(【]?分[镜景](头)?[^\S\n]*(\d+[^\S\n]*[\]）)】]?[^\S\n]*[：:]?|[\]）)】]?[^\S\n]*[：:])',
@@ -3771,6 +3774,8 @@ class _WritingPageState extends State<WritingPage>
     // v275：重复分镜块去重+残渣剥除（存量整场景重复退化输出——显示
     // 层治，重复块丢弃+"}碎片清理）
     text2 = TextCleaner.dedupeShotBlocks(text2);
+    // v703：JSON壳维度行修复（存量数据渲染兜底——引号壳行归位维度行）
+    text2 = TextCleaner.repairJsonDimLines(text2);
     // v606：inline单行分镜预切行——改编输出把分镜1｜焦点…全并一行时，
     // 渲染按行识别分镜头会整段退化纯文本；在分镜N｜前插换行还原分行
     text2 = text2.replaceAll(

@@ -405,7 +405,7 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
             entry.content,
             context.read<AppState>().worldBook?.nameMapping ?? '',
           )
-        : entry.content;
+        : TextCleaner.repairJsonDimLines(entry.content); // v703：JSON壳维度行显示修复
     final lines = displayText.split('\n');
     // 切块：头块 / 场景块s / 尾块
     final head = <String>[];

@@ -341,12 +341,33 @@ class TextCleaner {
     return stripJsonShells(splitGluedLabels(out));
   }
 
+  /// v703：JSON壳维度行修复——改编世界书生成时模型把维度行写成
+  /// "焦点(Focus)":"xxx",（键/值两侧加英文引号+行尾逗号，截图实证：
+  /// 焦点/镜头类型/视角/投放信息四行JSON壳化→创作草稿大量符号残渣）
+  /// → 规范成 焦点(Focus)：xxx。只动带引号壳的行，干净行原样返回
+  static final _jsonDimLineRe = RegExp(
+    r'^\s*"((?:焦点|镜头类型|视角|投放信息|作者意图|转场手法|篇幅|文笔节奏|文风|语感|笔墨配额|笔墨|功能抽象|叙事功能)(?:\s*[(（][A-Za-z /]+[)）])?)"?\s*[：:]\s*"?(.*?)"?\s*,?\s*$',
+  );
+  static String repairJsonDimLines(String t) {
+    if (!t.contains('"')) return t;
+    return t.split('\n').map((l) {
+      final m = _jsonDimLineRe.firstMatch(l);
+      if (m == null) return l;
+      final label = m.group(1)!.trim();
+      final val = (m.group(2) ?? '').trim();
+      if (val.isEmpty) return l;
+      return '$label：$val';
+    }).join('\n');
+  }
+
   /// v413：嵌入式JSON壳清除——AI把某段正文包在{"content":"..."}里输出，
   /// 且因正文内含未转义英文引号导致jsonDecode失败时，壳原样嵌进拼接正文
   /// （截图实证：{ 换行 "content":"王二叔道：…" }嵌在两段正文之间）。
   /// 确定性正则提取：匹配完整的content壳→解转义→还原纯正文。
   /// 残余符号行（数组壳/对象壳解码失败留下的{ ] "独占行）一并清除
   static String stripJsonShells(String t) {
+    // v703：JSON壳维度行规范化（前置——壳残留行先还原成干净维度行）
+    t = repairJsonDimLines(t);
     // v551：键名泛化——改写链AI用rewritten_text等键包壳（截图实证），不只content
     final re = RegExp(
       // v643：键名泛化到任意短键（Gemini 2.5实测用{"分镜1":"正文"}包装——
