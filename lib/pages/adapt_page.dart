@@ -2353,6 +2353,7 @@ class _AdaptPageState extends State<AdaptPage>
                                   arc,
                                   totalArcs,
                                   layer: 'scene',
+                                  autoCapture: true,
                                 ),
                         ),
                         const SizedBox(width: 6),
@@ -3393,6 +3394,7 @@ class _AdaptPageState extends State<AdaptPage>
     Arc arc,
     int totalArcs, {
     String layer = 'all', // v570：三层独立入口
+    bool autoCapture = false, // v720：批量路径前置采映射
   }) async {
     if (_isGenerating) {
       ScaffoldMessenger.of(context)
@@ -3461,7 +3463,13 @@ class _AdaptPageState extends State<AdaptPage>
           _isGenerating = true;
           _abort = false;
         });
-        await _generateForArcInternal(state, arc, totalArcs, layer: layer);
+        await _generateForArcInternal(
+      state,
+      arc,
+      totalArcs,
+      layer: layer,
+      autoCapture: autoCapture,
+    );
       } finally {
         state.saveWorldBook();
         if (mounted) {
