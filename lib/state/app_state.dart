@@ -1287,27 +1287,10 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// v388b：映射表增量抽取——总结条目/场景划分/分镜填充每步成功后调用，
-  /// 抽出新名称追加到nameMapping（已有原著名不覆盖，保留用户手改）
-  /// v574：adaptedInput=true 表示素材是改编后文本（产物名词全是新名）——
-  /// 构建禁收名单（映射表右列+起名要求里的新名）防止"新名→另一个新名"的
-  /// 二次映射污染（实测：晏知微等用户创建名被当原著名再映射）
-  /// v574：映射表右列新名清单（防改编产物二次映射）
-  List<String> _mapRightColumnNames() {
-    final names = <String>[];
-    final rowRe = RegExp(r'^\s*([^\s→>]+?)\s*[→>]\s*([^\s（(]+)', multiLine: true);
-    for (final m in rowRe.allMatches(worldBook!.nameMapping)) {
-      final right = m.group(2)!.trim();
-      if (right.isNotEmpty) names.add(right);
-    }
-    // 起名要求里"XX→YY"形态的YY也是新名
-    for (final m in rowRe.allMatches(worldBook!.nameMapReq)) {
-      final right = m.group(2)!.trim();
-      if (right.isNotEmpty) names.add(right);
-    }
-    return names.toSet().toList();
-  }
-
+  /// v388b：映射表增量抽取——总结条目/场景划分/分镜填充每步成功后调用
+  /// v707（用户裁决）：①独立API调用（与改编主任务分开，AI负担不叠加）
+  /// ②大切片分批——超9000字拆2-3批逐批调用（每批独立请求，批间合并去重）
+  /// ③采集范围恢复三份改编要求文本（用户稿+AI优化稿+声明，v705升格等同用户拟名）
   Future<void> extractNameMapIncrement(
     String sourceContent, {
     bool adaptedInput = false,
@@ -1315,151 +1298,194 @@ class AppState extends ChangeNotifier {
   }) async {
     try {
       if (worldBook == null) return;
-      apiLog(
-        sourceLabel.isEmpty
-            ? '📖 映射表增量抽取（采集源${sourceContent.length}字）…'
-            : '📖 映射表增量抽取（采集源：$sourceLabel，${sourceContent.length}字）…',
-      );
       final config = wbApi.effectiveApiKey.isNotEmpty || wbApi.useCustom
           ? wbApi
           : mainApi;
       if (config.effectiveApiKey.isEmpty && !config.useCustom) return;
-      final existing = worldBook!.nameMapping;
-      // v677：抽取请求失败重试1次（524族掐思考期同主流程待遇），
-      // 仍失败=终止退出并告警（不静默吞掉）
-      Future<ApiResult> nmCall() => api.call(
-        apiType: config.effectiveApiType,
-        baseUrl: config.effectiveApiBase,
-        apiKey: config.effectiveApiKey,
-        model: config.effectiveModel,
-        systemPrompt: PromptBuilder.buildNameMapIncrementSystemPrompt(),
-        userPrompt: PromptBuilder.buildNameMapIncrementUserPrompt(
-          existing,
-          sourceContent,
-          nameReq: worldBook!.nameMapReq,
-          // v617：全部改编要求注入——新名出处的判定依据（用户起的名都在这些文本里）
-          // v674：用户输入稿=右列新名唯一来源（用户定稿铁律）——AI优化稿
-          // (arcRequirementsAI/sceneRequirementsAI)是中间产物应使用原著词，
-          // 其名称不作右列来源也不作判定依据
-          allRequirements: [
-            worldBook!.requirements,
-            ...worldBook!.arcRequirements.values,
-            ...worldBook!.sceneRequirements.values,
-          ].where((t) => t.trim().isNotEmpty).join('\n\n'),
-          // v635：A方案下改编产物全部用原著原名，素材按原著口径抽取（adaptedInput
-          // 框架是v574改名时代的产物，会让AI"拿不准就不收录"→映射表停更）；
-          // 右列新名禁收卫兵不受此开关影响，始终生效防二次映射
-          forbiddenNames: _mapRightColumnNames(),
-        ),
-        temperature: 0.3,
-        maxTokens: 4000,
-      );
-      var response = await nmCall();
-      var nmRetry = 0;
-      while (!response.isSuccess && nmRetry < 1 && !api.isAborted) {
-        nmRetry++;
-        apiLog('📖 映射表抽取请求失败（${response.error ?? "HTTP ${response.statusCode}"}），重试第$nmRetry/1次…');
-        await Future.delayed(const Duration(seconds: 5));
-        response = await nmCall();
-      }
-      if (!response.isSuccess || response.content.trim().isEmpty) {
-        apiLog('⛔ 映射表增量抽取失败，已终止（采集源：${sourceLabel.isEmpty ? "${sourceContent.length}字" : sourceLabel}）：${response.error ?? "返回为空"}——本次改编成果不受影响，但该来源未进映射表；可对同一内容重新改编补齐');
-        return;
-      }
-      var raw = response.content.trim();
-      if (config.formatMode == 'json') {
-        raw = TextCleaner.normalizeAiOutput(raw, jsonMode: true);
+      // v707：分批切分——按段落边界近似均分，最多3批
+      const maxBatch = 9000;
+      final len = sourceContent.length;
+      final nBatches = len <= maxBatch
+          ? 1
+          : (len / maxBatch).ceil().clamp(2, 3);
+      final chunks = <String>[];
+      if (nBatches == 1) {
+        chunks.add(sourceContent);
       } else {
-        raw = TextCleaner.normalizeAiOutput(raw);
-      }
-      // 解析"原著名→新名"行，合并去重（原著名已存在=跳过，用户手改不动）
-      final have = RegExp(
-        r'^\s*([^\s→>]+?)\s*[→>]\s*([^\s（(]+)',
-      ).allMatches(existing).map((m) => m.group(1)!).toSet();
-      // v540：已有表右列（新名）集合——严禁被当作左列原著名
-      final rights = RegExp(
-        r'^\s*([^\s→>]+?)\s*[→>]\s*([^\s（(]+)',
-      ).allMatches(existing).map((m) => m.group(2)!).toSet();
-      final nameReqText = worldBook!.nameMapReq;
-      // v635：全部改编要求文本——里面新增的名字=用户新名（AI误放左列时代码兜底拒绝）
-      final reqAllText = [
-        worldBook!.requirements,
-        ...worldBook!.arcRequirements.values,
-        ...worldBook!.sceneRequirements.values,
-        ...worldBook!.arcRequirementsAI.values,
-        ...worldBook!.sceneRequirementsAI.values,
-      ].where((t) => t.trim().isNotEmpty).join('\n\n');
-      // v636：原著正文语料——判定"原著名"的依据。改编要求里也会引用原著名
-      //（如"把华山派改成商行"），只看"是否出现在要求里"会把这类原著名永久
-      //拦截；正确标准=在原著正文有出处→原著名（放行），只在要求里→新名（拒绝）
-      final origCorpus = chapters.isEmpty
-          ? ''
-          : chapters.map((c) => '${c.title}\n${c.content}').join('\n');
-      final added = <String>[];
-      final doubts = <String>[];
-      final rejected = <String>[];
-      final registered = <String>[]; // v636：登记进右列的合法新名
-      final buf = StringBuffer(existing.trim().isEmpty ? '' : existing.trimRight() + '\n');
-      for (final line in raw.split('\n')) {
-        final t = line.trim();
-        // v389b：确认行"？称呼（疑似=原著名）"——AI拿不准的别名，日志提示人工确认
-        final doubt = RegExp(
-          r'^？\s*(.+?)\s*[（(]疑似=([^）)]+)[）)]$',
-        ).firstMatch(t);
-        if (doubt != null) {
-          doubts.add('${doubt.group(1)}→${doubt.group(2)}');
-          continue;
-        }
-        final m = RegExp(
-          r'^\s*([^\s→>]+?)\s*[→>]\s*([^\s（(]+)',
-        ).firstMatch(t);
-        if (m == null) continue;
-        final from = m.group(1)!.trim();
-        if (from.isEmpty || have.contains(from)) continue;
-        // v636：合法新名判定——出自改编要求且原著正文无出处=用户新名
-        //（丁小丁→贺知秋事故）。处理：①禁止进左列 ②登记进右列（身份行
-        //"新名→新名"，进入右列禁收体系防二次映射；输出层替换为恒等替换无副作用）
-        //若原著正文里有出处（要求引用原著名如"华山派"）→原著名，放行
-        //优先级：原著出处 > 改编要求
-        final isLegalNewName =
-            (nameReqText.contains(from) || reqAllText.contains(from)) &&
-            !origCorpus.contains(from);
-        if (isLegalNewName) {
-          if (!rights.contains(from) && !added.contains(from)) {
-            buf.writeln('$from→$from（用户新名·原样保留）');
-            rights.add(from);
-            have.add(from);
-            registered.add(from);
+        final size = (len / nBatches).ceil();
+        var start = 0;
+        for (var i = 0; i < nBatches; i++) {
+          var end = (start + size).clamp(0, len);
+          if (i < nBatches - 1 && end < len) {
+            final nl = sourceContent.lastIndexOf('\n', end);
+            if (nl > start + 100) end = nl + 1; // 段落边界切，不腰斩句
           }
-          continue;
+          chunks.add(sourceContent.substring(start, end));
+          start = end;
         }
-        if (rights.contains(from)) {
-          rejected.add(from);
-          continue;
-        }
-        have.add(from);
-        buf.writeln(t);
-        added.add(from);
       }
-      if (added.isNotEmpty) {
-        worldBook!.nameMapping = buf.toString();
-        saveWorldBook();
-        apiLog('📖 映射表追加${added.length}条：${added.take(8).join('、')}${added.length > 8 ? "…" : ""}');
-      }
-      if (registered.isNotEmpty) {
-        worldBook!.nameMapping = buf.toString();
-        saveWorldBook();
-        apiLog('🔖 用户新名登记进右列（恒等保留）：${registered.take(8).join('、')}${registered.length > 8 ? "…" : ""}');
-      }
-      if (rejected.isNotEmpty) {
-        apiLog('🛡 已拦截疑似改编新名混入映射表左列：${rejected.take(8).join('、')}${rejected.length > 8 ? "…" : ""}');
-      }
-      if (doubts.isNotEmpty) {
-        apiLog('❓ 疑似别名待确认（映射表弹窗人工处理）：${doubts.take(8).join('；')}${doubts.length > 8 ? "…" : ""}');
+      for (var bi = 0; bi < chunks.length; bi++) {
+        if (api.isAborted) break;
+        final tag = chunks.length > 1 ? '第${bi + 1}/${chunks.length}批' : '';
+        final ok = await _extractMapBatch(
+          chunks[bi],
+          config,
+          adaptedInput: adaptedInput,
+          sourceLabel: sourceLabel,
+          batchTag: tag,
+        );
+        if (!ok) break; // 失败终止（告警已在批内打出），后续批不再继续
       }
     } catch (e) {
       apiLog('⚠ 映射表增量抽取失败（不影响主流程）：$e');
     }
+  }
+
+  /// v707：单批抽取+合并（返回false=本批失败终止）
+  Future<bool> _extractMapBatch(
+    String sourceContent,
+    dynamic config, {
+    bool adaptedInput = false,
+    String sourceLabel = '',
+    String batchTag = '',
+  }) async {
+    apiLog(
+      '📖 映射表增量抽取${batchTag.isEmpty ? "" : "（$batchTag）"}（采集源${sourceLabel.isEmpty ? "" : "：$sourceLabel"}，${sourceContent.length}字）…',
+    );
+    final existing = worldBook!.nameMapping;
+    // v677：抽取请求失败重试1次（524族掐思考期同主流程待遇）
+    Future<ApiResult> nmCall() => api.call(
+      apiType: config.effectiveApiType,
+      baseUrl: config.effectiveApiBase,
+      apiKey: config.effectiveApiKey,
+      model: config.effectiveModel,
+      systemPrompt: PromptBuilder.buildNameMapIncrementSystemPrompt(),
+      userPrompt: PromptBuilder.buildNameMapIncrementUserPrompt(
+        existing,
+        sourceContent,
+        nameReq: worldBook!.nameMapReq,
+        // v707：三份改编要求文本全部注入（用户稿+AI优化稿+声明，v705升格
+        // 等同用户拟名）——新名出处与配对判定依据
+        allRequirements: [
+          worldBook!.requirements,
+          ...worldBook!.arcRequirements.values,
+          ...worldBook!.sceneRequirements.values,
+          ...worldBook!.arcRequirementsAI.values,
+          ...worldBook!.sceneRequirementsAI.values,
+          ...worldBook!.arcDeclarations.values,
+          ...worldBook!.sceneDeclarations.values,
+        ].where((t) => t.trim().isNotEmpty).join('\n\n'),
+        // v635：A方案下改编产物全部用原著原名，素材按原著口径抽取；
+        // 右列新名禁收卫兵始终生效防二次映射
+        forbiddenNames: _mapRightColumnNames(),
+      ),
+      temperature: 0.3,
+      maxTokens: 4000,
+    );
+    var response = await nmCall();
+    var nmRetry = 0;
+    while (!response.isSuccess && nmRetry < 1 && !api.isAborted) {
+      nmRetry++;
+      apiLog('📖 映射表抽取请求失败（${response.error ?? "HTTP ${response.statusCode}"}），重试第$nmRetry/1次…');
+      await Future.delayed(const Duration(seconds: 5));
+      response = await nmCall();
+    }
+    if (!response.isSuccess || response.content.trim().isEmpty) {
+      apiLog('⛔ 映射表增量抽取失败，已终止${batchTag.isEmpty ? "" : "（$batchTag）"}（采集源：${sourceLabel.isEmpty ? "${sourceContent.length}字" : sourceLabel}）：${response.error ?? "返回为空"}——本次改编成果不受影响，但该批未进映射表');
+      return false;
+    }
+    var raw = response.content.trim();
+    if (config.formatMode == 'json') {
+      raw = TextCleaner.normalizeAiOutput(raw, jsonMode: true);
+    } else {
+      raw = TextCleaner.normalizeAiOutput(raw);
+    }
+    // 解析"原著名→新名"行，合并去重（原著名已存在=跳过，用户手改不动）
+    final existingNow = worldBook!.nameMapping;
+    final have = RegExp(
+      r'^\s*([^\s→>]+?)\s*[→>]\s*([^\s（(]+)',
+      multiLine: true,
+    ).allMatches(existingNow).map((m) => m.group(1)!).toSet();
+    final rights = RegExp(
+      r'^\s*([^\s→>]+?)\s*[→>]\s*([^\s（(]+)',
+      multiLine: true,
+    ).allMatches(existingNow).map((m) => m.group(2)!).toSet();
+    final nameReqText = worldBook!.nameMapReq;
+    // v707：判定语料同步恢复三份文本（AI优化稿+声明等同用户拟名）
+    final reqAllText = [
+      worldBook!.requirements,
+      ...worldBook!.arcRequirements.values,
+      ...worldBook!.sceneRequirements.values,
+      ...worldBook!.arcRequirementsAI.values,
+      ...worldBook!.sceneRequirementsAI.values,
+      ...worldBook!.arcDeclarations.values,
+      ...worldBook!.sceneDeclarations.values,
+    ].where((t) => t.trim().isNotEmpty).join('\n\n');
+    // v636：原著正文语料——"原著名"判定依据（原著出处 > 改编要求）
+    final origCorpus = chapters.isEmpty
+        ? ''
+        : chapters.map((c) => '${c.title}\n${c.content}').join('\n');
+    final added = <String>[];
+    final doubts = <String>[];
+    final rejected = <String>[];
+    final registered = <String>[];
+    final buf = StringBuffer(existingNow.trim().isEmpty ? '' : existingNow.trimRight() + '\n');
+    for (final line in raw.split('\n')) {
+      final t = line.trim();
+      final doubt = RegExp(
+        r'^？\s*(.+?)\s*[（(]疑似=([^）)]+)[）)]$',
+      ).firstMatch(t);
+      if (doubt != null) {
+        doubts.add('${doubt.group(1)}→${doubt.group(2)}');
+        continue;
+      }
+      final m = RegExp(
+        r'^\s*([^\s→>]+?)\s*[→>]\s*([^\s（(]+)',
+      ).firstMatch(t);
+      if (m == null) continue;
+      final from = m.group(1)!.trim();
+      if (from.isEmpty || have.contains(from)) continue;
+      // v636：合法新名判定——出自要求文本且原著正文无出处=新名（登记右列恒等保留）
+      // 原著正文有出处→原著词，放行。优先级：原著出处 > 要求文本
+      final isLegalNewName =
+          (nameReqText.contains(from) || reqAllText.contains(from)) &&
+          !origCorpus.contains(from);
+      if (isLegalNewName) {
+        if (!rights.contains(from) && !added.contains(from)) {
+          buf.writeln('$from→$from（用户新名·原样保留）');
+          rights.add(from);
+          have.add(from);
+          registered.add(from);
+        }
+        continue;
+      }
+      if (rights.contains(from)) {
+        rejected.add(from);
+        continue;
+      }
+      have.add(from);
+      buf.writeln(t);
+      added.add(from);
+    }
+    if (added.isNotEmpty) {
+      worldBook!.nameMapping = buf.toString();
+      saveWorldBook();
+      apiLog('📖 映射表追加${added.length}条：${added.take(8).join('、')}${added.length > 8 ? "…" : ""}');
+    }
+    if (registered.isNotEmpty) {
+      if (added.isEmpty) {
+        worldBook!.nameMapping = buf.toString();
+        saveWorldBook();
+      }
+      apiLog('🔖 用户新名登记进右列（恒等保留）：${registered.take(8).join('、')}${registered.length > 8 ? "…" : ""}');
+    }
+    if (rejected.isNotEmpty) {
+      apiLog('🛡 已拦截疑似改编新名混入映射表左列：${rejected.take(8).join('、')}${rejected.length > 8 ? "…" : ""}');
+    }
+    if (doubts.isNotEmpty) {
+      apiLog('❓ 疑似别名待确认（映射表弹窗人工处理）：${doubts.take(8).join('；')}${doubts.length > 8 ? "…" : ""}');
+    }
+    return true;
   }
 
   /// v388：二创页换名开关持久化
