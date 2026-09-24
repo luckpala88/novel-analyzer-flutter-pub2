@@ -3391,7 +3391,7 @@ class _WritingPageState extends State<WritingPage>
           '文笔节奏' => ('✍', const Color(0xFFDB2777)),
           '语感' => ('🎙', const Color(0xFFB45309)),
           '笔墨' => ('🖌', const Color(0xFF0369A1)),
-          '功能抽象' || '叙事功能|段落|Paras' => ('🧩', const Color(0xFF0F766E)),
+          '功能抽象' || '叙事功能' || '段落' || 'Paras' => ('🧩', const Color(0xFF0F766E)),
           '条目' => ('📖', const Color(0xFF8B6914)),
           '关键词' => ('🔑', const Color(0xFF6B5D54)),
           _ => ('▸', const Color(0xFF475569)),
@@ -4122,7 +4122,7 @@ class _WritingPageState extends State<WritingPage>
           '文风' => '文风/Style', // v680：量化标尺维度行进分镜卡
           '语感' || '语感锚' => '语感/Voice',
           '笔墨' || '笔墨配额' => '笔墨/Ink',
-          '功能抽象' || '叙事功能|段落|Paras' => '功能抽象/Abstract',
+          '功能抽象' || '叙事功能' || '段落' || 'Paras' => '功能抽象/Abstract',
           _ => label,
         };
         final (icon, color) = switch (label) {
