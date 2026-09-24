@@ -2356,7 +2356,10 @@ class _WritingPageState extends State<WritingPage>
       }
       // v642：到达chunk边界——一次API生成本步N镜并切分缓存
       var chunkRetried = false;
-      if (i >= chunkEnd) {
+      // v736：步进已移除(恒1镜/步)——分块分支永久关闭，一律走单镜路径
+      // (v731曾因条件i>=chunkEnd(-1)恒真让每镜都进分块prompt路径，
+      //  其输出模板致AI正文写在结构块前=草稿"先正文后分镜"倒序)
+      if (shotStep > 1 && i >= chunkEnd) {
         final cStart = i;
         chunkEnd = (i + shotStep < shotMatches.length) ? i + shotStep : shotMatches.length;
         final cBlocks = <String>[];
