@@ -2427,24 +2427,8 @@ class _AdaptPageState extends State<AdaptPage>
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        FilledButton.tonalIcon(
-                          icon: const Icon(Icons.auto_fix_high, size: 16),
-                          label: const Text(
-                            '改编弧线',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                          onPressed: _isGenerating
-                              ? null
-                              : () => _generateForArc(
-                                  state,
-                                  arc,
-                                  totalArcs,
-                                  layer: 'arc',
-                                ),
-                        ),
-                        const SizedBox(width: 6),
                         MiniButton(
-                          label: '📋采映射',
+                          label: '📋先·采映射',
                           primary: false,
                           onTap: () async {
                             final src = arc.text; // v294：弧线精准正文
@@ -2459,6 +2443,22 @@ class _AdaptPageState extends State<AdaptPage>
                             );
                             if (mounted) setState(() {});
                           },
+                        ),
+                        const SizedBox(width: 6),
+                        FilledButton.tonalIcon(
+                          icon: const Icon(Icons.auto_fix_high, size: 16),
+                          label: const Text(
+                            '后·改编弧线',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                          onPressed: _isGenerating
+                              ? null
+                              : () => _generateForArc(
+                                  state,
+                                  arc,
+                                  totalArcs,
+                                  layer: 'arc',
+                                ),
                         ),
                       ],
                     ),
@@ -2847,7 +2847,7 @@ class _AdaptPageState extends State<AdaptPage>
                             Row(
                               children: [
                                 MiniButton(
-                                  label: '📋采映射',
+                                  label: '📋先·采映射',
                                   primary: false,
                                   onTap: () async {
                                     final src = scene.text; // v320：场景锚定切片
@@ -2884,8 +2884,8 @@ class _AdaptPageState extends State<AdaptPage>
                                   ),
                                   child: Text(
                                     layer == 1
-                                        ? (hasStandalone ? '重改编场景' : '改编场景')
-                                        : (hasStandalone ? '重改编分镜' : '改编分镜'),
+                                        ? (hasStandalone ? '后·重改编场景' : '后·改编场景')
+                                        : (hasStandalone ? '后·重改编分镜' : '后·改编分镜'),
                                     style: const TextStyle(fontSize: 11),
                                   ),
                                 ),
