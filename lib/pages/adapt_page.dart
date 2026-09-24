@@ -1923,6 +1923,7 @@ class _AdaptPageState extends State<AdaptPage>
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
               child: _CollapseReqField(
+                prefKey: 'global',
                 controller: _reqController,
                 labelText: '全局改编要求（可选，对所有弧线生效）',
                 hintText: '如：用更生动的语言描述场景和角色心理\n以第三人称全知视角改写\n把叙述改为设定手册风格',
@@ -2231,10 +2232,10 @@ class _AdaptPageState extends State<AdaptPage>
                     ),
                     const SizedBox(height: 4),
                     _CollapseReqField(
+                      prefKey: 'arc_u_$arcKey',
                       controller: TextEditingController(text: arcReq),
                       labelText: '本弧线专属改编要求（可选，与全局要求综合生效）',
                       fontSize: 12,
-                      expandLines: 5,
                       onChanged: (v) {
                         if (state.worldBook == null)
                           state.worldBook = WorldBook();
@@ -2288,12 +2289,12 @@ class _AdaptPageState extends State<AdaptPage>
                     ),
                     const SizedBox(height: 4),
                     _CollapseReqField(
+                      prefKey: 'arc_ai_$arcKey',
                       controller: TextEditingController(
                         text: state.worldBook?.arcRequirementsAI[arcKey] ?? '',
                       ),
                       labelText: 'AI优化要求（点上方🤖AI优化生成，或直接手填）',
                       fontSize: 12,
-                      expandLines: 5,
                       onChanged: (v) {
                         state.worldBook!.arcRequirementsAI[arcKey] = v;
                         state.saveWorldBook();
@@ -2523,10 +2524,10 @@ class _AdaptPageState extends State<AdaptPage>
                             ),
                             const SizedBox(height: 4),
                             _CollapseReqField(
+                              prefKey: 'scene_u_$sceneReqKey',
                               controller: TextEditingController(text: sceneReq),
                               labelText: '本场景改编要求（可选）...',
                               fontSize: 11,
-                              expandLines: 4,
                               onChanged: (v) {
                                 if (state.worldBook == null)
                                   state.worldBook = WorldBook();
@@ -2592,6 +2593,7 @@ class _AdaptPageState extends State<AdaptPage>
                             ),
                             const SizedBox(height: 4),
                             _CollapseReqField(
+                              prefKey: 'scene_ai_$sceneReqKey',
                               controller: TextEditingController(
                                 text:
                                     state
@@ -2601,7 +2603,6 @@ class _AdaptPageState extends State<AdaptPage>
                               ),
                               labelText: 'AI优化要求（点上方🤖AI优化生成，或直接手填）',
                               fontSize: 11,
-                              expandLines: 4,
                               onChanged: (v) {
                                 state
                                         .worldBook!
@@ -4848,23 +4849,23 @@ class _AdaptPageState extends State<AdaptPage>
 
 /// v242：可折叠要求输入框——平时1行高，点击聚焦展开多行方便编辑，失焦收回。
 /// 非弹窗（就地展开），AnimatedSize平滑过渡（v468/A-/A+等按钮同款就地编辑理念）
+/// v705：改编要求输入框——折叠按键显式控制（不再依赖焦点判定）+状态持久化
+/// +展开自适应内容高度（maxLines:null）+字号全局记忆（A-/A+，flag持久化）
 class _CollapseReqField extends StatefulWidget {
   const _CollapseReqField({
     required this.controller,
     required this.labelText,
+    required this.prefKey, // v705：折叠状态记忆键
     this.hintText,
     this.fontSize = 12,
-    this.expandLines = 6,
-    this.collapseLines = 1, // v566：非编辑态显示行数（圣经等大字段用3）
     this.onChanged,
   });
 
   final TextEditingController controller;
   final String labelText;
   final String? hintText;
+  final String prefKey;
   final double fontSize;
-  final int expandLines;
-  final int collapseLines;
   final ValueChanged<String>? onChanged;
 
   @override
@@ -4872,47 +4873,88 @@ class _CollapseReqField extends StatefulWidget {
 }
 
 class _CollapseReqFieldState extends State<_CollapseReqField> {
-  final _focus = FocusNode();
   bool _expanded = false;
+  late double _fontSize;
+  static double? _globalFontSize; // 会话内跨实例共享
+
+  String _flagPath(AppState st, String name) =>
+      '${st.storage.bookPath}req_field_$name.flag';
 
   @override
   void initState() {
     super.initState();
-    // v564：展开后只在点框外才收缩（onTapOutside）——框内拖动选区时
-    // 焦点抖动不再误触发收缩
-    _focus.addListener(() {
-      if (mounted && _focus.hasFocus) setState(() => _expanded = true);
-    });
+    final st = context.read<AppState>();
+    _expanded =
+        st.storage.readFile(_flagPath(st, 'open_${widget.prefKey}')) ==
+        'true';
+    _globalFontSize ??= double.tryParse(
+      st.storage.readFile(_flagPath(st, 'fontsize')) ?? '',
+    );
+    _fontSize = _globalFontSize ?? widget.fontSize;
   }
 
-  @override
-  void dispose() {
-    _focus.dispose();
-    super.dispose();
+  void _toggle() {
+    final st = context.read<AppState>();
+    _expanded = !_expanded;
+    st.storage.writeFile(
+      _flagPath(st, 'open_${widget.prefKey}'),
+      _expanded ? 'true' : 'false',
+    );
+    setState(() {});
+  }
+
+  void _adjustFont(int delta) {
+    final st = context.read<AppState>();
+    _fontSize = (_fontSize + delta).clamp(10.0, 20.0);
+    _globalFontSize = _fontSize;
+    st.storage.writeFile(_flagPath(st, 'fontsize'), '$_fontSize');
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    // v563：去掉AnimatedSize动画——展开动画期间控件位移导致点选光标
-    // 位置映射到旧布局（点不准、只能拖动定位），改为即时展开收起
-    return TextField(
-      controller: widget.controller,
-      focusNode: _focus,
-      style: TextStyle(fontSize: widget.fontSize),
-      // v562：编辑态自适应增高到显示全部文字（maxLines=null），失焦缩回单行
-      maxLines: _expanded ? widget.expandLines : widget.collapseLines,
-      minLines: 1,
-      keyboardType: TextInputType.multiline,
-      onTapOutside: (_) {
-        if (mounted) setState(() => _expanded = false); // v564：点框外才缩回
-      },
-      decoration: InputDecoration(
-        labelText: widget.labelText,
-        hintText: _expanded ? widget.hintText : null,
-        border: const OutlineInputBorder(),
-        isDense: true,
-      ),
-      onChanged: widget.onChanged,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.labelText,
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            MiniButton(
+              label: _expanded ? '▲折叠' : '▼展开',
+              primary: _expanded,
+              onTap: _toggle,
+            ),
+            if (_expanded) ...[
+              const SizedBox(width: 4),
+              MiniButton(label: 'A-', onTap: () => _adjustFont(-1)),
+              const SizedBox(width: 2),
+              MiniButton(label: 'A+', onTap: () => _adjustFont(1)),
+            ],
+          ],
+        ),
+        const SizedBox(height: 2),
+        TextField(
+          controller: widget.controller,
+          style: TextStyle(fontSize: _fontSize, height: 1.4),
+          // v705：展开=maxLines null自适应全部内容高度；折叠=1行
+          maxLines: _expanded ? null : 1,
+          minLines: _expanded ? 6 : 1,
+          keyboardType: TextInputType.multiline,
+          decoration: InputDecoration(
+            hintText: _expanded ? widget.hintText : null,
+            border: const OutlineInputBorder(),
+            isDense: true,
+          ),
+          onChanged: widget.onChanged,
+        ),
+      ],
     );
   }
 }
