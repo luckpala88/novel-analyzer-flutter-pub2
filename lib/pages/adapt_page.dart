@@ -3749,7 +3749,8 @@ class _AdaptPageState extends State<AdaptPage>
     try {
       // v720：批量前置——先独立调一次本弧线采映射（代替手工点"先·采映射"，
       // 与改编分两次API调用），采集源=弧线物化切片
-      if (autoCapture && arc.text.isNotEmpty) {
+      // v722：场景层批量（弧线内批量改编场景）不采弧线级——只采当前场景切片
+      if (autoCapture && layer != 'scene' && arc.text.isNotEmpty) {
         _addLog('📋 弧线${arc.number}批量前置采映射…');
         await state.extractNameMapIncrement(
           arc.text,
