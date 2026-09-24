@@ -3747,9 +3747,16 @@ class _AdaptPageState extends State<AdaptPage>
     _addLog('开始生成弧线${arc.number}：${arc.title}（$layerDesc）');
 
     try {
-      // v723：弧线级采集取消（用户定稿）——顶部批量本质=分步进行每弧线的
-      // 场景改编+采集，只按场景粒度逐个前置采集；概述层批量如需补名称
-      // 手动点弧线层"先·采映射"（arc.text全量+分批）
+      // v724：弧线改编（概述层/贯穿三层含概述步）才采集弧线切片——
+      // 场景/分镜层只按场景粒度前置采集（用户定稿：什么层采什么切片）
+      if (autoCapture && (layer == 'arc' || layer == 'all') && arc.text.isNotEmpty) {
+        _addLog('📋 弧线${arc.number}批量前置采映射（弧线切片）…');
+        await state.extractNameMapIncrement(
+          arc.text,
+          adaptedInput: false,
+          sourceLabel: '弧线${arc.number}切片（批量前置）',
+        );
+      }
       // 备份旧条目（失败时恢复）
       final oldBackup = <String, WBEntry>{};
       state.worldBook!.entries.forEach((k, e) {
