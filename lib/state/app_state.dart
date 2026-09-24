@@ -1470,6 +1470,7 @@ class AppState extends ChangeNotifier {
           rights.add(from);
           have.add(from);
           registered.add(from);
+          worldBook!.nameMapManual.add(from); // v710：新元素行锁定
         }
         continue;
       }
@@ -1480,6 +1481,15 @@ class AppState extends ChangeNotifier {
       have.add(from);
       buf.writeln(t);
       added.add(from);
+      // v710：右列新名出自改编要求文本（用户稿/AI优化稿/声明）=等同用户
+      // 拟名，进锁定集——AI重拟新名时与手动添加同优先级原样保留
+      final rightName =
+          RegExp(r'^([^\s（(]+)').firstMatch(m.group(2)!.trim())?.group(1) ?? '';
+      if (rightName.isNotEmpty &&
+          reqAllText.contains(rightName) &&
+          !origCorpus.contains(rightName)) {
+        worldBook!.nameMapManual.add(from);
+      }
     }
     if (added.isNotEmpty) {
       worldBook!.nameMapping = buf.toString();
