@@ -527,11 +527,8 @@ class _WritingPageState extends State<WritingPage>
     }
     final sh = shots[shotIdx];
     final block = w.content.substring(sh.start, sh.end);
-    // v592：精简分镜——单镜生成同样剥离易搬运维度
-    final structText =
-        state.writingLeanShots
-            ? TextCleaner.stripShotDims(_shotStructLines(block))
-            : _shotStructLines(block);
+    // v731：精简功能移除——恒全维结构
+    final structText = _shotStructLines(block);
     // 前文衔接：本镜之前的场景内已生成正文全量注入（v375用户裁决：
     // 连戏完整优于token节省；v376撤4000上限）
     final prevTail = w.content.substring(0, sh.start);
@@ -947,19 +944,6 @@ class _WritingPageState extends State<WritingPage>
                     ),
                   ),
                   const SizedBox(width: 5),
-                  // v642：逐镜批量步进（每步N镜一次API）
-                  MiniButton(
-                    label: '步进${state.writingShotStep}',
-                    primary: state.writingShotStep > 1,
-                    onTap: () {
-                      const steps = [1, 2, 3, 5, 8];
-                      final idx = steps.indexOf(state.writingShotStep);
-                      state.setWritingShotStep(
-                        steps[(idx + 1) % steps.length],
-                      );
-                    },
-                  ),
-                  const SizedBox(width: 5),
                   MiniButton(
                     label: '原范文',
                     primary: state.writingImitateAuthor,
@@ -973,14 +957,6 @@ class _WritingPageState extends State<WritingPage>
                     primary: state.writingFreeMode,
                     onTap: () => state.setWritingFreeMode(
                       !state.writingFreeMode,
-                    ),
-                  ),
-                  const SizedBox(width: 5),
-                  MiniButton(
-                    label: '精简',
-                    primary: state.writingLeanShots,
-                    onTap: () => state.setWritingLeanShots(
-                      !state.writingLeanShots,
                     ),
                   ),
                   const SizedBox(width: 5),
@@ -2337,9 +2313,8 @@ class _WritingPageState extends State<WritingPage>
         .trim();
     var failed = 0;
     var stopped = false; // v268失败停机标记
-    // v642：逐镜批量步进——每步一次API生成N镜（缓存切分，逐镜组装/质检/返工不变）
-    final shotStep = state.writingShotStep.clamp(1, 10);
-    if (shotStep > 1) _addLog('⚡ 逐镜步进=$shotStep（每次API生成$shotStep镜，省额度）');
+    // v731：步进功能移除——逐镜一律一步一镜（用户裁决）
+    const shotStep = 1;
     List<String> chunkBodies = const [];
     var chunkEnd = -1; // 本chunk覆盖 shotMatches[i..chunkEnd-1]（exclusive）
     var chunkStart = -1; // v650：chunk起点显式记录——此前从chunkBodies.length反推,切分段数≠预期时算出负索引(RangeError -4)
@@ -2787,7 +2762,7 @@ class _WritingPageState extends State<WritingPage>
         si,
         worldBookEntries: state.worldBook!.entries,
         freeShotMode: effectiveFree,
-        leanShots: state.writingLeanShots,
+        leanShots: false, // v731：精简功能移除
         sceneSummary: sceneSummary,
         requirements: creationReq,
         writingPrompt: state.writingPrompt,
@@ -3728,14 +3703,13 @@ class _WritingPageState extends State<WritingPage>
     );
   }
 
-  /// v608：txt备注行（模型·温度·逐镜/整场景·自由/标准·精简/全维）
+  /// v731：txt备注行（模型·温度·逐镜/整场景·自由/标准）
   /// writingModelNote开关控制；model空=不备注。复制功能不复制此行
   String? _txtNote(AppState state, {String model = '', Object? temp}) {
     if (!state.writingModelNote || model.isEmpty) return null;
     final mode = [
       state.writingShotByShot ? '逐镜' : '整场景',
       state.writingFreeMode ? '自由' : '标准',
-      state.writingLeanShots ? '精简' : '全维',
     ].join('·');
     return '[模型：$model · 温度$temp · $mode]';
   }
