@@ -1517,6 +1517,11 @@ class _AdaptPageState extends State<AdaptPage>
               onPressed: _isGenerating
                   ? null
                   : () {
+                      // v709：先落盘弹窗内未保存的编辑——否则起名要求/表内
+                      // 手改不点保存就被无视（用户实测：改名要求被无视）
+                      state.worldBook?.nameMapping = ctrl.text;
+                      state.worldBook?.nameMapReq = reqCtrl.text;
+                      state.saveWorldBook();
                       Navigator.pop(ctx);
                       _generateNameMap(state);
                     },
