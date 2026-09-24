@@ -2846,6 +2846,7 @@ class _AdaptPageState extends State<AdaptPage>
                             const SizedBox(height: 6),
                             Row(
                               children: [
+                                if (layer == 1)
                                 MiniButton(
                                   label: '📋先·采映射',
                                   primary: false,
@@ -2885,7 +2886,7 @@ class _AdaptPageState extends State<AdaptPage>
                                   child: Text(
                                     layer == 1
                                         ? (hasStandalone ? '后·重改编场景' : '后·改编场景')
-                                        : (hasStandalone ? '后·重改编分镜' : '后·改编分镜'),
+                                        : (hasStandalone ? '重改编分镜' : '改编分镜'),
                                     style: const TextStyle(fontSize: 11),
                                   ),
                                 ),
