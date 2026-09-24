@@ -14,6 +14,7 @@ import '../utils/prompt_builder.dart';
 import '../utils/json_repair.dart';
 import '../utils/prompt_preview.dart';
 import '../utils/text_cleaner.dart';
+import '../utils/name_map.dart';
 import '../widgets/api_config_panel.dart';
 import '../widgets/api_log_panel.dart';
 import '../widgets/v119_ui.dart';
@@ -33,6 +34,7 @@ class AdaptPage extends StatefulWidget {
 
 class _AdaptPageState extends State<AdaptPage>
     with AutomaticKeepAliveClientMixin, TickerProviderStateMixin {
+  bool _mapPreview = false; // v702：浏览层换名预览
   @override
   bool get wantKeepAlive => true; // 页面滑出PageView时保持State：生成任务不中断/表单不清空
 
@@ -1559,8 +1561,15 @@ class _AdaptPageState extends State<AdaptPage>
           Padding(
             padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
             child: TextField(
-              controller: TextEditingController(text: decl)
-                ..selection = TextSelection.collapsed(offset: decl.length),
+              controller: TextEditingController(
+                text: _mapPreview
+                    ? NameMap.applyMapping(
+                        decl,
+                        state.worldBook?.nameMapping ?? '',
+                      )
+                    : decl,
+              )..selection = TextSelection.collapsed(offset: decl.length),
+              readOnly: _mapPreview,
               maxLines: null,
               minLines: 6,
               style: const TextStyle(fontSize: 11, height: 1.5),
@@ -1957,6 +1966,12 @@ class _AdaptPageState extends State<AdaptPage>
                   Text(
                     '$generatedCount/${allArcs.length}已生成',
                     style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                  const SizedBox(width: 8),
+                  MiniButton(
+                    label: '换名预览',
+                    primary: _mapPreview,
+                    onTap: () => setState(() => _mapPreview = !_mapPreview),
                   ),
                   const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
                   Text(
@@ -2735,12 +2750,19 @@ class _AdaptPageState extends State<AdaptPage>
                                           6,
                                         ),
                                         child: TextField(
-                                          controller:
-                                              TextEditingController(text: decl0)
+                                          controller: TextEditingController(
+                                            text: _mapPreview
+                                                ? NameMap.applyMapping(
+                                                    decl0,
+                                                    state.worldBook?.nameMapping ?? '',
+                                                  )
+                                                : decl0,
+                                          )
                                                 ..selection =
                                                     TextSelection.collapsed(
                                                       offset: decl0.length,
                                                     ),
+                                          readOnly: _mapPreview,
                                           maxLines: null,
                                           minLines: 4,
                                           style: const TextStyle(

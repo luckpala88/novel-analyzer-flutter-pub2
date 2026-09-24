@@ -13,6 +13,7 @@ import '../state/app_state.dart';
 import '../services/file_picker_service.dart';
 import 'package:share_plus/share_plus.dart';
 import '../utils/encoding_detector.dart';
+import '../utils/name_map.dart';
 import '../utils/text_cleaner.dart';
 import '../utils/prompt_preview.dart';
 import '../utils/v469_style.dart';
@@ -525,7 +526,7 @@ class _DetectionPageState extends State<DetectionPage>
     );
   }
 
-  /// v388：名称映射表替换——解析"原著名→新名"行，按原著名长度降序替换（防短名截断长名）
+  /// v388：名称映射表替换——v702改调共用NameMap工具（与浏览层换名预览同逻辑）
   static Map<String, List<(String, String)>>? _nameMapCache;
   static String? _nameMapCacheSrc;
 
@@ -534,12 +535,12 @@ class _DetectionPageState extends State<DetectionPage>
     final src = state.worldBook?.nameMapping ?? '';
     if (src.isEmpty || text.isEmpty) return text;
     if (_nameMapCacheSrc != src || _nameMapCache == null) {
-      final pairs = <(String, String)>[];
-      for (final line in src.split('\n')) {
-        final m = RegExp(r'^\s*([^\s→>]+?)\s*[→>]\s*([^\s（(]+)').firstMatch(line.trim());
-        if (m != null && m.group(1)! != m.group(2)!) {
-          pairs.add((m.group(1)!, m.group(2)!));
-        }
+      _nameMapCache = {'pairs': NameMap.parse(src)};
+      _nameMapCacheSrc = src;
+    }
+    final pairs = _nameMapCache!['pairs'] as List<(String, String)>;
+    return NameMap.apply(text, pairs);
+  }
       }
       pairs.sort((a, b) => b.$1.length.compareTo(a.$1.length)); // 长名优先
       _nameMapCache = {'pairs': pairs};

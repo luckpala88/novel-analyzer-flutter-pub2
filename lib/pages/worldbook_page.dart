@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../models/world_book.dart';
 import '../utils/text_cleaner.dart';
+import '../utils/name_map.dart';
 import '../utils/v469_style.dart';
 import '../widgets/api_config_panel.dart';
 import '../widgets/v119_ui.dart';
@@ -88,6 +89,7 @@ class _WorldBookPageState extends State<WorldBookPage>
 
   // 就地编辑状态（替代弹窗）：_editingUid为null=浏览态，非null=该条目进入编辑
   String? _editingUid;
+  bool _mapPreview = false; // v702：浏览层换名预览（纯显示层套映射表，数据/ST导出仍原文）
   final _editContentCtrl = TextEditingController();
   final _editCommentCtrl = TextEditingController();
   final _editKeyCtrl = TextEditingController();
@@ -166,6 +168,11 @@ class _WorldBookPageState extends State<WorldBookPage>
                 runSpacing: 2,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
+                  MiniButton(
+                    label: '换名预览',
+                    primary: _mapPreview,
+                    onTap: () => setState(() => _mapPreview = !_mapPreview),
+                  ),
                   MiniButton(
                     label: '清空',
                     danger: true,
@@ -392,7 +399,14 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
   /// 解析content文本按"场景N："行切块，每块=场景头（常显可点击）+分镜明细（可折叠）
   /// 纯显示层——ST导出用entry.content原文，此处仅渲染拆分
   Widget _sceneFoldableContent(WBEntry entry) {
-    final lines = entry.content.split('\n');
+    // v702：换名预览开启时显示层套映射表（数据/ST导出仍entry.content原文）
+    final displayText = _mapPreview
+        ? NameMap.applyMapping(
+            entry.content,
+            context.read<AppState>().worldBook?.nameMapping ?? '',
+          )
+        : entry.content;
+    final lines = displayText.split('\n');
     // 切块：头块 / 场景块s / 尾块
     final head = <String>[];
     final scenes = <Map<String, dynamic>>[]; // {header, overview, lines:[]}
