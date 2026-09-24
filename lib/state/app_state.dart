@@ -1341,6 +1341,20 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// v574：映射表右列新名清单（防改编产物二次映射）
+  List<String> _mapRightColumnNames() {
+    final names = <String>[];
+    final rowRe = RegExp(
+      r'^\s*([^\s→>]+?)\s*[→>]\s*([^\s（(]+)',
+      multiLine: true,
+    );
+    for (final m in rowRe.allMatches(worldBook!.nameMapping)) {
+      final right = m.group(2)!.trim();
+      if (right.isNotEmpty) names.add(right);
+    }
+    return names;
+  }
+
   /// v707：单批抽取+合并（返回false=本批失败终止）
   Future<bool> _extractMapBatch(
     String sourceContent,

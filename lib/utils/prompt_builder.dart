@@ -1858,7 +1858,7 @@ class PromptBuilder {
       sb.writeln(requirements);
       sb.writeln();
     }
-    sb.writeln('## 现有映射表（共${tableText.split(chr(10)).length}行——左列与定位照抄，只重拟→右侧新名）');
+    sb.writeln('## 现有映射表（共${tableText.split('\n').length}行——左列与定位照抄，只重拟→右侧新名）');
     sb.writeln(tableText);
     sb.writeln();
     sb.writeln('请输出重拟后的完整映射表（行数与输入一致，左列不变）。');

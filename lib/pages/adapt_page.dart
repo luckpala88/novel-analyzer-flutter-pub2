@@ -1197,7 +1197,8 @@ class _AdaptPageState extends State<AdaptPage>
     setState(() => _isGenerating = true);
     try {
       final apiConfig = state.wbApi.useCustom ? state.mainApi : state.wbApi;
-      final response = await state.api.callApi(
+      final response = await state.api.call(
+        apiType: apiConfig.effectiveApiType,
         baseUrl: apiConfig.effectiveApiBase,
         apiKey: apiConfig.effectiveApiKey,
         model: apiConfig.effectiveModel,
