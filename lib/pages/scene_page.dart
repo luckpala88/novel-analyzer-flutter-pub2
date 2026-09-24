@@ -1062,6 +1062,17 @@ const Spacer(), // ⚙API推到最右
           }
           _addLog('✓ 弧线${arcs[i].number}重试成功');
         }
+        // v720：批量划分成功后自动采一次该弧线映射（划分产物含场景名/概述，
+        // 名称在这里最多；分批机制自动处理长文本）
+        final arcText0 = arcs[i].text;
+        if (arcText0.isNotEmpty) {
+          _addLog('📋 弧线${arcs[i].number}划分后采映射…');
+          await state.extractNameMapIncrement(
+            arcText0,
+            adaptedInput: false,
+            sourceLabel: '弧线${arcs[i].number}切片（划分后采集）',
+          );
+        }
       }
       _addLog('批量划分完成');
     } finally {

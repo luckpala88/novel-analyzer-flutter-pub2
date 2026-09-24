@@ -3100,6 +3100,7 @@ class _AdaptPageState extends State<AdaptPage>
             allArcs.length,
             incremental: mode == 'incremental',
             layer: layer,
+            autoCapture: true, // v720：批量每步前自动采映射
           );
           if (state.worldBook!.arcStatus[arcKey] == 'generated' ||
               state.worldBook!.arcStatus[arcKey] == 'arc_done') {
@@ -3721,6 +3722,7 @@ class _AdaptPageState extends State<AdaptPage>
     bool incremental = false,
     String layer = 'all', // v570：all/arc/scene/shot 三层独立入口
     int? onlyScene, // v570：单场景模式（场景/分镜层的单场景按钮）
+    bool autoCapture = false, // v720：批量路径前置自动采映射（单步仍手动）
   }) async {
     final arcKey = arc.number.toString();
     // 标记生成中
@@ -3737,6 +3739,16 @@ class _AdaptPageState extends State<AdaptPage>
     _addLog('开始生成弧线${arc.number}：${arc.title}（$layerDesc）');
 
     try {
+      // v720：批量前置——先独立调一次本弧线采映射（代替手工点"先·采映射"，
+      // 与改编分两次API调用），采集源=弧线物化切片
+      if (autoCapture && arc.text.isNotEmpty) {
+        _addLog('📋 弧线${arc.number}批量前置采映射…');
+        await state.extractNameMapIncrement(
+          arc.text,
+          adaptedInput: false,
+          sourceLabel: '弧线${arc.number}切片（批量前置）',
+        );
+      }
       // 备份旧条目（失败时恢复）
       final oldBackup = <String, WBEntry>{};
       state.worldBook!.entries.forEach((k, e) {
@@ -3971,6 +3983,15 @@ class _AdaptPageState extends State<AdaptPage>
         }
         if (onlyScene != null && si != onlyScene) continue; // v570：单场景模式
         final scene = scenes[si];
+        // v720：批量前置——每个场景改编前先独立采一次该场景切片
+        if (autoCapture && scene.text.isNotEmpty) {
+          _addLog('📋 场景${si + 1}批量前置采映射…');
+          await state.extractNameMapIncrement(
+            scene.text,
+            adaptedInput: false,
+            sourceLabel: '弧线$arcKey场景${si + 1}切片（批量前置）',
+          );
+        }
         final sceneReqKey = '${arcKey}_$si';
         final sceneReq = state.worldBook!.combinedSceneReq(sceneReqKey);
         // v573：场景改编声明优先（弧线声明退为兜底）
