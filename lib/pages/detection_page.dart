@@ -541,22 +541,6 @@ class _DetectionPageState extends State<DetectionPage>
     final pairs = _nameMapCache!['pairs'] as List<(String, String)>;
     return NameMap.apply(text, pairs);
   }
-      }
-      pairs.sort((a, b) => b.$1.length.compareTo(a.$1.length)); // 长名优先
-      _nameMapCache = {'pairs': pairs};
-      _nameMapCacheSrc = src;
-    }
-    // v411：单遍扫描替换——所有原名合成一个正则，原文每处只替换一次。
-    // 旧串行replaceAll会链式污染：新名里含后续行的原名时被二次替换
-    // （"冯X→男修"换完又被别的行叠出"冯姓男修"拼接怪胎，体检实证）
-    final pairs = _nameMapCache!['pairs'] as List<(String, String)>;
-    if (pairs.isEmpty) return text;
-    final fromRe = RegExp(
-      pairs.map((p) => RegExp.escape(p.$1)).join('|'),
-    );
-    final map = {for (final p in pairs) p.$1: p.$2};
-    return text.replaceAllMapped(fromRe, (m) => map[m.group(0)] ?? m.group(0)!);
-  }
 
   /// v407：换名体检——AI审读替换后正文，对照映射表找残留/漏映射/违和，建议具体新名
   Future<void> _nameCheck(AppState state, String text) async {
