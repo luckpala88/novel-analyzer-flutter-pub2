@@ -13,6 +13,7 @@ class WritingItem {
   String model; // 生成时用的模型（txt备注用）
   double temperature; // v361：生成时用的温度（txt备注用）
   bool draft; // v548：逐镜实时保存草稿标记（中断保留部分成果）
+  String genMode; // v733：生成模式备注（"逐镜·自由"等，列表直显）
 
   WritingItem({
     required this.key,
@@ -28,6 +29,7 @@ class WritingItem {
     this.model = '',
     this.temperature = 0.3,
     this.draft = false,
+    this.genMode = '',
   }) : versions = versions ?? [];
 
   factory WritingItem.fromJson(Map<String, dynamic> json) {
@@ -51,6 +53,7 @@ class WritingItem {
       model: json['model'] ?? '',
       temperature: (json['temperature'] ?? 0.3).toDouble(),
       draft: json['draft'] == true,
+      genMode: (json['genMode'] ?? '').toString(),
     );
   }
 

@@ -2077,6 +2077,7 @@ class _WritingPageState extends State<WritingPage>
           '${w.createdAt != null ? ' · ${_fmtDateTime(w.createdAt!)}' : ''}'
           // v639：显示模型@温度（老条目model为空则不显示，不编造）
           '${w.model.isNotEmpty ? ' · ${w.model}@${w.temperature}' : ''}'
+          '${w.genMode.isNotEmpty ? ' · ${w.genMode}' : ''}'
           '${w.draft ? ' · 草稿' : ''}',
           style: const TextStyle(fontSize: 11),
         ),
@@ -2296,6 +2297,7 @@ class _WritingPageState extends State<WritingPage>
           model: config.effectiveModel,
           temperature: config.temperature,
           draft: true,
+          genMode: '逐镜·${state.writingFreeMode ? '自由' : '标准'}',
         );
       } else {
         draftItem!.content = content;
@@ -2850,6 +2852,7 @@ class _WritingPageState extends State<WritingPage>
               versions: versions,
               model: config.effectiveModel,
               temperature: config.temperature,
+              genMode: '逐镜·${state.writingFreeMode ? '自由' : '标准'}',
             );
           }
           state.writings[wkey] = writing;
@@ -3024,6 +3027,7 @@ class _WritingPageState extends State<WritingPage>
               version: old.version,
               model: old.model,
               temperature: old.temperature,
+              genMode: old.genMode,
             ),
           );
           version = old.version + 1;
@@ -3040,6 +3044,7 @@ class _WritingPageState extends State<WritingPage>
           versions: versions,
           model: config.effectiveModel,
           temperature: config.temperature,
+          genMode: '整场景·${state.writingFreeMode ? '自由' : '标准'}',
         );
         state.writings[wkey] = writing;
         state.saveWritings();
