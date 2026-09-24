@@ -1140,7 +1140,9 @@ class _AdaptPageState extends State<AdaptPage>
 
   /// 判断弧线条目是否已填充分镜（条目content里有"分镜1："行）
 
-  /// v388：生成名称映射表（原著名→新名——二创页输出替换用，生成端保持原著名）
+  /// v706：AI重拟新名——主表退位为重拟工具（用户裁决）：左列一个不动，
+  /// 只按起名要求重拟右列新名；手动添加的行锁定优先（nameMapManual，
+  /// 不送AI、原样保留）；左列为空提示不干活。左列来源=改编时增量采集+手动添加
   Future<void> _generateNameMap(AppState state) async {
     if (state.wbApi.effectiveApiKey.isEmpty && !state.wbApi.useCustom) {
       if (state.mainApi.effectiveApiKey.isEmpty) {
@@ -1148,41 +1150,54 @@ class _AdaptPageState extends State<AdaptPage>
         return;
       }
     }
-    final allArcs = _getAllArcs(state);
-    if (allArcs.isEmpty) {
-      _addLog('❌ 无弧线数据——请先在弧线页完成扫描');
+    final tableText = state.worldBook?.nameMapping.trim() ?? '';
+    if (tableText.isEmpty) {
+      _addLog('❌ 映射表左列为空——没有可重拟的名称。改编时漏的原著词请在弹窗手动添加');
       return;
     }
-    final sysPrompt = PromptBuilder.buildNameMapSystemPrompt();
-    final userPrompt = PromptBuilder.buildNameMapUserPrompt(
-      state.worldBook?.requirements,
-      allArcs,
+    // 解析现有表：映射行 vs 保留行（？确认行等非映射行原样保留）
+    final rowRe = RegExp(r'^\s*([^\s→>]+?)\s*[→>]\s*(.+)$');
+    final rows = <(String, String)>[]; // (左列, 右侧含定位)
+    final kept = <String>[];
+    for (final line in tableText.split('\n')) {
+      final m = rowRe.firstMatch(line);
+      if (m != null) {
+        rows.add((m.group(1)!, m.group(2)!));
+      } else if (line.trim().isNotEmpty) {
+        kept.add(line.trim());
+      }
+    }
+    final manual = state.worldBook?.nameMapManual ?? <String>{};
+    final regenRows = rows.where((r) => !manual.contains(r.$1)).toList();
+    if (regenRows.isEmpty) {
+      _addLog('⚠️ 全部${rows.length}条都是手动添加（锁定优先）——没有可重拟的行');
+      return;
+    }
+    _addLog('重拟范围：${regenRows.length}条（手动锁定${rows.length - regenRows.length}条不动）');
+    final regenTable = regenRows.map((r) => '${r.$1}→${r.$2}').join('\n');
+    final sysPrompt = PromptBuilder.buildNameMapRegenSystemPrompt();
+    final userPrompt = PromptBuilder.buildNameMapRegenUserPrompt(
+      tableText: regenTable,
       nameReq: state.worldBook?.nameMapReq ?? '',
+      requirements: state.worldBook?.requirements ?? '',
     );
     if (mounted) {
       final confirmed = await PromptPreview.maybePreview(
         context,
         sysPrompt: sysPrompt,
         userPrompt: userPrompt,
-        title: '映射表生成词链预览（${allArcs.length}条弧线）',
+        title: '映射表重拟词链预览（${regenRows.length}条）',
         enabled: state.wbPromptPreview,
       );
       if (!confirmed) {
-        _addLog('已取消生成映射表');
+        _addLog('已取消重拟');
         return;
       }
     }
-    _addLog('━━ 生成名称映射表（${allArcs.length}条弧线骨架）…');
-    state.api.clearAbort();
-    state.userAborted = false;
     setState(() => _isGenerating = true);
     try {
-      final apiConfig =
-          state.wbApi.effectiveApiKey.isNotEmpty || state.wbApi.useCustom
-          ? state.wbApi
-          : state.mainApi;
-      final response = await state.api.call(
-        apiType: apiConfig.effectiveApiType,
+      final apiConfig = state.wbApi.useCustom ? state.mainApi : state.wbApi;
+      final response = await state.api.callApi(
         baseUrl: apiConfig.effectiveApiBase,
         apiKey: apiConfig.effectiveApiKey,
         model: apiConfig.effectiveModel,
@@ -1191,25 +1206,39 @@ class _AdaptPageState extends State<AdaptPage>
         temperature: 0.4,
         maxTokens: 8000,
       );
-      // 输出分支与声明同款：json模式的response_format包装要解码
       var raw = response.content.trim();
-      if (apiConfig.formatMode == 'json') {
-        raw = TextCleaner.normalizeAiOutput(raw, jsonMode: true);
-      } else {
-        raw = TextCleaner.normalizeAiOutput(raw);
-      }
-      final outline = raw.trim();
-      if (outline.isEmpty) {
-        _addLog('❌ 总纲生成为空');
+      raw = apiConfig.formatMode == 'json'
+          ? TextCleaner.normalizeAiOutput(raw, jsonMode: true)
+          : TextCleaner.normalizeAiOutput(raw);
+      if (raw.isEmpty) {
+        _addLog('❌ 重拟结果为空');
         return;
       }
+      // 代码侧兜底：按左列对齐，AI漏行/改左列的行回退旧右列——左列永不丢
+      final newRight = <String, String>{};
+      for (final line in raw.split('\n')) {
+        final m = rowRe.firstMatch(line);
+        if (m != null) newRight[m.group(1)!.trim()] = m.group(2)!.trim();
+      }
+      final out = <String>[];
+      var changed = 0;
+      for (final r in rows) {
+        if (manual.contains(r.$1)) {
+          out.add('${r.$1}→${r.$2}'); // 手动锁定原样
+        } else {
+          final nr = newRight[r.$1];
+          if (nr != null && nr != r.$2) changed++;
+          out.add('${r.$1}→${nr ?? r.$2}');
+        }
+      }
+      out.addAll(kept);
       if (state.worldBook == null) state.worldBook = WorldBook();
-      state.worldBook!.nameMapping = outline;
+      state.worldBook!.nameMapping = out.join('\n');
       state.saveWorldBook();
       state.refresh();
-      _addLog('✓ 名称映射表已生成（${outline.length}字）——二创页「换名」开启时输出替换');
+      _addLog('✓ 已重拟新名（$changed条变化，左列${rows.length}条与手动锁定不动）');
     } catch (e) {
-      _addLog('❌ 映射表生成失败：$e');
+      _addLog('❌ 映射表重拟失败：$e');
     } finally {
       if (mounted) setState(() => _isGenerating = false);
     }
@@ -1358,6 +1387,9 @@ class _AdaptPageState extends State<AdaptPage>
                             .where((l) => l.trim().isNotEmpty)
                             .join('\n');
                         state.worldBook?.nameMapping = ctrl.text;
+                        // v706：手动添加进锁定集——AI重拟新名时该行原样保留
+                        state.worldBook?.nameMapManual.add(orig);
+                        state.saveWorldBook();
                         addOrigCtrl.clear();
                         addNewCtrl.clear();
                         setDlg(() {});
@@ -1464,7 +1496,7 @@ class _AdaptPageState extends State<AdaptPage>
                       style: TextStyle(fontSize: mapFont),
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
-                        hintText: '空=未生成。点「AI生成」汇总全部弧线骨架产出，也可手填',
+                        hintText: '空=未生成。改编时漏的原著词点下方添加或手填；点「AI重拟新名」只重拟右列，左列与手动行不动',
                       ),
                       onChanged: (v) => state.worldBook?.nameMapping = v,
                     ),
@@ -1487,11 +1519,7 @@ class _AdaptPageState extends State<AdaptPage>
                       Navigator.pop(ctx);
                       _generateNameMap(state);
                     },
-              child: Text(
-                (state.worldBook?.nameMapping.isNotEmpty ?? false)
-                    ? 'AI重新生成'
-                    : 'AI生成',
-              ),
+              child: const Text('AI重拟新名'),
             ),
             FilledButton(
               onPressed: () {

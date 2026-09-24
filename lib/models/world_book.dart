@@ -194,6 +194,7 @@ class WorldBook {
   Map<String, bool> creationDeclEnabled; // v582：创作声明注入开关
   String nameMapping; // v388：名称映射表（每行"原著名→新名（定位）"——生成端保持原著名，输出层替换）
   String nameMapReq; // v393：起名要求（指定主角新名/命名风格，映射表生成与增量抽取共用）
+  Set<String> nameMapManual; // v706：手动添加的映射左列（重拟右列时锁定不动，优先级最高）
 
   WorldBook({
     this.entries = const {},
@@ -217,7 +218,8 @@ class WorldBook {
     Map<String, bool>? creationDeclEnabled,
     this.nameMapping = '',
     this.nameMapReq = '',
-  }) : arcDeclarations = arcDeclarations ?? {},
+    Set<String>? nameMapManual,
+  }) : nameMapManual = nameMapManual ?? {}, arcDeclarations = arcDeclarations ?? {},
        arcDeclEnabled = arcDeclEnabled ?? {},
        sceneDeclarations = sceneDeclarations ?? {},
        arcRequirementsAI = arcRequirementsAI ?? {},
@@ -309,6 +311,9 @@ class WorldBook {
       ),
       nameMapping: (json['nameMapping'] ?? '').toString(),
       nameMapReq: (json['nameMapReq'] ?? '').toString(),
+      nameMapManual: ((json['nameMapManual'] as List<dynamic>?) ?? const [])
+          .map((e) => e.toString())
+          .toSet(),
     );
   }
 
@@ -340,5 +345,7 @@ class WorldBook {
     'arcDeclEnabled': arcDeclEnabled,
     if (nameMapping.isNotEmpty) 'nameMapping': nameMapping,
     if (nameMapReq.isNotEmpty) 'nameMapReq': nameMapReq,
+    if (nameMapManual.isNotEmpty)
+      'nameMapManual': nameMapManual.toList(),
   };
 }
