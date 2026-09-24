@@ -3491,6 +3491,7 @@ class _WritingPageState extends State<WritingPage>
                         '${w.createdAt != null ? " · ${_fmtDateTime(w.createdAt!)}" : ""}'
                         // v639：查看器同步显示模型@温度
                         '${w.model.isNotEmpty ? " · ${w.model}@${w.temperature}" : ""}'
+                        '${w.genMode.isNotEmpty ? " · ${w.genMode}" : ""}'
                         '${w.draft ? " · 草稿" : ""}',
                         style: const TextStyle(
                           fontSize: 10.5,
