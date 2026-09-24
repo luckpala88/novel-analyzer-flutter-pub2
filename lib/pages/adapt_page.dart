@@ -3679,6 +3679,10 @@ class _AdaptPageState extends State<AdaptPage>
   /// 其余JSON对象/数组→递归拍平成"键：值"纯文本行；已纯文本→原样返回
   String _biblePlainText(String raw) {
     var t = raw.trim();
+    // v725：伪JSON壳遗留的字面\n解码+外层引号壳剥离（用户截图实证：
+    // 圣经整段\"开头+\n\n满天飞不分段——normalize的salvage路径漏解码）
+    t = TextCleaner.decodeLiteralNewlines(t);
+    t = TextCleaner.stripWrapQuotes(t).trim();
     if (t.startsWith('```')) {
       t = t.replaceFirst(RegExp(r'^```\w*\n?'), '').replaceFirst(RegExp(r'```$'), '').trim();
     }
