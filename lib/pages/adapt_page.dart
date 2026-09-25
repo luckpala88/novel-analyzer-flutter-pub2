@@ -1636,84 +1636,6 @@ class _AdaptPageState extends State<AdaptPage>
       ),
     ];
   }
-
-  /// 生成弧线改编声明（场景功能声明/禁令/行为模式卡——正式改编的指导书）
-  /// v765：续写场景条目——解析续写规划里的新场景清单，逐场景生成
-  /// 条目块（场景头+概述+衔接说明，无分镜=创作页自动自由模式），
-  /// 追加到弧线条目content尾部
-  Future<void> _generateContinueScenes(AppState state, Arc arc) async {
-    final arcKey = arc.number.toString();
-    final decl = state.worldBook?.continuePlans[arcKey] ?? ''; // v767
-    final plans = RegExp(
-      r'^场景(\d+)：(.+?)｜(.+)$',
-      multiLine: true,
-    ).allMatches(decl).toList();
-    if (plans.isEmpty) {
-      _addLog('❌ 续写规划里没有新场景清单（格式：场景N：名称｜概述）——先生成/更新声明');
-      return;
-    }
-    final entryKey = _arcEntryKey(state, arcKey);
-    if (entryKey == null) {
-      _addLog('❌ 弧线$arcKey还没有世界书条目——先在原样模式生成一次世界书');
-      return;
-    }
-    final entry = state.worldBook!.entries[entryKey]!;
-    final config = state.getApiConfig('wb');
-    state.api.clearAbort();
-    state.userAborted = false;
-    setState(() => _isGenerating = true);
-    var added = 0;
-    try {
-      for (final m in plans) {
-        if (state.userAborted) break;
-        final sceneNum = int.tryParse(m.group(1)!) ?? 0;
-        final name = m.group(2)!.trim();
-        final brief = m.group(3)!.trim();
-        // 已存在同号场景=跳过（幂等，重跑不重复追加）
-        if (RegExp('场景\\s*\$sceneNum\\s*[：:]').hasMatch(entry.content)) {
-          _addLog('ℹ️ 场景\$sceneNum已存在于条目——跳过');
-          continue;
-        }
-        _addLog('✍️ 续写场景\$sceneNum（\$name）生成中…');
-        final sys = PromptBuilder.buildContinueSceneSystemPrompt(); // v767
-        final user = PromptBuilder.buildContinueSceneUserPrompt(
-          wbDigest: entry.content.length > 3000
-              ? entry.content.substring(0, 3000)
-              : entry.content,
-          progress: _continueCtx(state, arcKey),
-          planLine: '场景\$sceneNum：\$name｜\$brief',
-        ); // v767
-        final result = await state.api.callApi(
-          systemPrompt: sys,
-          userPrompt: user.toString(),
-          apiConfig: config,
-        );
-        if (!result.isSuccess) {
-          _addLog('❌ 场景\$sceneNum生成失败：\${result.error}——停机');
-          break;
-        }
-        var block = TextCleaner.stripDecorativeEmoji(
-          TextCleaner.normalizeAiOutput(
-            result.content,
-            jsonMode: config.formatMode == 'json',
-          ),
-        ).trim();
-        block = TextCleaner.decodeLiteralNewlines(block);
-        if (block.isEmpty) {
-          _addLog('⚠️ 场景\$sceneNum输出为空——跳过');
-          continue;
-        }
-        entry.content = entry.content.trimRight() + '\n\n' + block;
-        added++;
-        state.saveWorldBook();
-        _addLog('✓ 场景\$sceneNum已追加进弧线\$arcKey条目（\${block.length}字）');
-      }
-      _addLog('📄 续写场景生成完成：新增\$added个场景（创作页场景列表可见，自动自由创作）');
-    } finally {
-      if (mounted) setState(() => _isGenerating = false);
-    }
-  }
-
   // ===== v767：续写模式独立页面（浅蓝主题，与改编UI零共用） =====
   static const _continueBg = Color(0xFFE8F1FA); // 浅蓝底
 
@@ -1870,7 +1792,7 @@ class _AdaptPageState extends State<AdaptPage>
                             );
                           }
                           return _buildContinueArcCard(
-                              state, allArcs[i]);
+                              state, allArcs[i]); // v780：纯展示（分镜页详细概述）
                         },
                       ),
                       Positioned(
@@ -1887,23 +1809,23 @@ class _AdaptPageState extends State<AdaptPage>
                       ListView.builder(
                         controller: _contSceneCtl,
                         padding: const EdgeInsets.fromLTRB(8, 4, 12, 8),
-                        itemCount: allArcs.length + 1, // v770：末尾➕添加场景
+                        itemCount: allArcs.length + 1, // v780：末尾=新增场景规划工作台
                         itemBuilder: (ctx, i) {
                           if (i >= allArcs.length) {
-                            return Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 8),
-                              child: Center(
-                                child: MiniButton(
-                                  label: '➕添加场景',
-                                  primary: true,
-                                  onTap: _isGenerating
-                                      ? null
-                                      : () =>
-                                          _addNextSceneAny(state, allArcs),
+                            if (allArcs.isEmpty) {
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8),
+                                child: Center(
+                                  child: Text('还没有弧线——先在弧线续写层添加',
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF5B7A99))),
                                 ),
-                              ),
-                            );
+                              );
+                            }
+                            // v780：新增场景规划区挂在最后一个弧线下
+                            return _buildNewScenePlanner(
+                                state, allArcs.last);
                           }
                           return _buildContinueSceneCard(
                               state, allArcs[i]);
@@ -1943,146 +1865,14 @@ class _AdaptPageState extends State<AdaptPage>
     );
   }
 
+  /// v780：弧线续写卡=纯展示，概述取分镜页详细版（arc_summary_detailed，v488同源）
   Widget _buildContinueArcCard(AppState state, Arc arc) {
     final arcKey = arc.number.toString();
-    final plan = state.worldBook?.continuePlans[arcKey] ?? '';
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFFB8CFE5)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            childrenPadding: const EdgeInsets.only(bottom: 4),
-            title: Text(
-              '弧线${arc.number}：${arc.title}',
-              style: const TextStyle(
-                  fontSize: 12.5, fontWeight: FontWeight.w600),
-            ),
-            subtitle: Text(_arcProgressShort(state, arcKey),
-                style: const TextStyle(
-                    fontSize: 11, color: Color(0xFF5B7A99))),
-            children: [
-              Builder(builder: (ctx) {
-                // v779：数据源=分镜页拆解数据（arcAnalyses），不依赖直写世界书
-                final an = state.arcAnalyses[arcKey];
-                if (an == null) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4),
-                    child: Text(
-                      '⚠️ 该弧线还没有拆解数据——先完成弧线扫描与分镜拆解',
-                      style:
-                          TextStyle(fontSize: 11, color: Color(0xFFB0682A)),
-                    ),
-                  );
-                }
-                final overview = an.arcSummary.trim().isNotEmpty
-                    ? an.arcSummary.trim()
-                    : '（无概述）';
-                final sceneLines = <String>[];
-                for (var si = 0; si < an.scenes.length; si++) {
-                  final sc = an.scenes[si];
-                  final ov = sc.summary.trim();
-                  sceneLines.add(
-                      '场景${si + 1}：${sc.name}\n　　${ov.length > 60 ? '${ov.substring(0, 60)}…' : ov}');
-                }
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Text(
-                        overview.length > 120
-                            ? '${overview.substring(0, 120)}…'
-                            : overview,
-                        style: const TextStyle(
-                            fontSize: 11.5, color: Color(0xFF5B7A99)),
-                      ),
-                    ),
-                    ...sceneLines.map(
-                      (l) => Padding(
-                        padding: const EdgeInsets.only(bottom: 2),
-                        child: Text(
-                          l,
-                          style: const TextStyle(
-                              fontSize: 11, color: Color(0xFF5B7A99)),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              }),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 6,
-            runSpacing: 4,
-            children: [
-              MiniButton(
-                label: '🧭生成续写规划',
-                primary: true,
-                onTap: _isGenerating
-                    ? null
-                    : () => _generateContinuePlan(state, arc),
-              ),
-              MiniButton(
-                label: '📝写入世界书',
-                primary: false,
-                onTap: _isGenerating
-                    ? null
-                    : () async {
-                        // v770：汇总当前弧线（零件/概述/场景清单）进条目——
-                        // 复用改编管线arc层（原样模式下=全原名）
-                        await _generateForArcInternal(
-                          state,
-                          arc,
-                          _getAllArcs(state).length,
-                          layer: 'arc',
-                        );
-                        state.saveWorldBook();
-                      },
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          TextField(
-            controller: TextEditingController(text: plan),
-            maxLines: 4,
-            style: const TextStyle(fontSize: 11.5),
-            decoration: const InputDecoration(
-              isDense: true,
-              hintText: '续写规划（🧭生成后可手改；格式：场景N：名称｜概述…）',
-              border: OutlineInputBorder(),
-            ),
-            onChanged: (v) => state.worldBook?.continuePlans[arcKey] = v,
-            onSubmitted: (_) => state.saveWorldBook(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildContinueSceneCard(AppState state, Arc arc) {
-    final arcKey = arc.number.toString();
-    final entryKey = _arcEntryKey(state, arcKey);
-    // v779：数据源=分镜页拆解数据
     final an = state.arcAnalyses[arcKey];
-    final sceneNames = <String>[];
-    if (an != null) {
-      for (var si = 0; si < an.scenes.length; si++) {
-        final sc = an.scenes[si];
-        final ov = sc.summary.trim();
-        sceneNames.add(
-            '场景${si + 1}：${sc.name}\n　　${ov.length > 60 ? '${ov.substring(0, 60)}…' : ov}');
-      }
-    }
+    final overview = an == null
+        ? ''
+        : (an.metadata?['arc_summary_detailed']?.toString() ?? an.arcSummary)
+            .trim();
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(8),
@@ -2096,134 +1886,323 @@ class _AdaptPageState extends State<AdaptPage>
         children: [
           Text(
             '弧线${arc.number}：${arc.title}\n${_arcProgressShort(state, arcKey)}',
-            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+            style: const TextStyle(
+                fontSize: 12.5, fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           if (an == null)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 4),
-              child: Text(
-                '⚠️ 该弧线还没有拆解数据——先完成弧线扫描与分镜拆解',
-                style: TextStyle(fontSize: 11, color: Color(0xFFB0682A)),
-              ),
+            const Text(
+              '⚠️ 该弧线还没有拆解数据——先完成弧线扫描与分镜拆解',
+              style: TextStyle(fontSize: 11, color: Color(0xFFB0682A)),
             )
-          else ...[
-            ...sceneNames.map(
-              (n) => Padding(
-                padding: const EdgeInsets.only(bottom: 2),
-                child: Text(n, style: const TextStyle(fontSize: 11)),
-              ),
+          else
+            Text(
+              overview.isEmpty ? '（无概述）' : overview,
+              style: const TextStyle(
+                  fontSize: 11.5, color: Color(0xFF5B7A99), height: 1.4),
             ),
-            if (_pendingPlanned(state, arcKey, sceneNames.length) > 0)
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Text(
-                  '🧭规划待添加：${_pendingPlanned(state, arcKey, sceneNames.length)}个场景（列表末尾➕添加场景）',
-                  style: const TextStyle(
-                      fontSize: 11, color: Color(0xFF2C5E8E)),
-                ),
-              ),
-          ],
-          const SizedBox(height: 6),
-
         ],
       ),
     );
   }
 
-  /// v770：该弧线规划中尚未写入条目的场景数
-  int _pendingPlanned(AppState state, String arcKey, int addedCount) {
-    final decl = state.worldBook?.continuePlans[arcKey] ?? '';
-    final planned = RegExp(r'^场景(\d+)：', multiLine: true).allMatches(decl).length;
-    return planned > addedCount ? planned - addedCount : 0;
-  }
-
-  /// v770：➕添加场景（列表末尾唯一入口）——按弧线顺序取第一个待添加场景
-  Future<void> _addNextSceneAny(AppState state, List<Arc> allArcs) async {
-    for (final arc in allArcs) {
-      final arcKey = arc.number.toString();
-      final entryKey = _arcEntryKey(state, arcKey);
-      if (entryKey == null) continue;
-      final entry = state.worldBook!.entries[entryKey]!;
-      final decl = state.worldBook?.continuePlans[arcKey] ?? '';
-      for (final m in RegExp(
-        r'^场景(\d+)：(.+?)｜(.+)$',
-        multiLine: true,
-      ).allMatches(decl)) {
-        final sceneNum = int.tryParse(m.group(1)!) ?? 0;
-        if (RegExp('场景\\s*\$sceneNum\\s*[：:]').hasMatch(entry.content)) {
-          continue;
-        }
-        _addLog('📄 目标：弧线$arcKey场景$sceneNum（清单顺序第一个待添加）');
-        await _generateNextContinueScene(state, arc);
-        return;
+  Widget _buildContinueSceneCard(AppState state, Arc arc) {
+    final arcKey = arc.number.toString();
+    // v780：场景列表按弧线折叠（ExpansionTile，默认收起）
+    // v779：数据源=分镜页拆解数据
+    final an = state.arcAnalyses[arcKey];
+    final sceneNames = <String>[];
+    if (an != null) {
+      for (var si = 0; si < an.scenes.length; si++) {
+        final sc = an.scenes[si];
+        final ov = sc.summary.trim();
+        sceneNames.add(
+            '场景${si + 1}：${sc.name}\n　　${ov.length > 60 ? '${ov.substring(0, 60)}…' : ov}');
       }
     }
-    _addLog('ℹ️ 所有弧线规划场景均已添加——先🧭生成/更新续写规划');
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFB8CFE5)),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 8),
+          childrenPadding:
+              const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          backgroundColor: Colors.white,
+          collapsedBackgroundColor: Colors.white,
+          title: Text(
+            '弧线${arc.number}：${arc.title}',
+            style:
+                const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+          ),
+          subtitle: Text(
+            _arcProgressShort(state, arcKey),
+            style: const TextStyle(fontSize: 11, color: Color(0xFF5B7A99)),
+          ),
+          children: [
+            if (an == null)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 4),
+                child: Text(
+                  '⚠️ 该弧线还没有拆解数据——先完成弧线扫描与分镜拆解',
+                  style: TextStyle(fontSize: 11, color: Color(0xFFB0682A)),
+                ),
+              )
+            else
+              ...sceneNames.map(
+                (n) => Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(n,
+                        style: const TextStyle(fontSize: 11)),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
-  /// v768：➕添加场景——从续写规划清单取下一个未落条目的场景，一次生成一个
-  Future<void> _generateNextContinueScene(AppState state, Arc arc) async {
+  /// v770：该弧线规划中尚未写入条目的场景数
+
+  // ===== v780：新增场景规划工作台（场景续写层末尾，挂在最后一个弧线下） =====
+  // 数据流：用户粗糙规划 → 🤖AI优化 → 勾选 → 📝写入世界书（纯条目无正文，零AI）→ 创作页出现待创作场景
+  String _plannerRawKey(String arcKey) => 'new_raw_$arcKey';
+  String _plannerOptKey(String arcKey) => 'new_opt_$arcKey';
+
+  /// 该弧线条目里已有的最大场景号（新场景从max+1起编）
+  int _maxSceneNumInEntry(AppState state, String entryKey) {
+    final c = state.worldBook?.entries[entryKey]?.content ?? '';
+    var max = 0;
+    for (final m in RegExp(r'场景\s*(\d+)\s*[：:]').allMatches(c)) {
+      final n = int.tryParse(m.group(1)!) ?? 0;
+      if (n > max) max = n;
+    }
+    return max;
+  }
+
+  Widget _buildNewScenePlanner(AppState state, Arc arc) {
     final arcKey = arc.number.toString();
-    final decl = state.worldBook?.continuePlans[arcKey] ?? '';
+    final plans = state.worldBook?.continuePlans ?? {};
+    final raw = plans[_plannerRawKey(arcKey)] ?? '';
+    final opt = plans[_plannerOptKey(arcKey)] ?? '';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFB8CFE5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('➕ 新增场景（目标：弧线${arc.number}：${arc.title}）',
+              style: const TextStyle(
+                  fontSize: 12.5, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          // ① 用户原始规划（勾选=写入源备选）
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 28,
+                height: 32,
+                child: Checkbox(
+                  value: _newSceneRawChecked,
+                  onChanged: (v) =>
+                      setState(() => _newSceneRawChecked = v ?? false),
+                ),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: TextEditingController(text: raw),
+                  maxLines: 3,
+                  style: const TextStyle(fontSize: 11.5),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    hintText: '新场景规划（想怎么写就写什么，一两句话也行）',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (v) =>
+                      state.worldBook?.continuePlans[_plannerRawKey(arcKey)] = v,
+                  onSubmitted: (_) => state.saveWorldBook(),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Center(
+            child: MiniButton(
+              label: '🤖AI优化规划',
+              primary: true,
+              onTap: _isGenerating
+                  ? null
+                  : () => _optimizeNewScenePlan(state, arc),
+            ),
+          ),
+          const SizedBox(height: 6),
+          // ② AI优化结果（勾选=默认写入源）
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 28,
+                height: 32,
+                child: Checkbox(
+                  value: _newSceneOptChecked,
+                  onChanged: (v) =>
+                      setState(() => _newSceneOptChecked = v ?? false),
+                ),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: TextEditingController(text: opt),
+                  maxLines: 5,
+                  style: const TextStyle(fontSize: 11.5),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    hintText: 'AI优化后的规划（可手改；格式：场景N：名称｜概述…）',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (v) =>
+                      state.worldBook?.continuePlans[_plannerOptKey(arcKey)] = v,
+                  onSubmitted: (_) => state.saveWorldBook(),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Center(
+            child: MiniButton(
+              label: '📝写入世界书',
+              primary: false,
+              onTap: _isGenerating
+                  ? null
+                  : () => _writePlannedSceneToWb(state, arc),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// v780：🤖AI优化规划——把用户粗糙规划扩写为规范场景条目规划（零零件迭代，只整格式）
+  Future<void> _optimizeNewScenePlan(AppState state, Arc arc) async {
+    final arcKey = arc.number.toString();
+    final raw =
+        (state.worldBook?.continuePlans[_plannerRawKey(arcKey)] ?? '').trim();
+    if (raw.isEmpty) {
+      _addLog('❌ 先填写新场景规划');
+      return;
+    }
     final entryKey = _arcEntryKey(state, arcKey);
     if (entryKey == null) {
       _addLog('❌ 弧线$arcKey还没有世界书条目——先在改编模式生成原样世界书');
       return;
     }
     final entry = state.worldBook!.entries[entryKey]!;
-    // 规划清单里第一个条目里还没有的场景
+    final nextNum = _maxSceneNumInEntry(state, entryKey) + 1;
+    final config = state.getApiConfig('wb');
+    state.api.clearAbort();
+    state.userAborted = false;
+    setState(() => _isGenerating = true);
+    try {
+      _addLog('🤖 优化新场景规划中（场景$nextNum起编）…');
+      final result = await state.api.callApi(
+        systemPrompt: '你是网文续写规划师。任务：把用户的粗糙新场景规划扩写为规范场景条目规划，'
+            '供后续原样写入世界书。输出规则：\n'
+            '1.每行一个场景，格式严格为：场景N：名称｜概述\n'
+            '2.概述80-150字，需含时间地点/出场人物/剧情推进；人物全部沿用原著原名\n'
+            '3.必须从当前进度自然衔接；N从$nextNum开始连续编号\n'
+            '4.禁止输出解释性文字、小标题、markdown',
+        userPrompt: '【当前进度】\n${_continueCtx(state, arcKey)}\n\n'
+            '【该弧线世界书条目（节选）】\n'
+            '${entry.content.length > 2000 ? entry.content.substring(0, 2000) : entry.content}\n\n'
+            '【用户新场景规划】\n$raw\n\n'
+            '【新场景起始编号】N=$nextNum',
+        apiConfig: config,
+      );
+      if (!result.isSuccess) {
+        _addLog('❌ 规划优化失败：${result.error}');
+        return;
+      }
+      final out = TextCleaner.decodeLiteralNewlines(
+        TextCleaner.stripDecorativeEmoji(
+          TextCleaner.normalizeAiOutput(
+            result.content,
+            jsonMode: config.formatMode == 'json',
+          ),
+        ),
+      ).trim();
+      if (out.isEmpty || !RegExp(r'^场景\d+：', multiLine: true).hasMatch(out)) {
+        _addLog('⚠️ 优化结果为空或格式不对（缺场景N：行）');
+        return;
+      }
+      state.worldBook?.continuePlans[_plannerOptKey(arcKey)] = out;
+      state.saveWorldBook();
+      setState(() => _newSceneOptChecked = true);
+      _addLog('✓ 规划已优化（${out.length}字）——可手改后勾选📝写入世界书');
+    } finally {
+      if (mounted) setState(() => _isGenerating = false);
+    }
+  }
+
+  /// v780：📝写入世界书——把勾选的规划追加为该弧线条目的场景N块（纯代码零AI，无正文）
+  Future<void> _writePlannedSceneToWb(AppState state, Arc arc) async {
+    final arcKey = arc.number.toString();
+    final plans = state.worldBook?.continuePlans ?? {};
+    final opt = (plans[_plannerOptKey(arcKey)] ?? '').trim();
+    final raw = (plans[_plannerRawKey(arcKey)] ?? '').trim();
+    String source;
+    if (_newSceneOptChecked && opt.isNotEmpty) {
+      source = opt;
+    } else if (_newSceneRawChecked && raw.isNotEmpty) {
+      source = raw;
+    } else {
+      _addLog('❌ 没有勾选的规划可写入——勾选优化框（或原始规划框）且内容非空');
+      return;
+    }
+    final entryKey = _arcEntryKey(state, arcKey);
+    if (entryKey == null) {
+      _addLog('❌ 弧线$arcKey还没有世界书条目——先在改编模式生成原样世界书');
+      return;
+    }
+    final entry = state.worldBook!.entries[entryKey]!;
+    final sb = StringBuffer();
+    var added = 0;
     for (final m in RegExp(
       r'^场景(\d+)：(.+?)｜(.+)$',
       multiLine: true,
-    ).allMatches(decl)) {
+    ).allMatches(source)) {
       final sceneNum = int.tryParse(m.group(1)!) ?? 0;
-      if (RegExp('场景\\s*$sceneNum\\s*[：:]').hasMatch(entry.content)) continue;
       final name = m.group(2)!.trim();
       final brief = m.group(3)!.trim();
-      final config = state.getApiConfig('wb');
-      state.api.clearAbort();
-      state.userAborted = false;
-      setState(() => _isGenerating = true);
-      try {
-        _addLog('✍️ 添加场景$sceneNum（$name）…');
-        final result = await state.api.callApi(
-          systemPrompt: PromptBuilder.buildContinueSceneSystemPrompt(),
-          userPrompt: PromptBuilder.buildContinueSceneUserPrompt(
-            wbDigest: entry.content.length > 3000
-                ? entry.content.substring(0, 3000)
-                : entry.content,
-            progress: _continueCtx(state, arcKey),
-            planLine: '场景$sceneNum：$name｜$brief',
-          ),
-          apiConfig: config,
-        );
-        if (!result.isSuccess) {
-          _addLog('❌ 场景$sceneNum生成失败：${result.error}');
-          return;
-        }
-        var block = TextCleaner.decodeLiteralNewlines(
-          TextCleaner.stripDecorativeEmoji(
-            TextCleaner.normalizeAiOutput(
-              result.content,
-              jsonMode: config.formatMode == 'json',
-            ),
-          ),
-        ).trim();
-        if (block.isEmpty) {
-          _addLog('⚠️ 场景$sceneNum输出为空');
-          return;
-        }
-        entry.content = entry.content.trimRight() + '\n\n' + block;
-        state.saveWorldBook();
-        _addLog('✓ 场景$sceneNum已添加（${block.length}字）——创作页可选该场景续写');
-      } finally {
-        if (mounted) setState(() => _isGenerating = false);
+      if (RegExp('场景\\s*$sceneNum\\s*[：:]').hasMatch(entry.content)) {
+        continue; // 已存在跳过
       }
-      return; // 一次只加一个
+      sb.writeln();
+      sb.writeln('场景$sceneNum：$name');
+      sb.writeln('概述：$brief');
+      added++;
+      _addLog('✓ 场景$sceneNum（$name）规划已写入世界书');
     }
-    _addLog('ℹ️ 续写规划里的场景都已添加——🧭重新生成规划可继续扩展');
+    if (added == 0) {
+      _addLog('ℹ️ 没有新增场景（规划行需格式：场景N：名称｜概述，且N未存在于条目）');
+      return;
+    }
+    entry.content = entry.content.trimRight() + '\n' + sb.toString().trimRight();
+    state.saveWorldBook();
+    _addLog('📖 共写入$added个场景条目（无正文）——创作页出现待创作场景，正文在创作页完成');
   }
+
 
   /// v768：➕添加弧线——按续写方向+当前进度推演新弧线九件套条目
   /// （arcKey=最大弧线+1，弧线总结+场景清单，无分镜=自由创作）
@@ -2331,53 +2310,6 @@ class _AdaptPageState extends State<AdaptPage>
     }
   }
 
-  Future<void> _generateContinuePlan(AppState state, Arc arc) async {
-    final arcKey = arc.number.toString();
-    final entryKey = _arcEntryKey(state, arcKey);
-    if (entryKey == null) {
-      _addLog('❌ 弧线$arcKey还没有世界书条目——先在改编模式生成原样世界书');
-      return;
-    }
-    final entry = state.worldBook!.entries[entryKey]!;
-    final config = state.getApiConfig('wb');
-    state.api.clearAbort();
-    state.userAborted = false;
-    setState(() => _isGenerating = true);
-    try {
-      _addLog('🧭 弧线$arcKey续写规划生成中…');
-      final result = await state.api.callApi(
-        systemPrompt: PromptBuilder.buildContinuePlanSystemPrompt(),
-        userPrompt: PromptBuilder.buildContinuePlanUserPrompt(
-          wbDigest: entry.content.length > 1500
-              ? entry.content.substring(0, 1500)
-              : entry.content,
-          progress: _continueCtx(state, arcKey),
-          direction: state.worldBook?.continueReq ?? '',
-        ),
-        apiConfig: config,
-      );
-      if (!result.isSuccess) {
-        _addLog('❌ 续写规划生成失败：${result.error}');
-        return;
-      }
-      final out = TextCleaner.decodeLiteralNewlines(
-        TextCleaner.normalizeAiOutput(
-          result.content,
-          jsonMode: config.formatMode == 'json',
-        ),
-      ).trim();
-      if (out.isEmpty) {
-        _addLog('⚠️ 续写规划为空');
-        return;
-      }
-      state.worldBook!.continuePlans[arcKey] = out;
-      state.saveWorldBook();
-      _addLog('✓ 弧线$arcKey续写规划已生成（${out.length}字，可手改后生成场景条目）');
-      if (mounted) setState(() {});
-    } finally {
-      if (mounted) setState(() => _isGenerating = false);
-    }
-  }
 
   /// v765：续写依据——弧线进度+最新正文结尾（声明/条目生成的衔接上下文）
   String _continueCtx(AppState state, String arcKey) {
@@ -2568,6 +2500,9 @@ class _AdaptPageState extends State<AdaptPage>
   // v288：生成内容字号（本页独立，0.8~1.6）
   double _fontScale = 1.0;
   double _continueFontScale = 1.0; // v769：续写页字号独立
+  // v780：新增场景规划工作台（勾选状态，输入文本持久化在continuePlans专用key）
+  bool _newSceneRawChecked = false; // 用户原始规划勾选（写入世界书时的备选源）
+  bool _newSceneOptChecked = true; // AI优化规划勾选（默认写入源）
   final ScrollController _arcListCtl = ScrollController(); // v771：弧线列表垂直滚动条
   final ScrollController _contArcCtl = ScrollController(); // v771：续写弧线层
   final ScrollController _contSceneCtl = ScrollController(); // v771：续写场景层
