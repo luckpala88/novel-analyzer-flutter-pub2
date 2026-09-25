@@ -2591,7 +2591,9 @@ class _WritingPageState extends State<WritingPage>
       sb.writeln();
       if (body.isNotEmpty) {
         // v513：原文相似度检测——镜级切片对照（名称外抄袭率>10%自动改写一轮）
-        final originSlice = _buildShotLevelSample(state, arcKey, si, i);
+        final originSlice = _shotTextOnly(state, arcKey, si, i).isNotEmpty
+            ? _shotTextOnly(state, arcKey, si, i)
+            : _sceneSlice(state, arcKey, si); // v754：对照源=完整场景切片
         if (originSlice.isNotEmpty) {
           final legitVocabBuf =
               StringBuffer(state.worldBook?.requirements ?? '');
@@ -2693,8 +2695,10 @@ class _WritingPageState extends State<WritingPage>
     try {
       // v313：模仿原文作者——按场景序号取样弧线原文范文
       String styleSample = '';
+      String copyCheckSource = ''; // v754：搬运检测对照源=完整场景切片
       if (state.writingImitateAuthor) {
         styleSample = _buildStyleSample(state, arcKey, si);
+        copyCheckSource = _sceneSlice(state, arcKey, si);
         if (state.writingShotByShot) {
           // v753：逐镜模式该切片只作范文搬运检测对照源，不注入prompt
           // （prompt范文=镜级切片，v752）——旧日志让人误以为注入了1000字
@@ -2714,9 +2718,9 @@ class _WritingPageState extends State<WritingPage>
       });
       final legitVocab = legitVocabBuf.toString();
       void checkSampleCopy(String content) {
-        if (styleSample.isEmpty) return;
+        if (copyCheckSource.isEmpty) return;
         final hits = PromptBuilder.findCopiedPhrases(
-          styleSample,
+          copyCheckSource,
           content,
           legitVocab: legitVocab,
         );
