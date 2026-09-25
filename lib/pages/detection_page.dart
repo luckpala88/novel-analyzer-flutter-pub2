@@ -530,6 +530,15 @@ class _DetectionPageState extends State<DetectionPage>
   static Map<String, List<(String, String)>>? _nameMapCache;
   static String? _nameMapCacheSrc;
 
+  /// v737：提取txt头部备注行 [模型：xx · 温度x · 模式]（正文头/列表展示用）
+  String? _modelNoteOf(dynamic content) {
+    final txt = content as String? ?? '';
+    final m = RegExp(r'^\[模型[：:](.*)\]\s*$', multiLine: true).firstMatch(txt);
+    if (m == null) return null;
+    final t = m.group(1)?.trim() ?? '';
+    return t.isEmpty ? null : t;
+  }
+
   String _applyNameMap(AppState state, String text) {
     if (!state.nameReplaceEnabled) return text;
     final src = state.worldBook?.nameMapping ?? '';
@@ -1074,7 +1083,7 @@ class _DetectionPageState extends State<DetectionPage>
             TextCleaner.decodeLiteralNewlines(
               _applyNameMap(state0, file['content'] as String? ?? ''),
             ),
-            keepModelNote: true, // v609：显示不剥备注行（文件里有就该显示）
+            keepModelNote: false, // v737：备注行提到正文头显示，正文区不再重复
           )
         : '';
 
@@ -1253,6 +1262,19 @@ class _DetectionPageState extends State<DetectionPage>
                                               ),
                                             ),
                                           ),
+                                        if (_modelNoteOf(f['content']) != null)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              left: 6,
+                                            ),
+                                            child: Text(
+                                              '${_modelNoteOf(f['content'])}',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: V469Style.textMuted,
+                                              ),
+                                            ),
+                                          ),
                                         const SizedBox(width: 6),
                                         // 问题徽章：有审核结果=橙底/无=灰底
                                         Builder(
@@ -1358,6 +1380,7 @@ class _DetectionPageState extends State<DetectionPage>
                             // 标题行：完整显示（wrap换行，v469对齐"章节标题要全部显示"）
                             Text(
                               '${file['name']} · ${file['wordCount']}字'
+                              '${_modelNoteOf(file['content']) != null ? " · ${_modelNoteOf(file['content'])}" : ""}'
                               '${_reviewResults[file['path']] != null ? " · ${_reviewResults[file['path']]}" : ""}',
                               style: const TextStyle(
                                 fontSize: 12,
