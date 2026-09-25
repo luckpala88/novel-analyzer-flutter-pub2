@@ -1970,29 +1970,27 @@ class _AdaptPageState extends State<AdaptPage>
                     fontSize: 11, color: Color(0xFF5B7A99))),
             children: [
               Builder(builder: (ctx) {
-                final ek = _arcEntryKey(state, arcKey);
-                if (ek == null) {
+                // v779：数据源=分镜页拆解数据（arcAnalyses），不依赖直写世界书
+                final an = state.arcAnalyses[arcKey];
+                if (an == null) {
                   return const Padding(
                     padding: EdgeInsets.symmetric(vertical: 4),
                     child: Text(
-                      '⚠️ 尚未写入世界书——到分镜页点「📖直写世界书」',
+                      '⚠️ 该弧线还没有拆解数据——先完成弧线扫描与分镜拆解',
                       style:
                           TextStyle(fontSize: 11, color: Color(0xFFB0682A)),
                     ),
                   );
                 }
-                final c = state.worldBook!.entries[ek]!.content;
-                final mm = RegExp(r'弧线\d+概述：([^\n]+)').firstMatch(c);
-                final overview =
-                    mm != null ? mm.group(1)!.trim() : '（条目无概述）';
+                final overview = an.arcSummary.trim().isNotEmpty
+                    ? an.arcSummary.trim()
+                    : '（无概述）';
                 final sceneLines = <String>[];
-                for (final m2 in RegExp(
-                  r'^场景(\d+)：([^\n（(]+)[^\n]*\n概述：([^\n]+)',
-                  multiLine: true,
-                ).allMatches(c)) {
-                  final ov = m2.group(3)!.trim();
+                for (var si = 0; si < an.scenes.length; si++) {
+                  final sc = an.scenes[si];
+                  final ov = sc.summary.trim();
                   sceneLines.add(
-                      '场景${m2.group(1)}：${m2.group(2)!.trim()}\n　　${ov.length > 60 ? '${ov.substring(0, 60)}…' : ov}');
+                      '场景${si + 1}：${sc.name}\n　　${ov.length > 60 ? '${ov.substring(0, 60)}…' : ov}');
                 }
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2074,17 +2072,15 @@ class _AdaptPageState extends State<AdaptPage>
   Widget _buildContinueSceneCard(AppState state, Arc arc) {
     final arcKey = arc.number.toString();
     final entryKey = _arcEntryKey(state, arcKey);
+    // v779：数据源=分镜页拆解数据
+    final an = state.arcAnalyses[arcKey];
     final sceneNames = <String>[];
-    if (entryKey != null) {
-      final c = state.worldBook!.entries[entryKey]!.content;
-      for (final m in RegExp(
-        r'^(场景\d+：[^\n]+)(?:\n概述：([^\n]+))?',
-        multiLine: true,
-      ).allMatches(c)) {
-        final ov = (m.group(2) ?? '').trim();
-        sceneNames.add(ov.isEmpty
-            ? m.group(1)!
-            : '${m.group(1)!}\n　　${ov.length > 60 ? '${ov.substring(0, 60)}…' : ov}');
+    if (an != null) {
+      for (var si = 0; si < an.scenes.length; si++) {
+        final sc = an.scenes[si];
+        final ov = sc.summary.trim();
+        sceneNames.add(
+            '场景${si + 1}：${sc.name}\n　　${ov.length > 60 ? '${ov.substring(0, 60)}…' : ov}');
       }
     }
     return Container(
@@ -2103,11 +2099,11 @@ class _AdaptPageState extends State<AdaptPage>
             style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 6),
-          if (entryKey == null)
+          if (an == null)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 4),
               child: Text(
-                '⚠️ 该弧线还没有世界书条目——到分镜页点「📖直写世界书」',
+                '⚠️ 该弧线还没有拆解数据——先完成弧线扫描与分镜拆解',
                 style: TextStyle(fontSize: 11, color: Color(0xFFB0682A)),
               ),
             )
