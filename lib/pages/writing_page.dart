@@ -825,13 +825,9 @@ class _WritingPageState extends State<WritingPage>
     super.build(context); // AutomaticKeepAlive必须
     final state = context.watch<AppState>();
     final writings = state.writings.values.toList()
-      ..sort((a, b) {
-        final arcCmp = (int.tryParse(a.arcKey) ?? 0).compareTo(
-          int.tryParse(b.arcKey) ?? 0,
-        );
-        if (arcCmp != 0) return arcCmp;
-        return a.sceneIdx.compareTo(b.sceneIdx);
-      });
+      ..sort((a, b) => (b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))
+          .compareTo(a.createdAt ??
+              DateTime.fromMillisecondsSinceEpoch(0))); // v761：时间倒序最新最上
     final arcs = _writingArcs(state);
 
     return Scaffold(

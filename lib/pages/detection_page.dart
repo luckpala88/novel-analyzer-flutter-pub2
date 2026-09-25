@@ -279,7 +279,9 @@ class _DetectionPageState extends State<DetectionPage>
       _files
         ..clear()
         ..addAll(files)
-        ..addAll(external);
+        ..addAll(external)
+        ..sort((a, b) => ((b['mtime'] as int?) ?? 0)
+            .compareTo((a['mtime'] as int?) ?? 0)); // v761：时间倒序最新最上
       if (_currentIndex >= _files.length) _currentIndex = _files.length - 1;
     });
     if (files.isEmpty && external.isEmpty) {
