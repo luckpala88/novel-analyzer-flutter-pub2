@@ -918,10 +918,6 @@ const Spacer(), // ⚙API推到最右
               }
               // facts存在metadata分析层；世界书体系在「生成世界书」时才创建
               _addLog(summary.isNotEmpty ? '✓ 弧线总结已提取' : '⚠ 弧线总结为空');
-              // v223：AI漏字段的可见性（长输出砍尾老毛病——ink_hobby排schema后段易被砍）
-              if (arcMap['ink_hobby'] == null) {
-                _addLog('⚠ AI未输出笔墨癖好（长输出砍尾）——弧线零件不完整，建议对该弧线单独重新划分');
-              }
             }
             state.refresh();
           } else {

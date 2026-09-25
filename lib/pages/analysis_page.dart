@@ -605,34 +605,6 @@ const SizedBox(width: 8),
     final md = analysis.metadata!;
     final widgets = <Widget>[];
 
-    // v224：笔墨癖好（作者注意力画像——十件套成员，分镜页此前漏渲染）
-    final hobby = md['ink_hobby'];
-    if (hobby is Map && hobby.isNotEmpty) {
-      widgets.add(_metaTitle('🖌 笔墨癖好'));
-      hobby.forEach((k, v) {
-        if (v != null && v.toString().isNotEmpty) {
-          widgets.add(
-            _metaItem([
-              TextSpan(
-                text: '$k：',
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: V469Style.textMain,
-                ),
-              ),
-              TextSpan(
-                text: v.toString(),
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  color: V469Style.textSec,
-                ),
-              ),
-            ]),
-          );
-        }
-      });
-    }
 
     // 3.5 世界观设定facts（原著分析结果，推演改编的参照依据）
     final wbFacts = md['worldbuilding_facts'];
@@ -1476,15 +1448,6 @@ const SizedBox(width: 8),
             '${func.isNotEmpty ? '（$sysName：$func）' : sysName.isNotEmpty ? '（$sysName）' : ''}',
           );
         }
-        sb.writeln();
-      }
-      // v219：笔墨癖好
-      final hobby = md['ink_hobby'];
-      if (hobby is Map && hobby.isNotEmpty) {
-        sb.writeln('【笔墨癖好】');
-        hobby.forEach((k, v) {
-          if (v != null && v.toString().isNotEmpty) sb.writeln('$k：$v');
-        });
         sb.writeln();
       }
       writeBlock('人设', md['characters']);

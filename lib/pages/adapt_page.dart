@@ -583,7 +583,6 @@ class _AdaptPageState extends State<AdaptPage>
     '【不可逆变化】',
     '【情绪曲线】',
     '【作者脑洞】',
-    '【笔墨癖好】',
   ];
 
   static const _kStructNames = [
@@ -595,7 +594,6 @@ class _AdaptPageState extends State<AdaptPage>
     '不可逆变化',
     '情绪曲线',
     '作者脑洞',
-    '笔墨癖好',
   ];
 
   /// 行→规范【标记】。识别：①【名称】标准式 ②任意非中文前缀（emoji/序号
