@@ -3116,6 +3116,7 @@ class PromptBuilder {
         '**4. 弧线功能（arc_functions）**：在整部小说中的叙事功能。\n\n'
         '**5. 不可逆变化（irreversible_changes）**：弧线结束后永久性的关键转折。\n\n'
         '**6. 情绪曲线（emotional_curve）**：读者/主角情绪轨迹，如「低谷→希望→兴奋→满足」。\n\n'
+        '**8. 世界观设定facts（worldbuilding_facts）**：**以下10个体系每个必须各输出至少一条fact**（体系完整性检查清单，即使本弧线只间接提到也要提取；确实完全未涉及的体系输出一条rule为"本弧线未涉及"的fact）：经济体系/修炼境界体系/功法技能体系/社会政治体系/地理世界体系/法宝物品体系/丹药灵草体系/种族生物体系/组织势力体系/历史传说体系。每条fact含system（体系类型）、text（原文片段）、rule（提取的规则）、function（功能目的）。输出自查：没有worldbuilding_facts键=不完整。\n\n'
         '**7. 作者脑洞（author_fantasy）**：作者反复铺陈、明显投入的具体幻想内容。3-5条，格式「类别：具体内容（出处举例）」。落到具体类别（捡漏文化/知识变现/冤家搭档/以小博大/因祸得福等），不笼统。\n\n'
         '只输出纯JSON（不要markdown）：{"arc_summary": "高质量弧线概述", "characters": [...], "conflicts": [...], "foreshadowing": [...], "arc_functions": [...], "irreversible_changes": "...", "emotional_curve": "...", "author_fantasy": [...], "worldbuilding_facts": [...]}\n\n';
   }
