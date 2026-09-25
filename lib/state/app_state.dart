@@ -425,7 +425,15 @@ class AppState extends ChangeNotifier {
       target = match.first;
     }
     name = target;
-    if (generationCount > 0 || apiTimerRunning.value) return false;
+    // v775：切书被拒不再静默——日志说明原因（此前静默false=用户以为切换成功）
+    if (generationCount > 0) {
+      apiLog('⚠️ 切换书目被拒：仍有生成任务在跑（计数$generationCount）——先终止或等完成');
+      return false;
+    }
+    if (apiTimerRunning.value) {
+      apiLog('⚠️ 切换书目被拒：API计时器未归零——重启可复位');
+      return false;
+    }
     currentBook = name;
     await storage.setBook(name);
     await loadAllData();
