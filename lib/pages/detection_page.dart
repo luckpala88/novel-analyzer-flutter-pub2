@@ -48,6 +48,7 @@ class _DetectionPageState extends State<DetectionPage>
   double _fontSize = 14.0;
   bool _pageMode = false;
   int _filterMode = 0; // 0=全部 1=一创 2=二创
+  bool _sortByName = false; // v763：false=时间倒序(默认) true=按名称
   bool _savedFlash = false; // 保存按钮反馈（✓已保存1.5s）
   bool _filesExpanded = true; // v379b：文件列表默认展开（点文件后自动折叠）
   // TTS朗读（复用chapter_reader模式：分句+逐句+高亮+暂停）
@@ -248,6 +249,7 @@ class _DetectionPageState extends State<DetectionPage>
             'wordCount': content.length,
             'isWritings': true,
             'isRewrite': false,
+            'mtime': File(path).lastModifiedSync().millisecondsSinceEpoch,
           });
         } catch (_) {}
       }
@@ -269,6 +271,7 @@ class _DetectionPageState extends State<DetectionPage>
             'wordCount': content.length,
             'isWritings': true,
             'isRewrite': true,
+            'mtime': File(path).lastModifiedSync().millisecondsSinceEpoch,
           });
         } catch (_) {}
       }
@@ -280,8 +283,10 @@ class _DetectionPageState extends State<DetectionPage>
         ..clear()
         ..addAll(files)
         ..addAll(external)
-        ..sort((a, b) => ((b['mtime'] as int?) ?? 0)
-            .compareTo((a['mtime'] as int?) ?? 0)); // v761：时间倒序最新最上
+        ..sort((a, b) => _sortByName
+            ? (a['name'] as String).compareTo(b['name'] as String)
+            : ((b['mtime'] as int?) ?? 0)
+                .compareTo((a['mtime'] as int?) ?? 0)); // v763：时间倒序/名称切换
       if (_currentIndex >= _files.length) _currentIndex = _files.length - 1;
     });
     if (files.isEmpty && external.isEmpty) {
@@ -1159,6 +1164,24 @@ class _DetectionPageState extends State<DetectionPage>
                         _currentIndex = -1; // 切筛选收起正文
                         _saveUiState();
                       }),
+                    ),
+                    // v763：排序切换（时间倒序/名称）
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _sortByName = !_sortByName;
+                          _loadWritings();
+                        });
+                      },
+                      child: Text(
+                        _sortByName ? '名称排序' : '时间排序',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: _sortByName
+                              ? V469Style.accent
+                              : V469Style.textMuted,
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
                     // 标题+折叠箭头
