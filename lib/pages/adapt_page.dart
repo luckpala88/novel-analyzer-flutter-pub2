@@ -1637,7 +1637,7 @@ class _AdaptPageState extends State<AdaptPage>
   /// 追加到弧线条目content尾部
   Future<void> _generateContinueScenes(AppState state, Arc arc) async {
     final arcKey = arc.number.toString();
-    final decl = state.worldBook?.arcDeclarations[arcKey] ?? '';
+    final decl = state.worldBook?.continuePlans[arcKey] ?? ''; // v767
     final plans = RegExp(
       r'^场景(\d+)：(.+?)｜(.+)$',
       multiLine: true,
@@ -1669,25 +1669,14 @@ class _AdaptPageState extends State<AdaptPage>
           continue;
         }
         _addLog('✍️ 续写场景\$sceneNum（\$name）生成中…');
-        final sys =
-            '你是原著续写作家。世界书=原样原著（全原名），在已有故事基础上续写新场景。'
-            '输出一个新场景的世界书条目块，格式：\n'
-            '场景N：名称（第X章后·续写）\n'
-            '概述：150-250字（本场景要完成的事件/信息投放/情绪变化，与前一内容自然衔接）\n'
-            '【衔接说明】：承接前文的因果/人物状态/地点时间；需要回收的伏笔或引入的新元素\n'
-            '禁止输出分镜结构/维度行（本场景走自由创作）；人名一律沿用原著原名；禁止输出解释性文字。';
-        final user = StringBuffer();
-        user.writeln('【原著弧线世界书（前部摘要）】');
-        final head = entry.content.length > 3000
-            ? entry.content.substring(0, 3000)
-            : entry.content;
-        user.writeln(head);
-        user.writeln();
-        user.writeln('【续写依据（当前进度+最新正文结尾）】');
-        user.writeln(_continueCtx(state, arcKey));
-        user.writeln();
-        user.writeln('【本场景规划】');
-        user.writeln('场景\$sceneNum：\$name｜\$brief');
+        final sys = PromptBuilder.buildContinueSceneSystemPrompt(); // v767
+        final user = PromptBuilder.buildContinueSceneUserPrompt(
+          wbDigest: entry.content.length > 3000
+              ? entry.content.substring(0, 3000)
+              : entry.content,
+          progress: _continueCtx(state, arcKey),
+          planLine: '场景\$sceneNum：\$name｜\$brief',
+        ); // v767
         final result = await state.api.callApi(
           systemPrompt: sys,
           userPrompt: user.toString(),
@@ -1714,6 +1703,290 @@ class _AdaptPageState extends State<AdaptPage>
         _addLog('✓ 场景\$sceneNum已追加进弧线\$arcKey条目（\${block.length}字）');
       }
       _addLog('📄 续写场景生成完成：新增\$added个场景（创作页场景列表可见，自动自由创作）');
+    } finally {
+      if (mounted) setState(() => _isGenerating = false);
+    }
+  }
+
+  // ===== v767：续写模式独立页面（浅蓝主题，与改编UI零共用） =====
+  static const _continueBg = Color(0xFFE8F1FA); // 浅蓝底
+
+  String _arcProgressShort(AppState state, String arcKey) {
+    var done = 0;
+    for (var si = 0; si < 200; si++) {
+      final w = state.writings['${arcKey}_$si'];
+      if (w != null && w.content.trim().isNotEmpty) done++;
+    }
+    return '已完成$done个场景正文';
+  }
+
+  String _continueProgressAll(AppState state, List<Arc> allArcs) {
+    final sb = StringBuffer();
+    for (final a in allArcs) {
+      sb.writeln('弧线${a.number}（${a.title}）：${_arcProgressShort(state, a.number.toString())}');
+    }
+    return sb.toString().trim();
+  }
+
+  Widget _buildContinuePage(AppState state, List<Arc> allArcs) {
+    final wb = state.worldBook;
+    return Scaffold(
+      backgroundColor: _continueBg,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
+              child: Row(
+                children: [
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(
+                        value: 'adapt',
+                        label: Text('改编', style: TextStyle(fontSize: 11)),
+                      ),
+                      ButtonSegment(
+                        value: 'continue',
+                        label: Text('续写', style: TextStyle(fontSize: 11)),
+                      ),
+                    ],
+                    selected: {'continue'},
+                    showSelectedIcon: false,
+                    style: const ButtonStyle(
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    onSelectionChanged: (_) {
+                      setState(() => wb?.pageMode = 'adapt');
+                      state.saveWorldBook();
+                      _addLog('🎭 已切换到改编模式');
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      '📄 续写模式（原样世界书续推新场景·自由创作）',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 2, 8, 2),
+              child: TextField(
+                controller: TextEditingController(text: wb?.continueReq ?? ''),
+                maxLines: 2,
+                style: const TextStyle(fontSize: 12.5),
+                decoration: const InputDecoration(
+                  isDense: true,
+                  hintText: '全局续写方向（接下来写什么/收束哪条弧线/开什么新弧线），可留空自然推进',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (v) => wb?.continueReq = v,
+                onSubmitted: (_) => state.saveWorldBook(),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                children: [
+                  MiniButton(
+                    label: '🧭AI优化方向',
+                    primary: false,
+                    onTap: _isGenerating
+                        ? null
+                        : () => _continueOptimizeReq(state),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _continueProgressAll(state, allArcs),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 10, color: Color(0xFF5B7A99)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: allArcs.isEmpty
+                  ? const Center(
+                      child: Text('请先完成弧线扫描和拆解',
+                          style: TextStyle(fontSize: 12, color: Color(0xFF5B7A99))),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+                      itemCount: allArcs.length,
+                      itemBuilder: (ctx, i) =>
+                          _buildContinueArcCard(state, allArcs[i]),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContinueArcCard(AppState state, Arc arc) {
+    final arcKey = arc.number.toString();
+    final plan = state.worldBook?.continuePlans[arcKey] ?? '';
+    final done = _arcProgressShort(state, arcKey);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFB8CFE5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '弧线${arc.number}：${arc.title}\n$done',
+            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              MiniButton(
+                label: '📋采映射',
+                primary: false,
+                onTap: _isGenerating
+                    ? null
+                    : () async {
+                        final src = arc.text;
+                        if (src.isEmpty) {
+                          _addLog('❌ 弧线$arcKey无切片正文——先在弧线页完成扫描');
+                          return;
+                        }
+                        await state.extractNameMapIncrement(
+                          src,
+                          adaptedInput: false,
+                          sourceLabel: '弧线$arcKey切片（续写规则）',
+                        );
+                      },
+              ),
+              MiniButton(
+                label: '🧭生成续写规划',
+                primary: true,
+                onTap: _isGenerating
+                    ? null
+                    : () => _generateContinuePlan(state, arc),
+              ),
+              MiniButton(
+                label: '✍️生成续写场景条目',
+                primary: false,
+                onTap: _isGenerating
+                    ? null
+                    : () => _generateContinueScenes(state, arc),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          TextField(
+            controller: TextEditingController(text: plan),
+            maxLines: 4,
+            style: const TextStyle(fontSize: 11.5),
+            decoration: const InputDecoration(
+              isDense: true,
+              hintText: '续写规划（🧭生成后可手改；格式：场景N：名称｜概述…）',
+              border: OutlineInputBorder(),
+            ),
+            onChanged: (v) =>
+                state.worldBook?.continuePlans[arcKey] = v,
+            onSubmitted: (_) => state.saveWorldBook(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _continueOptimizeReq(AppState state) async {
+    final dir = state.worldBook?.continueReq.trim() ?? '';
+    if (dir.isEmpty) {
+      _addLog('❌ 先填写全局续写方向');
+      return;
+    }
+    final config = state.getApiConfig('wb');
+    setState(() => _isGenerating = true);
+    try {
+      final r = await state.api.callApi(
+        systemPrompt: PromptBuilder.buildContinueReqSuggestSystemPrompt(),
+        userPrompt: PromptBuilder.buildContinueReqSuggestUserPrompt(
+          direction: dir,
+          progress: _continueProgressAll(state, _getAllArcs(state)),
+        ),
+        apiConfig: config,
+      );
+      if (!r.isSuccess) {
+        _addLog('❌ 优化失败：${r.error}');
+        return;
+      }
+      final out = TextCleaner.decodeLiteralNewlines(
+        TextCleaner.normalizeAiOutput(r.content),
+      ).trim();
+      if (out.isEmpty) {
+        _addLog('⚠️ 优化结果为空');
+        return;
+      }
+      state.worldBook!.continueReq = out;
+      state.saveWorldBook();
+      _addLog('✓ 续写方向已优化（${out.length}字）');
+      if (mounted) setState(() {});
+    } finally {
+      if (mounted) setState(() => _isGenerating = false);
+    }
+  }
+
+  Future<void> _generateContinuePlan(AppState state, Arc arc) async {
+    final arcKey = arc.number.toString();
+    final entryKey = _arcEntryKey(state, arcKey);
+    if (entryKey == null) {
+      _addLog('❌ 弧线$arcKey还没有世界书条目——先在改编模式生成原样世界书');
+      return;
+    }
+    final entry = state.worldBook!.entries[entryKey]!;
+    final config = state.getApiConfig('wb');
+    state.api.clearAbort();
+    state.userAborted = false;
+    setState(() => _isGenerating = true);
+    try {
+      _addLog('🧭 弧线$arcKey续写规划生成中…');
+      final result = await state.api.callApi(
+        systemPrompt: PromptBuilder.buildContinuePlanSystemPrompt(),
+        userPrompt: PromptBuilder.buildContinuePlanUserPrompt(
+          wbDigest: entry.content.length > 1500
+              ? entry.content.substring(0, 1500)
+              : entry.content,
+          progress: _continueCtx(state, arcKey),
+          direction: state.worldBook?.continueReq ?? '',
+        ),
+        apiConfig: config,
+      );
+      if (!result.isSuccess) {
+        _addLog('❌ 续写规划生成失败：${result.error}');
+        return;
+      }
+      final out = TextCleaner.decodeLiteralNewlines(
+        TextCleaner.normalizeAiOutput(
+          result.content,
+          jsonMode: config.formatMode == 'json',
+        ),
+      ).trim();
+      if (out.isEmpty) {
+        _addLog('⚠️ 续写规划为空');
+        return;
+      }
+      state.worldBook!.continuePlans[arcKey] = out;
+      state.saveWorldBook();
+      _addLog('✓ 弧线$arcKey续写规划已生成（${out.length}字，可手改后生成场景条目）');
+      if (mounted) setState(() {});
     } finally {
       if (mounted) setState(() => _isGenerating = false);
     }
@@ -1767,25 +2040,15 @@ class _AdaptPageState extends State<AdaptPage>
           [],
     };
 
-    var sysPrompt = PromptBuilder.buildArcDeclarationSystemPrompt();
+    final sysPrompt = PromptBuilder.buildArcDeclarationSystemPrompt();
     final bible = state.worldBook?.adaptBible.trim() ?? ''; // v621
-    var userPrompt = PromptBuilder.buildArcDeclarationUserPrompt(
+    final userPrompt = PromptBuilder.buildArcDeclarationUserPrompt(
       arcItem,
       combined,
       sceneReqs: state.worldBook?.sceneRequirements,
       arcKey: arc.number.toString(),
       bible: bible,
     );
-    // v765：续写模式——声明改为续写规划（新场景清单/收束判断）
-    if (state.pageModeContinue) {
-      sysPrompt +=
-          '\n\n## ⚠️ 续写模式覆盖令（v765）\n你不是改编策划，是原著续写规划师。世界书=原样原著（全原名），在此基础上续推。输出改为【续写规划】三段：\n'
-          '①弧线进度判断：当前弧线是否已到收束点（结合已完成场景与正文结尾）\n'
-          '②新场景清单：若未收束，列出续写场景（场景N+1起连续编号，每项一行，格式严格为「场景N：名称｜概述（60-100字，含本场景要完成的事件/信息/情绪）」）；若已到收束点，写出收束场景（终章场景）清单\n'
-          '③新弧线规划（可选）：当前弧线收束后，给出下一条弧线的方向2-3句\n'
-          '人名一律沿用原著原名，禁止拟新名；事件必须从最新正文结尾自然衔接，禁止跳跃。';
-      userPrompt += '\n\n【续写依据（当前进度）】\n${_continueCtx(state, arc.number.toString())}';
-    }
 
     // v130：声明生成前预览提示词（确认后才发送）
     if (mounted) {
@@ -1975,6 +2238,11 @@ class _AdaptPageState extends State<AdaptPage>
           (a) => state.worldBook?.arcStatus[a.number.toString()] == 'generated',
         )
         .length;
+
+    // v767：续写模式=独立页面分支（UI/文案/prompt全独立，用户定稿）
+    if ((state.worldBook?.pageMode ?? 'adapt') == 'continue') {
+      return _buildContinuePage(state, allArcs);
+    }
 
     return Scaffold(
       body: SafeArea(
@@ -2574,33 +2842,7 @@ class _AdaptPageState extends State<AdaptPage>
                   // 隔离互不覆盖，但共用编辑区会让误删跨层生效）
                   if (layer == 0) ...[
                     ..._buildDeclarationSection(state, arc.number),
-                    // v765：续写模式——续写场景条目生成按钮
-                  if ((state.worldBook?.pageMode ?? 'adapt') == 'continue')
-                    Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Row(
-                        children: [
-                          MiniButton(
-                            label: '✍️续写场景条目',
-                            primary: true,
-                            onTap: _isGenerating
-                                ? null
-                                : () => _generateContinueScenes(state, arc),
-                          ),
-                          const SizedBox(width: 8),
-                          const Expanded(
-                            child: Text(
-                              '声明=续写规划（场景N：名称｜概述），逐场景生成条目后到创作页接着写',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: V469Style.textMuted,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  // v595：改编按键放声明下方（带行间距）
+                    // v595：改编按键放声明下方（带行间距）
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -3133,11 +3375,6 @@ class _AdaptPageState extends State<AdaptPage>
     List<Arc> allArcs,
     int generatedCount,
   ) async {
-    // v765：续写模式不走改编批量管线
-    if ((state.worldBook?.pageMode ?? 'adapt') == 'continue') {
-      _addLog('📄 续写模式：请用「弧线声明（续写规划）」+「✍️续写场景条目」——不走改编批量管线');
-      return;
-    }
     if (allArcs.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

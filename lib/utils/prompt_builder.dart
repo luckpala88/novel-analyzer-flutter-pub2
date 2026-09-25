@@ -1927,6 +1927,79 @@ class PromptBuilder {
   }
 
   /// buildNameMapIncrementSystemPrompt — v388b：映射表增量抽取（随总结/划分/拆解追加）
+  /// v767：续写独立prompt三件套（与改编prompt零共用，用户定稿分支隔离）
+  static String buildContinueReqSuggestSystemPrompt() {
+    return '你是原著续写策划。用户写了初步续写方向，你优化成2-4句具体可执行的续写指令。\n'
+        '- 忠于用户原意，禁止推翻或替换\n'
+        '- 把抽象方向具体化：接下来发生什么/冲突怎么升级/要回收哪些伏笔/人物关系怎么推进\n'
+        '- ⚠️ 禁止把原著名拟成新名（原著专名一律原名）；用户自拟的新名保留\n'
+        '- 只输出优化后的文本本身，不要标题和解释';
+  }
+
+  static String buildContinueReqSuggestUserPrompt({
+    required String direction,
+    required String progress,
+  }) {
+    final sb = StringBuffer();
+    sb.writeln('【续写方向（底稿）】');
+    sb.writeln(direction.trim().isEmpty ? '（未填写）' : direction.trim());
+    sb.writeln();
+    sb.writeln('【当前进度】');
+    sb.writeln(progress);
+    return sb.toString();
+  }
+
+  static String buildContinuePlanSystemPrompt() {
+    return '你是原著续写规划师。世界书=原样原著（全原名），在已有故事基础上续推。输出【续写规划】三段：\n'
+        '①弧线进度判断：当前弧线是否已到收束点（结合已完成场景与正文结尾）\n'
+        '②新场景清单：若未收束，列出续写场景（从已完成场景号之后连续编号，每项一行，格式严格为「场景N：名称｜概述（60-100字，含本场景要完成的事件/信息/情绪）」）；若已到收束点，列出收束场景清单\n'
+        '③新弧线方向（可选）：当前弧线收束后，下一条弧线的方向2-3句\n'
+        '⚠️ 人名一律沿用原著原名，禁止拟新名；事件必须从最新正文结尾自然衔接，禁止跳跃；只输出规划文本本身。';
+  }
+
+  static String buildContinuePlanUserPrompt({
+    required String wbDigest,
+    required String progress,
+    required String direction,
+  }) {
+    final sb = StringBuffer();
+    sb.writeln('【原著弧线世界书（前部摘要）】');
+    sb.writeln(wbDigest);
+    sb.writeln();
+    sb.writeln('【当前进度】');
+    sb.writeln(progress);
+    sb.writeln();
+    sb.writeln('【续写方向】');
+    sb.writeln(direction.trim().isEmpty ? '（未填写，按故事逻辑自然推进）' : direction.trim());
+    return sb.toString();
+  }
+
+  static String buildContinueSceneSystemPrompt() {
+    return '你是原著续写作家。世界书=原样原著（全原名），在已有故事基础上续写新场景。'
+        '输出一个新场景的世界书条目块，格式：\n'
+        '场景N：名称（第X章后·续写）\n'
+        '概述：150-250字（本场景要完成的事件/信息投放/情绪变化，与前一内容自然衔接）\n'
+        '【衔接说明】：承接前文的因果/人物状态/地点时间；需要回收的伏笔或引入的新元素\n'
+        '禁止输出分镜结构/维度行（本场景走自由创作）；人名一律沿用原著原名；禁止输出解释性文字。';
+  }
+
+  static String buildContinueSceneUserPrompt({
+    required String wbDigest,
+    required String progress,
+    required String planLine,
+  }) {
+    final sb = StringBuffer();
+    sb.writeln('【原著弧线世界书（前部摘要）】');
+    sb.writeln(wbDigest);
+    sb.writeln();
+    sb.writeln('【续写依据（当前进度+最新正文结尾）】');
+    sb.writeln(progress);
+    sb.writeln();
+    sb.writeln('【本场景规划】');
+    sb.writeln(planLine);
+    return sb.toString();
+  }
+
   static String buildNameMapIncrementSystemPrompt({bool continueMode = false}) {
     if (continueMode) {
       // v766：续写采集——与改编规则相反：禁止拟新名，只登记用户新名

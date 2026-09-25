@@ -192,6 +192,8 @@ class WorldBook {
   Map<String, bool> reqEnabled; // v588：要求勾选开关 key=u_弧线/a_弧线/u_弧线_si/a_弧线_si（u=用户稿默认勾选 a=AI稿默认不勾）
   Map<String, String> creationDeclarations; // v582：创作声明（创作页独立生成，替代改编声明注入创作）
   Map<String, bool> creationDeclEnabled; // v582：创作声明注入开关
+  String continueReq; // v766：续写方向（全局，续写模式专用）
+  late final Map<String, String> continuePlans; // v766：per-弧线续写规划
   String pageMode; // v765：改编页模式 'adapt'改编 | 'continue'续写（二选一互斥）
   String nameMapping; // v388：名称映射表（每行"原著名→新名（定位）"——生成端保持原著名，输出层替换）
   String nameMapReq; // v393：起名要求（指定主角新名/命名风格，映射表生成与增量抽取共用）
@@ -219,9 +221,11 @@ class WorldBook {
     Map<String, bool>? creationDeclEnabled,
     this.nameMapping = '',
     this.pageMode = 'adapt',
+    this.continueReq = '',
+    Map<String, String>? continuePlans,
     this.nameMapReq = '',
     Set<String>? nameMapManual,
-  }) : nameMapManual = nameMapManual ?? {}, arcDeclarations = arcDeclarations ?? {},
+  }) : nameMapManual = nameMapManual ?? {}, arcDeclarations = arcDeclarations ?? {}, continuePlans = continuePlans ?? {},
        arcDeclEnabled = arcDeclEnabled ?? {},
        sceneDeclarations = sceneDeclarations ?? {},
        arcRequirementsAI = arcRequirementsAI ?? {},
@@ -279,6 +283,7 @@ class WorldBook {
           {},
       deduceMode: json['deduceMode'] == true,
       pageMode: json['pageMode'] ?? 'adapt',
+      continueReq: json['continueReq'] ?? '',
       adaptMode: json['adaptMode'] ?? 'auto',
       adaptBible: json['adaptBible'] ?? '',
       originalBible: json['originalBible'] ?? '',
@@ -306,6 +311,12 @@ class WorldBook {
             ) ??
             {},
       ),
+      continuePlans: Map.of(
+        (json['continuePlans'] as Map<String, dynamic>?)?.map(
+              (k, v) => MapEntry(k, v.toString()),
+            ) ??
+            {},
+      ),
       arcDeclEnabled: Map.of(
         (json['arcDeclEnabled'] as Map<String, dynamic>?)?.map(
               (k, v) => MapEntry(k, v == true),
@@ -323,6 +334,8 @@ class WorldBook {
   Map<String, dynamic> toJson() => {
     'entries': entries.map((k, v) => MapEntry(k, v.toJson())),
     'pageMode': pageMode,
+    'continueReq': continueReq,
+    'continuePlans': continuePlans.map((k, v) => MapEntry(k, v)),
     'arcStatus': arcStatus,
     'requirements': requirements,
     'arcRequirements': arcRequirements,
