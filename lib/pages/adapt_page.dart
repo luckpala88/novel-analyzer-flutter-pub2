@@ -54,7 +54,7 @@ class _AdaptPageState extends State<AdaptPage>
   // 展开的弧线 key（arc number string）
   final Set<String> _expandedArcs = {};
   // v768：续写页分层Tab（弧线续写/场景续写）
-  late final TabController _continueTabCtrl = TabController(length: 2, vsync: this);
+  late final TabController _continueTabCtrl = TabController(length: 3, vsync: this);
   // v586：场景声明手动展开开关（替代ExpansionTile——ExpansionTile+SelectionArea+TabBarView叠加展开冻死）
   final Set<String> _declOpen = {};
   @override
@@ -1782,6 +1782,29 @@ class _AdaptPageState extends State<AdaptPage>
                       state.refresh();
                     },
                   ),
+                  // v769：顶行按键抄齐改编页（字号/API/词链，独立pageKey）
+                  ContentFontButtons(
+                    pageKey: 'continue',
+                    scale: _continueFontScale,
+                    onChanged: (v) {
+                      setState(() => _continueFontScale = v);
+                      ContentFont.save('continue', v);
+                    },
+                  ),
+                  MiniButton(
+                    label: '⚙ API',
+                    onTap: () => showV119Sheet(
+                      context,
+                      title: 'API设置 · 续写',
+                      child: ApiConfigPanel(config: state.wbApi, section: 'wb'),
+                    ),
+                  ),
+                  MiniButton(
+                    label: '词链',
+                    primary: state.wbPromptPreview,
+                    onTap: () =>
+                        state.setWbPromptPreview(!state.wbPromptPreview),
+                  ),
                 ],
               ),
             ),
@@ -1807,6 +1830,7 @@ class _AdaptPageState extends State<AdaptPage>
               tabs: const [
                 Tab(text: '弧线续写'),
                 Tab(text: '场景续写'),
+                Tab(text: '分镜续写'),
               ],
               labelStyle: const TextStyle(fontSize: 12),
               labelColor: const Color(0xFF2C5E8E),
@@ -1830,6 +1854,23 @@ class _AdaptPageState extends State<AdaptPage>
                     itemCount: allArcs.length,
                     itemBuilder: (ctx, i) =>
                         _buildContinueSceneCard(state, allArcs[i]),
+                  ),
+                  // ── 分镜续写层（v769预留：自由创作暂不推分镜，后续需要再启用）──
+                  ListView(
+                    padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+                    children: const [
+                      Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Center(
+                          child: Text(
+                            '分镜续写（预留）\n\n当前续写场景走自由创作，无分镜结构；\n后续若需要为续写场景补分镜维度，在此层实现。',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                fontSize: 12, color: Color(0xFF5B7A99)),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -2354,12 +2395,16 @@ class _AdaptPageState extends State<AdaptPage>
 
   // v288：生成内容字号（本页独立，0.8~1.6）
   double _fontScale = 1.0;
-
+  double _continueFontScale = 1.0; // v769：续写页字号独立
   @override
   void initState() {
     super.initState();
     ContentFont.load('adapt').then((v) {
       if (mounted) setState(() => _fontScale = v);
+    });
+    // v769：续写页字号独立加载
+    ContentFont.load('continue').then((v) {
+      if (mounted) setState(() => _continueFontScale = v);
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final state = context.read<AppState>();
