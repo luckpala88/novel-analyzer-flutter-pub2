@@ -639,7 +639,9 @@ class _WritingPageState extends State<WritingPage>
         }
       }
       // v539：篇幅硬约束——超原文目标20%自动返工一次（啰嗦治理机制层兜底）
-      final lenTarget = PromptBuilder.shotLengthTarget(structText);
+      final lenTarget = state.writingLengthCompress
+          ? PromptBuilder.shotLengthTarget(structText)
+          : null; // v757：压缩关=不做篇幅返工
       if (lenTarget != null &&
           lenTarget > 0 &&
           result.content.length > (lenTarget * 1.2).round() &&
@@ -958,6 +960,13 @@ class _WritingPageState extends State<WritingPage>
                     primary: state.writingPlagiarismCheck,
                     onTap: () => state.setWritingPlagiarismCheck(
                       !state.writingPlagiarismCheck,
+                    ),
+                  ),
+                  const SizedBox(width: 5),                  MiniButton(
+                    label: '压缩',
+                    primary: state.writingLengthCompress,
+                    onTap: () => state.setWritingLengthCompress(
+                      !state.writingLengthCompress,
                     ),
                   ),
                   const SizedBox(width: 5),
@@ -2538,7 +2547,9 @@ class _WritingPageState extends State<WritingPage>
         }
         // v539：篇幅硬约束——超原文目标20%自动返工一次（啰嗦治理机制层兜底）
         var shotContent = result.content;
-        final lenTarget = PromptBuilder.shotLengthTarget(shotBlock);
+        final lenTarget = state.writingLengthCompress
+            ? PromptBuilder.shotLengthTarget(shotBlock)
+            : null; // v757：压缩关=不做篇幅返工
         if (lenTarget != null &&
             lenTarget > 0 &&
             shotContent.length > (lenTarget * 1.2).round() &&
