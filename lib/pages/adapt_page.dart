@@ -3313,9 +3313,11 @@ class _AdaptPageState extends State<AdaptPage>
         _addLog('❌ 弧线要求优化失败：${result.error}');
         return;
       }
-      var req = TextCleaner.normalizeAiOutput(
-        result.content,
-        jsonMode: config.formatMode == 'json',
+      var req = TextCleaner.decodeLiteralNewlines( // v746：AI把换行输成字面\n残留
+        TextCleaner.normalizeAiOutput(
+          result.content,
+          jsonMode: config.formatMode == 'json',
+        ),
       ).trim();
       if (req.isEmpty) {
         _addLog('⚠️ 弧线要求优化结果为空');
@@ -3371,9 +3373,11 @@ class _AdaptPageState extends State<AdaptPage>
         _addLog('❌ 场景要求生成失败：${result.error}');
         return;
       }
-      var req = TextCleaner.normalizeAiOutput(
-        result.content,
-        jsonMode: config.formatMode == 'json',
+      var req = TextCleaner.decodeLiteralNewlines( // v746：字面\n残留解码
+        TextCleaner.normalizeAiOutput(
+          result.content,
+          jsonMode: config.formatMode == 'json',
+        ),
       ).trim();
       if (req.isEmpty) {
         _addLog('⚠️ 场景要求生成为空');
