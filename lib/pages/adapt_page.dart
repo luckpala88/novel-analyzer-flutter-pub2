@@ -1695,13 +1695,6 @@ class _AdaptPageState extends State<AdaptPage>
                     },
                   ),
                   MiniButton(
-                    label: '🧭AI优化方向',
-                    primary: false,
-                    onTap: _isGenerating
-                        ? null
-                        : () => _continueOptimizeReq(state),
-                  ),
-                  MiniButton(
                     label: '↻ 刷新',
                     onTap: () {
                       setState(() {});
@@ -1734,22 +1727,6 @@ class _AdaptPageState extends State<AdaptPage>
                 ],
               ),
             ),
-            // 全局续写方向
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 2, 8, 2),
-              child: TextField(
-                controller: TextEditingController(text: wb?.continueReq ?? ''),
-                maxLines: 2,
-                style: const TextStyle(fontSize: 12.5),
-                decoration: const InputDecoration(
-                  isDense: true,
-                  hintText: '全局续写方向（接下来写什么/收束哪条弧线/开什么新弧线），可留空自然推进',
-                  border: OutlineInputBorder(),
-                ),
-                onChanged: (v) => wb?.continueReq = v,
-                onSubmitted: (_) => state.saveWorldBook(),
-              ),
-            ),
             // 分层Tab：弧线续写/场景续写（沿用改编页三oundedTab结构，暂两层）
             TabBar(
               controller: _continueTabCtrl,
@@ -1773,15 +1750,18 @@ class _AdaptPageState extends State<AdaptPage>
                       ListView.builder(
                         controller: _contArcCtl,
                         padding: const EdgeInsets.fromLTRB(8, 4, 12, 8),
-                        itemCount: allArcs.length + 1, // v770：末尾➕添加弧线
+                        itemCount: allArcs.length + 2, // v781：末尾=添加世界书弧线条目+全局方向规划块
                         itemBuilder: (ctx, i) {
+                          if (i == allArcs.length + 1) {
+                            return _buildContinueReqPlanner(state);
+                          }
                           if (i >= allArcs.length) {
                             return Padding(
                               padding:
                                   const EdgeInsets.symmetric(vertical: 8),
                               child: Center(
                                 child: MiniButton(
-                                  label: '➕添加弧线',
+                                  label: '➕添加世界书弧线条目', // v781：语义更准
                                   primary: true,
                                   onTap: _isGenerating || allArcs.isEmpty
                                       ? null
@@ -1865,14 +1845,47 @@ class _AdaptPageState extends State<AdaptPage>
     );
   }
 
-  /// v780：弧线续写卡=纯展示，概述取分镜页详细版（arc_summary_detailed，v488同源）
-  Widget _buildContinueArcCard(AppState state, Arc arc) {
-    final arcKey = arc.number.toString();
-    final an = state.arcAnalyses[arcKey];
-    final overview = an == null
-        ? ''
-        : (an.metadata?['arc_summary_detailed']?.toString() ?? an.arcSummary)
-            .trim();
+  // ===== v781：续写页通用助手 =====
+  double _cf(double base) => base * _continueFontScale; // 字号缩放（修v769按键无效）
+
+  /// v781：切片查看弹窗（弧线/场景原文切片）
+  void _showSliceDialog(String title, String text) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(title, style: const TextStyle(fontSize: 13)),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: SelectableText(text,
+                style: const TextStyle(fontSize: 12, height: 1.5)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// v781：续写方向当前生效源（勾选优先：优化框>原始框）
+  String _continueReqSource(AppState state) {
+    final plans = state.worldBook?.continuePlans ?? {};
+    final opt = (plans['req_opt'] ?? '').trim();
+    final raw = (state.worldBook?.continueReq ?? '').trim();
+    if (_reqOptChecked && opt.isNotEmpty) return opt;
+    if (_reqRawChecked && raw.isNotEmpty) return raw;
+    return raw; // 兜底=原始
+  }
+
+  /// v781：全局方向规划块（弧线续写层末尾，样式对齐新增场景工作台）
+  Widget _buildContinueReqPlanner(AppState state) {
+    final wb = state.worldBook;
+    final raw = wb?.continueReq ?? '';
+    final opt = wb?.continuePlans['req_opt'] ?? '';
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(8),
@@ -1884,42 +1897,159 @@ class _AdaptPageState extends State<AdaptPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '弧线${arc.number}：${arc.title}\n${_arcProgressShort(state, arcKey)}',
-            style: const TextStyle(
-                fontSize: 12.5, fontWeight: FontWeight.w600),
+          Text('🧭 全局续写方向（供添加世界书弧线条目推演用）',
+              style: TextStyle(
+                  fontSize: _cf(12.5), fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 28,
+                height: 32,
+                child: Checkbox(
+                  value: _reqRawChecked,
+                  onChanged: (v) =>
+                      setState(() => _reqRawChecked = v ?? false),
+                ),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: TextEditingController(text: raw),
+                  maxLines: 2,
+                  style: TextStyle(fontSize: _cf(11.5)),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    hintText: '全局续写方向（接下来写什么/收束哪条弧线/开什么新弧线）',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (v) => wb?.continueReq = v,
+                  onSubmitted: (_) => state.saveWorldBook(),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Center(
+            child: MiniButton(
+              label: '🤖AI优化方向',
+              primary: true,
+              onTap: _isGenerating ? null : () => _continueOptimizeReq(state),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 28,
+                height: 32,
+                child: Checkbox(
+                  value: _reqOptChecked,
+                  onChanged: (v) =>
+                      setState(() => _reqOptChecked = v ?? false),
+                ),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: TextEditingController(text: opt),
+                  maxLines: 3,
+                  style: TextStyle(fontSize: _cf(11.5)),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    hintText: 'AI优化后的方向（可手改，勾选后生效）',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (v) =>
+                      wb?.continuePlans['req_opt'] = v,
+                  onSubmitted: (_) => state.saveWorldBook(),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// v780：弧线续写卡=纯展示，概述取分镜页详细版（arc_summary_detailed，v488同源）
+  /// v781：去进度行（分镜页数据自带正文/场景数量）+ 标题旁切片/复制概述按键 + 字号生效
+  Widget _buildContinueArcCard(AppState state, Arc arc) {
+    final arcKey = arc.number.toString();
+    final an = state.arcAnalyses[arcKey];
+    final overview = an == null
+        ? ''
+        : (an.metadata?['arc_summary_detailed']?.toString() ?? an.arcSummary)
+            .trim();
+    final sliceText = an?.arc?.text ?? arc.text; // v781：弧线原文切片
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFB8CFE5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '弧线${arc.number}：${arc.title}',
+                  style: TextStyle(
+                      fontSize: _cf(12.5), fontWeight: FontWeight.w600),
+                ),
+              ),
+              if (sliceText.isNotEmpty)
+                MiniButton(
+                  label: '🔍切片',
+                  primary: false,
+                  onTap: () => _showSliceDialog(
+                      '弧线${arc.number}：${arc.title}（切片）', sliceText),
+                ),
+              if (overview.isNotEmpty) ...[
+                const SizedBox(width: 4),
+                MiniButton(
+                  label: '📋复制概述',
+                  primary: false,
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: overview));
+                    _addLog('📋 弧线${arc.number}概述已复制');
+                  },
+                ),
+              ],
+            ],
           ),
           const SizedBox(height: 4),
           if (an == null)
-            const Text(
+            Text(
               '⚠️ 该弧线还没有拆解数据——先完成弧线扫描与分镜拆解',
-              style: TextStyle(fontSize: 11, color: Color(0xFFB0682A)),
+              style: TextStyle(fontSize: _cf(11), color: const Color(0xFFB0682A)),
             )
           else
-            Text(
+            SelectableText(
               overview.isEmpty ? '（无概述）' : overview,
-              style: const TextStyle(
-                  fontSize: 11.5, color: Color(0xFF5B7A99), height: 1.4),
+              style: TextStyle(
+                  fontSize: _cf(11.5), color: const Color(0xFF5B7A99), height: 1.4),
             ),
         ],
       ),
     );
   }
 
+  /// v780：场景续写卡=按弧线折叠（ExpansionTile）
+  /// v781：补弧线概述+去进度行+场景行切片按键+字号生效
   Widget _buildContinueSceneCard(AppState state, Arc arc) {
     final arcKey = arc.number.toString();
-    // v780：场景列表按弧线折叠（ExpansionTile，默认收起）
     // v779：数据源=分镜页拆解数据
     final an = state.arcAnalyses[arcKey];
-    final sceneNames = <String>[];
-    if (an != null) {
-      for (var si = 0; si < an.scenes.length; si++) {
-        final sc = an.scenes[si];
-        final ov = sc.summary.trim();
-        sceneNames.add(
-            '场景${si + 1}：${sc.name}\n　　${ov.length > 60 ? '${ov.substring(0, 60)}…' : ov}');
-      }
-    }
+    final overview = an == null
+        ? ''
+        : (an.metadata?['arc_summary_detailed']?.toString() ?? an.arcSummary)
+            .trim();
+    final sliceText = an?.arc?.text ?? arc.text;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -1935,35 +2065,89 @@ class _AdaptPageState extends State<AdaptPage>
               const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           backgroundColor: Colors.white,
           collapsedBackgroundColor: Colors.white,
-          title: Text(
-            '弧线${arc.number}：${arc.title}',
-            style:
-                const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
-          ),
-          subtitle: Text(
-            _arcProgressShort(state, arcKey),
-            style: const TextStyle(fontSize: 11, color: Color(0xFF5B7A99)),
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '弧线${arc.number}：${arc.title}',
+                  style: TextStyle(
+                      fontSize: _cf(12.5), fontWeight: FontWeight.w600),
+                ),
+              ),
+              if (sliceText.isNotEmpty)
+                MiniButton(
+                  label: '🔍切片',
+                  primary: false,
+                  onTap: () => _showSliceDialog(
+                      '弧线${arc.number}：${arc.title}（切片）', sliceText),
+                ),
+            ],
           ),
           children: [
             if (an == null)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 4),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Text(
                   '⚠️ 该弧线还没有拆解数据——先完成弧线扫描与分镜拆解',
-                  style: TextStyle(fontSize: 11, color: Color(0xFFB0682A)),
+                  style: TextStyle(
+                      fontSize: _cf(11), color: const Color(0xFFB0682A)),
                 ),
               )
-            else
-              ...sceneNames.map(
-                (n) => Padding(
-                  padding: const EdgeInsets.only(bottom: 2),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(n,
-                        style: const TextStyle(fontSize: 11)),
+            else ...[
+              // v781：弧线概述（补，可复制）
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: SelectableText(
+                      overview.isEmpty ? '（无概述）' : overview,
+                      style: TextStyle(
+                          fontSize: _cf(11),
+                          color: const Color(0xFF5B7A99),
+                          height: 1.4),
+                    ),
                   ),
-                ),
+                  if (overview.isNotEmpty)
+                    MiniButton(
+                      label: '📋复制概述',
+                      primary: false,
+                      onTap: () {
+                        Clipboard.setData(ClipboardData(text: overview));
+                        _addLog('📋 弧线${arc.number}概述已复制');
+                      },
+                    ),
+                ],
               ),
+              const SizedBox(height: 4),
+              ...an.scenes.asMap().entries.map(
+                (e) {
+                  final sc = e.value;
+                  final ov = sc.summary.trim();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '场景${e.key + 1}：${sc.name}\n　　${ov.length > 60 ? '${ov.substring(0, 60)}…' : ov}',
+                            style: TextStyle(fontSize: _cf(11)),
+                          ),
+                        ),
+                        if (sc.text.trim().isNotEmpty)
+                          MiniButton(
+                            label: '🔍切片',
+                            primary: false,
+                            onTap: () => _showSliceDialog(
+                                '场景${e.key + 1}：${sc.name}（切片）',
+                                sc.text),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
           ],
         ),
       ),
@@ -1988,6 +2172,18 @@ class _AdaptPageState extends State<AdaptPage>
     return max;
   }
 
+
+  /// v781：闭合守卫——目标弧线已闭合且无更新弧线（它就是最大号）时，须先添加世界书弧线条目
+  bool _closedArcGuard(AppState state, Arc arc) {
+    if (arc.status != 'complete') return true;
+    final maxNum = state.completedArcs
+        .map((a) => a.number)
+        .reduce((a, b) => a > b ? a : b);
+    if (arc.number < maxNum) return true; // 后面已有新弧线
+    _addLog('❌ 弧线${arc.number}（${arc.title}）已闭合——先在弧线续写页➕添加世界书弧线条目');
+    return false;
+  }
+
   Widget _buildNewScenePlanner(AppState state, Arc arc) {
     final arcKey = arc.number.toString();
     final plans = state.worldBook?.continuePlans ?? {};
@@ -2005,8 +2201,8 @@ class _AdaptPageState extends State<AdaptPage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('➕ 新增场景（目标：弧线${arc.number}：${arc.title}）',
-              style: const TextStyle(
-                  fontSize: 12.5, fontWeight: FontWeight.w600)),
+              style: TextStyle(
+                  fontSize: _cf(12.5), fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
           // ① 用户原始规划（勾选=写入源备选）
           Row(
@@ -2025,7 +2221,7 @@ class _AdaptPageState extends State<AdaptPage>
                 child: TextField(
                   controller: TextEditingController(text: raw),
                   maxLines: 3,
-                  style: const TextStyle(fontSize: 11.5),
+                  style: TextStyle(fontSize: _cf(11.5)),
                   decoration: const InputDecoration(
                     isDense: true,
                     hintText: '新场景规划（想怎么写就写什么，一两句话也行）',
@@ -2066,7 +2262,7 @@ class _AdaptPageState extends State<AdaptPage>
                 child: TextField(
                   controller: TextEditingController(text: opt),
                   maxLines: 5,
-                  style: const TextStyle(fontSize: 11.5),
+                  style: TextStyle(fontSize: _cf(11.5)),
                   decoration: const InputDecoration(
                     isDense: true,
                     hintText: 'AI优化后的规划（可手改；格式：场景N：名称｜概述…）',
@@ -2108,6 +2304,7 @@ class _AdaptPageState extends State<AdaptPage>
       _addLog('❌ 弧线$arcKey还没有世界书条目——先在改编模式生成原样世界书');
       return;
     }
+    if (!_closedArcGuard(state, arc)) return; // v781：闭合守卫
     final entry = state.worldBook!.entries[entryKey]!;
     final nextNum = _maxSceneNumInEntry(state, entryKey) + 1;
     final config = state.getApiConfig('wb');
@@ -2175,6 +2372,7 @@ class _AdaptPageState extends State<AdaptPage>
       _addLog('❌ 弧线$arcKey还没有世界书条目——先在改编模式生成原样世界书');
       return;
     }
+    if (!_closedArcGuard(state, arc)) return; // v781：闭合守卫
     final entry = state.worldBook!.entries[entryKey]!;
     final sb = StringBuffer();
     var added = 0;
@@ -2232,7 +2430,7 @@ class _AdaptPageState extends State<AdaptPage>
             '场景1：名称\n概述：80-150字\n场景2：…（3-8个场景）\n'
             '人名一律沿用原著原名；必须从当前进度自然衔接；禁止输出解释性文字。',
         userPrompt:
-            '【续写方向】\n${state.worldBook?.continueReq ?? '（未填写，按故事逻辑自然推进）'}\n\n'
+            '【续写方向】\n${_continueReqSource(state).isEmpty ? '（未填写，按故事逻辑自然推进）' : _continueReqSource(state)}\n\n'
             '【当前进度】\n$prevCtx\n\n'
             '【新弧线编号】N=$newNum',
         apiConfig: config,
@@ -2301,9 +2499,10 @@ class _AdaptPageState extends State<AdaptPage>
         _addLog('⚠️ 优化结果为空');
         return;
       }
-      state.worldBook!.continueReq = out;
+      state.worldBook!.continuePlans['req_opt'] = out; // v781：优化结果进优化框
       state.saveWorldBook();
-      _addLog('✓ 续写方向已优化（${out.length}字）');
+      setState(() => _reqOptChecked = true);
+      _addLog('✓ 续写方向已优化（${out.length}字）——勾选后生效');
       if (mounted) setState(() {});
     } finally {
       if (mounted) setState(() => _isGenerating = false);
@@ -2503,6 +2702,8 @@ class _AdaptPageState extends State<AdaptPage>
   // v780：新增场景规划工作台（勾选状态，输入文本持久化在continuePlans专用key）
   bool _newSceneRawChecked = false; // 用户原始规划勾选（写入世界书时的备选源）
   bool _newSceneOptChecked = true; // AI优化规划勾选（默认写入源）
+  bool _reqRawChecked = true; // v781：原始续写方向勾选
+  bool _reqOptChecked = true; // v781：优化方向勾选
   final ScrollController _arcListCtl = ScrollController(); // v771：弧线列表垂直滚动条
   final ScrollController _contArcCtl = ScrollController(); // v771：续写弧线层
   final ScrollController _contSceneCtl = ScrollController(); // v771：续写场景层
