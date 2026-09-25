@@ -2955,6 +2955,60 @@ class _WritingPageState extends State<WritingPage>
             TextCleaner.dedupeShotBlocks(normalized),
           ),
         );
+        // v741：顺序违规检测+判废重试（整场景AI漂移：正文写到分镜1结构块
+        // 之前——v714判定式指令教AI在块附近写判定文、v738末位重申仍压不住，
+        // 代码级兜底：结构块前检出>=40字正文=拒收，带违规说明重试一次）
+        final headRe741 = RegExp(
+          r'^[^\u4e00-\u9fa5\n]*#*\s*[\[【]?分[镜景](头)?\s*\d+\s*[\]】]?',
+          multiLine: true,
+        );
+        String leadProseOf(String t) {
+          final hm = headRe741.firstMatch(t);
+          if (hm == null) return '';
+          var lead = t.substring(0, hm.start);
+          lead = lead.replaceAll(
+            RegExp(r'^\[模型[：:].*?\]\s*$', multiLine: true),
+            '',
+          );
+          lead = lead.replaceAll(
+            RegExp(r'^[^\u4e00-\u9fa5\n]*场景\s*\d+\s*[：:].*$', multiLine: true),
+            '',
+          );
+          return lead.trim();
+        }
+
+        var leadProse = leadProseOf(cleanContent);
+        if (leadProse.length >= 40) {
+          _addLog('⚠️ 顺序违规：分镜1结构块前有${leadProse.length}字正文（判废拒收），重试一次...');
+          final retryUser =
+              '$userPrompt\n\n## ⚠️ 上一次输出已拒收：你把正文写在了分镜1结构块之前。'
+              '请重新输出完整内容：第一行=场景头，之后每个分镜必须【结构块行在前→该镜正文在后】，'
+              '任何正文不得出现在"分镜1"行之前，严禁先写正文再补结构块。';
+          final rRetry = await state.api.callApi(
+            systemPrompt: systemPrompt,
+            userPrompt: retryUser,
+            apiConfig: config,
+          );
+          if (rRetry.isSuccess) {
+            var n2 = TextCleaner.normalizeAiOutput(
+              rRetry.content,
+              jsonMode: config.formatMode == 'json',
+            );
+            n2 = TextCleaner.decodeLiteralNewlines(
+              TextCleaner.stripDecorativeEmoji(
+                TextCleaner.dedupeShotBlocks(n2),
+              ),
+            );
+            if (leadProseOf(n2).length < 40) {
+              cleanContent = n2;
+              _addLog('✓ 重试输出顺序合规，已采用（${n2.length}字）');
+            } else {
+              _addLog('⚠️ 重试仍违规，保留原输出——请用分镜卡手动修复顺序');
+            }
+          } else {
+            _addLog('重试请求失败：${rRetry.error ?? rRetry.statusCode}，保留原输出');
+          }
+        }
         _addLog('API返回：${result.content.length}字');
         // v513b：整场景原文相似度检测——场景切片对照
         // v613：自动改写停用（全场景重写效果差，语气/衔接易打断）——只报相似度，
