@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 
 import '../services/file_picker_service.dart';
 import '../utils/encoding_detector.dart';
+import '../utils/app_version.dart';
 import '../state/app_state.dart';
 import '../models/writing.dart';
 import '../models/api_config.dart';
@@ -2863,7 +2864,7 @@ class _WritingPageState extends State<WritingPage>
           checkSampleCopy(cleanContent);
           var txtContent = TextCleaner.stripShotHeaders(cleanContent);
           if (state.writingModelNote && config.effectiveModel.isNotEmpty) {
-            txtContent = '[模型：${config.effectiveModel} · 温度${config.temperature}]\n\n$txtContent';
+            txtContent = '[模型：${config.effectiveModel} · 温度${config.temperature} · v${AppVersion.v}]\n\n$txtContent';
           }
           final path = state.storage.getWritingPath(
             arcKey,
@@ -3720,7 +3721,7 @@ class _WritingPageState extends State<WritingPage>
       state.writingShotByShot ? '逐镜' : '非逐镜',
       state.writingFreeMode ? '自由' : '沿分镜',
     ].join('·');
-    return '[模型：$model · 温度$temp · $mode]';
+    return '[模型：$model · 温度$temp · $mode · v${AppVersion.v}]';
   }
 
   /// v597：查看层内容归一化（渲染与分镜编辑定位必须同源）——
