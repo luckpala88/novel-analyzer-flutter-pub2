@@ -954,7 +954,7 @@ class _WritingPageState extends State<WritingPage>
                   ),
                   const SizedBox(width: 5),
                   MiniButton(
-                    label: '查抄',
+                    label: '防抄',
                     primary: state.writingPlagiarismCheck,
                     onTap: () => state.setWritingPlagiarismCheck(
                       !state.writingPlagiarismCheck,
