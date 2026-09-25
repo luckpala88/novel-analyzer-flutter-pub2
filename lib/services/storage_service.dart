@@ -333,6 +333,20 @@ class StorageService {
     }
   }
 
+  /// v763：文件修改时间毫秒值（相对路径按_baseDir解析；异常/不存在=null）
+  /// detection页排序用——此前页面层File(path)拿相对路径开文件=逐文件异常
+  /// 被catch吞掉→列表整体清空（v763实测事故）
+  int? fileMtime(String filename) {
+    try {
+      if (_baseDir == null) return null;
+      final f = File('${_baseDir!.path}/$filename');
+      if (!f.existsSync()) return null;
+      return f.lastModifiedSync().millisecondsSinceEpoch;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// 读文件（v221：解码失败不再静默null——剥BOM+坏字节兜底解码）
   String? readFile(String filename) {
     try {

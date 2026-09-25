@@ -249,7 +249,7 @@ class _DetectionPageState extends State<DetectionPage>
             'wordCount': content.length,
             'isWritings': true,
             'isRewrite': false,
-            'mtime': File(path).lastModifiedSync().millisecondsSinceEpoch,
+                        'mtime': state.storage.fileMtime(path),
           });
         } catch (_) {}
       }
@@ -271,7 +271,7 @@ class _DetectionPageState extends State<DetectionPage>
             'wordCount': content.length,
             'isWritings': true,
             'isRewrite': true,
-            'mtime': File(path).lastModifiedSync().millisecondsSinceEpoch,
+                        'mtime': state.storage.fileMtime(path),
           });
         } catch (_) {}
       }
