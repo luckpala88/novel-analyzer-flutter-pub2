@@ -697,6 +697,31 @@ class PromptBuilder {
   }
 
   /// buildSingleShotWriteSystemPrompt — 单分镜正文生成（创作页分镜级补写）
+  /// v760：分镜维度校验——AI质检员对照改编后世界书分镜维度审正文
+  static String buildShotCheckSystemPrompt() {
+    return '你是网文改编质检员。给定【分镜结构块】（改编后世界书的分镜维度定稿）'
+        '和据此生成的【正文】，判断正文是否落实了分镜维度。只判硬违规：\n'
+        '1. 篇幅：正文长度偏离篇幅/Length值±30%以上（约N token≈N字；"短/中/长/超长"档位按50-100/100-300/300-600/600+字折算；"一句话"=20字内）\n'
+        '2. 焦点跑题：正文主体不是焦点(Focus)指定的对象/事件\n'
+        '3. 投放缺失：投放信息(Info)指定的信息在正文里完全没出现\n'
+        '4. 镜头类型错型：对话镜全无对话、动作镜全无动作等明显错型\n'
+        '视角/笔墨/文风等软项不判。拿不准=pass。只输出纯JSON（禁止markdown和其他文字）：'
+        '{"pass": true, "reason": ""}——违规时pass=false并填reason（违规项+正文事实，40字内）';
+  }
+
+  static String buildShotCheckUserPrompt({
+    required String shotBlock,
+    required String body,
+  }) {
+    final sb = StringBuffer();
+    sb.writeln('【分镜结构块（改编定稿，校验基准）】');
+    sb.writeln(shotBlock.trim());
+    sb.writeln();
+    sb.writeln('【据此生成的正文（待校验）】');
+    sb.writeln(body.trim());
+    return sb.toString();
+  }
+
   static String buildSingleShotWriteSystemPrompt() {
     return '你是网文创作助手。任务：只创作指定的一个分镜的正文。\n\n'
         '## 要求\n'

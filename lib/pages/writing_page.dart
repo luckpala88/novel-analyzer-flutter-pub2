@@ -638,39 +638,6 @@ class _WritingPageState extends State<WritingPage>
           return;
         }
       }
-      // v539：篇幅硬约束——超原文目标20%自动返工一次（啰嗦治理机制层兜底）
-      final lenTarget = state.writingPostCheck
-          ? PromptBuilder.shotLengthTarget(structText)
-          : null; // v758：校验关=不做篇幅返工
-      if (lenTarget != null &&
-          lenTarget > 0 &&
-          result.content.length > (lenTarget * 1.2).round() &&
-          !state.api.isAborted) {
-        _addLog('📏 分镜${shotIdx + 1}输出${result.content.length}字符，超原文约$lenTarget的20%——返工压缩一次');
-        final user2 = PromptBuilder.buildSingleShotWriteUserPrompt(
-          sceneHeader: sceneHeader,
-          shotInfo: structText,
-          prevTail: TextCleaner.stripShotHeaders(prevTail),
-          extraPrompt:
-              '${state.writingPrompt}\n\n${PromptBuilder.lengthRetakeExtra(lenTarget, result.content.length)}',
-          styleSample: styleSample,
-          prevShots: prevShots,
-          arcDeclaration: _arcDeclForWriting(state, w.arcKey),
-        );
-        final r2 = await state.api.callApi(
-          systemPrompt: sys,
-          userPrompt: user2,
-          apiConfig: config,
-        );
-        if (r2.isSuccess &&
-            r2.content.trim().isNotEmpty &&
-            r2.content.length < result.content.length) {
-          result = r2;
-          _addLog('✓ 返工后${r2.content.length}字符');
-        } else {
-          _addLog('返工未改善，保留原稿');
-        }
-      }
       var normalizedShot = TextCleaner.normalizeAiOutput(
         result.content,
         jsonMode: config.formatMode == 'json',
@@ -2545,47 +2512,7 @@ class _WritingPageState extends State<WritingPage>
           stopped = true;
           break;
         }
-        // v539：篇幅硬约束——超原文目标20%自动返工一次（啰嗦治理机制层兜底）
         var shotContent = result.content;
-        final lenTarget = state.writingPostCheck
-            ? PromptBuilder.shotLengthTarget(shotBlock)
-            : null; // v758：校验关=不做篇幅返工
-        if (lenTarget != null &&
-            lenTarget > 0 &&
-            shotContent.length > (lenTarget * 1.2).round() &&
-            !state.api.isAborted) {
-          _addLog('📏 分镜${i + 1}输出${shotContent.length}字符，超原文约$lenTarget的20%——返工压缩一次');
-          final user2 = PromptBuilder.buildSingleShotWriteUserPrompt(
-            sceneHeader: sceneHead,
-            shotInfo: shotBlock,
-            prevTail: TextCleaner.stripShotHeaders(prevTail),
-            extraPrompt:
-                '${state.writingPrompt}\n\n${PromptBuilder.lengthRetakeExtra(lenTarget, shotContent.length)}',
-            arcSummary: _arcSummaryForShot(state, arcKey),
-            inkHabit: _inkHabitForShot(state, arcKey),
-        styleDna: _styleDnaForShot(state, arcKey), // v640
-            arcDeclaration: _arcDeclForWriting(state, arcKey.toString()),
-            styleSample: state.writingImitateAuthor
-                ? _shotTextOnly(state, arcKey, si, i) // v752
-                : '',
-            styleAtts: state.writingAttachments,
-            contentAtts: state.sceneAttachments['${arcKey}_$si'] ?? const [],
-            prevShots: prevShots,
-          );
-          final r2 = await state.api.callApi(
-            systemPrompt: sys,
-            userPrompt: user2,
-            apiConfig: config,
-          );
-          if (r2.isSuccess &&
-              r2.content.trim().isNotEmpty &&
-              r2.content.length < shotContent.length) {
-            shotContent = r2.content;
-            _addLog('✓ 返工后${shotContent.length}字符');
-          } else {
-            _addLog('返工未改善，保留原稿');
-          }
-        }
         var normalized = TextCleaner.normalizeAiOutput(
           shotContent,
           jsonMode: config.formatMode == 'json',
@@ -2604,6 +2531,79 @@ class _WritingPageState extends State<WritingPage>
           ),
         ).trim();
         break;
+      }
+      // v760：AI维度校验+校验重写（替代v539篇幅单独比较——字数只是
+      // 校验项之一；校验开关关=整段跳过不烧API）
+      if (state.writingPostCheck && body.isNotEmpty && !state.api.isAborted) {
+        final chk = await state.api.callApi(
+          systemPrompt: PromptBuilder.buildShotCheckSystemPrompt(),
+          userPrompt: PromptBuilder.buildShotCheckUserPrompt(
+            shotBlock: shotBlock,
+            body: body,
+          ),
+          apiConfig: config,
+        );
+        var reason = '';
+        if (chk.isSuccess) {
+          final raw = TextCleaner.normalizeAiOutput(
+            chk.content,
+            jsonMode: config.formatMode == 'json',
+          );
+          final pm = RegExp(r'"pass"\s*:\s*(true|false)').firstMatch(raw);
+          if (pm != null && pm.group(1) == 'false') {
+            final rm = RegExp(r'"reason"\s*:\s*"([^"]*)"').firstMatch(raw);
+            reason = rm?.group(1) ?? '维度未落实';
+          }
+        } else {
+          _addLog('ℹ️ 校验请求失败（${chk.error ?? chk.statusCode}）——本镜跳过校验');
+        }
+        if (reason.isNotEmpty) {
+          _addLog('🔎 分镜${i + 1}校验未过：$reason——校验重写一次');
+          final retakeUser = PromptBuilder.buildSingleShotWriteUserPrompt(
+            sceneHeader: sceneHead,
+            shotInfo: shotBlock,
+            prevTail: TextCleaner.stripShotHeaders(prevTail),
+            extraPrompt:
+                '【校验重写】上一稿未通过分镜维度校验：$reason。请重写本镜正文——严格落实结构块每个维度（焦点/镜头类型/视角/投放信息/篇幅±20%/笔墨分块），其余要求不变。',
+            arcSummary: _arcSummaryForShot(state, arcKey),
+            inkHabit: _inkHabitForShot(state, arcKey),
+            styleDna: _styleDnaForShot(state, arcKey),
+            arcDeclaration: _arcDeclForWriting(state, arcKey.toString()),
+            styleSample: state.writingImitateAuthor
+                ? _shotTextOnly(state, arcKey, si, i) // v752
+                : '',
+            styleAtts: state.writingAttachments,
+            contentAtts: state.sceneAttachments['${arcKey}_$si'] ?? const [],
+            prevShots: prevShots,
+          );
+          final r2 = await state.api.callApi(
+            systemPrompt: PromptBuilder.buildSingleShotWriteSystemPrompt(),
+            userPrompt: retakeUser,
+            apiConfig: config,
+          );
+          if (r2.isSuccess && r2.content.trim().isNotEmpty) {
+            var nb = TextCleaner.stripParagraphWrapQuotes(
+              TextCleaner.stripWrapQuotes(
+                TextCleaner.stripShotHeaders(
+                  TextCleaner.stripDecorativeEmoji(
+                    TextCleaner.normalizeAiOutput(
+                      r2.content,
+                      jsonMode: config.formatMode == 'json',
+                    ),
+                  ),
+                ),
+              ),
+            ).trim();
+            if (nb.isNotEmpty) {
+              body = nb;
+              _addLog('✓ 分镜${i + 1}校验重写完成（${body.length}字）');
+            }
+          } else {
+            _addLog('⚠️ 分镜${i + 1}校验重写失败，保留原稿');
+          }
+        } else if (chk.isSuccess) {
+          _addLog('✓ 分镜${i + 1}维度校验通过');
+        }
       }
       // 组装：结构照抄（世界书原样）+空行+正文+空行
       sb.writeln(shotBlock);
