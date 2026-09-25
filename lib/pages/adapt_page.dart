@@ -18,6 +18,7 @@ import '../utils/name_map.dart';
 import '../widgets/api_config_panel.dart';
 import '../widgets/api_log_panel.dart';
 import '../widgets/v119_ui.dart';
+import '../widgets/v_scroll_bar.dart'; // v771
 import '../widgets/content_font.dart';
 
 /// 改编页 — 照抄v468 adapt-card
@@ -59,6 +60,9 @@ class _AdaptPageState extends State<AdaptPage>
   final Set<String> _declOpen = {};
   @override
   void dispose() {
+    _arcListCtl.dispose();
+    _contArcCtl.dispose();
+    _contSceneCtl.dispose();
     _reqController.dispose();
     _layerTabCtrl.dispose();
     super.dispose();
@@ -1842,49 +1846,76 @@ class _AdaptPageState extends State<AdaptPage>
                 controller: _continueTabCtrl,
                 children: [
                   // ── 弧线续写层 ──
-                  ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-                    itemCount: allArcs.length + 1, // v770：末尾➕添加弧线
-                    itemBuilder: (ctx, i) {
-                      if (i >= allArcs.length) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Center(
-                            child: MiniButton(
-                              label: '➕添加弧线',
-                              primary: true,
-                              onTap: _isGenerating || allArcs.isEmpty
-                                  ? null
-                                  : () => _addContinueArc(
-                                      state, allArcs.last),
-                            ),
-                          ),
-                        );
-                      }
-                      return _buildContinueArcCard(state, allArcs[i]);
-                    },
+                  Stack(
+                    children: [
+                      ListView.builder(
+                        controller: _contArcCtl,
+                        padding: const EdgeInsets.fromLTRB(8, 4, 12, 8),
+                        itemCount: allArcs.length + 1, // v770：末尾➕添加弧线
+                        itemBuilder: (ctx, i) {
+                          if (i >= allArcs.length) {
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 8),
+                              child: Center(
+                                child: MiniButton(
+                                  label: '➕添加弧线',
+                                  primary: true,
+                                  onTap: _isGenerating || allArcs.isEmpty
+                                      ? null
+                                      : () => _addContinueArc(
+                                          state, allArcs.last),
+                                ),
+                              ),
+                            );
+                          }
+                          return _buildContinueArcCard(
+                              state, allArcs[i]);
+                        },
+                      ),
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        bottom: 0,
+                        child: VScrollBar(_contArcCtl),
+                      ),
+                    ],
                   ),
                   // ── 场景续写层 ──
-                  ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-                    itemCount: allArcs.length + 1, // v770：末尾➕添加场景
-                    itemBuilder: (ctx, i) {
-                      if (i >= allArcs.length) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Center(
-                            child: MiniButton(
-                              label: '➕添加场景',
-                              primary: true,
-                              onTap: _isGenerating
-                                  ? null
-                                  : () => _addNextSceneAny(state, allArcs),
-                            ),
-                          ),
-                        );
-                      }
-                      return _buildContinueSceneCard(state, allArcs[i]);
-                    },
+                  Stack(
+                    children: [
+                      ListView.builder(
+                        controller: _contSceneCtl,
+                        padding: const EdgeInsets.fromLTRB(8, 4, 12, 8),
+                        itemCount: allArcs.length + 1, // v770：末尾➕添加场景
+                        itemBuilder: (ctx, i) {
+                          if (i >= allArcs.length) {
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 8),
+                              child: Center(
+                                child: MiniButton(
+                                  label: '➕添加场景',
+                                  primary: true,
+                                  onTap: _isGenerating
+                                      ? null
+                                      : () =>
+                                          _addNextSceneAny(state, allArcs),
+                                ),
+                              ),
+                            );
+                          }
+                          return _buildContinueSceneCard(
+                              state, allArcs[i]);
+                        },
+                      ),
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        bottom: 0,
+                        child: VScrollBar(_contSceneCtl),
+                      ),
+                    ],
                   ),
                   // ── 分镜续写层（v769预留：自由创作暂不推分镜，后续需要再启用）──
                   ListView(
@@ -2457,6 +2488,9 @@ class _AdaptPageState extends State<AdaptPage>
   // v288：生成内容字号（本页独立，0.8~1.6）
   double _fontScale = 1.0;
   double _continueFontScale = 1.0; // v769：续写页字号独立
+  final ScrollController _arcListCtl = ScrollController(); // v771：弧线列表垂直滚动条
+  final ScrollController _contArcCtl = ScrollController(); // v771：续写弧线层
+  final ScrollController _contSceneCtl = ScrollController(); // v771：续写场景层
   @override
   void initState() {
     super.initState();
@@ -2760,16 +2794,27 @@ class _AdaptPageState extends State<AdaptPage>
             )
           // v586修：摘掉SelectionArea——条目数万字时点按/展开触发全子树可选中会话
           // =布局爆炸冻死+复制出8万字大块；复制走各条目/场景自带的复制按键
-          : ListView.builder(
-              itemCount: allArcs.length, // v629b：自定义条目区撤出改编页（管理全走世界书页）
-              itemBuilder: (ctx, i) {
-                return _buildArcItem(
-                  state,
-                  allArcs[i],
-                  allArcs.length,
-                  layer: layer,
-                );
-              },
+          : Stack(
+              children: [
+                ListView.builder(
+                  controller: _arcListCtl,
+                  itemCount: allArcs.length, // v629b：自定义条目区撤出改编页（管理全走世界书页）
+                  itemBuilder: (ctx, i) {
+                    return _buildArcItem(
+                      state,
+                      allArcs[i],
+                      allArcs.length,
+                      layer: layer,
+                    );
+                  },
+                ),
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: VScrollBar(_arcListCtl),
+                ),
+              ],
             ),
     );
   }

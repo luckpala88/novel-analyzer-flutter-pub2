@@ -11,6 +11,7 @@ import '../utils/text_cleaner.dart';
 import '../utils/name_map.dart';
 import '../utils/v469_style.dart';
 import '../widgets/api_config_panel.dart';
+import '../widgets/v_scroll_bar.dart'; // v771
 import '../widgets/v119_ui.dart';
 import '../widgets/content_font.dart';
 
@@ -25,6 +26,8 @@ class WorldBookPage extends StatefulWidget {
 
 class _WorldBookPageState extends State<WorldBookPage>
     with AutomaticKeepAliveClientMixin {
+  final ScrollController _wbListCtl =
+      ScrollController(); // v771：世界书列表垂直滚动条
   // 折叠置顶：tile的GlobalKey注册表（展开时头部自动滚到可视区顶，便于随时折叠）
   final Map<String, GlobalKey> _tileKeys = {};
   GlobalKey _tileKey(String id) => _tileKeys.putIfAbsent(id, () => GlobalKey());
@@ -99,6 +102,7 @@ class _WorldBookPageState extends State<WorldBookPage>
 
   @override
   void dispose() {
+    _wbListCtl.dispose();
     _editContentCtrl.dispose();
     _editCommentCtrl.dispose();
     _editKeyCtrl.dispose();
@@ -266,17 +270,28 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
                       builder: (ctx) {
                         // 只分组一次，builder复用（每行重复分组是O(n²)）
                         final items = _groupedItems(state, entries);
-                        return ListView.builder(
-                          // 底部留白=底部导航(80)+终端胶囊(40)+安全区——
-                          // v225：120→200（用户反馈仍被遮挡）
-                          // v239：160→240（用户反馈展开长条目后底部内容
-                          // 仍被底部导航+终端胶囊叠加遮挡，宁多勿遮）
-                          padding: EdgeInsets.only(
-                            bottom:
-                                240 + MediaQuery.of(context).padding.bottom,
-                          ),
-                          itemCount: items.length,
-                          itemBuilder: (c, i) => items[i],
+                        return Stack(
+                          children: [
+                            ListView.builder(
+                              // 底部留白=底部导航(80)+终端胶囊(40)+安全区——
+                              // v225：120→200（用户反馈仍被遮挡）
+                              // v239：160→240（用户反馈展开长条目后底部内容
+                              // 仍被底部导航+终端胶囊叠加遮挡，宁多勿遮）
+                              controller: _wbListCtl,
+                              padding: EdgeInsets.only(
+                                bottom:
+                                    240 + MediaQuery.of(context).padding.bottom,
+                              ),
+                              itemCount: items.length,
+                              itemBuilder: (c, i) => items[i],
+                            ),
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              bottom: 0,
+                              child: VScrollBar(_wbListCtl),
+                            ),
+                          ],
                         );
                       },
                     ),
