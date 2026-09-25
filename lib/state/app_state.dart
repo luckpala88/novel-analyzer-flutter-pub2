@@ -1329,11 +1329,7 @@ class AppState extends ChangeNotifier {
   }) async {
     try {
       if (worldBook == null) return;
-      // v765：续写模式不需要映射表（原样世界书全原名）——入口拦截
-      if (pageModeContinue) {
-        apiLog('📄 续写模式不需要映射表——已跳过采集');
-        return;
-      }
+      // v766：续写模式照常采集，但规则不同——禁止拟新名，只登用户新名
       final config = wbApi.effectiveApiKey.isNotEmpty || wbApi.useCustom
           ? wbApi
           : mainApi;
@@ -1369,6 +1365,7 @@ class AppState extends ChangeNotifier {
           adaptedInput: adaptedInput,
           sourceLabel: sourceLabel,
           batchTag: tag,
+          continueMode: pageModeContinue, // v766
         );
         if (!ok) break; // 失败终止（告警已在批内打出），后续批不再继续
       }
@@ -1398,6 +1395,7 @@ class AppState extends ChangeNotifier {
     bool adaptedInput = false,
     String sourceLabel = '',
     String batchTag = '',
+    bool continueMode = false, // v766：续写采集规则
   }) async {
     apiLog(
       '📖 映射表增量抽取${batchTag.isEmpty ? "" : "（$batchTag）"}（采集源${sourceLabel.isEmpty ? "" : "：$sourceLabel"}，${sourceContent.length}字）…',
@@ -1409,7 +1407,9 @@ class AppState extends ChangeNotifier {
       baseUrl: config.effectiveApiBase,
       apiKey: config.effectiveApiKey,
       model: config.effectiveModel,
-      systemPrompt: PromptBuilder.buildNameMapIncrementSystemPrompt(),
+      systemPrompt: PromptBuilder.buildNameMapIncrementSystemPrompt(
+        continueMode: continueMode,
+      ),
       userPrompt: PromptBuilder.buildNameMapIncrementUserPrompt(
         existing,
         sourceContent,
