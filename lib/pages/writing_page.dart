@@ -2755,13 +2755,74 @@ class _WritingPageState extends State<WritingPage>
           break;
         }
       }
-      // v545：场景概述——从弧线拆解的场景摘要取（无则空，跳过注入）
+      // v749：场景概述换源——优先改编条目场景头区（场景头→首个分镜间，
+      // 与逐镜草稿开头同源，贴改编剧情）；取不到回退原著弧线summary
+      // （v545旧源：20-50字摘要当中心思想，与逐镜长概述不一致=用户实测疑惑）
       var sceneSummary = '';
-      final arcNum = int.tryParse(arcKey.toString());
-      final arcAnalysis =
-          arcNum != null ? state.arcAnalyses[arcNum.toString()] : null;
-      if (arcAnalysis != null && si < arcAnalysis.scenes.length) {
-        sceneSummary = arcAnalysis.scenes[si].summary;
+      final wb = state.worldBook;
+      final arcKeyStr = arcKey.toString();
+      String? entryContent;
+      if (wb != null) {
+        final sceneEntries = wb.entries.values
+            .where((e) => e.arcKey == arcKeyStr && e.sceneTag == '${arcKeyStr}_$si')
+            .toList();
+        if (sceneEntries.isNotEmpty) {
+          entryContent = sceneEntries.first.content;
+        } else {
+          final arcEntries = wb.entries.values
+              .where(
+                (e) =>
+                    e.arcKey == arcKeyStr &&
+                    (e.sceneTag == null || e.sceneTag!.isEmpty),
+              )
+              .toList();
+          if (arcEntries.isNotEmpty) {
+            final content = arcEntries.first.content;
+            final sm = RegExp('场景\\s*${si + 1}\\s*[：:]').firstMatch(content);
+            if (sm != null) {
+              final nextRe = RegExp(
+                r'场景\s*\d+\s*[：:]|【世界观设定】|【人设】|【矛盾冲突】|【伏笔】|【弧线功能】|【不可逆变化】|【情绪曲线】|【作者脑洞】',
+              );
+              final nm = nextRe
+                  .allMatches(content)
+                  .where((m) => m.start >= sm.end)
+                  .toList();
+              entryContent = content.substring(
+                sm.start,
+                nm.isEmpty ? content.length : nm.first.start,
+              );
+            }
+          }
+        }
+      }
+      if (entryContent != null) {
+        final lines = entryContent
+            .split('\n')
+            .skip(1) // 跳过场景头行
+            .toList();
+        final headLines = <String>[];
+        for (final l in lines) {
+          final t = l.trim();
+          if (t.isEmpty) continue;
+          if (RegExp(
+            r'^[^\u4e00-\u9fa5\n]*[\[【]?分[镜景](头)?\s*\d+',
+          ).hasMatch(t)) {
+            break; // 到分镜1为止
+          }
+          headLines.add(t);
+        }
+        sceneSummary = headLines.join('\n').trim();
+        if (sceneSummary.length > 500) {
+          sceneSummary = sceneSummary.substring(0, 500);
+        }
+      }
+      if (sceneSummary.isEmpty) {
+        final arcNum = int.tryParse(arcKeyStr);
+        final arcAnalysis =
+            arcNum != null ? state.arcAnalyses[arcNum.toString()] : null;
+        if (arcAnalysis != null && si < arcAnalysis.scenes.length) {
+          sceneSummary = arcAnalysis.scenes[si].summary;
+        }
       }
       final userPrompt = PromptBuilder.buildWritingUserPrompt(
         arcKey,
