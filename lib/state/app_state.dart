@@ -129,6 +129,7 @@ class AppState extends ChangeNotifier {
   List<Map<String, dynamic>> writingAttachments = [];
   bool writingPromptPreview = false;
   bool writingImitateAuthor = false; // v313：模仿原文作者（创作时注入弧线原文范文）
+  bool writingPlagiarismCheck = true; // v755：防抄袭检测开关（关=不检测不比较）
   bool writingFreeMode = false; // v545：自由创作——不注入世界书分镜结构（其余照注）
   bool writingLeanShots = false; // v592：精简分镜
   int writingShotStep = 1; // v642：逐镜批量步进（每次API生成N镜，1=传统逐镜）——屏蔽投放信息/文笔节奏/语感/笔墨（v612转场手法移出：它是镜间衔接指令）
@@ -711,6 +712,9 @@ class AppState extends ChangeNotifier {
     // v313：模仿原文作者开关
     writingImitateAuthor =
         storage.readFile('${p}writing_imitate_author.flag') == 'true';
+    // v755：防抄袭检测开关（默认开——旧装无flag文件时保持开启）
+    writingPlagiarismCheck =
+        storage.readFile('${p}writing_plagiarism_check.flag') != 'false';
     // v545：自由创作开关
     writingFreeMode =
         storage.readFile('${p}writing_free_mode.flag') == 'true';
@@ -1252,6 +1256,16 @@ class AppState extends ChangeNotifier {
     writingFreeMode = v;
     storage.writeFile(
       '${storage.bookPath}writing_free_mode.flag',
+      v ? 'true' : 'false',
+    );
+    notifyListeners();
+  }
+
+  /// v755：防抄袭检测开关持久化
+  void setWritingPlagiarismCheck(bool v) {
+    writingPlagiarismCheck = v;
+    storage.writeFile(
+      '${storage.bookPath}writing_plagiarism_check.flag',
       v ? 'true' : 'false',
     );
     notifyListeners();

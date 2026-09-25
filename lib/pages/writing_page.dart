@@ -954,6 +954,14 @@ class _WritingPageState extends State<WritingPage>
                   ),
                   const SizedBox(width: 5),
                   MiniButton(
+                    label: '查抄',
+                    primary: state.writingPlagiarismCheck,
+                    onTap: () => state.setWritingPlagiarismCheck(
+                      !state.writingPlagiarismCheck,
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+                  MiniButton(
                     label: '自由',
                     primary: state.writingFreeMode,
                     onTap: () => state.setWritingFreeMode(
@@ -2591,9 +2599,10 @@ class _WritingPageState extends State<WritingPage>
       sb.writeln();
       if (body.isNotEmpty) {
         // v513：原文相似度检测——镜级切片对照（名称外抄袭率>10%自动改写一轮）
-        final originSlice = _shotTextOnly(state, arcKey, si, i).isNotEmpty
+        // v755：逐镜对照源=本镜原著切片（检测关=不对照）；不再回退场景切片
+        final originSlice = state.writingPlagiarismCheck
             ? _shotTextOnly(state, arcKey, si, i)
-            : _sceneSlice(state, arcKey, si); // v754：对照源=完整场景切片
+            : '';
         if (originSlice.isNotEmpty) {
           final legitVocabBuf =
               StringBuffer(state.worldBook?.requirements ?? '');
@@ -2695,21 +2704,20 @@ class _WritingPageState extends State<WritingPage>
     try {
       // v313：模仿原文作者——按场景序号取样弧线原文范文
       String styleSample = '';
-      String copyCheckSource = ''; // v754：搬运检测对照源=完整场景切片
+      String copyCheckSource = ''; // v754/v755：搬运检测对照源=完整场景切片（仅整场景）
       if (state.writingImitateAuthor) {
         styleSample = _buildStyleSample(state, arcKey, si);
-        copyCheckSource = _sceneSlice(state, arcKey, si);
         if (state.writingShotByShot) {
-          // v753：逐镜模式该切片只作范文搬运检测对照源，不注入prompt
-          // （prompt范文=镜级切片，v752）——旧日志让人误以为注入了1000字
-          if (styleSample.isNotEmpty) {
-            _addLog('ℹ️ 场景切片${styleSample.length}字仅作搬运检测对照（逐镜prompt范文=镜级切片）');
-          }
+          // v755：逐镜不取场景切片——检测用镜级切片，prompt范文=镜级切片
         } else if (styleSample.isNotEmpty) {
           _addLog('✓ 注入文风范文${styleSample.length}字（场景切片前${styleSample.length}字）');
         } else {
           _addLog('⚠ 场景${si + 1}无锚定切片（旧数据）——未注入文风范文，请重新划分场景');
         }
+      }
+      // v755：防抄袭检测开关+逐镜不用场景切片对照
+      if (state.writingPlagiarismCheck && !state.writingShotByShot) {
+        copyCheckSource = _sceneSlice(state, arcKey, si);
       }
       // v313：范文搬运检测——合法词汇=世界书条目+创作要求（改编沿用的原著专名豁免）
       final legitVocabBuf = StringBuffer(state.worldBook?.requirements ?? '');
