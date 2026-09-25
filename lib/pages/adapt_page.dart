@@ -1844,16 +1844,47 @@ class _AdaptPageState extends State<AdaptPage>
                   // ── 弧线续写层 ──
                   ListView.builder(
                     padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-                    itemCount: allArcs.length,
-                    itemBuilder: (ctx, i) =>
-                        _buildContinueArcCard(state, allArcs[i]),
+                    itemCount: allArcs.length + 1, // v770：末尾➕添加弧线
+                    itemBuilder: (ctx, i) {
+                      if (i >= allArcs.length) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Center(
+                            child: MiniButton(
+                              label: '➕添加弧线',
+                              primary: true,
+                              onTap: _isGenerating || allArcs.isEmpty
+                                  ? null
+                                  : () => _addContinueArc(
+                                      state, allArcs.last),
+                            ),
+                          ),
+                        );
+                      }
+                      return _buildContinueArcCard(state, allArcs[i]);
+                    },
                   ),
                   // ── 场景续写层 ──
                   ListView.builder(
                     padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-                    itemCount: allArcs.length,
-                    itemBuilder: (ctx, i) =>
-                        _buildContinueSceneCard(state, allArcs[i]),
+                    itemCount: allArcs.length + 1, // v770：末尾➕添加场景
+                    itemBuilder: (ctx, i) {
+                      if (i >= allArcs.length) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Center(
+                            child: MiniButton(
+                              label: '➕添加场景',
+                              primary: true,
+                              onTap: _isGenerating
+                                  ? null
+                                  : () => _addNextSceneAny(state, allArcs),
+                            ),
+                          ),
+                        );
+                      }
+                      return _buildContinueSceneCard(state, allArcs[i]);
+                    },
                   ),
                   // ── 分镜续写层（v769预留：自由创作暂不推分镜，后续需要再启用）──
                   ListView(
@@ -1912,11 +1943,21 @@ class _AdaptPageState extends State<AdaptPage>
                     : () => _generateContinuePlan(state, arc),
               ),
               MiniButton(
-                label: '➕添加弧线',
+                label: '📝写入世界书',
                 primary: false,
                 onTap: _isGenerating
                     ? null
-                    : () => _addContinueArc(state, arc),
+                    : () async {
+                        // v770：汇总当前弧线（零件/概述/场景清单）进条目——
+                        // 复用改编管线arc层（原样模式下=全原名）
+                        await _generateForArcInternal(
+                          state,
+                          arc,
+                          _getAllArcs(state).length,
+                          layer: 'arc',
+                        );
+                        state.saveWorldBook();
+                      },
               ),
             ],
           ),
@@ -1967,27 +2008,47 @@ class _AdaptPageState extends State<AdaptPage>
           const SizedBox(height: 6),
           Text(
             entryKey == null
-                ? '⚠️ 该弧线还没有世界书条目（先在改编模式生成原样世界书）'
-                : '场景结构（${sceneNames.length}个）：${sceneNames.isEmpty ? "无" : sceneNames.join(" / ")}',
+                ? '⚠️ 该弧线还没有世界书条目（先📝写入世界书）'
+                : '场景结构（${sceneNames.length}个）：${sceneNames.isEmpty ? "无" : sceneNames.join(" / ")}'
+                    '${_pendingPlanned(state, arcKey, sceneNames.length) > 0 ? "\n🧭规划待添加：${_pendingPlanned(state, arcKey, sceneNames.length)}个场景（列表末尾➕添加场景）" : ""}',
             style: const TextStyle(fontSize: 11, color: Color(0xFF5B7A99)),
           ),
           const SizedBox(height: 6),
-          Wrap(
-            spacing: 6,
-            runSpacing: 4,
-            children: [
-              MiniButton(
-                label: '➕添加场景',
-                primary: true,
-                onTap: _isGenerating
-                    ? null
-                    : () => _generateNextContinueScene(state, arc),
-              ),
-            ],
-          ),
+
         ],
       ),
     );
+  }
+
+  /// v770：该弧线规划中尚未写入条目的场景数
+  int _pendingPlanned(AppState state, String arcKey, int addedCount) {
+    final decl = state.worldBook?.continuePlans[arcKey] ?? '';
+    final planned = RegExp(r'^场景(\d+)：', multiLine: true).allMatches(decl).length;
+    return planned > addedCount ? planned - addedCount : 0;
+  }
+
+  /// v770：➕添加场景（列表末尾唯一入口）——按弧线顺序取第一个待添加场景
+  Future<void> _addNextSceneAny(AppState state, List<Arc> allArcs) async {
+    for (final arc in allArcs) {
+      final arcKey = arc.number.toString();
+      final entryKey = _arcEntryKey(state, arcKey);
+      if (entryKey == null) continue;
+      final entry = state.worldBook!.entries[entryKey]!;
+      final decl = state.worldBook?.continuePlans[arcKey] ?? '';
+      for (final m in RegExp(
+        r'^场景(\d+)：(.+?)｜(.+)$',
+        multiLine: true,
+      ).allMatches(decl)) {
+        final sceneNum = int.tryParse(m.group(1)!) ?? 0;
+        if (RegExp('场景\\s*\$sceneNum\\s*[：:]').hasMatch(entry.content)) {
+          continue;
+        }
+        _addLog('📄 目标：弧线$arcKey场景$sceneNum（清单顺序第一个待添加）');
+        await _generateNextContinueScene(state, arc);
+        return;
+      }
+    }
+    _addLog('ℹ️ 所有弧线规划场景均已添加——先🧭生成/更新续写规划');
   }
 
   /// v768：➕添加场景——从续写规划清单取下一个未落条目的场景，一次生成一个
