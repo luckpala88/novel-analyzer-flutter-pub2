@@ -2757,9 +2757,8 @@ class _WritingPageState extends State<WritingPage>
           break;
         }
       }
-      // v749：场景概述换源——优先改编条目场景头区（场景头→首个分镜间，
-      // 与逐镜草稿开头同源，贴改编剧情）；取不到回退原著弧线summary
-      // （v545旧源：20-50字摘要当中心思想，与逐镜长概述不一致=用户实测疑惑）
+      // v749/v751：场景概述只取改编条目场景头区（场景头→首个分镜间，
+      // 与逐镜草稿开头同源）——禁止回退原著summary（素材污染）
       var sceneSummary = '';
       final wb = state.worldBook;
       final arcKeyStr = arcKey.toString();
@@ -2818,13 +2817,10 @@ class _WritingPageState extends State<WritingPage>
           sceneSummary = sceneSummary.substring(0, 500);
         }
       }
+      // v751：禁止回退原著summary（用户裁决：只能取改编后的场景概述，
+      // 取不到就提示——原著摘要混入创作端=素材污染）
       if (sceneSummary.isEmpty) {
-        final arcNum = int.tryParse(arcKeyStr);
-        final arcAnalysis =
-            arcNum != null ? state.arcAnalyses[arcNum.toString()] : null;
-        if (arcAnalysis != null && si < arcAnalysis.scenes.length) {
-          sceneSummary = arcAnalysis.scenes[si].summary;
-        }
+        _addLog('⚠️ 场景${si + 1}改编条目里没有场景概述（场景头→分镜1之间为空）——本场景概述不注入');
       }
       final userPrompt = PromptBuilder.buildWritingUserPrompt(
         arcKey,
