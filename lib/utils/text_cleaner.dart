@@ -520,26 +520,21 @@ class TextCleaner {
   /// 形态："废料堆中心，……"）。确定性变换：首尾是同一对引号（半角"或
   /// 全角""''）且剥后非空才剥；只剥一层（最外层包装），内部引号（对白
   /// 引号）不动。pairs校验防半个引号误剥
-      /// v750：整段包裹引号批量剥壳——AI把每个段落各包一对半角引号
-      /// （"para1"\n"para2"），stripWrapQuotes只剥整体首尾漏掉此形态。
-      /// 不能见引号就剥（对白段本来以引号开头结尾）——模式判定：
-      /// 段落数≥2且≥80%段落"开头引号+结尾引号"才判包裹态整批剥壳
+      /// v750/v762：整段包裹引号剥壳——AI把段落各包一对半角引号。
+      /// v762改逐段判定：半角"包裹+内部无半角"+长度≥20（排除"滚！"式
+      /// 真对白短段；AI对白用全角“”，半角壳=包裹残留）——不再要求
+      /// ≥2段80%批量形态（单段镜正文漏网=用户实测v23）
       static String stripParagraphWrapQuotes(String t) {
         var x = t.trim();
         if (x.isEmpty) return x;
-        final paras = x.split('\n');
-        bool wrapped(String p) {
-          final q = p.trim();
-          if (q.length < 4) return false;
-          return (q.startsWith('"') && q.endsWith('"')) ||
-              (q.startsWith('\u201c') && q.endsWith('\u201d'));
+        bool wrapped(String q) {
+          if (q.length < 20) return false;
+          if (!(q.startsWith('"') && q.endsWith('"'))) return false;
+          return !q.substring(1, q.length - 1).contains('"');
         }
 
-        final nonEmpty = paras.where((e) => e.trim().isNotEmpty).toList();
-        if (nonEmpty.length < 2) return x;
-        final wrappedCount = nonEmpty.where(wrapped).length;
-        if (wrappedCount * 5 < nonEmpty.length * 4) return x; // <80%不判包裹
-        return paras
+        return x
+            .split('\n')
             .map((p) {
               final q = p.trim();
               if (!wrapped(q)) return p;
