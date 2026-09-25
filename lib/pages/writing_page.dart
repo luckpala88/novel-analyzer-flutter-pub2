@@ -565,7 +565,7 @@ class _WritingPageState extends State<WritingPage>
       // v362：单镜也注入范文（此前遗漏——逐镜有单镜没有）。
       // 镜级均分已否决（无镜级锚点，均分错位不如全场景）——统一用场景切片前1000字
       final styleSample = state.writingImitateAuthor
-          ? _buildShotLevelSample(state, w.arcKey, w.sceneIdx, shotIdx)
+          ? _shotTextOnly(state, w.arcKey, w.sceneIdx, shotIdx) // v752
           : '';
       if (styleSample.isNotEmpty) {
         _addLog('✓ 注入范文${styleSample.length}字（镜级切片）');
@@ -1557,6 +1557,18 @@ class _WritingPageState extends State<WritingPage>
     return _buildStyleSample(state, arcKey, si);
   }
 
+  /// v752：逐镜范文只认镜级切片——无镜级锚点返回空不注入（用户裁决：
+  /// 1000字场景切片是原著素材，镜级切片在时不叠加、不在时不回退）
+  String _shotTextOnly(AppState state, String arcKey, int si, int shotIdx) {
+    final scenes = state.arcScenes[arcKey] ?? const [];
+    if (si < scenes.length &&
+        shotIdx < scenes[si].shots.length &&
+        scenes[si].shots[shotIdx].text.isNotEmpty) {
+      return scenes[si].shots[shotIdx].text;
+    }
+    return '';
+  }
+
   String _buildShotLevelSample(AppState state, String arcKey, int si, int shotIdx) {
     final scenes = state.arcScenes[arcKey] ?? const [];
     if (si < scenes.length &&
@@ -2453,7 +2465,7 @@ class _WritingPageState extends State<WritingPage>
         arcDeclaration: _arcDeclForWriting(state, arcKey.toString()),
         // v363：镜级范文优先（有镜级锚点时注入本镜原文段落，无→回退场景切片）
         styleSample: state.writingImitateAuthor
-            ? _buildShotLevelSample(state, arcKey, si, i)
+            ? _shotTextOnly(state, arcKey, si, i) // v752
             : '',
         styleAtts: state.writingAttachments,
         // v357：本场景内容素材
@@ -2535,7 +2547,7 @@ class _WritingPageState extends State<WritingPage>
         styleDna: _styleDnaForShot(state, arcKey), // v640
             arcDeclaration: _arcDeclForWriting(state, arcKey.toString()),
             styleSample: state.writingImitateAuthor
-                ? _buildShotLevelSample(state, arcKey, si, i)
+                ? _shotTextOnly(state, arcKey, si, i) // v752
                 : '',
             styleAtts: state.writingAttachments,
             contentAtts: state.sceneAttachments['${arcKey}_$si'] ?? const [],
