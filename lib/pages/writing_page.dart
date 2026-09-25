@@ -2565,9 +2565,11 @@ class _WritingPageState extends State<WritingPage>
         }
         // 单镜短输出：剥emoji+结构残留（AI无视指令带结构行时）+外层
         // 包裹引号（v273：AI把整段正文当字符串值输出"……"的包装形态）
-        body = TextCleaner.stripWrapQuotes(
-          TextCleaner.stripShotHeaders(
-            TextCleaner.stripDecorativeEmoji(normalized),
+        body = TextCleaner.stripParagraphWrapQuotes( // v750：段级包裹引号
+          TextCleaner.stripWrapQuotes(
+            TextCleaner.stripShotHeaders(
+              TextCleaner.stripDecorativeEmoji(normalized),
+            ),
           ),
         ).trim();
         break;
@@ -3011,9 +3013,11 @@ class _WritingPageState extends State<WritingPage>
         // v275：分镜块去重（整场景AI长输出重复退化——4万字输出实测
         /// 分镜9-73后从6复读一遍，去重保留首次）
         // v503c：同上，内存content保留结构态（穿插渲染依赖），磁盘txt单独剥
-        var cleanContent = TextCleaner.decodeLiteralNewlines(
-          TextCleaner.stripDecorativeEmoji(
-            TextCleaner.dedupeShotBlocks(normalized),
+        var cleanContent = TextCleaner.stripParagraphWrapQuotes( // v750
+          TextCleaner.decodeLiteralNewlines(
+            TextCleaner.stripDecorativeEmoji(
+              TextCleaner.dedupeShotBlocks(normalized),
+            ),
           ),
         );
         // v741：顺序违规检测+判废重试（整场景AI漂移：正文写到分镜1结构块

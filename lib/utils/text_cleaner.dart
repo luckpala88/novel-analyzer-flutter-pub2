@@ -520,6 +520,34 @@ class TextCleaner {
   /// 形态："废料堆中心，……"）。确定性变换：首尾是同一对引号（半角"或
   /// 全角""''）且剥后非空才剥；只剥一层（最外层包装），内部引号（对白
   /// 引号）不动。pairs校验防半个引号误剥
+      /// v750：整段包裹引号批量剥壳——AI把每个段落各包一对半角引号
+      /// （"para1"\n"para2"），stripWrapQuotes只剥整体首尾漏掉此形态。
+      /// 不能见引号就剥（对白段本来以引号开头结尾）——模式判定：
+      /// 段落数≥2且≥80%段落"开头引号+结尾引号"才判包裹态整批剥壳
+      static String stripParagraphWrapQuotes(String t) {
+        var x = t.trim();
+        if (x.isEmpty) return x;
+        final paras = x.split('\n');
+        bool wrapped(String p) {
+          final q = p.trim();
+          if (q.length < 4) return false;
+          return (q.startsWith('"') && q.endsWith('"')) ||
+              (q.startsWith('\u201c') && q.endsWith('\u201d'));
+        }
+
+        final nonEmpty = paras.where((e) => e.trim().isNotEmpty).toList();
+        if (nonEmpty.length < 2) return x;
+        final wrappedCount = nonEmpty.where(wrapped).length;
+        if (wrappedCount * 5 < nonEmpty.length * 4) return x; // <80%不判包裹
+        return paras
+            .map((p) {
+              final q = p.trim();
+              if (!wrapped(q)) return p;
+              return q.substring(1, q.length - 1).trim();
+            })
+            .join('\n');
+      }
+
       static String stripWrapQuotes(String t) {
     var x = t.trim();
     if (x.length < 2) return x;
