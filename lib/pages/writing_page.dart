@@ -2695,7 +2695,13 @@ class _WritingPageState extends State<WritingPage>
       String styleSample = '';
       if (state.writingImitateAuthor) {
         styleSample = _buildStyleSample(state, arcKey, si);
-        if (styleSample.isNotEmpty) {
+        if (state.writingShotByShot) {
+          // v753：逐镜模式该切片只作范文搬运检测对照源，不注入prompt
+          // （prompt范文=镜级切片，v752）——旧日志让人误以为注入了1000字
+          if (styleSample.isNotEmpty) {
+            _addLog('ℹ️ 场景切片${styleSample.length}字仅作搬运检测对照（逐镜prompt范文=镜级切片）');
+          }
+        } else if (styleSample.isNotEmpty) {
           _addLog('✓ 注入文风范文${styleSample.length}字（场景切片前${styleSample.length}字）');
         } else {
           _addLog('⚠ 场景${si + 1}无锚定切片（旧数据）——未注入文风范文，请重新划分场景');
