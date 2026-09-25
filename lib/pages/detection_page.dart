@@ -1262,19 +1262,6 @@ class _DetectionPageState extends State<DetectionPage>
                                               ),
                                             ),
                                           ),
-                                        if (_modelNoteOf(f['content']) != null)
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              left: 6,
-                                            ),
-                                            child: Text(
-                                              '${_modelNoteOf(f['content'])}',
-                                              style: const TextStyle(
-                                                fontSize: 11,
-                                                color: V469Style.textMuted,
-                                              ),
-                                            ),
-                                          ),
                                         const SizedBox(width: 6),
                                         // 问题徽章：有审核结果=橙底/无=灰底
                                         Builder(
@@ -1310,6 +1297,18 @@ class _DetectionPageState extends State<DetectionPage>
                                         ),
                                       ],
                                     ),
+                                    // v740：备注独立一行（v737挤同一行=分列显示，用户点名分行）
+                                    if (_modelNoteOf(f['content']) != null)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 1),
+                                        child: Text(
+                                          '${_modelNoteOf(f['content'])}',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: V469Style.textMuted,
+                                          ),
+                                        ),
+                                      ),
                                     // ✕ 删除（右对齐，仅writings内文件，v469 deleteDetectFile确认框）
                                     if (f['isWritings'] == true)
                                       Align(
