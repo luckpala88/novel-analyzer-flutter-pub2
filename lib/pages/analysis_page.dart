@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
 import '../models/scene.dart';
+import '../models/arc.dart'; // v772
+import '../models/world_book.dart'; // v772
 import '../utils/prompt_builder.dart';
 import '../utils/json_repair.dart';
 import '../utils/chinese_number.dart';
@@ -180,6 +182,12 @@ class _AnalysisPageState extends State<AnalysisPage>
                   ),
 
                   if (state.arcAnalyses.isNotEmpty) ...[
+                    MiniButton(
+                      label: '📖直写世界书',
+                      primary: true,
+                      onTap: () => _writeOriginalToWB(state),
+                    ),
+                    const SizedBox(width: 5),
                     MiniButton(
                       label: '导出原书酒馆世界书',
                       onTap: () => _exportOriginalST(state),
@@ -1485,6 +1493,132 @@ const SizedBox(width: 8),
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('已导出原书酒馆世界书：$path（${entries.length}条）')),
     );
+  }
+
+  /// v772：直写世界书——拆解数据零AI直接写入APP世界书条目（续写模式前置）
+  /// 每弧线1条：弧线概述+场景及分镜维度行+九件套（全原名，与导出ST同构）
+  void _writeOriginalToWB(AppState state) {
+    if (state.arcAnalyses.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('暂无拆解数据')));
+      return;
+    }
+    final wb = state.worldBook ?? (state.worldBook = WorldBook());
+    var written = 0;
+    final keys = state.arcAnalyses.keys.toList()
+      ..sort((a, b) => (int.tryParse(a) ?? 0).compareTo(int.tryParse(b) ?? 0));
+    for (final k in keys) {
+      final an = state.arcAnalyses[k];
+      if (an == null) continue;
+      final arc = state.allArcs.firstWhere(
+        (a) => a.number == an.arcNumber,
+        orElse: () => state.allArcs.isNotEmpty
+            ? state.allArcs.first
+            : Arc(
+                number: an.arcNumber,
+                title: '弧线${an.arcNumber}',
+                chapterRange: '',
+              ),
+      );
+      // 已有条目=跳过（幂等；重拆后想刷新先删旧条目）
+      String? existing;
+      wb.entries.forEach((ek, e) {
+        if (existing == null &&
+            e.arcKey == '${an.arcNumber}' &&
+            (e.sceneTag == null || e.sceneTag!.isEmpty)) {
+          existing = ek;
+        }
+      });
+      if (existing != null) {
+        _addLog('ℹ️ 弧线${an.arcNumber}条目已存在——跳过（重拆后想刷新请先删旧条目）');
+        continue;
+      }
+      final sb = StringBuffer();
+      sb.writeln(
+        '弧线${an.arcNumber}概述：${an.arcSummary.isNotEmpty ? an.arcSummary : arc.summary}',
+      );
+      sb.writeln();
+      for (final sc in an.scenes) {
+        sb.writeln(
+          '场景${an.scenes.indexOf(sc) + 1}：${sc.name}（${sc.chapterRange}）',
+        );
+        if (sc.summary.isNotEmpty) sb.writeln('概述：${sc.summary}');
+        for (var i = 0; i < sc.shots.length; i++) {
+          final sh = sc.shots[i];
+          sb.writeln('分镜${i + 1}：');
+          sb.writeln('焦点(Focus)：${sh.focus}');
+          sb.writeln('镜头类型(Shot Type)：${sh.shotType}');
+          sb.writeln('视角(POV)：${sh.pov}');
+          sb.writeln('投放信息(Info)：${sh.info}');
+          sb.writeln('作者意图(Intent)：${sh.intent}');
+          sb.writeln('转场手法(Transition)：${sh.transition}');
+          sb.writeln('篇幅(Length)：${sh.length}');
+          sb.writeln('文笔节奏(Prose Style)：${sh.proseStyle}');
+          if (sh.voice.isNotEmpty) sb.writeln('语感(Voice)：${sh.voice}');
+          if (sh.style.isNotEmpty) sb.writeln('文风(Style)：${sh.style}');
+          if (sh.ink.isNotEmpty) sb.writeln('笔墨(Ink)：${sh.ink}');
+          if (sh.abstraction.isNotEmpty)
+            sb.writeln('功能抽象(Abstract)：${sh.abstraction}');
+        }
+        sb.writeln();
+      }
+      final md = an.metadata ?? {};
+      void writeBlock(String label, dynamic v) {
+        if (v == null || v.toString().isEmpty || v.toString() == '[]') return;
+        sb.writeln('【$label】');
+        if (v is List) {
+          for (final item in v) {
+            if (item is Map) {
+              sb.writeln(
+                '- ${item.entries.map((e) => '${e.value}').join('，')}',
+              );
+            } else {
+              sb.writeln('- $item');
+            }
+          }
+        } else {
+          sb.writeln(v.toString());
+        }
+      }
+
+      final wbFacts = md['worldbuilding_facts'];
+      if (wbFacts is List && wbFacts.isNotEmpty) {
+        sb.writeln('【世界观设定】');
+        for (final f in wbFacts) {
+          if (f is! Map) continue;
+          final rule = f['rule']?.toString() ?? '';
+          final func = f['function']?.toString() ?? '';
+          final sysName = f['system']?.toString() ?? '其他';
+          sb.writeln(
+            '- ${rule.isNotEmpty ? rule : f['text']?.toString() ?? ''}'
+            '${func.isNotEmpty ? '（$sysName：$func）' : sysName.isNotEmpty ? '（$sysName）' : ''}',
+          );
+        }
+        sb.writeln();
+      }
+      writeBlock('人设', md['characters']);
+      writeBlock('矛盾冲突', md['conflicts']);
+      writeBlock('伏笔', md['foreshadowing']);
+      writeBlock('弧线功能', md['arc_functions']);
+      writeBlock('不可逆变化', md['irreversible_changes']);
+      writeBlock('情绪曲线', md['emotional_curve']);
+      writeBlock('作者脑洞', md['author_fantasy']);
+
+      final uid = 'orig_wb_${an.arcNumber}';
+      wb.entries[uid] = WBEntry(
+        uid: uid,
+        key: '弧线${an.arcNumber}',
+        comment: '弧线${an.arcNumber}：${arc.title}',
+        content: sb.toString(),
+        arcKey: '${an.arcNumber}',
+        disable: false,
+      );
+      wb.arcStatus['${an.arcNumber}'] = 'generated';
+      written++;
+    }
+    state.saveWorldBook();
+    _addLog('📖 直写世界书完成：新增$written条（零AI，拆解数据原样转条目）——续写模式可用');
+    if (mounted) setState(() {});
   }
 
   /// ST条目构造（字段与世界书页_exportSillyTavern完全一致）
