@@ -2974,6 +2974,13 @@ class _WritingPageState extends State<WritingPage>
             RegExp(r'^[^\u4e00-\u9fa5\n]*场景\s*\d+\s*[：:].*$', multiLine: true),
             '',
           );
+          // v743：场景头后的单段≤150字=场景概述，放行不算违规
+          // （v738铁律误伤概述——v12起草稿头部概述消失）
+          final paras = lead
+              .split(RegExp(r'\n\s*\n'))
+              .where((e) => e.trim().isNotEmpty)
+              .toList();
+          if (paras.length <= 1 && lead.length <= 150) return '';
           return lead.trim();
         }
 
