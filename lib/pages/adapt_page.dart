@@ -1957,9 +1957,70 @@ class _AdaptPageState extends State<AdaptPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '弧线${arc.number}：${arc.title}\n${_arcProgressShort(state, arcKey)}',
-            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+          ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.only(bottom: 4),
+            title: Text(
+              '弧线${arc.number}：${arc.title}',
+              style: const TextStyle(
+                  fontSize: 12.5, fontWeight: FontWeight.w600),
+            ),
+            subtitle: Text(_arcProgressShort(state, arcKey),
+                style: const TextStyle(
+                    fontSize: 11, color: Color(0xFF5B7A99))),
+            children: [
+              Builder(builder: (ctx) {
+                final ek = _arcEntryKey(state, arcKey);
+                if (ek == null) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 4),
+                    child: Text(
+                      '⚠️ 尚未写入世界书——到分镜页点「📖直写世界书」',
+                      style:
+                          TextStyle(fontSize: 11, color: Color(0xFFB0682A)),
+                    ),
+                  );
+                }
+                final c = state.worldBook!.entries[ek]!.content;
+                final mm = RegExp(r'弧线\d+概述：([^\n]+)').firstMatch(c);
+                final overview =
+                    mm != null ? mm.group(1)!.trim() : '（条目无概述）';
+                final sceneLines = <String>[];
+                for (final m2 in RegExp(
+                  r'^场景(\d+)：([^\n（(]+)[^\n]*\n概述：([^\n]+)',
+                  multiLine: true,
+                ).allMatches(c)) {
+                  final ov = m2.group(3)!.trim();
+                  sceneLines.add(
+                      '场景${m2.group(1)}：${m2.group(2)!.trim()}\n　　${ov.length > 60 ? '${ov.substring(0, 60)}…' : ov}');
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        overview.length > 120
+                            ? '${overview.substring(0, 120)}…'
+                            : overview,
+                        style: const TextStyle(
+                            fontSize: 11.5, color: Color(0xFF5B7A99)),
+                      ),
+                    ),
+                    ...sceneLines.map(
+                      (l) => Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Text(
+                          l,
+                          style: const TextStyle(
+                              fontSize: 11, color: Color(0xFF5B7A99)),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }),
+            ],
           ),
           const SizedBox(height: 6),
           Wrap(
@@ -2016,9 +2077,14 @@ class _AdaptPageState extends State<AdaptPage>
     final sceneNames = <String>[];
     if (entryKey != null) {
       final c = state.worldBook!.entries[entryKey]!.content;
-      for (final m
-          in RegExp(r'^(场景\d+：[^\n（(]+)', multiLine: true).allMatches(c)) {
-        sceneNames.add(m.group(1)!);
+      for (final m in RegExp(
+        r'^(场景\d+：[^\n]+)(?:\n概述：([^\n]+))?',
+        multiLine: true,
+      ).allMatches(c)) {
+        final ov = (m.group(2) ?? '').trim();
+        sceneNames.add(ov.isEmpty
+            ? m.group(1)!
+            : '${m.group(1)!}\n　　${ov.length > 60 ? '${ov.substring(0, 60)}…' : ov}');
       }
     }
     return Container(
@@ -2037,13 +2103,31 @@ class _AdaptPageState extends State<AdaptPage>
             style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 6),
-          Text(
-            entryKey == null
-                ? '⚠️ 该弧线还没有世界书条目（先📝写入世界书）'
-                : '场景结构（${sceneNames.length}个）：${sceneNames.isEmpty ? "无" : sceneNames.join(" / ")}'
-                    '${_pendingPlanned(state, arcKey, sceneNames.length) > 0 ? "\n🧭规划待添加：${_pendingPlanned(state, arcKey, sceneNames.length)}个场景（列表末尾➕添加场景）" : ""}',
-            style: const TextStyle(fontSize: 11, color: Color(0xFF5B7A99)),
-          ),
+          if (entryKey == null)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 4),
+              child: Text(
+                '⚠️ 该弧线还没有世界书条目——到分镜页点「📖直写世界书」',
+                style: TextStyle(fontSize: 11, color: Color(0xFFB0682A)),
+              ),
+            )
+          else ...[
+            ...sceneNames.map(
+              (n) => Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Text(n, style: const TextStyle(fontSize: 11)),
+              ),
+            ),
+            if (_pendingPlanned(state, arcKey, sceneNames.length) > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  '🧭规划待添加：${_pendingPlanned(state, arcKey, sceneNames.length)}个场景（列表末尾➕添加场景）',
+                  style: const TextStyle(
+                      fontSize: 11, color: Color(0xFF2C5E8E)),
+                ),
+              ),
+          ],
           const SizedBox(height: 6),
 
         ],
