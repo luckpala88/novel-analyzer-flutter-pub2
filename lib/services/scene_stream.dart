@@ -909,7 +909,7 @@ Future<void> extractArcParts({
   if (newSummary.isNotEmpty && state.syncArcSummariesFromAnalyses() > 0) {
     state.saveArcScan();
   }
-  log('✓ 弧线${arc.number}零件已提取（人设/冲突/伏笔/脑洞/笔墨癖好/facts）');
+  log('✓ 弧线${arc.number}零件已提取（人设/冲突/伏笔/脑洞/facts）');
   // v496：实时刷新分镜页/弧线页（结果落盘后立即notify，用户边跑边看）
   state.notifyListeners();
 }
