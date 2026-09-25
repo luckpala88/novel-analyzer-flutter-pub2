@@ -1424,25 +1424,56 @@ const SizedBox(width: 8),
         sb.writeln();
       }
       final md = an.metadata ?? {};
-      void writeBlock(String label, dynamic v) {
-        if (v == null || v.toString().isEmpty || v.toString() == '[]') return;
-        sb.writeln('【$label】');
-        if (v is List) {
-          for (final item in v) {
-            if (item is Map) {
-              sb.writeln(
-                '- ${item.entries.map((e) => '${e.value}').join('，')}',
-              );
-            } else {
-              sb.writeln('- $item');
-            }
+      String fmtItem(dynamic item) {
+        // v777：零件条目带标签格式化（可读性对齐改编条目效果）
+        if (item is Map) {
+          String g(String k) => item[k]?.toString().trim() ?? '';
+          if (item.containsKey('name')) {
+            final parts = <String>[
+              if (g('identity').isNotEmpty) g('identity'),
+              if (g('role').isNotEmpty) '定位=${g('role')}',
+              if (g('traits').isNotEmpty) g('traits'),
+            ];
+            return '${g('name')}${parts.isNotEmpty ? '：${parts.join('，')}' : ''}';
           }
-        } else {
+          if (item.containsKey('description')) {
+            return '${g('type').isNotEmpty ? '[${g('type')}] ' : ''}${g('description')}';
+          }
+          if (item.containsKey('content')) {
+            return '${g('content')}${g('planted_at').isNotEmpty ? '（${g('planted_at')}种下）' : ''}${g('payoff').isNotEmpty ? '→${g('payoff')}' : ''}';
+          }
+          if (item.containsKey('text')) {
+            final rule = g('rule');
+            final func = g('function');
+            final sysName = g('system');
+            return '${rule.isNotEmpty ? rule : g('text')}${func.isNotEmpty ? '（$sysName：$func）' : sysName.isNotEmpty ? '（$sysName）' : ''}';
+          }
+          return item.entries
+              .where((e) => e.value != null && e.value.toString().isNotEmpty)
+              .map((e) => '${e.key}=${e.value}')
+              .join('，');
+        }
+        return item.toString();
+      }
+
+      void writeBlock(String label, dynamic v) {
+        if (v == null) return;
+        if (v is List) {
+          final lines =
+              v.map(fmtItem).where((e) => e.trim().isNotEmpty).toList();
+          if (lines.isEmpty) return;
+          sb.writeln('【$label】');
+          for (final l in lines) {
+            sb.writeln('- $l');
+          }
+          sb.writeln();
+        } else if (v.toString().trim().isNotEmpty && v.toString() != '[]') {
+          sb.writeln('【$label】');
           sb.writeln(v.toString());
+          sb.writeln();
         }
       }
 
-      // v217补漏：世界观设定（10体系facts）——生成路径的content里有【世界观设定】区
       final wbFacts = md['worldbuilding_facts'];
       if (wbFacts is List && wbFacts.isNotEmpty) {
         sb.writeln('【世界观设定】');
