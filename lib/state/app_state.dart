@@ -1319,6 +1319,9 @@ class AppState extends ChangeNotifier {
   /// v707（用户裁决）：①独立API调用（与改编主任务分开，AI负担不叠加）
   /// ②大切片分批——超9000字拆2-3批逐批调用（每批独立请求，批间合并去重）
   /// ③采集范围恢复三份改编要求文本（用户稿+AI优化稿+声明，v705升格等同用户拟名）
+  /// v765：改编页是否处于续写模式
+  bool get pageModeContinue => worldBook?.pageMode == 'continue';
+
   Future<void> extractNameMapIncrement(
     String sourceContent, {
     bool adaptedInput = false,
@@ -1326,6 +1329,11 @@ class AppState extends ChangeNotifier {
   }) async {
     try {
       if (worldBook == null) return;
+      // v765：续写模式不需要映射表（原样世界书全原名）——入口拦截
+      if (pageModeContinue) {
+        apiLog('📄 续写模式不需要映射表——已跳过采集');
+        return;
+      }
       final config = wbApi.effectiveApiKey.isNotEmpty || wbApi.useCustom
           ? wbApi
           : mainApi;
