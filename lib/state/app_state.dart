@@ -130,7 +130,7 @@ class AppState extends ChangeNotifier {
   bool writingPromptPreview = false;
   bool writingImitateAuthor = false; // v313：模仿原文作者（创作时注入弧线原文范文）
   bool writingPlagiarismCheck = true; // v755：防抄袭检测开关（关=不检测不比较）
-  bool writingLengthCompress = true; // v757：篇幅压缩返工开关（关=超篇幅也不返工）
+  bool writingPostCheck = true; // v758：分镜校验开关（正文是否按分镜维度创作；字数只是其中一项）
   bool writingFreeMode = false; // v545：自由创作——不注入世界书分镜结构（其余照注）
   bool writingLeanShots = false; // v592：精简分镜
   int writingShotStep = 1; // v642：逐镜批量步进（每次API生成N镜，1=传统逐镜）——屏蔽投放信息/文笔节奏/语感/笔墨（v612转场手法移出：它是镜间衔接指令）
@@ -716,9 +716,9 @@ class AppState extends ChangeNotifier {
     // v755：防抄袭检测开关（默认开——旧装无flag文件时保持开启）
     writingPlagiarismCheck =
         storage.readFile('${p}writing_plagiarism_check.flag') != 'false';
-    // v757：篇幅压缩返工开关（默认开）
-    writingLengthCompress =
-        storage.readFile('${p}writing_length_compress.flag') != 'false';
+    // v758：分镜校验开关（默认开）
+    writingPostCheck =
+        storage.readFile('${p}writing_post_check.flag') != 'false';
     // v545：自由创作开关
     writingFreeMode =
         storage.readFile('${p}writing_free_mode.flag') == 'true';
@@ -1265,11 +1265,11 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// v757：篇幅压缩返工开关持久化
-  void setWritingLengthCompress(bool v) {
-    writingLengthCompress = v;
+  /// v758：分镜校验开关持久化
+  void setWritingPostCheck(bool v) {
+    writingPostCheck = v;
     storage.writeFile(
-      '${storage.bookPath}writing_length_compress.flag',
+      '${storage.bookPath}writing_post_check.flag',
       v ? 'true' : 'false',
     );
     notifyListeners();
