@@ -602,10 +602,19 @@ const Spacer(), // ⚙API推到最右
             state.clearArcCascade(arcNumbers: stale);
             _addLog('ℹ 已级联清空剪断点影响的${stale.length}条弧线（含横跨弧）及分镜/拆解');
           }
-          // v817：断点=最后一条保留弧线的sceneTo（保证弧线平铺==断点，分组卫兵通过→增量续分）
-          state.globalGroupedUpTo = keptArcs.isEmpty ? 0 : keptArcs.last.sceneTo;
+          // v822：断点=保留弧线中最大的**有效**sceneTo（sceneTo>0）——
+          // 续写规划弧线（sceneTo=-1，无场景映射，v783追加在列表尾部）混进keptArcs时
+          // keptArcs.last.sceneTo=-1会把断点算成-1（用户实测：平铺到场景-1，分组/剪断全废）；
+          // 续写弧线本体保留不删（规划成果），只是不参与断点计算
+          final tiledKept =
+              keptArcs.where((Arc a) => a.sceneTo > 0).toList();
+          final keptEnd = tiledKept.isEmpty
+              ? 0
+              : tiledKept.map((Arc a) => a.sceneTo).reduce((a, b) => a > b ? a : b);
+          state.globalGroupedUpTo = keptEnd;
+          final contCount = keptArcs.length - tiledKept.length;
           if (keptArcs.isNotEmpty) {
-            _addLog('ℹ 保留${keptArcs.length}条弧线（平铺到场景${keptArcs.last.sceneTo}）——重扫完成后点批量分组，从场景${keptArcs.last.sceneTo + 1}增量续分');
+            _addLog('ℹ 保留${keptArcs.length}条弧线（场景映射平铺到场景$keptEnd${contCount > 0 ? '；另$contCount条续写规划弧线不受影响' : ''}）——重扫完成后点批量分组，从场景${keptEnd + 1}增量续分');
           }
         }
         state.saveGlobalScenes();

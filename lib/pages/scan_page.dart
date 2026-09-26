@@ -245,8 +245,12 @@ class _ScanPageState extends State<ScanPage>
       final keptArcs = state.arcScan?.arcs
               .where((Arc a) => a.sceneTo <= streamLen)
               .toList() ?? <Arc>[];
-      state.globalGroupedUpTo =
-          keptArcs.isEmpty ? 0 : keptArcs.map((a) => a.sceneTo).reduce((a, b) => a > b ? a : b);
+      // v822：断点=最大有效sceneTo（续写规划弧线sceneTo=-1不参与，防断点被拉成-1）
+      final tiledKept =
+          keptArcs.where((Arc a) => a.sceneTo > 0).toList();
+      state.globalGroupedUpTo = tiledKept.isEmpty
+          ? 0
+          : tiledKept.map((Arc a) => a.sceneTo).reduce((a, b) => a > b ? a : b);
     }
     // v534b：字符级续切锚点同步重算（保留末场景切片→章索引+章内偏移）
     computeSceneResumeAnchor(state);
