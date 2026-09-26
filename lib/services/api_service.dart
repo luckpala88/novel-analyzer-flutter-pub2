@@ -343,6 +343,7 @@ class ApiService {
     } finally {
       _busy = false; // 释放忙锁
       _stopGen();
+      _stopTimer(); // v783：异常路径计时器也归零（此前catch路径漏调→切书被拒"计时器未归零"）
       _activeClient = null;
     }
   }

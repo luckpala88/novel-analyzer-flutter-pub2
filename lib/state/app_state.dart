@@ -410,6 +410,16 @@ class AppState extends ChangeNotifier {
   }
 
   /// 切换书目
+  /// v783：生成状态强制复位（泄漏自愈）——计数/计时器/前台服务全归零
+  void forceResetGenerationState() {
+    generationCount = 0;
+    generationMessage = '';
+    apiTimerRunning.value = false;
+    _apiTimerTimer?.cancel();
+    _genChannel.invokeMethod('stopGen').catchError((_) {});
+    notifyListeners();
+  }
+
   /// 切换书目（有生成任务时禁止——防扫描/生成循环把数据写进新书，v162跨书污染根因）
   Future<bool> selectBook(String name) async {
     // v222：切书时目录真实性校验+模糊找回（book_list里的脏名→真实目录名）
@@ -426,6 +436,16 @@ class AppState extends ChangeNotifier {
     }
     name = target;
     // v775：切书被拒不再静默——日志说明原因（此前静默false=用户以为切换成功）
+    // v783：泄漏自愈——计数/计时器>0但API实际空闲=中断残留（如进程异常），
+    // 自动复位放行；API真忙才拒绝（防生成数据写进新书）
+    if (generationCount > 0 && !api.isBusy) {
+      apiLog('⚠️ 检测到生成计数泄漏（$generationCount）且API实际空闲——自动复位后切书');
+      forceResetGenerationState();
+    }
+    if (apiTimerRunning.value && !api.isBusy) {
+      apiLog('⚠️ API计时器残留且实际空闲——自动归零后切书');
+      forceResetGenerationState();
+    }
     if (generationCount > 0) {
       apiLog('⚠️ 切换书目被拒：仍有生成任务在跑（计数$generationCount）——先终止或等完成');
       return false;
