@@ -26,8 +26,8 @@ class MainActivity : FlutterActivity() {
                     pendingResult = result
                     val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                         addCategory(Intent.CATEGORY_OPENABLE)
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("text/plain", "text/any", "application/octet-stream"))
+                        type = "*/*" // v798：恢复备份要选.json——text/plain主类型把json过滤掉了
+                        putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("text/plain", "text/any", "application/octet-stream", "application/json"))
                     }
                     startActivityForResult(intent, REQUEST_CODE)
                 }
