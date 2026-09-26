@@ -4,6 +4,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../utils/text_cleaner.dart'; // v799
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
@@ -691,7 +692,15 @@ class _HomePageState extends State<HomePage>
     final path = state.storage.getBackupPath(filename);
     final ok = state.storage.writeFile(path, json);
     if (ok) {
-      AppState.instance.apiLog('✓ 已备份到$path');
+      // v799：导出自检——读回扫描mojibake特征，污染则报警
+      final back = state.storage.readFile(path) ?? '';
+      final stats = TextCleaner.mojibakeStats(back);
+      if (TextCleaner.looksLikeMojibake(back)) {
+        AppState.instance
+            .apiLog('❌ 备份自检异常（疑似编码污染，\$stats）——此备份文件不要使用！');
+      } else {
+        AppState.instance.apiLog('✓ 已备份到\$path（自检正常，\$stats）');
+      }
     } else {
       AppState.instance.apiLog('❌ 备份失败：$path 写入失败（权限/空间不足？）');
       if (mounted) {

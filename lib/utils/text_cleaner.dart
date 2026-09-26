@@ -373,6 +373,28 @@ class TextCleaner {
     return out.join('\n');
   }
 
+  /// v799：mojibake检测——备份/恢复链路污染自检。
+  /// 特征：Latin-1增补区字符（çæå等，UTF-8字节被当Latin1读的典型产物）+
+  /// U+FFFD替换符。正常中文文本中该区间字符占比≈0，污染文本通常>1%
+  static bool looksLikeMojibake(String s, {double threshold = 0.005}) {
+    if (s.isEmpty) return false;
+    var bad = 0;
+    for (final r in s.runes) {
+      if ((r >= 0xC0 && r <= 0xFF) || r == 0xFFFD) bad++;
+    }
+    return bad / s.length > threshold;
+  }
+
+  static String mojibakeStats(String s) {
+    var latin = 0;
+    var fffd = 0;
+    for (final r in s.runes) {
+      if (r >= 0xC0 && r <= 0xFF) latin++;
+      if (r == 0xFFFD) fffd++;
+    }
+    return '总${s.length}字，Latin1区$latin，FFFD$fffd';
+  }
+
   /// v787：剥AI输出首尾的JSON残留引号壳——形如 `": "承接…\n"` 的输出
   /// （低温模型把纯文本当JSON字符串值返回：键前缀+首尾双引号+字面\n）。
   /// 用于续写规划/优化方向等纯文本产物（结构化输出仍走normalizeAiOutput）
