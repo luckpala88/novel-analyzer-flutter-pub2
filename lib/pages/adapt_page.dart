@@ -1881,6 +1881,12 @@ class _AdaptPageState extends State<AdaptPage>
   // ===== v781：续写页通用助手 =====
   double _cf(double base) => base * _continueFontScale; // 字号缩放（修v769按键无效）
 
+  /// v786：列表概述截断——弧线概述/场景概述够了，具体内容在世界书
+  String _brief(String s, [int n = 250]) {
+    s = s.trim();
+    return s.length <= n ? s : '${s.substring(0, n)}…';
+  }
+
   /// v781：切片查看弹窗（弧线/场景原文切片）
   void _showSliceDialog(String title, String text) {
     showDialog(
@@ -2146,7 +2152,7 @@ class _AdaptPageState extends State<AdaptPage>
           if (an == null && arc.status == 'generated')
             // v783：AI规划弧线——概述从arcScan.summary（条目同步时落库）显示
             SelectableText(
-              arc.summary.isEmpty ? '（无概述）' : arc.summary,
+              _brief(arc.summary, 250),
               style: TextStyle(
                   fontSize: _cf(11.5), color: const Color(0xFF5B7A99), height: 1.4),
             )
@@ -2692,14 +2698,16 @@ class _AdaptPageState extends State<AdaptPage>
       // 有正文回头重新扫描生成拆解数据后，各卡🧩标志自动消失
       state.arcScan ??= ArcScan(arcs: []);
       final arcTitle = titleM?.group(1)?.trim() ?? '续写弧线$newNum';
-      final ovM = RegExp(r'【弧线概述】[：:]?\s*([\s\S]*?)(?=\n【|\n场景\d|$)').firstMatch(content);
+      // v786：概述截到下一个【标记（AI可能把【人设】连在同一行）+硬上限250字——列表只留概述
+      final ovM = RegExp(r'【弧线概述】[：:]?\s*([\s\S]*?)(?=【|\n场景\d|$)')
+          .firstMatch(content);
       state.arcScan!.arcs.removeWhere((a) => a.number == newNum); // 幂等：重加覆盖
       state.arcScan!.arcs.add(Arc(
         number: newNum,
         title: arcTitle,
         chapterRange: '续写',
         status: 'generated',
-        summary: ovM?.group(1)?.trim() ?? '',
+        summary: _brief(ovM?.group(1)?.trim() ?? '', 250),
         text: '',
         tailTrim: -1,
       ));
@@ -2787,8 +2795,8 @@ class _AdaptPageState extends State<AdaptPage>
       }
       out.add({
         'num': m.group(1)!,
-        'label': '场景${m.group(1)}：$name' +
-            (brief.isEmpty ? '' : '\n　　$brief'),
+        'label': '场景${m.group(1)}：${_brief(name, 30)}' +
+            (brief.isEmpty ? '' : '\n　　${_brief(brief, 60)}'),
       });
     }
     return out;
