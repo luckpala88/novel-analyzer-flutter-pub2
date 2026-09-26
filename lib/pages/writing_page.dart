@@ -2905,6 +2905,20 @@ class _WritingPageState extends State<WritingPage>
           prevSource = '原著前文切片';
         }
       }
+      // v809：自由续写——注入前1-2个场景的原著切片（前文情节锚点）
+      String sliceContext = '';
+      if (state.writingFreeMode && state.writingFreeContinue) {
+        final an = state.arcAnalyses[arcKey.toString()];
+        if (an != null) {
+          for (final k in [si - 1, si - 2]) {
+            if (k < 0 || k >= an.scenes.length) continue;
+            final st = an.scenes[k].text.trim();
+            if (st.isEmpty) continue;
+            final t = st.length > 300 ? st.substring(st.length - 300) : st;
+            sliceContext += '【场景${k + 1}原著切片结尾】\n$t\n\n';
+          }
+        }
+      }
       if (effectiveFree) {
         // v792：分支提示词链——自由续写=原著衔接链，自由改编=原自由链
         systemPrompt += state.writingFreeContinue
@@ -2998,6 +3012,7 @@ class _WritingPageState extends State<WritingPage>
         arcDeclaration: _arcDeclForWriting(state, arcKey.toString()),
         prevEnding: prevEnding,
         prevSource: prevSource,
+        sliceContext: sliceContext,
         sceneName: scene.$1,
         sceneChapterRange: scene.$2,
         // v357：attachments=全局文风素材+本场景内容素材

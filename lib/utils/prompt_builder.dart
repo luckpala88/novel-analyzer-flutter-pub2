@@ -990,6 +990,7 @@ class PromptBuilder {
     String arcTitle = '',
     String prevEnding = '',
     String prevSource = '', // v792：衔接锚点来源标注（'切片'→原著前文标头）
+    String sliceContext = '', // v809：自由续写前1-2场景原著切片
     String sceneName = '',
     String sceneChapterRange = '',
     List<Map<String, dynamic>>? attachments,
@@ -1088,6 +1089,13 @@ class PromptBuilder {
             ? prevEnding.substring(prevEnding.length - 300)
             : prevEnding,
       );
+      sb.writeln();
+    }
+
+    // v809：自由续写——前1-2个场景的原著切片（前文情节锚点，参考不照抄）
+    if (sliceContext.isNotEmpty) {
+      sb.writeln('## 前文原著切片（参考前文情节与笔触，禁止照抄原文）');
+      sb.write(sliceContext);
       sb.writeln();
     }
 

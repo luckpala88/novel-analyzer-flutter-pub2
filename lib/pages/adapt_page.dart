@@ -2489,6 +2489,7 @@ class _AdaptPageState extends State<AdaptPage>
           '【当前进度】\n${_continueCtx(state, arcKey)}\n\n'
           '【该弧线世界书条目（节选）】\n'
           '${entry.content.length > 2000 ? entry.content.substring(0, 2000) : entry.content}\n\n'
+          '【原著前文结尾（切片，衔接锚点——场景从这里自然承接）】\n${_recentSliceTail(state, arcKey)}\n\n'
           '【用户新场景规划】\n$raw\n\n'
           '【本场景编号】N=$nextNum';
       // v783：词链检查
@@ -2650,6 +2651,7 @@ class _AdaptPageState extends State<AdaptPage>
       final usr = '【续写方向】\n${_continueReqSource(state).isEmpty ? '（未填写，按故事逻辑自然推进）' : _continueReqSource(state)}\n\n'
           '【世界书既有设定基准（人设/人物名/关系一律以此为准，禁止另起炉灶自拟新人物新设定；新弧线登场角色必须是基准里已有的原著角色）】\n${_wbContinuityDigest(state, newNum)}\n\n'
           '【当前进度】\n$prevCtx\n\n'
+          '【原著前文结尾（切片，衔接锚点——新弧线从这里自然承接）】\n${_recentSliceTail(state, newNum.toString())}\n\n'
           '【新弧线编号】N=$newNum';
       // v783：词链检查（wbPromptPreview开启时弹预览确认）
       final okSend = await PromptPreview.maybePreview(
@@ -2924,6 +2926,25 @@ class _AdaptPageState extends State<AdaptPage>
     state.saveWorldBook();
     if (mounted) setState(() {});
     _addLog('🗑 场景$sceneNum（弧线$arcKey）已从条目摘除——可重新生成');
+  }
+
+  /// v808：原著切片结尾（前一条弧线优先，本弧线次之）——规划弧线/场景时的前文锚点
+  String _recentSliceTail(AppState state, String arcKey, {int len = 500}) {
+    final myNum = int.tryParse(arcKey) ?? 0;
+    Arc? prevArc;
+    Arc? myArc;
+    for (final a in state.arcScan?.arcs ?? const <Arc>[]) {
+      if (a.number == myNum - 1) prevArc = a;
+      if (a.number == myNum) myArc = a;
+    }
+    String slice = '';
+    if (prevArc != null && prevArc.text.trim().isNotEmpty) {
+      slice = prevArc.text;
+    } else if (myArc != null && myArc.text.trim().isNotEmpty) {
+      slice = myArc.text;
+    }
+    if (slice.trim().isEmpty) return '';
+    return slice.length > len ? slice.substring(slice.length - len) : slice;
   }
 
   /// v782：世界书连贯性摘要——已有弧线条目的【人设】块+标题，附最近弧线条目节选
