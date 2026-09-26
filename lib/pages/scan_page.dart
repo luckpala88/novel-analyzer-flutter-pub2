@@ -872,7 +872,7 @@ class _ScanPageState extends State<ScanPage>
   /// 步进式扫描（对照v318 doSteppedScan逻辑重写）
   /// v469：从某场景剪断重新生成弧线（走场景组合分组通道，非旧划分通道）
   /// ——删掉含该场景及之后的弧线，分组断点回退到该场景，增量重新生成
-  void _confirmCutRegroup(state, Scene scene) {
+  void _confirmCutRegroup(AppState state, Scene scene) {
     final cutIdx = scene.globalIndex; // 0-based
     showDialog(
       context: context,
@@ -934,7 +934,7 @@ class _ScanPageState extends State<ScanPage>
   }
 
   /// v439：重新生成全部弧线确认——清分组结果+断点归零
-  void _confirmRegenArcs(state) {
+  void _confirmRegenArcs(AppState state) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(

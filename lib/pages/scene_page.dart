@@ -534,7 +534,7 @@ const Spacer(), // ⚙API推到最右
 
   /// v462：从此场景剪断重扫——丢弃该场景及之后的场景，进度锚回退到其
   /// 起始章前一章，前面的成果保留
-  void _confirmCutResume(state, int index) {
+  void _confirmCutResume(AppState state, int index) {
     final cut = state.globalScenes[index];
     final keepCount = index;
     showDialog(
