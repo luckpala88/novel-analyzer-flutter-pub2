@@ -700,9 +700,9 @@ class _HomePageState extends State<HomePage>
       final stats = TextCleaner.mojibakeStats(back);
       if (TextCleaner.looksLikeMojibake(back)) {
         AppState.instance
-            .apiLog('❌ 备份自检异常（疑似编码污染，\$stats）——此备份文件不要使用！');
+            .apiLog('❌ 备份自检异常（疑似编码污染，$stats）——此备份文件不要使用！');
       } else {
-        AppState.instance.apiLog('✓ 已备份到\$path（自检正常，\$stats）');
+        AppState.instance.apiLog('✓ 已备份到$path（自检正常，$stats）');
       }
     } else {
       AppState.instance.apiLog('❌ 备份失败：$path 写入失败（权限/空间不足？）');
