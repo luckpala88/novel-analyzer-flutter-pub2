@@ -1750,12 +1750,29 @@ class _AdaptPageState extends State<AdaptPage>
                       ListView.builder(
                         controller: _contArcCtl,
                         padding: const EdgeInsets.fromLTRB(8, 4, 12, 8),
-                        itemCount: allArcs.length + 3, // v782：末尾=添加条目+批量映射表+全局方向规划块
+                        itemCount: allArcs.length + 3, // v783：末尾=映射表行→方向规划块→生成条目键(最下)
                         itemBuilder: (ctx, i) {
                           if (i == allArcs.length + 2) {
-                            return _buildContinueReqPlanner(state);
+                            // v783：生成条目键移到最下面，改名"生成世界书新弧线条目"
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 8),
+                              child: Center(
+                                child: MiniButton(
+                                  label: '⚙生成世界书新弧线条目',
+                                  primary: true,
+                                  onTap: _isGenerating || allArcs.isEmpty
+                                      ? null
+                                      : () => _addContinueArc(
+                                          state, allArcs.last),
+                                ),
+                              ),
+                            );
                           }
                           if (i == allArcs.length + 1) {
+                            return _buildContinueReqPlanner(state);
+                          }
+                          if (i == allArcs.length) {
                             // v782：续写映射表——批量采集（continueMode规则）+弹窗查看
                             return Padding(
                               padding:
@@ -1779,22 +1796,6 @@ class _AdaptPageState extends State<AdaptPage>
                                           _showMasterOutlineDialog(state),
                                     ),
                                   ],
-                                ),
-                              ),
-                            );
-                          }
-                          if (i >= allArcs.length) {
-                            return Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 8),
-                              child: Center(
-                                child: MiniButton(
-                                  label: '➕添加世界书弧线条目', // v781：语义更准
-                                  primary: true,
-                                  onTap: _isGenerating || allArcs.isEmpty
-                                      ? null
-                                      : () => _addContinueArc(
-                                          state, allArcs.last),
                                 ),
                               ),
                             );
@@ -2052,6 +2053,18 @@ class _AdaptPageState extends State<AdaptPage>
                       fontSize: _cf(12.5), fontWeight: FontWeight.w600),
                 ),
               ),
+              if (an == null && arc.status == 'generated')
+                Text(' 🧩AI规划',
+                    style: TextStyle(
+                        fontSize: _cf(10),
+                        color: const Color(0xFF2C5E8E),
+                        fontWeight: FontWeight.w600)), // v783：非正文生成标志
+              if (an == null && arc.status == 'generated')
+                MiniButton(
+                  label: '🗑',
+                  primary: false,
+                  onTap: () => _deleteContinueArc(state, arc), // v783：删除重生成
+                ),
               if (sliceText.isNotEmpty)
                 MiniButton(
                   label: '🔍切片',
@@ -2073,7 +2086,14 @@ class _AdaptPageState extends State<AdaptPage>
             ],
           ),
           const SizedBox(height: 4),
-          if (an == null)
+          if (an == null && arc.status == 'generated')
+            // v783：AI规划弧线——概述从arcScan.summary（条目同步时落库）显示
+            SelectableText(
+              arc.summary.isEmpty ? '（无概述）' : arc.summary,
+              style: TextStyle(
+                  fontSize: _cf(11.5), color: const Color(0xFF5B7A99), height: 1.4),
+            )
+          else if (an == null)
             Text(
               '⚠️ 该弧线还没有拆解数据——先完成弧线扫描与分镜拆解',
               style: TextStyle(fontSize: _cf(11), color: const Color(0xFFB0682A)),
@@ -2124,6 +2144,12 @@ class _AdaptPageState extends State<AdaptPage>
                       fontSize: _cf(12.5), fontWeight: FontWeight.w600),
                 ),
               ),
+              if (an == null && arc.status == 'generated')
+                Text(' 🧩AI规划',
+                    style: TextStyle(
+                        fontSize: _cf(10),
+                        color: const Color(0xFF2C5E8E),
+                        fontWeight: FontWeight.w600)), // v783：非正文生成标志
               if (sliceText.isNotEmpty)
                 MiniButton(
                   label: '🔍切片',
@@ -2134,7 +2160,41 @@ class _AdaptPageState extends State<AdaptPage>
             ],
           ),
           children: [
-            if (an == null)
+            if (an == null && arc.status == 'generated') ...[
+              // v783：AI规划弧线——概述+规划场景清单直接从条目解析（场景对号）
+              if (arc.summary.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: SelectableText(arc.summary,
+                        style: TextStyle(
+                            fontSize: _cf(11),
+                            color: const Color(0xFF5B7A99),
+                            height: 1.4)),
+                  ),
+                ),
+              ..._plannedScenesFromEntry(state, arc.number.toString()).map(
+                (e) => Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(e['label']!,
+                            style: TextStyle(fontSize: _cf(11))),
+                      ),
+                      MiniButton(
+                        label: '🗑',
+                        primary: false,
+                        onTap: () => _deletePlannedScene(
+                            state, arc.number.toString(), e['num']!),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ] else if (an == null)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Text(
@@ -2328,7 +2388,7 @@ class _AdaptPageState extends State<AdaptPage>
           const SizedBox(height: 6),
           Center(
             child: MiniButton(
-              label: '📝写入世界书',
+              label: '⚙生成世界书新场景条目', // v783：语义对齐弧线键
               primary: false,
               onTap: _isGenerating
                   ? null
@@ -2363,19 +2423,33 @@ class _AdaptPageState extends State<AdaptPage>
     setState(() => _isGenerating = true);
     try {
       _addLog('🤖 优化新场景规划中（场景$nextNum起编）…');
+      final sys = '你是网文续写规划师。任务：把用户的粗糙新场景规划扩写为规范场景条目规划，'
+          '供后续原样写入世界书。输出规则：\n'
+          '1.每行一个场景，格式严格为：场景N：名称｜概述\n'
+          '2.概述80-150字，需含时间地点/出场人物/剧情推进；人物全部沿用原著原名\n'
+          '3.必须从当前进度自然衔接；N从$nextNum开始连续编号\n'
+          '4.禁止输出解释性文字、小标题、markdown';
+      final usr = '【世界书既有设定基准（人物名/人设/状态一律以此为准，禁止自拟新人物新设定；登场角色须是基准里已有的原著角色，用户规划明确新增的除外）】\n${_wbContinuityDigest(state, int.tryParse(arcKey) ?? 0)}\n\n'
+          '【当前进度】\n${_continueCtx(state, arcKey)}\n\n'
+          '【该弧线世界书条目（节选）】\n'
+          '${entry.content.length > 2000 ? entry.content.substring(0, 2000) : entry.content}\n\n'
+          '【用户新场景规划】\n$raw\n\n'
+          '【新场景起始编号】N=$nextNum';
+      // v783：词链检查
+      final okSend = await PromptPreview.maybePreview(
+        context,
+        sysPrompt: sys,
+        userPrompt: usr,
+        title: 'AI优化场景规划词链预览（弧线$arcKey）',
+        enabled: state.wbPromptPreview,
+      );
+      if (!okSend) {
+        _addLog('已取消优化');
+        return;
+      }
       final result = await state.api.callApi(
-        systemPrompt: '你是网文续写规划师。任务：把用户的粗糙新场景规划扩写为规范场景条目规划，'
-            '供后续原样写入世界书。输出规则：\n'
-            '1.每行一个场景，格式严格为：场景N：名称｜概述\n'
-            '2.概述80-150字，需含时间地点/出场人物/剧情推进；人物全部沿用原著原名\n'
-            '3.必须从当前进度自然衔接；N从$nextNum开始连续编号\n'
-            '4.禁止输出解释性文字、小标题、markdown',
-        userPrompt: '【世界书既有设定基准（人物名/人设/状态一律以此为准，禁止自拟新人物新设定；登场角色须是基准里已有的原著角色，用户规划明确新增的除外）】\n${_wbContinuityDigest(state, int.tryParse(arcKey) ?? 0)}\n\n'
-            '【当前进度】\n${_continueCtx(state, arcKey)}\n\n'
-            '【该弧线世界书条目（节选）】\n'
-            '${entry.content.length > 2000 ? entry.content.substring(0, 2000) : entry.content}\n\n'
-            '【用户新场景规划】\n$raw\n\n'
-            '【新场景起始编号】N=$nextNum',
+        systemPrompt: sys,
+        userPrompt: usr,
         apiConfig: config,
       );
       if (!result.isSuccess) {
@@ -2447,6 +2521,35 @@ class _AdaptPageState extends State<AdaptPage>
       _addLog('ℹ️ 没有新增场景（规划行需格式：场景N：名称｜概述，且N未存在于条目）');
       return;
     }
+    // v783：写入预览确认（本步纯代码零AI，预览即检查）
+    final preview = sb.toString().trim();
+    final okWrite = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('写入预览（纯代码零AI）'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: SelectableText('将追加到弧线${arc.number}条目：\n\n$preview',
+                style: const TextStyle(fontSize: 12, height: 1.5)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('确认写入'),
+          ),
+        ],
+      ),
+    );
+    if (okWrite != true) {
+      _addLog('已取消写入');
+      return;
+    }
     entry.content = entry.content.trimRight() + '\n' + sb.toString().trimRight();
     state.saveWorldBook();
     _addLog('📖 共写入$added个场景条目（无正文）——创作页出现待创作场景，正文在创作页完成');
@@ -2464,27 +2567,39 @@ class _AdaptPageState extends State<AdaptPage>
     state.userAborted = false;
     setState(() => _isGenerating = true);
     try {
-      _addLog('➕ 添加弧线$newNum（续写推演新弧线）…');
+      _addLog('➕ 生成世界书新弧线条目（弧线$newNum，依据设定与前文推演）…');
       final prevCtx = _continueCtx(state, arc.number.toString());
+      final sys = '你是原著续写作家。世界书=原样原著（全原名）。任务：为长篇规划一条全新的续写弧线，'
+          '输出该弧线的世界书总结条目内容（无分镜结构，场景走自由创作）。格式：\n'
+          '弧线N：标题（N=$newNum）\n'
+          '【弧线概述】：120-250字（承接当前剧情，本弧线主角处境变化轨迹，收束在明确变化上）\n'
+          '【人设】：本弧线登场角色与定位（全部沿用原著原名+既有性格）\n'
+          '【矛盾冲突】：核心冲突2-3条\n'
+          '【伏笔】：本弧线种下/回收的伏笔\n'
+          '【情绪曲线】：如「低谷→希望→兴奋→满足」\n'
+          '【作者脑洞】：本弧线的核心幻想点2-3条\n'
+          '然后场景清单（本弧线的场景规划，每项两行）：\n'
+          '场景1：名称\n概述：80-150字\n场景2：…（3-8个场景）\n'
+          '人名一律沿用原著原名；必须从当前进度自然衔接；禁止输出解释性文字。';
+      final usr = '【续写方向】\n${_continueReqSource(state).isEmpty ? '（未填写，按故事逻辑自然推进）' : _continueReqSource(state)}\n\n'
+          '【世界书既有设定基准（人设/人物名/关系一律以此为准，禁止另起炉灶自拟新人物新设定；新弧线登场角色必须是基准里已有的原著角色）】\n${_wbContinuityDigest(state, newNum)}\n\n'
+          '【当前进度】\n$prevCtx\n\n'
+          '【新弧线编号】N=$newNum';
+      // v783：词链检查（wbPromptPreview开启时弹预览确认）
+      final okSend = await PromptPreview.maybePreview(
+        context,
+        sysPrompt: sys,
+        userPrompt: usr,
+        title: '生成世界书新弧线条目词链预览（弧线$newNum）',
+        enabled: state.wbPromptPreview,
+      );
+      if (!okSend) {
+        _addLog('已取消生成');
+        return;
+      }
       final result = await state.api.callApi(
-        systemPrompt:
-            '你是原著续写作家。世界书=原样原著（全原名）。任务：为长篇规划一条全新的续写弧线，'
-            '输出该弧线的世界书总结条目内容（无分镜结构，场景走自由创作）。格式：\n'
-            '弧线N：标题（N=$newNum）\n'
-            '【弧线概述】：120-250字（承接当前剧情，本弧线主角处境变化轨迹，收束在明确变化上）\n'
-            '【人设】：本弧线登场角色与定位（全部沿用原著原名+既有性格）\n'
-            '【矛盾冲突】：核心冲突2-3条\n'
-            '【伏笔】：本弧线种下/回收的伏笔\n'
-            '【情绪曲线】：如「低谷→希望→兴奋→满足」\n'
-            '【作者脑洞】：本弧线的核心幻想点2-3条\n'
-            '然后场景清单（本弧线的场景规划，每项两行）：\n'
-            '场景1：名称\n概述：80-150字\n场景2：…（3-8个场景）\n'
-            '人名一律沿用原著原名；必须从当前进度自然衔接；禁止输出解释性文字。',
-        userPrompt:
-            '【续写方向】\n${_continueReqSource(state).isEmpty ? '（未填写，按故事逻辑自然推进）' : _continueReqSource(state)}\n\n'
-            '【世界书既有设定基准（人设/人物名/关系一律以此为准，禁止另起炉灶自拟新人物新设定；新弧线登场角色必须是基准里已有的原著角色）】\n${_wbContinuityDigest(state, newNum)}\n\n'
-            '【当前进度】\n$prevCtx\n\n'
-            '【新弧线编号】N=$newNum',
+        systemPrompt: sys,
+        userPrompt: usr,
         apiConfig: config,
       );
       if (!result.isSuccess) {
@@ -2516,7 +2631,24 @@ class _AdaptPageState extends State<AdaptPage>
       );
       wb.arcStatus['$newNum'] = 'generated';
       state.saveWorldBook();
-      _addLog('✓ 弧线$newNum已添加（${content.length}字，arcStatus=generated）——场景续写层/创作页可见');
+      // v783：同步arcScan弧线列表——status='generated'（🧩AI规划标志），
+      // 有正文回头重新扫描生成拆解数据后，各卡🧩标志自动消失
+      state.arcScan ??= ArcScan(arcs: []);
+      final arcTitle = titleM?.group(1)?.trim() ?? '续写弧线$newNum';
+      final ovM = RegExp(r'【弧线概述】[：:]?\s*([\s\S]*?)(?=\n【|\n场景\d|$)').firstMatch(content);
+      state.arcScan!.arcs.removeWhere((a) => a.number == newNum); // 幂等：重加覆盖
+      state.arcScan!.arcs.add(Arc(
+        number: newNum,
+        title: arcTitle,
+        chapterRange: '续写',
+        status: 'generated',
+        summary: ovM?.group(1)?.trim() ?? '',
+        text: '',
+        tailTrim: -1,
+      ));
+      state.saveArcScan();
+      if (mounted) setState(() {}); // 刷新各处弧线列表
+      _addLog('✓ 弧线$newNum已添加（${content.length}字，🧩AI规划）——弧线/场景续写列表已同步，待正文+重扫后转正');
     } finally {
       if (mounted) setState(() => _isGenerating = false);
     }
@@ -2532,12 +2664,26 @@ class _AdaptPageState extends State<AdaptPage>
     final config = state.getApiConfig('wb');
     setState(() => _isGenerating = true);
     try {
+      final sys = PromptBuilder.buildContinueReqSuggestSystemPrompt();
+      final usr = PromptBuilder.buildContinueReqSuggestUserPrompt(
+        direction: dir,
+        progress: _continueProgressAll(state, _getAllArcs(state)),
+      );
+      // v783：词链检查
+      final okSend = await PromptPreview.maybePreview(
+        context,
+        sysPrompt: sys,
+        userPrompt: usr,
+        title: 'AI优化续写方向词链预览',
+        enabled: state.wbPromptPreview,
+      );
+      if (!okSend) {
+        _addLog('已取消优化');
+        return;
+      }
       final r = await state.api.callApi(
-        systemPrompt: PromptBuilder.buildContinueReqSuggestSystemPrompt(),
-        userPrompt: PromptBuilder.buildContinueReqSuggestUserPrompt(
-          direction: dir,
-          progress: _continueProgressAll(state, _getAllArcs(state)),
-        ),
+        systemPrompt: sys,
+        userPrompt: usr,
         apiConfig: config,
       );
       if (!r.isSuccess) {
@@ -2561,6 +2707,119 @@ class _AdaptPageState extends State<AdaptPage>
     }
   }
 
+
+  /// v783：从世界书条目解析AI规划场景行（场景N：名称 + 概述：xxx 或 场景N：名称｜概述）
+  /// 返回{'num':场景号, 'label':显示文本}
+  List<Map<String, String>> _plannedScenesFromEntry(AppState state, String arcKey) {
+    final ek = _arcEntryKey(state, arcKey);
+    if (ek == null) return const [];
+    final c = state.worldBook!.entries[ek]!.content;
+    final lines = c.split('\n');
+    final out = <Map<String, String>>[];
+    for (var i = 0; i < lines.length; i++) {
+      final m = RegExp(r'^场景(\d+)：(.+)$').firstMatch(lines[i].trim());
+      if (m == null) continue;
+      final name = m.group(2)!.trim();
+      var brief = '';
+      if (name.contains('｜')) {
+        final parts = name.split('｜');
+        brief = parts.sublist(1).join('｜').trim();
+      } else if (i + 1 < lines.length &&
+          lines[i + 1].trim().startsWith('概述：')) {
+        brief = lines[i + 1].trim().substring(3).trim();
+      }
+      out.add({
+        'num': m.group(1)!,
+        'label': '场景${m.group(1)}：$name' +
+            (brief.isEmpty ? '' : '\n　　$brief'),
+      });
+    }
+    return out;
+  }
+
+  /// v783：删除AI规划弧线（arcScan项+世界书条目+arcStatus+规划缓存）——可重新生成
+  Future<void> _deleteContinueArc(AppState state, Arc arc) async {
+    final key = arc.number.toString();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('删除弧线$key？'),
+        content: Text(
+            '将删除「弧线$key：${arc.title}」及其全部🧩AI规划场景条目（世界书同步删除）。\n正文创作不受影响；确认后可重新生成。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    state.arcScan?.arcs.removeWhere((a) => a.number == arc.number);
+    state.saveArcScan();
+    final wb = state.worldBook;
+    if (wb != null) {
+      final ek = _arcEntryKey(state, key);
+      if (ek != null) wb.entries.remove(ek);
+      wb.arcStatus.remove(key);
+      wb.continuePlans.remove(key);
+      wb.continuePlans.remove('new_raw_$key');
+      wb.continuePlans.remove('new_opt_$key');
+      state.saveWorldBook();
+    }
+    if (mounted) setState(() {});
+    _addLog('🗑 弧线$key及其规划场景已删除——可重新生成');
+  }
+
+  /// v783：删除单条AI规划场景（从条目content摘除该场景块）——可重新生成
+  Future<void> _deletePlannedScene(
+      AppState state, String arcKey, String sceneNum) async {
+    final ek = _arcEntryKey(state, arcKey);
+    if (ek == null) return;
+    final e = state.worldBook!.entries[ek]!;
+    final spans =
+        RegExp(r'^场景\d+：', multiLine: true).allMatches(e.content).toList();
+    int? start;
+    int? end;
+    for (var i = 0; i < spans.length; i++) {
+      final n = RegExp(r'\d+').firstMatch(spans[i].group(0)!)?.group(0);
+      if (n == sceneNum) {
+        start = spans[i].start;
+        end = i + 1 < spans.length ? spans[i + 1].start : e.content.length;
+        break;
+      }
+    }
+    if (start == null || end == null) {
+      _addLog('ℹ️ 场景$sceneNum块未找到（可能已删）');
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('删除场景$sceneNum？'),
+        content: const Text('将从世界书条目摘除该场景块，可重新生成。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    e.content = e.content.replaceRange(start, end, '').trimRight();
+    state.saveWorldBook();
+    if (mounted) setState(() {});
+    _addLog('🗑 场景$sceneNum（弧线$arcKey）已从条目摘除——可重新生成');
+  }
 
   /// v782：世界书连贯性摘要——已有弧线条目的【人设】块+标题，附最近弧线条目节选
   /// （修v781事故：第105弧条目生成时userPrompt零世界书上下文，AI瞎捏人设出"韩立"）
@@ -2812,11 +3071,25 @@ class _AdaptPageState extends State<AdaptPage>
   /// 所有已拆解的弧线（v468 getWBAllArcs）
   List<Arc> _getAllArcs(AppState state) {
     final result = <Arc>[];
-    final arcs = state.completedArcs;
+    // v783：读arcScan全部弧线（completedArcs只认complete，🧩generated进不来）；
+    // 存量续写条目（v781/v782时代只写世界书没进arcScan）兜底补进列表
+    final arcs = <Arc>[...?state.arcScan?.arcs];
+    state.worldBook?.entries.forEach((k, e) {
+      if (!k.startsWith('continue_arc')) return;
+      final n = int.tryParse(e.arcKey ?? '') ?? -1;
+      if (n < 0 || arcs.any((a) => a.number == n)) return;
+      arcs.add(Arc(
+        number: n,
+        title: e.comment,
+        chapterRange: '续写',
+        status: 'generated',
+      ));
+    });
     for (final arc in arcs) {
       // v212：恢复宽松列出（划分了场景就显示）——渐进工作流：可先看场景框架。
       // 是否有分镜用_hasShots判断，生成前单独警告（不再一刀切隐藏）
-      if (state.isArcAnalyzed(arc.number) ||
+      if (arc.status == 'generated' || // v783：🧩AI规划弧线（无拆解数据）也进列表
+          state.isArcAnalyzed(arc.number) ||
           (state.arcScenes[arc.number.toString()]?.isNotEmpty ?? false) ||
           (state.arcAnalyses[arc.number.toString()]?.scenes.isNotEmpty ??
               false)) {
