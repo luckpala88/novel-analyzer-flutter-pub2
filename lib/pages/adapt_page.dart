@@ -1915,12 +1915,13 @@ class _AdaptPageState extends State<AdaptPage>
   }
 
 
-  /// v782：批量生成映射表——遍历所有弧线条目，逐条喂续写采集（continueMode规则：
-  /// 禁拟新名只登用户新名），与改编页采集管线统一（state.extractNameMapIncrement）
+  /// v783：批量生成映射表——遍历弧线条目做名称盘点（左列=右列=原名，右列留给
+  /// 用户改名），区别于增量采集（v766续写规则只登用户新名→平时恒"无新增"）
   Future<void> _batchGenNameMap(AppState state) async {
     final arcs = _getAllArcs(state);
     var ok = 0;
-    _addLog('🗺 批量映射表采集开始（${arcs.length}条弧线条目）…');
+    var totalRows = 0;
+    _addLog('🗺 批量映射表建清单开始（${arcs.length}条弧线条目，名称盘点模式）…');
     for (final a in arcs) {
       if (state.api.isAborted) {
         _addLog('⏸ 用户中止');
@@ -1930,10 +1931,62 @@ class _AdaptPageState extends State<AdaptPage>
       if (ek == null) continue;
       final c = state.worldBook!.entries[ek]!.content.trim();
       if (c.isEmpty) continue;
-      await state.extractNameMapIncrement(c, sourceLabel: '弧线${a.number}条目');
-      ok++;
+      final config = state.getApiConfig('wb');
+      state.api.clearAbort();
+      state.userAborted = false;
+      setState(() => _isGenerating = true);
+      try {
+        final r = await state.api.callApi(
+          systemPrompt: PromptBuilder.buildNameMapInventorySystemPrompt(),
+          userPrompt: '【已有清单（这些名称跳过）】\n'
+              '${state.worldBook!.nameMapping.isEmpty ? '（空）' : state.worldBook!.nameMapping}\n\n'
+              '【条目内容（弧线${a.number}）】\n$c',
+          apiConfig: config,
+        );
+        if (!r.isSuccess) {
+          _addLog('❌ 弧线${a.number}名称盘点失败：${r.error}');
+          break;
+        }
+        final out = TextCleaner.decodeLiteralNewlines(
+          TextCleaner.stripDecorativeEmoji(
+            TextCleaner.normalizeAiOutput(
+              r.content,
+              jsonMode: config.formatMode == 'json',
+            ),
+          ),
+        ).trim();
+        if (out.isEmpty || out == '（无新增）') {
+          ok++;
+          continue;
+        }
+        // 合并：按左列去重（含已有表）
+        final existing = state.worldBook!.nameMapping;
+        final buf = StringBuffer(existing.isEmpty ? '' : '$existing\n');
+        var added = 0;
+        for (final line in out.split('\n')) {
+          final l = line.trim();
+          if (!l.contains('→')) continue;
+          final left = l.split('→').first.trim();
+          if (left.isEmpty) continue;
+          if (RegExp('^${RegExp.escape(left)}\\s*[→>]', multiLine: true)
+              .hasMatch(existing)) {
+            continue;
+          }
+          buf.writeln(l);
+          added++;
+        }
+        if (added > 0) {
+          state.worldBook!.nameMapping = buf.toString().trim();
+          state.saveWorldBook();
+          totalRows += added;
+          _addLog('✓ 弧线${a.number}：+$added行（累计$totalRows）');
+        }
+        ok++;
+      } finally {
+        if (mounted) setState(() => _isGenerating = false);
+      }
     }
-    _addLog('🗺 批量映射表采集完成（$ok/${arcs.length}条弧线）——📄映射表查看/编辑');
+    _addLog('🗺 批量映射表建清单完成（$ok/${arcs.length}条弧线，新增$totalRows行）——📄映射表查看/编辑右列改名');
   }
 
   /// v781：全局方向规划块（弧线续写层末尾，样式对齐新增场景工作台）

@@ -1886,6 +1886,19 @@ class PromptBuilder {
         '- 严格按JSON格式输出，不要有额外文字';
   }
 
+  /// buildNameMapInventorySystemPrompt — v783：续写批量建清单（名称盘点，
+  /// 与增量采集不同：本prompt列出全部原著专名，左列=右列=原名，右列留给用户改名）
+  static String buildNameMapInventorySystemPrompt() {
+    return '你是网文名词管理员。任务：从给定的世界书条目内容中抽取所有原著专有名称'
+        '（人名/地名/门派组织/功法/法宝/物品），建立名称清单。输出规则：\n'
+        '1.每行一条，格式严格为：名称→名称（定位）\n'
+        '2.左列=右列=原著原名（续写模式保持原名，右列留给用户后续改名用）\n'
+        '3.定位=简短说明（如：主角/青云门掌门/坊市/炼气功法）\n'
+        '4.【已有清单】里已有的名称跳过，不重复输出\n'
+        '5.只输出映射行；没有新名称输出：（无新增）\n'
+        '6.禁止输出解释文字、小标题、markdown';
+  }
+
   /// buildNameMapRegenSystemPrompt — v706：映射表右列重拟（用户裁决：主表
   /// 退位为重拟工具——左列不动只换右列新名；左列来源靠改编时增量采集+手动添加）
   static String buildNameMapRegenSystemPrompt() {
