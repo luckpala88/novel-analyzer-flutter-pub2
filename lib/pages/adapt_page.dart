@@ -1724,6 +1724,17 @@ class _AdaptPageState extends State<AdaptPage>
                     onTap: () =>
                         state.setWbPromptPreview(!state.wbPromptPreview),
                   ),
+                  // v791：续写映射表两键移顶栏（原弧线Tab列表末尾）
+                  MiniButton(
+                    label: '🗺映射表',
+                    primary: state.worldBook?.nameMapping.isNotEmpty ?? false,
+                    onTap: _isGenerating ? null : () => _batchGenNameMap(state),
+                  ),
+                  MiniButton(
+                    label: '📄查看',
+                    primary: false,
+                    onTap: () => _showMasterOutlineDialog(state),
+                  ),
                 ],
               ),
             ),
@@ -1751,9 +1762,9 @@ class _AdaptPageState extends State<AdaptPage>
                       ListView.builder(
                         controller: _contArcCtl,
                         padding: const EdgeInsets.fromLTRB(8, 4, 12, 8),
-                        itemCount: allArcs.length + 3, // v783：末尾=映射表行→方向规划块→生成条目键(最下)
+                        itemCount: allArcs.length + 2, // v791：映射表两键移顶栏，末尾=方向规划块→生成条目键
                         itemBuilder: (ctx, i) {
-                          if (i == allArcs.length + 2) {
+                          if (i == allArcs.length + 1) {
                             // v783：生成条目键移到最下面，改名"生成世界书新弧线条目"
                             return Padding(
                               padding:
@@ -1770,36 +1781,8 @@ class _AdaptPageState extends State<AdaptPage>
                               ),
                             );
                           }
-                          if (i == allArcs.length + 1) {
+                          if (i >= allArcs.length) {
                             return _buildContinueReqPlanner(state);
-                          }
-                          if (i == allArcs.length) {
-                            // v782：续写映射表——批量采集（continueMode规则）+弹窗查看
-                            return Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 8),
-                              child: Center(
-                                child: Wrap(
-                                  spacing: 8,
-                                  children: [
-                                    MiniButton(
-                                      label: '🗺批量生成映射表',
-                                      primary: true,
-                                      onTap: _isGenerating || allArcs.isEmpty
-                                          ? null
-                                          : () => _batchGenNameMap(state),
-                                    ),
-                                    MiniButton(
-                                      label:
-                                          '📄映射表${(state.worldBook?.nameMapping.isNotEmpty ?? false) ? '✓' : ''}',
-                                      primary: false,
-                                      onTap: () =>
-                                          _showMasterOutlineDialog(state),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
                           }
                           return _buildContinueArcCard(
                               state, allArcs[i]); // v780：纯展示（分镜页详细概述）
