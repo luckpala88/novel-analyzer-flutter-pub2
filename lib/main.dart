@@ -155,7 +155,7 @@ class _AppShellState extends State<AppShell> {
     ('场景', Icons.view_module),
     ('弧线', Icons.timeline),
     ('分镜', Icons.list_alt),
-    ('改编', Icons.auto_fix_high),
+    ('改续', Icons.auto_fix_high),
     ('世界', Icons.menu_book),
     ('创作', Icons.edit_note),
     ('二创', Icons.fact_check),

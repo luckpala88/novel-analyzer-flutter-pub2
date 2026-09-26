@@ -182,7 +182,8 @@ class _ScenePageState extends State<ScenePage>
           _addLog('❌ 弧线${a.number}圣经迭代失败：${r.error}');
           break;
         }
-        final out = TextCleaner.normalizeAiOutput(r.content).trim();
+        final out = TextCleaner.stripQuotedFragment(
+            TextCleaner.normalizeAiOutput(r.content));
         if (out.isEmpty) {
           _addLog('⚠️ 弧线${a.number}输出为空，跳过');
           continue;

@@ -2669,14 +2669,16 @@ class _AdaptPageState extends State<AdaptPage>
         _addLog('❌ 新弧线生成失败：${result.error}');
         return;
       }
-      var content = TextCleaner.decodeLiteralNewlines(
-        TextCleaner.stripDecorativeEmoji(
-          TextCleaner.normalizeAiOutput(
-            result.content,
-            jsonMode: config.formatMode == 'json',
+      var content = TextCleaner.stripQuotedFragment(
+        TextCleaner.decodeLiteralNewlines(
+          TextCleaner.stripDecorativeEmoji(
+            TextCleaner.normalizeAiOutput(
+              result.content,
+              jsonMode: config.formatMode == 'json',
+            ),
           ),
         ),
-      ).trim();
+      );
       if (content.isEmpty) {
         _addLog('⚠️ 新弧线输出为空');
         return;
@@ -2755,9 +2757,11 @@ class _AdaptPageState extends State<AdaptPage>
         _addLog('❌ 优化失败：${r.error}');
         return;
       }
-      final out = TextCleaner.decodeLiteralNewlines(
-        TextCleaner.normalizeAiOutput(r.content),
-      ).trim();
+      final out = TextCleaner.stripQuotedFragment(
+        TextCleaner.decodeLiteralNewlines(
+          TextCleaner.normalizeAiOutput(r.content),
+        ),
+      );
       if (out.isEmpty) {
         _addLog('⚠️ 优化结果为空');
         return;

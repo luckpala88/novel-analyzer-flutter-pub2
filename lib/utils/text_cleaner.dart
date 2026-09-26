@@ -336,6 +336,30 @@ class TextCleaner {
     return t.replaceAll(r'\n', '\n').replaceAll(r'\"', '"');
   }
 
+  /// v787：剥AI输出首尾的JSON残留引号壳——形如 `": "承接…\n"` 的输出
+  /// （低温模型把纯文本当JSON字符串值返回：键前缀+首尾双引号+字面\n）。
+  /// 用于续写规划/优化方向等纯文本产物（结构化输出仍走normalizeAiOutput）
+  static String stripQuotedFragment(String t) {
+    t = t.trim();
+    // JSON键值残留开头：`": "` / `"key": "`
+    final m = RegExp(r'^"\s*[a-zA-Z_\u4e00-\u9fa5]*"\s*:').firstMatch(t);
+    if (m != null) t = t.substring(m.end).trim();
+    if (t.startsWith(':')) t = t.substring(1).trim();
+    // 首引号
+    if (t.startsWith('"') || t.startsWith('“')) t = t.substring(1).trim();
+    // 尾部引号/逗号组合剥除（JSON字符串值残留，非正文引语）
+    while (t.isNotEmpty &&
+        (t.endsWith('"') ||
+            t.endsWith('”') ||
+            t.endsWith(',') ||
+            t.endsWith('，'))) {
+      t = t.substring(0, t.length - 1).trim();
+    }
+    // 字面\n转真实换行
+    t = t.replaceAll('\\n', '\n');
+    return t.trim();
+  }
+
   static String normalizeAiOutput(String raw, {bool jsonMode = false}) {
     final out = jsonMode
         ? _normalizeJsonOutput(raw)
