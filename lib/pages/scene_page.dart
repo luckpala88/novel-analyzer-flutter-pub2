@@ -585,12 +585,11 @@ const Spacer(), // ⚙API推到最右
         if (effKeep > 0 && !anchorOk2) {
           _addLog('⚠ 字符级锚点未建立（末场景收在章尾或定位失败）——将从整章续扫');
         }
-        // 分组断点回退：已分组场景数超出保留范围则回退到剪断点
-        if (state.globalGroupedUpTo > effKeep) {
-          // v817：sceneTo>剪断点即受重扫影响——含横跨弧（sceneFrom<=effKeep<sceneTo），
-          // 旧条件sceneFrom>effKeep漏删横跨弧→弧线平铺超出断点→分组卫兵级联清全场（用户实测：104弧全灭）
-          // v820：显式类型字面量——dynamic分发下.toSet()运行时产出Set<dynamic>，
-          // 传clearArcCascade(arcNumbers:Set<String>?)崩溃（用户实测剪断异常）
+        // v823：剪断后无条件重算弧线裁剪+断点（幂等自愈）——
+        // v822前的条件"断点>剪断点才进入"漏掉"断点已被污染成-1但<剪断点"的状态
+        // （用户实测：v819崩溃把断点-1持久化，重做剪断也修不回）；无条件重算对
+        // 正常状态无副作用（幂等），对被污染状态自动修正
+        {
           final stale = <String>{
             for (final a in (state.arcScan?.arcs ?? const <Arc>[]))
               if (a.sceneTo > effKeep) a.number.toString(),
@@ -603,14 +602,15 @@ const Spacer(), // ⚙API推到最右
             _addLog('ℹ 已级联清空剪断点影响的${stale.length}条弧线（含横跨弧）及分镜/拆解');
           }
           // v822：断点=保留弧线中最大的**有效**sceneTo（sceneTo>0）——
-          // 续写规划弧线（sceneTo=-1，无场景映射，v783追加在列表尾部）混进keptArcs时
-          // keptArcs.last.sceneTo=-1会把断点算成-1（用户实测：平铺到场景-1，分组/剪断全废）；
-          // 续写弧线本体保留不删（规划成果），只是不参与断点计算
+          // 续写规划弧线（sceneTo=-1，无场景映射）混入时会把断点拉成-1
           final tiledKept =
               keptArcs.where((Arc a) => a.sceneTo > 0).toList();
           final keptEnd = tiledKept.isEmpty
               ? 0
               : tiledKept.map((Arc a) => a.sceneTo).reduce((a, b) => a > b ? a : b);
+          if (state.globalGroupedUpTo != keptEnd) {
+            _addLog('ℹ 分组断点修正：${state.globalGroupedUpTo}→$keptEnd');
+          }
           state.globalGroupedUpTo = keptEnd;
           final contCount = keptArcs.length - tiledKept.length;
           if (keptArcs.isNotEmpty) {
