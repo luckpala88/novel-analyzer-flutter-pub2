@@ -723,14 +723,63 @@ class _HomePageState extends State<HomePage>
     if (result == null) return;
     try {
       final bytes = await result.readAsBytes();
-      final json = String.fromCharCodes(bytes);
-      final ok = await state.restoreFromJson(json);
-      if (mounted) {
-        AppState.instance.apiLog(ok ? '恢复成功' : '恢复失败：格式错误');;
+      // v803：UTF-8解码+BOM剥离——此前String.fromCharCodes按Latin1逐字节转
+      // 字符（每个中文3字节→3个çæå乱码字符），Win/安卓导入备份乱码根因
+      var start = 0;
+      if (bytes.length >= 3 &&
+          bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) {
+        start = 3;
+      }
+      String json;
+      try {
+        json = utf8.decode(bytes.sublist(start));
+      } catch (_) {
+        json = utf8.decode(bytes.sublist(start), allowMalformed: true);
+      }
+      // v803：解码后强制打印污染统计（Latin1区+FFFD计数）
+      AppState.instance
+          .apiLog('📖 恢复数据解码统计：${TextCleaner.mojibakeStats(json)}');
+      // v803：格式分流——云同步格式（version:1）走unpackSyncData（已验证无乱码
+      // 的恢复链路）；旧backupData格式（含_scope）fallback走restoreFromJson
+      final isSyncFormat =
+          !json.contains('_scope') && json.contains('"books"');
+      bool ok;
+      if (isSyncFormat) {
+        final bookCount = await state.unpackSyncData(json);
+        AppState.instance.apiLog(
+            bookCount > 0 ? '✓ 恢复成功：$bookCount本书目（云同步格式）' : '恢复失败：数据格式错误');
+        ok = bookCount > 0;
+        if (bookCount > 0) {
+          await state.loadSettings();
+          if (state.bookList.isNotEmpty) {
+            await state.selectBook(state.bookList.first);
+          }
+        }
+      } else {
+        // v803：旧格式污染守卫——含mojibake特征的备份拒绝写入书库
+        if (TextCleaner.looksLikeMojibake(json)) {
+          AppState.instance.apiLog(
+              '❌ 恢复中止：备份文件疑似编码污染（${TextCleaner.mojibakeStats(json)}）——请从干净数据源重新导出');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('❌ 备份文件疑似编码污染，已拒绝恢复（详见日志）'),
+                duration: Duration(seconds: 4),
+              ),
+            );
+          }
+          return;
+        }
+        ok = await state.restoreFromJson(json);
+        if (ok && mounted) {
+          AppState.instance.apiLog('恢复成功');
+        }
+      }
+      if (mounted && !ok) {
+        AppState.instance.apiLog('恢复失败：格式错误');
       }
     } catch (e) {
-      if (mounted)
-        AppState.instance.apiLog('恢复失败: $e');;
+      if (mounted) AppState.instance.apiLog('恢复失败: $e');
     }
   }
 
