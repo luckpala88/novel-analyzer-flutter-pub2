@@ -647,7 +647,7 @@ class _HomePageState extends State<HomePage>
     final ok = await _doBackup(
       state,
       'novel_backup_${state.currentBook}_${DateTime.now().toIso8601String().substring(0, 10)}.json',
-      () => state.backupData(backupAll: false),
+      () => state.packageSyncData(onlyBook: state.currentBook), // v800：本地备份改用云同步格式（排障定稿）
     );
     if (mounted && ok) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -660,7 +660,7 @@ class _HomePageState extends State<HomePage>
     final ok = await _doBackup(
       state,
       'novel_backup_all_${DateTime.now().toIso8601String().substring(0, 10)}.json',
-      () => state.backupData(backupAll: true),
+      () => state.packageSyncData(), // v800：全部书目=云同步格式本来就叫全部
     );
     if (mounted && ok) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -672,7 +672,7 @@ class _HomePageState extends State<HomePage>
   Future<bool> _doBackup(
     AppState state,
     String filename,
-    Map<String, dynamic> Function() build,
+    String Function() build,
   ) async {
     // 公共目录模式：先确保运行时存储权限（老手机Android<=9必须，拒绝=写不进去）
     final writable = await state.storage.ensurePublicWritable();
@@ -688,7 +688,7 @@ class _HomePageState extends State<HomePage>
       }
       return false;
     }
-    final json = jsonEncode(build());
+    final json = build();
     final path = state.storage.getBackupPath(filename);
     final ok = state.storage.writeFile(path, json);
     if (ok) {

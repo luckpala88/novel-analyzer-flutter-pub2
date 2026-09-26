@@ -2001,6 +2001,9 @@ class AppState extends ChangeNotifier {
     'scan_step_size',
   ];
 
+  /// v800：mojibake检测（委托TextCleaner）
+  bool looksLikeMojibake(String s) => TextCleaner.looksLikeMojibake(s);
+
   /// 备份数据（和v318格式互通）
   /// [backupAll] true=全部书目+全局设置, false=仅当前书目
   Map<String, dynamic> backupData({bool backupAll = false}) {
@@ -2063,6 +2066,16 @@ class AppState extends ChangeNotifier {
       }
     }
 
+    // v800：逐书书名污染检测——书名乱码的书其数据必然来自被污染的恢复，
+    // 备份会把污染继续传播（v798通天之路事故），点名警告
+    final polluted = data.keys
+        .where((k) => k.startsWith('book:') && looksLikeMojibake(k.substring(5)))
+        .map((k) => k.substring(5))
+        .toList();
+    if (polluted.isNotEmpty) {
+      data['_polluted_books'] = polluted.join('|');
+    }
+
     return data;
   }
 
@@ -2076,7 +2089,8 @@ class AppState extends ChangeNotifier {
 
   /// 打包云同步数据（对应v318的packageSyncData）
   /// 格式：{version:1, timestamp:..., books:{书名:{文件名:内容}}, global:{文件名:内容}}
-  String packageSyncData() {
+  /// v800：[onlyBook] 非空=仅打包该书（本地"备份当前书目"按钮语义保留）
+  String packageSyncData({String? onlyBook}) {
     final pkg = <String, dynamic>{
       'version': 1,
       'timestamp': DateTime.now().millisecondsSinceEpoch,
@@ -2085,8 +2099,14 @@ class AppState extends ChangeNotifier {
     };
 
     // 收集所有书目数据
+    // v800：书名污染守卫——乱码书名的书跳过（其数据来自被污染的恢复，备份会继续传播）
     for (final bookId in bookList) {
       if (bookId.isEmpty) continue;
+      if (onlyBook != null && bookId != onlyBook) continue;
+      if (looksLikeMojibake(bookId)) {
+        apiLog('⚠️ 跳过污染书目（书名乱码，数据来自被污染的恢复）——不纳入备份');
+        continue;
+      }
       final bookData = <String, dynamic>{};
       final bookPath = 'books/$bookId';
 
@@ -2260,9 +2280,17 @@ class AppState extends ChangeNotifier {
       }
 
       // 恢复书目数据
+      // v800：书名污染守卫——乱码书名的书=被污染数据的产物，拒绝创建
+      // （防污染备份再次进书库传播，v798通天之路事故）
+      final pollutedNames = <String>{};
       data.keys.where((k) => k.startsWith('book:')).forEach((key) {
         final bookId = key.substring(5);
         if (bookId.isEmpty) return;
+        if (looksLikeMojibake(bookId)) {
+          pollutedNames.add(bookId);
+          apiLog('❌ 跳过污染书目「\${bookId.length}字乱码名」——其数据来自被污染的恢复，请勿使用该备份');
+          return;
+        }
         storage.createBook(bookId);
         if (!bookList.contains(bookId)) bookList.add(bookId);
 
