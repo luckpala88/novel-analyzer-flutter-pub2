@@ -1004,6 +1004,17 @@ class _WritingPageState extends State<WritingPage>
                     },
                   ),
                   const SizedBox(width: 5),
+                  // v815：自由=改编创作下的子开关（v545原义）；续写模式天然自由，此键无效
+                  MiniButton(
+                    label: '自由',
+                    primary: state.writingFreeMode &&
+                        !state.writingFreeContinue,
+                    onTap: () {
+                      if (state.writingFreeContinue) return;
+                      state.setWritingFreeMode(!state.writingFreeMode);
+                    },
+                  ),
+                  const SizedBox(width: 5),
                   MiniButton(
                     label: '词链',
                     primary: state.writingPromptPreview,
