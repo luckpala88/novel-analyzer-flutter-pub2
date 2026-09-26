@@ -770,6 +770,37 @@ class _ScanPageState extends State<ScanPage>
                                             onPressed: () =>
                                                 _showArcText(state, arc),
                                           ),
+                                          // v819：重提零件——重跑extractArcParts刷新全套零件+详细概述
+                                          const SizedBox(width: 4),
+                                          FilledButton.tonalIcon(
+                                            icon: const Icon(
+                                              Icons.refresh_outlined,
+                                              size: 14,
+                                            ),
+                                            label: const Text('重提零件'),
+                                            style: FilledButton.styleFrom(
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                              textStyle: const TextStyle(
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                            onPressed: _isScanning ||
+                                                    state.sceneStreamBusy
+                                                ? null
+                                                : () async {
+                                                    _addLog(
+                                                        '↻ 弧线${arc.number}重提零件（切片重喂，全套零件+详细概述刷新）…');
+                                                    await extractArcParts(
+                                                      state: state,
+                                                      arc: arc,
+                                                      log: _addLog,
+                                                    );
+                                                    if (mounted) {
+                                                      setState(() {});
+                                                    }
+                                                  },
+                                          ),
                                         ],
                                       ),
                                     ],

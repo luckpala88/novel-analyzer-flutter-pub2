@@ -453,6 +453,8 @@ const Spacer(), // ⚙API推到最右
                                 ),
                                 onCutResume: () =>
                                     _confirmCutResume(state, i),
+                                onRegenSummary: () =>
+                                    _regenSceneSummary(state, i),
                               ),
                             ),
                             Positioned(
@@ -613,6 +615,14 @@ const Spacer(), // ⚙API推到最右
       }
       if (mounted) setState(() {});
     });
+  }
+
+  /// v819：单场景概述重生成（切片重喂，边界/弧线/分组全不动）
+  Future<void> _regenSceneSummary(AppState state, int index) async {
+    if (state.sceneStreamBusy) return;
+    _addLog('↻ 场景${index + 1}概述重生成中…');
+    await regenSceneSummary(state: state, index: index, log: _addLog);
+    if (mounted) setState(() {});
   }
 
   /// 构建单个分镜项

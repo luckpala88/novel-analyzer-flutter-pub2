@@ -24,6 +24,70 @@ import '../widgets/slice_viewer_sheet.dart';
 /// v646：接力前置闭合验证——保留末场景若未自然闭合（中断/剪断硬切），
 /// 自动回退丢弃（其正文随重扫窗口重新划分，原文不丢、边界重画），最多回退
 /// 3个防连环伪闭合。返回实际生效的保留场景数（判定调用失败=按闭合不回退）
+/// v819：单场景概述重生成——完整切片重喂AI，重出summary+changes（v812标准）。
+/// 边界/弧线/分组全不动；给"边界切得对但概述漏关键信息"的轻量修复路径。
+Future<void> regenSceneSummary({
+  required AppState state,
+  required int index, // 0-based
+  required void Function(String msg) log,
+}) async {
+  if (index < 0 || index >= state.globalScenes.length) {
+    log('⛔ 场景序号越界');
+    return;
+  }
+  final sc = state.globalScenes[index];
+  if (sc.text.trim().isEmpty) {
+    log('⛔ 场景${index + 1}无切片正文——无法重概述');
+    return;
+  }
+  final prev = index > 0 ? state.globalScenes[index - 1] : null;
+  final sys = '你是网文场景概述重写员。基于场景完整切片重写概述，供后续弧线分组判定与续写前情使用。\n'
+      '只输出纯JSON：{"summary": "新概述", "changes": "关键变化/得失"}\n'
+      'summary要求（80-150字，信息必须显形）：\n'
+      '- 开头标明视角人物（如"魏索视角："）\n'
+      '- 登场关键角色\n'
+      '- 交代起因、经过的关键情节节点（关键对话承诺/交易/冲突/转折）、结果或未竟之处\n'
+      '- 让只读概述的AI也能知道"这个场景里谁对谁做了什么承诺/交易/敌对动作"\n'
+      'changes要求：本场景中角色的关键得失/变化，10-30字具体化（如"获得火凤肚兜""与姬雅达成合作"）。无实质变化填""';
+  final user = '【场景名】${sc.name}\n'
+      '【章节范围】${sc.chapterRange}\n'
+      '${prev == null ? '' : '【前一场景概述（衔接上下文）】\n${prev.summary}\n\n'}'
+      '【本场景完整切片】\n${sc.text}';
+  state.api.clearAbort();
+  final config = state.getApiConfig('scene');
+  final result = await state.api.callApi(
+    systemPrompt: sys,
+    userPrompt: user,
+    apiConfig: config,
+  );
+  if (!result.isSuccess) {
+    log('⛔ 场景${index + 1}重概述失败：${result.error}');
+    return;
+  }
+  final json = JsonRepair.parseResponse(result.content);
+  final newSummary = json?['summary']?.toString().trim() ?? '';
+  final newChanges = json?['changes']?.toString().trim() ?? '';
+  if (newSummary.isEmpty) {
+    log('⚠️ 场景${index + 1}重概述解析为空——保持原概述');
+    return;
+  }
+  state.globalScenes[index] = Scene(
+    name: sc.name,
+    summary: newSummary,
+    changes: newChanges.isNotEmpty ? newChanges : sc.changes,
+    chapterRange: sc.chapterRange,
+    startChapter: sc.startChapter,
+    endChapter: sc.endChapter,
+    endText: sc.endText,
+    text: sc.text,
+    globalIndex: sc.globalIndex,
+    continuation: sc.continuation,
+    shots: sc.shots,
+  );
+  state.saveGlobalScenes();
+  log('✓ 场景${index + 1}概述已重生成（${newSummary.length}字，changes：${newChanges.isEmpty ? "无变化" : newChanges}）——边界/弧线/分组未动');
+}
+
 Future<int> verifyLastSceneClosure(
   AppState state, {
   required void Function(String msg) log,

@@ -10,6 +10,7 @@ class SceneCardItem extends StatelessWidget {
   final int index; // 显示序号（1-based）
   final VoidCallback? onView; // 切片查看
   final VoidCallback? onCutResume; // v462：从此场景剪断重扫
+  final VoidCallback? onRegenSummary; // v819：单场景概述重生成（切片重喂，边界/弧线不动）
   final Widget? trailing; // 行1右侧自定义区（默认分镜状态徽章）
 
   const SceneCardItem({
@@ -18,6 +19,7 @@ class SceneCardItem extends StatelessWidget {
     required this.index,
     this.onView,
     this.onCutResume,
+    this.onRegenSummary,
     this.trailing,
   });
 
@@ -130,6 +132,21 @@ class SceneCardItem extends StatelessWidget {
                     fontSize: 10, color: V469Style.textMuted),
               ),
               const Spacer(),
+              // v819：单场景概述重生成（切片重喂，边界/弧线不动）
+              if (onRegenSummary != null)
+                GestureDetector(
+                  onTap: onRegenSummary,
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 5),
+                    child: Text(
+                      '↻ 重概述',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFF0E7490),
+                      ),
+                    ),
+                  ),
+                ),
               if (onCutResume != null)
                 GestureDetector(
                   onTap: onCutResume,
