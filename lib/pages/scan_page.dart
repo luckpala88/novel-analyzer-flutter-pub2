@@ -228,16 +228,26 @@ class _ScanPageState extends State<ScanPage>
         await verifyLastSceneClosure(state, log: _addLog);
     if (effKeep != state.globalScenes.length) {
       _addLog('✂ 闭合回退：场景流裁到$effKeep个');
-      state.globalGroupedUpTo = effKeep;
+    }
+    // v818：弧线与流同步裁剪（统一以裁后流长为界）——sceneTo>流长即受影响
+    // （含横跨弧，旧条件sceneFrom>effKeep漏删→平铺≠断点→分组卫兵级联清全场）；
+    // 断点=最后保留弧线sceneTo，保证卫兵通过→增量续分
+    {
+      final streamLen = state.globalScenes.length;
       final stale = state.arcScan?.arcs
-              .where((Arc a) => a.sceneFrom > effKeep)
+              .where((Arc a) => a.sceneTo > streamLen)
               .map((a) => '${a.number}')
               .toSet() ?? <String>{};
       if (stale.isNotEmpty) {
         state.clearArcCascade(arcNumbers: stale);
+        _addLog('ℹ 已级联清空截断影响的${stale.length}条弧线（含横跨弧）及分镜/拆解');
       }
+      final keptArcs = state.arcScan?.arcs
+              .where((Arc a) => a.sceneTo <= streamLen)
+              .toList() ?? <Arc>[];
+      state.globalGroupedUpTo =
+          keptArcs.isEmpty ? 0 : keptArcs.map((a) => a.sceneTo).reduce((a, b) => a > b ? a : b);
     }
-    state.globalGroupedUpTo = state.globalScenes.length;
     // v534b：字符级续切锚点同步重算（保留末场景切片→章索引+章内偏移）
     computeSceneResumeAnchor(state);
     if (state.globalScenes.isNotEmpty) {
@@ -873,13 +883,17 @@ class _ScanPageState extends State<ScanPage>
           state.arcAnalyses.remove(k);
           state.arcScenes.remove(k);
         }
-        state.globalGroupedUpTo = cutIdx;
+        // v818：断点=最后一条保留弧线的sceneTo——横跨弧（sceneFrom<cutIdx<=sceneTo）
+        // 已删，kept平铺可能短于cutIdx；硬设cutIdx会平铺≠断点→分组卫兵级联清全场
+        state.globalGroupedUpTo =
+            kept.isEmpty ? 0 : kept.map((a) => a.sceneTo).reduce((a, b) => a > b ? a : b);
         state.saveArcScan();
         state.saveArcAnalyses();
         state.saveArcScenes();
         state.saveGlobalScenes();
+        final keptEnd = state.globalGroupedUpTo;
         _addLog(
-          '✂ 已剪断重分点：删除$removed条弧线，保留${kept.length}条，分组断点=场景${cutIdx + 1}——点批量→"生成弧线（从场景${cutIdx + 1}继续）"',
+          '✂ 已剪断重分点：删除$removed条弧线，保留${kept.length}条（平铺到场景$keptEnd）——点批量→"生成弧线（从场景${keptEnd + 1}继续）"',
         );
       } catch (e) {
         _addLog('⛔ 剪断重分异常：$e');
