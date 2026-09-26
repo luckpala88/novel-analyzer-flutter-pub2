@@ -2477,21 +2477,20 @@ class _AdaptPageState extends State<AdaptPage>
     try {
       _addLog('🤖 优化新场景规划中（场景$nextNum起编）…');
       // v806：一次只规划一个场景（用户定稿：避免贪多）
+      // v807：工作台永远添加新场景，去掉同号修订规则（简化）
       final sys = '你是网文续写规划师。任务：把用户的粗糙新场景规划扩写为规范场景条目规划，'
-          '供后续写入世界书（同号场景=修订替换原规划）。输出规则：\n'
+          '供后续写入世界书。输出规则：\n'
           '1.⚠️ 只输出一个场景（仅一行），格式严格为：场景N：名称｜概述\n'
           '2.概述80-150字，需含时间地点/出场人物/剧情推进；人物全部沿用原著原名\n'
           '3.必须从当前进度自然衔接\n'
-          '4.编号规则：用户规划与【已有场景规划清单】重叠的场景→沿用其原号输出修订版；'
-          '只有全新场景才用N=$nextNum\n'
+          '4.本场景编号固定为N=$nextNum\n'
           '5.禁止输出第二个场景、解释性文字、小标题、markdown';
       final usr = '【世界书既有设定基准（人物名/人设/状态一律以此为准，禁止自拟新人物新设定；登场角色须是基准里已有的原著角色，用户规划明确新增的除外）】\n${_wbContinuityDigest(state, int.tryParse(arcKey) ?? 0)}\n\n'
           '【当前进度】\n${_continueCtx(state, arcKey)}\n\n'
           '【该弧线世界书条目（节选）】\n'
           '${entry.content.length > 2000 ? entry.content.substring(0, 2000) : entry.content}\n\n'
-          '【已有场景规划清单（同号=修订替换；用户规划覆盖到谁就改谁的号）】\n${_existingScenePlanText(state, arcKey)}\n\n'
           '【用户新场景规划】\n$raw\n\n'
-          '【全新场景起始编号】N=$nextNum';
+          '【本场景编号】N=$nextNum';
       // v783：词链检查
       final okSend = await PromptPreview.maybePreview(
         context,
