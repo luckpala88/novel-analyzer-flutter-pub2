@@ -31,6 +31,21 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Inject update token
+        shell: pwsh
+        run: |
+          # v797：Windows构建同样注入更新token（此前缺失→win版token为占位符
+          # →GitHub API 401→"所有仓库检查更新均失败"→win版无法在线升级到私有库）
+          $f = "lib/pages/home_page.dart"
+          (Get-Content $f -Raw) -replace '__UPD_TOKEN__', '${{ secrets.UPD_TOKEN }}' -replace '__UPD_TOKEN_OLD__', '${{ secrets.UPD_TOKEN_OLD }}' | Set-Content $f -NoNewline -Encoding utf8NoBOM
+          $left = (Select-String -Path $f -Pattern '__UPD_TOKEN' -AllMatches).Matches.Count
+          if ($left -gt 0) { Write-Host "!! placeholder left: $left"; exit 1 }
+          Write-Host "token injected"
+          # v505对齐：_appVersion同步pubspec build号
+          $v = (Select-String -Path "pubspec.yaml" -Pattern '^version:\s*1\.0\.(\d+)\+').Matches.Groups[1].Value
+          (Get-Content $f -Raw) -replace 'static const int _appVersion = \d+', "static const int _appVersion = $v" | Set-Content $f -NoNewline -Encoding utf8NoBOM
+          Write-Host "_appVersion synced=$v"
+
       # 缓存CMake/VS中间产物：首次慢（35-60min），第2轮起~10min
       - name: Cache Windows build intermediates
         uses: actions/cache@v4
