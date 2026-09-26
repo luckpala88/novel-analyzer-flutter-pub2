@@ -2123,10 +2123,13 @@ class _AdaptPageState extends State<AdaptPage>
                         color: const Color(0xFF2C5E8E),
                         fontWeight: FontWeight.w600)), // v783：非正文生成标志
               if (an == null && arc.status == 'generated')
-                MiniButton(
-                  label: '🗑',
-                  primary: false,
-                  onTap: () => _deleteContinueArc(state, arc), // v783：删除重生成
+                Padding(
+                  padding: const EdgeInsets.only(right: 28), // v789：远离右侧滚动条防误触
+                  child: MiniButton(
+                    label: '🗑',
+                    primary: false,
+                    onTap: () => _deleteContinueArc(state, arc),
+                  ),
                 ),
               if (sliceText.isNotEmpty)
                 MiniButton(
@@ -2247,11 +2250,15 @@ class _AdaptPageState extends State<AdaptPage>
                         child: Text(e['label']!,
                             style: TextStyle(fontSize: _cf(11))),
                       ),
-                      MiniButton(
-                        label: '🗑',
-                        primary: false,
-                        onTap: () => _deletePlannedScene(
-                            state, arc.number.toString(), e['num']!),
+                      Padding(
+                        padding:
+                            const EdgeInsets.only(right: 28), // v789：防误触滚动条
+                        child: MiniButton(
+                          label: '🗑',
+                          primary: false,
+                          onTap: () => _deletePlannedScene(
+                              state, arc.number.toString(), e['num']!),
+                        ),
                       ),
                     ],
                   ),
