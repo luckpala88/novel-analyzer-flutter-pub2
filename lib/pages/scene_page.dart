@@ -542,7 +542,7 @@ const Spacer(), // ⚙API推到最右
         content: Text(
           '将丢弃场景${index + 1}-${state.globalScenes.length}（共${state.globalScenes.length - index}个，含「${cut.name}」），'
           '从第${cut.startChapter}章重新扫描。前面${keepCount}个场景的成果保留。\n\n'
-          '注意：若该场景跨章，起始章内属于前一场景的部分会被重新划分。剪断后弧线分组需重新生成。',
+          '注意：若该场景跨章，起始章内属于前一场景的部分会被重新划分。覆盖剪断点的弧线将自动剪除（含横跨弧），前面的弧线成果保留——重扫完成后点批量分组即从断点增量续分。',
         ),
         actions: [
           TextButton(
@@ -585,15 +585,23 @@ const Spacer(), // ⚙API推到最右
         }
         // 分组断点回退：已分组场景数超出保留范围则回退到剪断点
         if (state.globalGroupedUpTo > effKeep) {
-          state.globalGroupedUpTo = effKeep;
-          // v537：超出保留范围的弧线级联清掉（分镜/拆解/正文切片连坐）
+          // v817：sceneTo>剪断点即受重扫影响——含横跨弧（sceneFrom<=effKeep<sceneTo），
+          // 旧条件sceneFrom>effKeep漏删横跨弧→弧线平铺超出断点→分组卫兵级联清全场（用户实测：104弧全灭）
           final stale = state.arcScan?.arcs
-                  .where((Arc a) => a.sceneFrom > effKeep)
+                  .where((Arc a) => a.sceneTo > effKeep)
                   .map((a) => '${a.number}')
                   .toSet() ?? <String>{};
+          final keptArcs = state.arcScan?.arcs
+                  .where((Arc a) => a.sceneTo <= effKeep)
+                  .toList() ?? <Arc>[];
           if (stale.isNotEmpty) {
             state.clearArcCascade(arcNumbers: stale);
-            _addLog('ℹ 已级联清空场景$effKeep之后的${stale.length}条弧线及分镜/拆解');
+            _addLog('ℹ 已级联清空剪断点影响的${stale.length}条弧线（含横跨弧）及分镜/拆解');
+          }
+          // v817：断点=最后一条保留弧线的sceneTo（保证弧线平铺==断点，分组卫兵通过→增量续分）
+          state.globalGroupedUpTo = keptArcs.isEmpty ? 0 : keptArcs.last.sceneTo;
+          if (keptArcs.isNotEmpty) {
+            _addLog('ℹ 保留${keptArcs.length}条弧线（平铺到场景${keptArcs.last.sceneTo}）——重扫完成后点批量分组，从场景${keptArcs.last.sceneTo + 1}增量续分');
           }
         }
         state.saveGlobalScenes();
