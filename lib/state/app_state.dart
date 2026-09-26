@@ -2190,9 +2190,8 @@ class AppState extends ChangeNotifier {
       slice = myArc.text;
     }
     if (slice.trim().isNotEmpty) {
-      final t = slice.length > 500 ? slice.substring(slice.length - 500) : slice;
-      sb.writeln('【最近正文切片结尾（衔接锚点）】');
-      sb.writeln(t);
+      sb.writeln('【最近正文切片（完整，衔接锚点）】');
+      sb.writeln(slice);
       sb.writeln();
     }
     // v811（辅助）：关键设定——当前+最近弧线的【世界观设定】块

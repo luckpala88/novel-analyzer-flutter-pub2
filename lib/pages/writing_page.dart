@@ -2905,17 +2905,20 @@ class _WritingPageState extends State<WritingPage>
           prevSource = '原著前文切片';
         }
       }
-      // v809：自由续写——注入前1-2个场景的原著切片（前文情节锚点）
+      // v812：自由续写——最近场景（si-1）原著切片喂完整；再往前（si-2）喂概述
       String sliceContext = '';
       if (state.writingFreeMode && state.writingFreeContinue) {
         final an = state.arcAnalyses[arcKey.toString()];
         if (an != null) {
-          for (final k in [si - 1, si - 2]) {
-            if (k < 0 || k >= an.scenes.length) continue;
-            final st = an.scenes[k].text.trim();
-            if (st.isEmpty) continue;
-            final t = st.length > 300 ? st.substring(st.length - 300) : st;
-            sliceContext += '【场景${k + 1}原著切片结尾】\n$t\n\n';
+          final k1 = si - 1;
+          if (k1 >= 0 && k1 < an.scenes.length &&
+              an.scenes[k1].text.trim().isNotEmpty) {
+            sliceContext += '【前一场景原著切片（完整）】\n${an.scenes[k1].text.trim()}\n\n';
+          }
+          final k2 = si - 2;
+          if (k2 >= 0 && k2 < an.scenes.length &&
+              an.scenes[k2].summary.trim().isNotEmpty) {
+            sliceContext += '【前二场景概述】\n${an.scenes[k2].summary.trim()}\n\n';
           }
         }
       }

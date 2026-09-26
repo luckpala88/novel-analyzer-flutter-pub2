@@ -2943,7 +2943,7 @@ class _AdaptPageState extends State<AdaptPage>
       slice = myArc.text;
     }
     if (slice.trim().isEmpty) return '';
-    return slice.length > len ? slice.substring(slice.length - len) : slice;
+    return slice; // v812：切片完整喂（用户定稿：现在模型不差这点能力）
   }
 
   /// v782：世界书连贯性摘要——已有弧线条目的【人设】块+标题，附最近弧线条目节选
