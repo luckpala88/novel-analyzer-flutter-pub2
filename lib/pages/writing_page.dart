@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
 import 'dart:typed_data';
@@ -15,6 +16,7 @@ import '../state/app_state.dart';
 import '../models/writing.dart';
 import '../models/api_config.dart';
 import '../utils/prompt_builder.dart';
+import '../widgets/v_scroll_bar.dart'; // v792
 import '../utils/prompt_preview.dart';
 import '../utils/text_cleaner.dart';
 import '../widgets/api_config_panel.dart';
@@ -805,11 +807,50 @@ class _WritingPageState extends State<WritingPage>
   double _fontScale = 1.0;
 
   @override
+  final ScrollController _sceneListCtl = ScrollController(); // v792：主列表滚动
+  Timer? _scrollSaveTimer;
+
   void initState() {
     super.initState();
     ContentFont.load('writing_scene').then((v) {
       if (mounted) setState(() => _fontScale = v);
     });
+    // v792：创作页浏览位置持久化（书级，对齐续写页v784）
+    _sceneListCtl.addListener(() => _scheduleScrollSave(_sceneListCtl));
+    WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _restoreScroll(retries: 3));
+  }
+
+  void _scheduleScrollSave(ScrollController ctl) {
+    if (!ctl.hasClients) return;
+    _scrollSaveTimer?.cancel();
+    _scrollSaveTimer = Timer(const Duration(milliseconds: 500), () {
+      final st = AppState.instance;
+      st.storage.writeFile(
+        '${st.storage.bookPath}writing_scene_off.flag',
+        ctl.offset.toStringAsFixed(0),
+      );
+    });
+  }
+
+  void _restoreScroll({required int retries}) {
+    final st = AppState.instance;
+    final v = double.tryParse(
+        st.storage.readFile('${st.storage.bookPath}writing_scene_off.flag') ??
+            '');
+    if (v == null) return;
+    if (!_sceneListCtl.hasClients) {
+      if (retries > 0) {
+        Future.delayed(
+            const Duration(milliseconds: 400),
+            () => _restoreScroll(retries: retries - 1));
+      }
+      return;
+    }
+    final target = v.clamp(0.0, _sceneListCtl.position.maxScrollExtent);
+    if ((_sceneListCtl.offset - target).abs() > 1) {
+      _sceneListCtl.jumpTo(target);
+    }
   }
 
   void _addLog(String msg) {
@@ -818,6 +859,13 @@ class _WritingPageState extends State<WritingPage>
       if (_logs.length > 100) _logs.removeAt(0);
     });
     AppState.instance.apiLog(msg); // 页面日志同步全局终端（信息出口合一）
+  }
+
+  @override
+  void dispose() {
+    _scrollSaveTimer?.cancel();
+    _sceneListCtl.dispose();
+    super.dispose();
   }
 
   @override
@@ -1430,9 +1478,12 @@ class _WritingPageState extends State<WritingPage>
         ),
       );
     }
-    return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 8),
-      itemCount: arcs.length + 1,
+    return Stack(
+      children: [
+        ListView.builder(
+          controller: _sceneListCtl, // v792
+          padding: const EdgeInsets.only(bottom: 8, right: 12),
+          itemCount: arcs.length + 1,
       itemBuilder: (ctx, i) {
         if (i == 0) return _buildGlobalReqPanel(state);
         i -= 1;
@@ -1485,6 +1536,14 @@ class _WritingPageState extends State<WritingPage>
           ],
         );
       },
+      ), // v792：ListView闭合
+      Positioned(
+        right: 0,
+        top: 0,
+        bottom: 0,
+        child: VScrollBar(_sceneListCtl),
+      ),
+      ],
     );
   }
 
