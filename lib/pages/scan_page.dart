@@ -234,10 +234,10 @@ class _ScanPageState extends State<ScanPage>
     // 断点=最后保留弧线sceneTo，保证卫兵通过→增量续分
     {
       final streamLen = state.globalScenes.length;
-      final stale = state.arcScan?.arcs
-              .where((Arc a) => a.sceneTo > streamLen)
-              .map((a) => '${a.number}')
-              .toSet() ?? <String>{};
+      final stale = <String>{
+        for (final a in (state.arcScan?.arcs ?? const <Arc>[]))
+          if (a.sceneTo > streamLen) a.number.toString(),
+      };
       if (stale.isNotEmpty) {
         state.clearArcCascade(arcNumbers: stale);
         _addLog('ℹ 已级联清空截断影响的${stale.length}条弧线（含横跨弧）及分镜/拆解');

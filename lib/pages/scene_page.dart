@@ -589,10 +589,12 @@ const Spacer(), // ⚙API推到最右
         if (state.globalGroupedUpTo > effKeep) {
           // v817：sceneTo>剪断点即受重扫影响——含横跨弧（sceneFrom<=effKeep<sceneTo），
           // 旧条件sceneFrom>effKeep漏删横跨弧→弧线平铺超出断点→分组卫兵级联清全场（用户实测：104弧全灭）
-          final stale = state.arcScan?.arcs
-                  .where((Arc a) => a.sceneTo > effKeep)
-                  .map((a) => '${a.number}')
-                  .toSet() ?? <String>{};
+          // v820：显式类型字面量——dynamic分发下.toSet()运行时产出Set<dynamic>，
+          // 传clearArcCascade(arcNumbers:Set<String>?)崩溃（用户实测剪断异常）
+          final stale = <String>{
+            for (final a in (state.arcScan?.arcs ?? const <Arc>[]))
+              if (a.sceneTo > effKeep) a.number.toString(),
+          };
           final keptArcs = state.arcScan?.arcs
                   .where((Arc a) => a.sceneTo <= effKeep)
                   .toList() ?? <Arc>[];
