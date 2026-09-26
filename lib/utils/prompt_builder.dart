@@ -990,7 +990,6 @@ class PromptBuilder {
     String arcTitle = '',
     String prevEnding = '',
     String prevSource = '', // v792：衔接锚点来源标注（'切片'→原著前文标头）
-    String sliceContext = '', // v809：自由续写前1-2场景原著切片
     String sceneName = '',
     String sceneChapterRange = '',
     List<Map<String, dynamic>>? attachments,
@@ -1077,26 +1076,12 @@ class PromptBuilder {
 
     // 世界观体系约束已内含在世界书条目content的【世界观设定】区块（v127架构简化）
 
-    // ── 前一场景正文结尾（衔接用，v469同款300字）──
-    // v792：衔接锚点来源由调用方标注（前一场景正文 / 原著前文切片）——
-    // 首场景或前一场景未写时也可注入切片结尾，修续写弧线场景1断层
+    // ── 前一场景正文结尾（衔接用，v469同款300字）——v816：改编链专属（切片衔接已移入续写链）──
     if (prevEnding.isNotEmpty) {
-      sb.writeln(prevSource.contains('切片')
-          ? '## 原著前文结尾（衔接锚点——本弧线首个创作场景，从该结尾自然续写，不要重复）'
-          : '## 前一场景正文结尾（用于衔接，不要重复）');
-      // v812：切片来源喂完整（正文结尾保留300字衔接）
-      sb.writeln(prevSource.contains('切片')
-          ? prevEnding
-          : (prevEnding.length > 300
-              ? prevEnding.substring(prevEnding.length - 300)
-              : prevEnding));
-      sb.writeln();
-    }
-
-    // v809：自由续写——前1-2个场景的原著切片（前文情节锚点，参考不照抄）
-    if (sliceContext.isNotEmpty) {
-      sb.writeln('## 前文原著切片（参考前文情节与笔触，禁止照抄原文）');
-      sb.write(sliceContext);
+      sb.writeln('## 前一场景正文结尾（用于衔接，不要重复）');
+      sb.writeln(prevEnding.length > 300
+          ? prevEnding.substring(prevEnding.length - 300)
+          : prevEnding);
       sb.writeln();
     }
 
@@ -1246,6 +1231,123 @@ class PromptBuilder {
       '任何剧情正文出现在"分镜1"结构块之前、或先写正文再补结构块，都是格式错误=整篇作废。'
       '正确形态示例：场景头 → 场景概述（可选一段）→ 分镜1结构块（分镜1：+全部维度行）→ 分镜1正文 → 分镜2结构块 → 分镜2正文 → …',
     );
+    return sb.toString();
+  }
+
+  /// v816：续写创作system prompt（独立一套——与改编链完全分开，无任何分镜逻辑）
+  static String buildContinueWritingSystemPrompt() {
+    return '你是一位网文续写创作者。任务：基于「续写语料」提供的全部前文状态，创作指定场景的连贯正文。\n\n' +
+        '## 创作原则\n' +
+        '1. 续写语料是唯一内容来源：人物/门派/功法/物品/地名严格沿用语料中的既有名，禁止自拟新名（用户规划明确新增的除外）\n' +
+        '2. 前情是硬约束：语料里的前情概述/未回收伏笔/人物基准描述的已发生事件与人物关系不得矛盾\n' +
+        '3. 从衔接锚点自然续写：锚点是剧情起点，禁止重复锚点内容、禁止复述前文\n' +
+        '4. 情节服从本场景概述与本弧线已规划场景顺序，不越界写后续场景的内容\n' +
+        '5. 反抄写纪律：原著切片只用于衔接与文风校准，禁止照搬原著语句\n\n' +
+        '## 输出要求\n' +
+        '- 直接输出正文：第一行就是正文（或"第X章 标题"），禁止任何结构标记/分镜标记/维度行/解释文字\n' +
+        '- 自然分段（对白独立成段，段间空行，段首空两格），连贯叙事读起来像小说\n' +
+        '- 篇幅1000-2000字（或按用户附加要求），按场景概述写完整，不烂尾\n';
+  }
+
+  /// v816：续写创作user prompt（独立一套——语料/锚点/切片/概述/要求，无分镜结构逻辑）
+  static String buildContinueWritingUserPrompt({
+    required String corpus,
+    String prevEnding = '',
+    String prevSource = '',
+    String sliceContext = '',
+    String sceneName = '',
+    String sceneChapterRange = '',
+    String sceneSummary = '',
+    String requirements = '',
+    String writingPrompt = '',
+    String scenePrompt = '',
+    String arcTitle = '',
+    String styleSample = '',
+    List<Map<String, dynamic>>? attachments,
+    int sceneIdx = 0,
+  }) {
+    final sb = StringBuffer();
+    sb.writeln('## 续写语料（前文状态与设定——人物与设定一律以此为准）');
+    sb.writeln(corpus.isEmpty ? '（暂无语料——本弧线尚无条目，按用户规划与衔接锚点自由创作）' : corpus);
+    sb.writeln();
+    if (prevEnding.isNotEmpty) {
+      sb.writeln(prevSource.contains('切片')
+          ? '## 衔接锚点·原著前文切片（完整——本场景尚未动笔，从这里自然续写，不要重复）'
+          : '## 衔接锚点·最新已创作正文结尾（从这里自然续写，不要重复）');
+      sb.writeln(prevEnding);
+      sb.writeln();
+    }
+    if (sliceContext.isNotEmpty) {
+      sb.writeln('## 前文原著切片与概述（参考情节与笔触，禁止照抄原文）');
+      sb.write(sliceContext);
+      sb.writeln();
+    }
+    if (sceneSummary.trim().isNotEmpty) {
+      sb.writeln('## 本场景概述（中心思想——一切内容必须服务于它）');
+      sb.writeln(sceneSummary.trim());
+      sb.writeln();
+    }
+    sb.writeln('## 待创作场景');
+    sb.writeln('这是该弧线的第${sceneIdx + 1}个场景：${sceneName.isEmpty ? '（按本场景概述创作）' : sceneName}');
+    if (sceneChapterRange.isNotEmpty) {
+      sb.writeln('该场景章节范围：$sceneChapterRange${arcTitle.isNotEmpty ? '（弧线：$arcTitle）' : ''}');
+      final parsed = parseChapterRange(sceneChapterRange);
+      if (parsed.start > 0 && parsed.end > 0 && parsed.end > parsed.start) {
+        final chCount = parsed.end - parsed.start + 1;
+        sb.writeln('⚠️ 该场景原跨$chCount章，正文约${chCount * 2000}-${chCount * 3000}字，保持原著内容密度。');
+      } else if (parsed.start > 0) {
+        sb.writeln('⚠️ 该场景原为1章内容，正文约2000-3000字。');
+      }
+    }
+    if (requirements.trim().isNotEmpty) {
+      sb.writeln();
+      sb.writeln('## 全局要求');
+      sb.writeln(requirements.trim());
+    }
+    if (writingPrompt.trim().isNotEmpty) {
+      sb.writeln();
+      sb.writeln('## 全局创作要求（所有场景通用）');
+      sb.writeln(writingPrompt);
+    }
+    if (scenePrompt.trim().isNotEmpty) {
+      sb.writeln();
+      sb.writeln('## 本场景专属创作要求（与全局要求综合考虑，冲突时以本场景为准）');
+      sb.writeln(scenePrompt);
+    }
+    if (styleSample.isNotEmpty) {
+      sb.writeln();
+      sb.writeln('## 文风范文（模仿原文作者笔法，严禁搬运内容）');
+      sb.writeln('以下是本弧线原著对应片段，仅用于校准文风：');
+      sb.writeln(styleSample);
+      sb.writeln();
+      sb.writeln('模仿要求（只学怎么写，严禁写什么）：');
+      sb.writeln('- 学习：句长节奏、动词密度、对话与叙述配比、描写颗粒度、段落切换习惯');
+      sb.writeln('- 严禁：范文中任何人名、地名、门派、武功、物品、情节、比喻等专有内容出现在你的正文里');
+      sb.writeln('- ⚠️ 范文情节一律禁止复用——你的情节只能来自续写语料与本场景概述');
+    }
+    final styleAtts = (attachments ?? []).where((a) => a['type'] == 'style').toList();
+    final contentAtts = (attachments ?? []).where((a) => a['type'] != 'style').toList();
+    if (styleAtts.isNotEmpty) {
+      sb.writeln();
+      sb.writeln('## 文风素材（学习其笔触腔调，不可抄袭具体内容）');
+      for (final att in styleAtts) {
+        final c = (att['content'] ?? '').toString();
+        sb.writeln('### ${att['name'] ?? ''}');
+        sb.writeln(c.length > 2000 ? '${c.substring(0, 2000)}\n...（截断，共${c.length}字）' : c);
+      }
+    }
+    if (contentAtts.isNotEmpty) {
+      sb.writeln();
+      sb.writeln('## 内容素材（根据设定和剧情恰当融入正文，不可突兀）');
+      for (final att in contentAtts) {
+        final c = (att['content'] ?? '').toString();
+        sb.writeln('### ${att['name'] ?? ''}');
+        sb.writeln(c.length > 2000 ? '${c.substring(0, 2000)}\n...（截断，共${c.length}字）' : c);
+      }
+    }
+    sb.writeln();
+    sb.writeln('## ⚠️ 动笔前最后确认（最高优先级，违反=整篇失败）');
+    sb.writeln('直接输出正文：第一行无任何结构标记；从衔接锚点自然续写不重复前文；人物与设定严格以续写语料为准；写完本场景再停，不烂尾。');
     return sb.toString();
   }
 

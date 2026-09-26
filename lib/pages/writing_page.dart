@@ -992,6 +992,7 @@ class _WritingPageState extends State<WritingPage>
                     onTap: () {
                       state.setWritingFreeMode(false);
                       state.setWritingFreeContinue(false);
+                      _addLog('🔀 创作模式→改编创作（条目链：语料不注入，原著切片只作文风参考）');
                     },
                   ),
                   MiniButton(
@@ -1001,6 +1002,7 @@ class _WritingPageState extends State<WritingPage>
                     onTap: () {
                       state.setWritingFreeMode(true);
                       state.setWritingFreeContinue(true);
+                      _addLog('🔀 创作模式→续写创作（独立续写链：续写语料+衔接锚点+原著切片）');
                     },
                   ),
                   const SizedBox(width: 5),
@@ -1012,6 +1014,7 @@ class _WritingPageState extends State<WritingPage>
                     onTap: () {
                       if (state.writingFreeContinue) return;
                       state.setWritingFreeMode(!state.writingFreeMode);
+                      _addLog('🔀 改编链自由子开关→${!state.writingFreeMode ? '开（不注入分镜结构）' : '关（沿分镜）'}');
                     },
                   ),
                   const SizedBox(width: 5),
@@ -2883,10 +2886,22 @@ class _WritingPageState extends State<WritingPage>
       if (!state.writingFreeMode && !hasShotStruct) {
         _addLog('ℹ️ 条目无分镜结构（只改编到弧线层）——自动自由创作模式');
       }
-      // v545：自由创作——系统prompt末尾追加覆盖令
-      var systemPrompt = PromptBuilder.buildWritingSystemPrompt(
-        hasAdaptation: hasAdaptation,
-      );
+      // v816：顶层模式分流——续写链/改编链各自独立一套提示词（互不混搭）
+      final isContinue =
+          state.writingFreeMode && state.writingFreeContinue;
+      final String systemPrompt;
+      if (isContinue) {
+        systemPrompt = PromptBuilder.buildContinueWritingSystemPrompt();
+        _addLog('🟦 续写创作链：独立续写system prompt（无分镜逻辑）');
+      } else {
+        var sp = PromptBuilder.buildWritingSystemPrompt(
+          hasAdaptation: hasAdaptation,
+        );
+        // v545：自由改编——系统prompt末尾追加覆盖令（v816：仅改编链）
+        if (effectiveFree) sp += PromptBuilder.freeModeOverride();
+        systemPrompt = sp;
+        _addLog('🟧 改编创作链：改编system prompt${effectiveFree ? '（自由改编覆盖令）' : '（沿分镜）'}');
+      }
       // v469对齐：前一场景正文结尾300字（衔接用）
       // v792：首场景/前一场景未写时——原著切片兜底（前一条弧线优先，本弧线次之）
       // 修续写弧线场景1断层：之前零上下文，AI凭条目硬写
@@ -2938,12 +2953,6 @@ class _WritingPageState extends State<WritingPage>
             sliceContext += '【前二场景概述】\n${an.scenes[k2].summary.trim()}\n\n';
           }
         }
-      }
-      if (effectiveFree) {
-        // v792：分支提示词链——自由续写=原著衔接链，自由改编=原自由链
-        systemPrompt += state.writingFreeContinue
-            ? PromptBuilder.freeContinueOverride(prevSource: prevSource)
-            : PromptBuilder.freeModeOverride();
       }
       // v469对齐：弧线标题（从扫描结果找）
       var arcTitle = '';
@@ -3034,7 +3043,32 @@ class _WritingPageState extends State<WritingPage>
           };
         }
       }
-      final userPrompt = PromptBuilder.buildWritingUserPrompt(
+      if (isContinue) {
+        final corpus = state.continueCorpus(arcKey.toString(), includeAnchor: false);
+        _addLog('🟦 续写语料组装完成：${corpus.length}字（锚点${prevEnding.length}字·来源$prevSource·切片段${sliceContext.length}字·文风范文${styleSample.length}字）');
+      }
+      final String userPrompt;
+      if (isContinue) {
+        userPrompt = PromptBuilder.buildContinueWritingUserPrompt(
+          corpus: state.continueCorpus(arcKey.toString(), includeAnchor: false),
+          prevEnding: prevEnding,
+          prevSource: prevSource,
+            sceneName: scene.$1,
+          sceneChapterRange: scene.$2,
+          sceneSummary: sceneSummary,
+          requirements: creationReq,
+          writingPrompt: state.writingPrompt,
+          scenePrompt: state.writingScenePrompts[wkey] ?? '',
+          arcTitle: arcTitle,
+          styleSample: styleSample,
+          attachments: [
+            ...state.writingAttachments,
+            ...(state.sceneAttachments[wkey] ?? const []),
+          ],
+          sceneIdx: si,
+        );
+      } else {
+        userPrompt = PromptBuilder.buildWritingUserPrompt(
         arcKey,
         si,
         worldBookEntries: wbEntriesForPrompt,
@@ -3048,7 +3082,6 @@ class _WritingPageState extends State<WritingPage>
         arcDeclaration: _arcDeclForWriting(state, arcKey.toString()),
         prevEnding: prevEnding,
         prevSource: prevSource,
-        sliceContext: sliceContext,
         sceneName: scene.$1,
         sceneChapterRange: scene.$2,
         // v357：attachments=全局文风素材+本场景内容素材
@@ -3058,7 +3091,8 @@ class _WritingPageState extends State<WritingPage>
         ],
         worldbuildingSystems: state.worldBook?.systems,
         styleSample: styleSample,
-      );
+        );
+      }
 
       final config = state.getApiConfig('writing');
       // v469对齐：提示词预览开关开启时，先弹预览确认后才发送（批量模式跳过——无人值守）
