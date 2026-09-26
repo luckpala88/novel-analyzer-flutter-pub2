@@ -88,7 +88,9 @@ jobs:
       - name: Trigger transfer
         shell: pwsh
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # v782：GITHUB_TOKEN的dispatch不会真正触发新运行（v531防递归结论）——
+          # 换UPD_TOKEN，与Build Release对齐；否则win.zip的转存永远没人做
+          GH_TOKEN: ${{ secrets.UPD_TOKEN }}
         run: |
           $tag = "${{ github.event.inputs.tag || github.ref_name }}"
           curl -s -X POST -H "Authorization: token $env:GH_TOKEN" -H "Content-Type: application/json" `

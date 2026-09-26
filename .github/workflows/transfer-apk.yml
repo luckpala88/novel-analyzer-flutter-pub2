@@ -7,52 +7,56 @@ on:
       tag:
         description: 'tag to transfer (e.g. v497)'
         required: true
-  # v697：Build Release完成后自动转存——推tag即全自动，无需手动dispatch轮询
-  workflow_run:
-    workflows: ["Build Release"]
-    types: [completed]
+  # v782：移除workflow_run自动触发——Build Release/Build Windows各自完成后
+  # 都有Trigger transfer步骤dispatch本workflow，workflow_run与dispatch并发
+  # 撞车正是"成功+失败成对"双触发噪音的根因
 jobs:
   transfer:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     env:
-      TAG: ${{ github.event.inputs.tag || github.event.workflow_run.head_branch }}
+      TAG: ${{ github.event.inputs.tag }}
     steps:
       - name: Publish draft release
         run: |
           # v498：删tag重打会产生draft Release，先发布否则下载404
           # v698d：发布草稿改用GITHUB_TOKEN（pub2自身token必然可见草稿）——
           # UPD_TOKEN是私有库token对pub2草稿可能无读权限；bash -e下查询失败即中止步骤
+          # v782：修python -c缩进错误（原缩进体导致IndentationError被|| true吞掉，草稿发布形同虚设）
           TOKEN="${{ secrets.GITHUB_TOKEN }}"
-          REL_ID=$(curl -s -H "Authorization: token $TOKEN" "https://api.github.com/repos/${{ github.repository }}/releases?per_page=100" | python3 -c "
-              import json,sys
-              r=json.load(sys.stdin)
-              ids=[x['id'] for x in r if x['tag_name']=='${{ env.TAG }}']
-              print(ids[0] if ids else '')" || true)
+          TAG="${{ env.TAG }}"
+          REL_ID=$(curl -s -H "Authorization: token $TOKEN" "https://api.github.com/repos/${{ github.repository }}/releases?per_page=100" | python3 -c "import json,sys; r=json.load(sys.stdin); ids=[x['id'] for x in r if x['tag_name']=='$TAG']; print(ids[0] if ids else '')" || true)
           if [ -n "$REL_ID" ]; then curl -s -X PATCH -H "Authorization: token $TOKEN" -H "Content-Type: application/json" -d '{"draft":false}' "https://api.github.com/repos/luckpala88/novel-analyzer-flutter-pub2/releases/$REL_ID" -o /dev/null && echo "draft已发布"; fi
           exit 0 # v698b：无草稿可发布时if不执行=退出码1会被判步骤失败，兜底归零
-      - name: Download from mirror release
+      - name: Download assets from mirror release
         run: |
-          # v580：重试+大小校验——镜像release未就绪时404的"Not Found"(9字节)
-          # 会被当APK上传（v578事故），<1MB判定为无效
+          # v782：资产独立处理——APK缺失不再阻断win.zip转存（v781竞态事故：
+          # Android先完成→transfer下win.zip时Windows还没传完→跳过+清镜像→
+          # Windows触发transfer时APK已没了→exit 1→win.zip孤悬镜像）
+          # 镜像未就绪时404返回9字节"Not Found"（v578事故），<1MB判无效
+          APK_OK=0; ZIP_OK=0
           for i in 1 2 3 4 5; do
             curl -sL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -o /tmp/app.apk \
               "https://github.com/${{ github.repository }}/releases/download/${{ env.TAG }}/novel_analyzer_flutter.apk"
             APKSIZE=$(stat -c%s /tmp/app.apk 2>/dev/null || echo 0)
-            echo "第${i}次下载：$APKSIZE 字节"
-            if [ "$APKSIZE" -gt 1000000 ]; then break; fi
+            echo "APK第${i}次下载：$APKSIZE 字节"
+            if [ "$APKSIZE" -gt 1000000 ]; then APK_OK=1; break; fi
             sleep 30
           done
-          APKSIZE=$(stat -c%s /tmp/app.apk 2>/dev/null || echo 0)
-          if [ "$APKSIZE" -lt 1000000 ]; then
-            echo "APK下载异常（$APKSIZE 字节，镜像release缺失或未就绪）——中止转存"
-            exit 1
-          fi
-          ls -la /tmp/app.apk
-          # v498：win zip一并下载（存在才下）
+          # v782：win.zip单次下载不重试——Windows构建通常晚于Android很久，
+          # 没就绪就留给Windows自己触发的transfer收尾，不在白等
           curl -sL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -o /tmp/win.zip \
             "https://github.com/${{ github.repository }}/releases/download/${{ env.TAG }}/novel_analyzer_win.zip" || true
-          ls -la /tmp/win.zip || echo "无win zip"
+          WINSIZE=$(stat -c%s /tmp/win.zip 2>/dev/null || echo 0)
+          echo "win.zip下载：$WINSIZE 字节"
+          if [ "$WINSIZE" -gt 1000000 ]; then ZIP_OK=1; fi
+          if [ "$APK_OK" = "0" ] && [ "$ZIP_OK" = "0" ]; then
+            echo "双资产均缺失（镜像release无有效文件）——中止转存"
+            exit 1
+          fi
+          echo "APK_OK=$APK_OK" >> "$GITHUB_ENV"
+          echo "ZIP_OK=$ZIP_OK" >> "$GITHUB_ENV"
+          ls -la /tmp/app.apk /tmp/win.zip
       - name: Upload to private release
         env:
           TOKEN: ${{ secrets.UPD_TOKEN }}
@@ -69,30 +73,41 @@ jobs:
               -d "{\"tag_name\":\"$TAG\",\"name\":\"$TAG\",\"body\":\"CI build via pub mirror\",\"target_commitish\":\"main\"}" \
               "https://api.github.com/repos/$REPO/releases" | python3 -c "import json,sys; r=json.load(sys.stdin); print(r.get('id') or 'ERR:'+str(r.get('errors','')))")
           fi
-          # 删旧同名asset（覆盖）
-          OLD=$(curl -s -H "Authorization: token $TOKEN" "https://api.github.com/repos/$REPO/releases/tags/$TAG" | python3 -c "import json,sys; r=json.load(sys.stdin); print([a['id'] for a in r.get('assets',[]) if a['name']=='novel_analyzer_flutter.apk'][0] if any(a['name']=='novel_analyzer_flutter.apk' for a in r.get('assets',[])) else '')")
-          [ -n "$OLD" ] && curl -s -X DELETE -H "Authorization: token $TOKEN" "https://api.github.com/repos/$REPO/releases/assets/$OLD" && echo "旧asset已删"
-          curl -s -X POST -H "Authorization: token $TOKEN" -H "Content-Type: application/vnd.android.package-archive" \
-            --data-binary @/tmp/app.apk "https://uploads.github.com/repos/$REPO/releases/$REL_ID/assets?name=novel_analyzer_flutter.apk" | python3 -c "import json,sys; r=json.load(sys.stdin); print('uploaded:', r.get('name'), r.get('state'))"
-          # v498：win zip转存（文件有效才传）
-          WINSIZE=$(stat -c%s /tmp/win.zip 2>/dev/null || echo 0)
-          if [ "$WINSIZE" -gt 1000000 ]; then
+          # v782：两资产独立转存，缺谁跳谁，互不阻断
+          if [ "${{ env.APK_OK }}" = "1" ]; then
+            OLD=$(curl -s -H "Authorization: token $TOKEN" "https://api.github.com/repos/$REPO/releases/tags/$TAG" | python3 -c "import json,sys; r=json.load(sys.stdin); print([a['id'] for a in r.get('assets',[]) if a['name']=='novel_analyzer_flutter.apk'][0] if any(a['name']=='novel_analyzer_flutter.apk' for a in r.get('assets',[])) else '')")
+            [ -n "$OLD" ] && curl -s -X DELETE -H "Authorization: token $TOKEN" "https://api.github.com/repos/$REPO/releases/assets/$OLD" && echo "旧APK asset已删"
+            curl -s -X POST -H "Authorization: token $TOKEN" -H "Content-Type: application/vnd.android.package-archive" \
+              --data-binary @/tmp/app.apk "https://uploads.github.com/repos/$REPO/releases/$REL_ID/assets?name=novel_analyzer_flutter.apk" | python3 -c "import json,sys; r=json.load(sys.stdin); print('uploaded:', r.get('name'), r.get('state'))"
+          else
+            echo "APK无效/已被前次transfer转走——跳过（不阻断win.zip）"
+          fi
+          if [ "${{ env.ZIP_OK }}" = "1" ]; then
             OLDW=$(curl -s -H "Authorization: token $TOKEN" "https://api.github.com/repos/$REPO/releases/tags/$TAG" | python3 -c "import json,sys; r=json.load(sys.stdin); print([a['id'] for a in r.get('assets',[]) if a['name']=='novel_analyzer_win.zip'][0] if any(a['name']=='novel_analyzer_win.zip' for a in r.get('assets',[])) else '')")
-            [ -n "$OLDW" ] && curl -s -X DELETE -H "Authorization: token $TOKEN" "https://api.github.com/repos/$REPO/releases/assets/$OLDW"
+            [ -n "$OLDW" ] && curl -s -X DELETE -H "Authorization: token $TOKEN" "https://api.github.com/repos/$REPO/releases/assets/$OLDW" && echo "旧win.zip asset已删"
             curl -s -X POST -H "Authorization: token $TOKEN" -H "Content-Type: application/zip" \
               --data-binary @/tmp/win.zip "https://uploads.github.com/repos/$REPO/releases/$REL_ID/assets?name=novel_analyzer_win.zip" | python3 -c "import json,sys; r=json.load(sys.stdin); print('win uploaded:', r.get('name'), r.get('state'))"
           else
-            echo "无win zip或太小，跳过"
+            echo "无win zip或太小，跳过（Windows构建的transfer负责收尾）"
           fi
       - name: Wipe mirror (source + release + tags)
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # v782：仅当该tag无构建在跑才清镜像——否则后完成构建（通常Windows）
+          # 传的zip会孤悬镜像、被下一次清空吞掉或转存链断裂（v781事故根因）
+          # 后完成构建自己触发的transfer会看到无pending，负责最终清空
+          TAG="${{ env.TAG }}"
+          PENDING=$(curl -s -H "Authorization: token $TOKEN" "https://api.github.com/repos/${{ github.repository }}/actions/runs?head_branch=$TAG&per_page=20" | python3 -c "import json,sys; r=json.load(sys.stdin); n=[x for x in r.get('workflow_runs',[]) if x['name']!='transfer-apk' and x['status'] in ('in_progress','queued')]; print(len(n))")
+          if [ "$PENDING" != "0" ]; then
+            echo "仍有${PENDING}个构建在跑——跳过清镜像（由后完成构建触发的transfer收尾）"
+            exit 0
+          fi
           # 转存完成后清空公共镜像：删release（连assets）→删全部tag→源码抹空（保留.github）
           REL_ID=$(curl -s -H "Authorization: token $TOKEN" "https://api.github.com/repos/${{ github.repository }}/releases" | python3 -c "import json,sys; ids=[str(r['id']) for r in json.load(sys.stdin)]; print(' '.join(ids))")
           for ID in $REL_ID; do curl -s -X DELETE -H "Authorization: token $TOKEN" "https://api.github.com/repos/${{ github.repository }}/releases/$ID"; done
           git config --global user.email ci@bot && git config --global user.name ci-bot
           git clone -q "https://x-access-token:$TOKEN@github.com/${{ github.repository }}.git" /tmp/mirror
-          cd /tmp/mirror && find . -mindepth 1 -maxdepth 1 ! -name '.git' ! -name '.github' -exec rm -rf {} + && git add -A && git commit -qm "wipe" && git push -q origin main
+          cd /tmp/mirror && find . -mindepth 1 -maxdepth 1 ! -name '.git' ! -name '.github' -exec rm -rf {} + && git add -A && (git commit -qm "wipe" || echo "无变更") && git push -q origin main
           for T in $(git tag -l); do git push -q origin :refs/tags/$T; done
           echo "镜像已清空（release+tag+源码）"
