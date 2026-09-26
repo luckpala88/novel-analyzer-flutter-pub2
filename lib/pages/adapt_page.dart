@@ -2634,6 +2634,8 @@ class _AdaptPageState extends State<AdaptPage>
     try {
       _addLog('➕ 生成世界书新弧线条目（弧线$newNum，依据设定与前文推演）…');
       final prevCtx = _continueCtx(state, arc.number.toString());
+      // v805：弧线条目不再生成场景清单（用户定稿：场景规划唯一入口=场景续写页工作台，
+      // 避免条目清单与工作台规划两套数据乱套）
       final sys = '你是原著续写作家。世界书=原样原著（全原名）。任务：为长篇规划一条全新的续写弧线，'
           '输出该弧线的世界书总结条目内容（无分镜结构，场景走自由创作）。格式：\n'
           '弧线N：标题（N=$newNum）\n'
@@ -2643,8 +2645,7 @@ class _AdaptPageState extends State<AdaptPage>
           '【伏笔】：本弧线种下/回收的伏笔\n'
           '【情绪曲线】：如「低谷→希望→兴奋→满足」\n'
           '【作者脑洞】：本弧线的核心幻想点2-3条\n'
-          '然后场景清单（本弧线的场景规划，每项两行）：\n'
-          '场景1：名称\n概述：80-150字\n场景2：…（3-8个场景）\n'
+          '⚠️ 禁止输出任何场景清单（场景规划在场景续写页单独进行）\n'
           '人名一律沿用原著原名；必须从当前进度自然衔接；禁止输出解释性文字。';
       final usr = '【续写方向】\n${_continueReqSource(state).isEmpty ? '（未填写，按故事逻辑自然推进）' : _continueReqSource(state)}\n\n'
           '【世界书既有设定基准（人设/人物名/关系一律以此为准，禁止另起炉灶自拟新人物新设定；新弧线登场角色必须是基准里已有的原著角色）】\n${_wbContinuityDigest(state, newNum)}\n\n'
