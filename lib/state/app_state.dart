@@ -2087,6 +2087,174 @@ class AppState extends ChangeNotifier {
 
   // ===== 云同步数据打包/解包（v318格式）=====
 
+  /// v810：抽取条目中【标记】块（到下一个行首【或结尾；无则空串）
+  String extractMarkedBlock(String content, String mark) {
+    final i = content.indexOf('【$mark】');
+    if (i < 0) return '';
+    var rest = content.substring(i);
+    final nxt =
+        RegExp(r'\n\s*【').firstMatch(rest.substring(mark.length + 2));
+    if (nxt != null) rest = rest.substring(0, mark.length + 2 + nxt.start);
+    return rest.trim();
+  }
+
+  /// v810：当前弧线九件套零件块（概述/人设/矛盾冲突/伏笔/情绪曲线/作者脑洞/不可逆变化）
+  String continueArcCoreBlock(String arcKey) {
+    final myNum = int.tryParse(arcKey) ?? 0;
+    final cur = _continueEntryOf(myNum);
+    if (cur == null || cur.isEmpty) return '';
+    final sb = StringBuffer();
+    for (final m in const [
+      '弧线概述',
+      '人设',
+      '矛盾冲突',
+      '伏笔',
+      '情绪曲线',
+      '作者脑洞',
+      '不可逆变化',
+    ]) {
+      final b = extractMarkedBlock(cur, m);
+      if (b.isNotEmpty) sb.writeln(b);
+    }
+    return sb.toString().trim();
+  }
+
+  /// v810：当前弧线第si场（0-based）的场景块（场景头+概述/正文规划）
+  String continueSceneBlock(String arcKey, int si) {
+    final myNum = int.tryParse(arcKey) ?? 0;
+    final cur = _continueEntryOf(myNum);
+    if (cur == null || cur.isEmpty) return '';
+    final spans =
+        RegExp(r'^场景\d+：', multiLine: true).allMatches(cur).toList();
+    for (var i = 0; i < spans.length; i++) {
+      final n = RegExp(r'\d+').firstMatch(spans[i].group(0)!)?.group(0);
+      if (n == '${si + 1}') {
+        final end = i + 1 < spans.length
+            ? spans[i + 1].start
+            : _nextMarkAfter(cur, spans[i + 1 < spans.length ? i + 1 : i].end);
+        return cur.substring(spans[i].start,
+                i + 1 < spans.length ? spans[i + 1].start : cur.length).trim();
+      }
+    }
+    return '';
+  }
+
+  int _nextMarkAfter(String c, int from) {
+    final m = RegExp(r'\n\s*【').firstMatch(c.substring(from));
+    return m == null ? c.length : from + m.start;
+  }
+
+  /// v810：续写前情块——最近N弧线（概述/人设/矛盾冲突/伏笔）+更早弧线人设基准
+  /// +当前弧线已规划场景概述列表（供创作/规划时"记住前面说了什么"）
+  String continuePrevBlock(String arcKey, {int recentArcs = 3}) {
+    final myNum = int.tryParse(arcKey) ?? 0;
+    final sb = StringBuffer();
+    // 当前弧线已规划场景概述列表
+    final cur = _continueEntryOf(myNum);
+    if (cur != null && cur.isNotEmpty) {
+      final sceneLines = RegExp(r'^(场景\d+：[^\n]*)(\n概述：[^\n]*)?',
+              multiLine: true)
+          .allMatches(cur)
+          .map((m) => m.group(0)!.trim())
+          .toList();
+      if (sceneLines.isNotEmpty) {
+        sb.writeln('【当前弧线$myNum已规划场景】');
+        for (final l in sceneLines) {
+          sb.writeln(l);
+        }
+        sb.writeln();
+      }
+    }
+    // 最近弧线：概述+人设+矛盾冲突+伏笔
+    for (var n = myNum - 1; n >= myNum - recentArcs && n >= 1; n--) {
+      final c = _continueEntryOf(n);
+      if (c == null || c.isEmpty) continue;
+      sb.writeln('【弧线$n（前情）】');
+      for (final m in const ['弧线概述', '人设', '矛盾冲突', '伏笔']) {
+        final b = extractMarkedBlock(c, m);
+        if (b.isNotEmpty) sb.writeln(b);
+      }
+      sb.writeln();
+    }
+    // v811（必选）：最近正文切片结尾——前一条弧线切片优先，本弧线次之（尾部500字）
+    Arc? prevArc;
+    Arc? myArc;
+    for (final a in arcScan?.arcs ?? const <Arc>[]) {
+      if (a.number == myNum - 1) prevArc = a;
+      if (a.number == myNum) myArc = a;
+    }
+    String slice = '';
+    if (prevArc != null && prevArc.text.trim().isNotEmpty) {
+      slice = prevArc.text;
+    } else if (myArc != null && myArc.text.trim().isNotEmpty) {
+      slice = myArc.text;
+    }
+    if (slice.trim().isNotEmpty) {
+      final t = slice.length > 500 ? slice.substring(slice.length - 500) : slice;
+      sb.writeln('【最近正文切片结尾（衔接锚点）】');
+      sb.writeln(t);
+      sb.writeln();
+    }
+    // v811（辅助）：关键设定——当前+最近弧线的【世界观设定】块
+    for (var n = myNum; n >= myNum - recentArcs && n >= 1; n--) {
+      final c = _continueEntryOf(n);
+      if (c == null || c.isEmpty) continue;
+      final b = extractMarkedBlock(c, '世界观设定');
+      if (b.isNotEmpty) {
+        sb.writeln('【关键设定·弧线$n】');
+        sb.writeln(b);
+        sb.writeln();
+      }
+    }
+    // v811（辅助）：映射表（截3000字）
+    final mt = worldBook?.nameMapping ?? '';
+    if (mt.isNotEmpty) {
+      sb.writeln('【映射表】');
+      sb.writeln(mt.length > 3000 ? mt.substring(0, 3000) : mt);
+      sb.writeln();
+    }
+    // 更早弧线：人设基准（密度控制：只留人设）
+    final before = myNum - recentArcs;
+    if (before >= 1) {
+      final sb2 = StringBuffer();
+      String? tailKey;
+      var tailNum = -1;
+      worldBook?.entries.forEach((k, e) {
+        final ak = int.tryParse(e.arcKey ?? '') ?? -1;
+        if (ak < 0 || ak >= before) return;
+        if (e.sceneTag != null && e.sceneTag!.isNotEmpty) return;
+        if (ak > tailNum) {
+          tailNum = ak;
+          tailKey = k;
+        }
+        final i = e.content.indexOf('【人设】');
+        if (i < 0) return;
+        var block = e.content.substring(i);
+        final nxt =
+            RegExp(r'\n\s*【').firstMatch(block.substring(4));
+        if (nxt != null) block = block.substring(0, 4 + nxt.start);
+        sb2.writeln('弧线$ak人设：${block.trim()}');
+        sb2.writeln();
+      });
+      var d = sb2.toString().trim();
+      if (d.length > 6000) d = d.substring(d.length - 6000);
+      if (d.isNotEmpty) {
+        sb.writeln('【更早弧线人设基准】');
+        sb.writeln(d);
+      }
+    }
+    return sb.toString().trim();
+  }
+
+  String? _continueEntryOf(int n) {
+    for (final e in worldBook!.entries.values) {
+      if (e.arcKey == '$n' && (e.sceneTag == null || e.sceneTag!.isEmpty)) {
+        return e.content;
+      }
+    }
+    return null;
+  }
+
   /// 打包云同步数据（对应v318的packageSyncData）
   /// 格式：{version:1, timestamp:..., books:{书名:{文件名:内容}}, global:{文件名:内容}}
   /// v800：[onlyBook] 非空=仅打包该书（本地"备份当前书目"按钮语义保留）

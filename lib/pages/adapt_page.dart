@@ -2485,10 +2485,9 @@ class _AdaptPageState extends State<AdaptPage>
           '3.必须从当前进度自然衔接\n'
           '4.本场景编号固定为N=$nextNum\n'
           '5.禁止输出第二个场景、解释性文字、小标题、markdown';
-      final usr = '【世界书既有设定基准（人物名/人设/状态一律以此为准，禁止自拟新人物新设定；登场角色须是基准里已有的原著角色，用户规划明确新增的除外）】\n${_wbContinuityDigest(state, int.tryParse(arcKey) ?? 0)}\n\n'
+      final usr = '【续写记忆（前情/切片/设定/映射表——人物与设定以此为准，禁止自拟新人物新设定）】\n${state.continuePrevBlock(arcKey)}\n\n'
           '【当前进度】\n${_continueCtx(state, arcKey)}\n\n'
-          '【该弧线世界书条目（节选）】\n'
-          '${entry.content.length > 2000 ? entry.content.substring(0, 2000) : entry.content}\n\n'
+          '【当前弧线零件】\n${state.continueArcCoreBlock(arcKey)}\n\n'
           '【原著前文结尾（切片，衔接锚点——场景从这里自然承接）】\n${_recentSliceTail(state, arcKey)}\n\n'
           '【用户新场景规划】\n$raw\n\n'
           '【本场景编号】N=$nextNum';
@@ -2649,7 +2648,7 @@ class _AdaptPageState extends State<AdaptPage>
           '⚠️ 禁止输出任何场景清单（场景规划在场景续写页单独进行）\n'
           '人名一律沿用原著原名；必须从当前进度自然衔接；禁止输出解释性文字。';
       final usr = '【续写方向】\n${_continueReqSource(state).isEmpty ? '（未填写，按故事逻辑自然推进）' : _continueReqSource(state)}\n\n'
-          '【世界书既有设定基准（人设/人物名/关系一律以此为准，禁止另起炉灶自拟新人物新设定；新弧线登场角色必须是基准里已有的原著角色）】\n${_wbContinuityDigest(state, newNum)}\n\n'
+          '【续写记忆（前情/切片/设定/映射表——人物与设定以此为准，禁止另起炉灶）】\n${state.continuePrevBlock('$newNum')}\n\n'
           '【当前进度】\n$prevCtx\n\n'
           '【原著前文结尾（切片，衔接锚点——新弧线从这里自然承接）】\n${_recentSliceTail(state, newNum.toString())}\n\n'
           '【新弧线编号】N=$newNum';
