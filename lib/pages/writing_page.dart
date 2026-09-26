@@ -983,27 +983,24 @@ class _WritingPageState extends State<WritingPage>
                     ),
                   ),
                   const SizedBox(width: 5),
-                  // v792：自由二选一——自由改编/自由续写走不同提示词链（再点取消回沿分镜）
+                  // v814：顶层模式二选一（用户定稿）——改编创作/续写创作，无第三态，默认改编创作
+                  // 改编创作=沿分镜/自由改编按条目结构自动判定（v582）；续写创作=自由+续写链
                   MiniButton(
-                    label: '自由·改编',
-                    primary: state.writingFreeMode &&
-                        !state.writingFreeContinue,
+                    label: '改编创作',
+                    primary: !(state.writingFreeMode &&
+                        state.writingFreeContinue),
                     onTap: () {
-                      final active =
-                          state.writingFreeMode && !state.writingFreeContinue;
-                      state.setWritingFreeMode(!active);
-                      if (!active) state.setWritingFreeContinue(false);
+                      state.setWritingFreeMode(false);
+                      state.setWritingFreeContinue(false);
                     },
                   ),
                   MiniButton(
-                    label: '自由·续写',
+                    label: '续写创作',
                     primary: state.writingFreeMode &&
                         state.writingFreeContinue,
                     onTap: () {
-                      final active =
-                          state.writingFreeMode && state.writingFreeContinue;
-                      state.setWritingFreeMode(!active);
-                      state.setWritingFreeContinue(!active);
+                      state.setWritingFreeMode(true);
+                      state.setWritingFreeContinue(true);
                     },
                   ),
                   const SizedBox(width: 5),
