@@ -7,6 +7,7 @@ import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter/material.dart';
 
 import '../widgets/slice_viewer_sheet.dart';
+import '../models/world_book.dart' show WBEntry;
 import 'package:provider/provider.dart';
 
 import '../services/file_picker_service.dart';
@@ -2817,6 +2818,13 @@ class _WritingPageState extends State<WritingPage>
         } else {
           _addLog('⚠ 场景${si + 1}无锚定切片（旧数据）——未注入文风范文，请重新划分场景');
         }
+      } else {
+        // v813：改编模式——原著切片只作文风参考，不做衔接锚点（用户定稿：改编原理上不存在失忆）
+        final ref = _buildStyleSample(state, arcKey, si);
+        if (ref.isNotEmpty) {
+          styleSample = ref;
+          _addLog('✓ 改编模式：原著切片注入文风参考${ref.length}字（仅校准笔法）');
+        }
       }
       // v755：防抄袭检测开关+逐镜不用场景切片对照
       if (state.writingPlagiarismCheck && !state.writingShotByShot) {
@@ -2883,7 +2891,8 @@ class _WritingPageState extends State<WritingPage>
           prevSource = '前一场景正文';
         }
       }
-      if (prevEnding.isEmpty) {
+      // v813：原著切片兜底仅限续写模式（改编模式衔接只靠已创作正文+世界书）
+      if (prevEnding.isEmpty && state.writingFreeContinue) {
         final myNum = int.tryParse(arcKey.toString()) ?? 0;
         Arc? prevArc;
         for (final a in state.arcScan?.arcs ?? const <Arc>[]) {
@@ -3001,10 +3010,26 @@ class _WritingPageState extends State<WritingPage>
       if (sceneSummary.isEmpty) {
         _addLog('⚠️ 场景${si + 1}改编条目里没有场景概述（场景头→分镜1之间为空）——本场景概述不注入');
       }
+      // v813：自由续写创作——条目注入换成统一续写语料（不再喂整条弧线条目全文）
+      var wbEntriesForPrompt = state.worldBook!.entries;
+      if (state.writingFreeMode && state.writingFreeContinue) {
+        final corpus = state.continueCorpus(arcKey.toString(), includeAnchor: false);
+        if (corpus.isNotEmpty) {
+          wbEntriesForPrompt = {
+            'corpus_$arcKey': WBEntry(
+              uid: 'corpus_$arcKey',
+              key: '续写语料',
+              comment: '续写统一语料',
+              content: corpus,
+              arcKey: arcKey.toString(),
+            ),
+          };
+        }
+      }
       final userPrompt = PromptBuilder.buildWritingUserPrompt(
         arcKey,
         si,
-        worldBookEntries: state.worldBook!.entries,
+        worldBookEntries: wbEntriesForPrompt,
         freeShotMode: effectiveFree,
         leanShots: false, // v731：精简功能移除
         sceneSummary: sceneSummary,

@@ -2087,6 +2087,139 @@ class AppState extends ChangeNotifier {
 
   // ===== 云同步数据打包/解包（v318格式）=====
 
+  /// v813：续写统一语料（用户定稿固定组成）——所有续写生成任务共用：
+  /// ①衔接锚点（最新已创作正文结尾300字，无正文→最近场景完整原著切片）
+  /// ②本弧线全部零件 ③本弧线已规划场景概述列表 ④前面各弧线概述
+  /// ⑤未回收伏笔汇总 ⑥人物基准（最近弧线完整人设+更早弧线人设前段防自拟）
+  String continueCorpus(String arcKey, {bool includeAnchor = true, int recentArcs = 3}) {
+    final myNum = int.tryParse(arcKey) ?? 0;
+    final sb = StringBuffer();
+    if (includeAnchor) {
+      final tail = _latestWritingTail(300);
+      if (tail.isNotEmpty) {
+        sb.writeln('【衔接锚点·最新已创作正文结尾】');
+        sb.writeln(tail);
+      } else {
+        final slice = _latestSlice(myNum);
+        if (slice.isNotEmpty) {
+          sb.writeln('【衔接锚点·最近场景原著切片（完整，尚未动笔时按此承接）】');
+          sb.writeln(slice);
+        }
+      }
+      sb.writeln();
+    }
+    final core = continueArcCoreBlock(arcKey);
+    if (core.isNotEmpty) {
+      sb.writeln('【本弧线零件】');
+      sb.writeln(core);
+      sb.writeln();
+    }
+    final cur = _continueEntryOf(myNum);
+    if (cur != null && cur.isNotEmpty) {
+      final lines = RegExp(r'^(场景\d+：[^\n]*)(\n概述：[^\n]*)?', multiLine: true)
+          .allMatches(cur)
+          .map((m) => m.group(0)!.trim())
+          .toList();
+      if (lines.isNotEmpty) {
+        sb.writeln('【本弧线已规划场景】');
+        for (final l in lines) {
+          sb.writeln(l);
+        }
+        sb.writeln();
+      }
+    }
+    final prevSummaries = StringBuffer();
+    for (var n = 1; n < myNum; n++) {
+      final c = _continueEntryOf(n);
+      if (c == null || c.isEmpty) continue;
+      final s = extractMarkedBlock(c, '弧线概述');
+      if (s.isNotEmpty) {
+        prevSummaries.writeln(
+            '弧线$n：${s.replaceFirst('【弧线概述】', '').trim()}');
+      }
+    }
+    if (prevSummaries.toString().trim().isNotEmpty) {
+      sb.writeln('【前情概述（前面各弧线）】');
+      sb.write(prevSummaries.toString());
+      sb.writeln();
+    }
+    final fb = StringBuffer();
+    for (var n = 1; n < myNum; n++) {
+      final c = _continueEntryOf(n);
+      if (c == null || c.isEmpty) continue;
+      final block = extractMarkedBlock(c, '伏笔');
+      if (block.isEmpty) continue;
+      for (final line in block.split('\n')) {
+        final l = line.trim();
+        if (l.isEmpty || l.startsWith('【')) continue;
+        if (l.contains('待回收') || l.contains('未回收')) {
+          fb.writeln('弧线$n：$l');
+        }
+      }
+    }
+    if (fb.toString().trim().isNotEmpty) {
+      sb.writeln('【未回收伏笔（续写时注意回收，不要烂尾）】');
+      sb.write(fb.toString());
+      sb.writeln();
+    }
+    for (var n = myNum - 1; n >= myNum - recentArcs && n >= 1; n--) {
+      final c = _continueEntryOf(n);
+      if (c == null || c.isEmpty) continue;
+      final b = extractMarkedBlock(c, '人设');
+      if (b.isNotEmpty) sb.writeln(b);
+    }
+    final before = myNum - recentArcs;
+    if (before >= 1) {
+      final names = StringBuffer();
+      for (var n = 1; n < before; n++) {
+        final c = _continueEntryOf(n);
+        if (c == null || c.isEmpty) continue;
+        final b = extractMarkedBlock(c, '人设');
+        if (b.isEmpty) continue;
+        var head = b.length > 400 ? b.substring(0, 400) : b;
+        names.writeln('弧线$n：${head.replaceAll('\n', ' / ')}');
+      }
+      if (names.toString().trim().isNotEmpty) {
+        sb.writeln('【人物基准（更早弧线，登场角色须在此列，禁止自拟新人物）】');
+        sb.write(names.toString());
+        sb.writeln();
+      }
+    }
+    return sb.toString().trim();
+  }
+
+  /// v813：最新已创作正文结尾（多版本取当前版content即最新；全书按弧线+场景号排序）
+  String _latestWritingTail(int len) {
+    WritingItem? last;
+    writings.forEach((k, w) {
+      if (w.content.trim().isEmpty) return;
+      if (last == null) {
+        last = w;
+        return;
+      }
+      final a = int.tryParse(last!.arcKey) ?? 0;
+      final b = int.tryParse(w.arcKey) ?? 0;
+      if (b > a || (b == a && w.sceneIdx > last!.sceneIdx)) last = w;
+    });
+    final w = last;
+    if (w == null || w.content.trim().isEmpty) return '';
+    final c = w.content.trim();
+    return c.length > len ? c.substring(c.length - len) : c;
+  }
+
+  /// v813：最近场景原著切片（前一条弧线切片优先，本弧线次之，完整）
+  String _latestSlice(int myNum) {
+    Arc? prevArc;
+    Arc? myArc;
+    for (final a in arcScan?.arcs ?? const <Arc>[]) {
+      if (a.number == myNum - 1) prevArc = a;
+      if (a.number == myNum) myArc = a;
+    }
+    if (prevArc != null && prevArc.text.trim().isNotEmpty) return prevArc.text;
+    if (myArc != null && myArc.text.trim().isNotEmpty) return myArc.text;
+    return '';
+  }
+
   /// v810：抽取条目中【标记】块（到下一个行首【或结尾；无则空串）
   String extractMarkedBlock(String content, String mark) {
     final i = content.indexOf('【$mark】');
