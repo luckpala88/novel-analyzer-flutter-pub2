@@ -1745,7 +1745,8 @@ class _AdaptPageState extends State<AdaptPage>
                 controller: _continueTabCtrl,
                 children: [
                   // ── 弧线续写层 ──
-                  Stack(
+                  _TabKeepAlive(
+                    child: Stack(
                     children: [
                       ListView.builder(
                         controller: _contArcCtl,
@@ -1812,8 +1813,10 @@ class _AdaptPageState extends State<AdaptPage>
                       ),
                     ],
                   ),
+                  ),
                   // ── 场景续写层 ──
-                  Stack(
+                  _TabKeepAlive(
+                    child: Stack(
                     children: [
                       ListView.builder(
                         controller: _contSceneCtl,
@@ -1847,6 +1850,7 @@ class _AdaptPageState extends State<AdaptPage>
                         child: VScrollBar(_contSceneCtl),
                       ),
                     ],
+                  ),
                   ),
                   // ── 分镜续写层（v769预留：自由创作暂不推分镜，后续需要再启用）──
                   ListView(
@@ -3066,6 +3070,66 @@ class _AdaptPageState extends State<AdaptPage>
         _reqController.text = state.worldBook!.requirements;
       }
     });
+    // v783：续写页浏览位置+分页索引持久化（书级，防切分页/重启丢位置）
+    _contArcCtl.addListener(
+        () => _scheduleScrollSave('arc', _contArcCtl));
+    _contSceneCtl.addListener(
+        () => _scheduleScrollSave('scene', _contSceneCtl));
+    _continueTabCtrl.addListener(_saveContinueTab);
+    WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _restoreScroll(retries: 3));
+  }
+
+  Timer? _scrollSaveTimer;
+
+  /// v783：滚动位置防抖落盘（书级flag文件）
+  void _scheduleScrollSave(String key, ScrollController ctl) {
+    if (!ctl.hasClients) return;
+    _scrollSaveTimer?.cancel();
+    _scrollSaveTimer = Timer(const Duration(milliseconds: 500), () {
+      final st = AppState.instance;
+      st.storage.writeFile(
+        '${st.storage.bookPath}continue_${key}_off.flag',
+        ctl.offset.toStringAsFixed(0),
+      );
+    });
+  }
+
+  void _saveContinueTab() {
+    final st = AppState.instance;
+    st.storage.writeFile('${st.storage.bookPath}continue_tab.flag',
+        '${_continueTabCtrl.index}');
+  }
+
+  /// v783：恢复浏览位置（列表未挂载时重试，offset夹取到范围内）
+  void _restoreScroll({required int retries}) {
+    final st = AppState.instance;
+    final p = st.storage.bookPath;
+    final tab = int.tryParse(
+            st.storage.readFile('${p}continue_tab.flag') ?? '') ??
+        0;
+    if (tab >= 0 && tab < 3 && _continueTabCtrl.index != tab) {
+      _continueTabCtrl.index = tab;
+    }
+    var pending = false;
+    for (final e in [
+      ('arc', _contArcCtl),
+      ('scene', _contSceneCtl),
+    ]) {
+      final v = double.tryParse(
+          st.storage.readFile('${p}continue_${e.$1}_off.flag') ?? '');
+      if (v == null) continue;
+      if (!e.$2.hasClients) {
+        pending = true;
+        continue;
+      }
+      final target = v.clamp(0.0, e.$2.position.maxScrollExtent);
+      if ((e.$2.offset - target).abs() > 1) e.$2.jumpTo(target);
+    }
+    if (pending && retries > 0) {
+      Future.delayed(const Duration(milliseconds: 400),
+          () => _restoreScroll(retries: retries - 1));
+    }
   }
 
   /// 所有已拆解的弧线（v468 getWBAllArcs）
@@ -6351,5 +6415,25 @@ class _CollapseReqFieldState extends State<_CollapseReqField> {
         ),
       ],
     );
+  }
+}
+
+
+/// v783：TabBarView子页保活——切分页不销毁，滚动位置不丢
+class _TabKeepAlive extends StatefulWidget {
+  final Widget child;
+  const _TabKeepAlive({required this.child});
+  @override
+  State<_TabKeepAlive> createState() => _TabKeepAliveState();
+}
+
+class _TabKeepAliveState extends State<_TabKeepAlive>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }
