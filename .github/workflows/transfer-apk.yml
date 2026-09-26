@@ -64,6 +64,12 @@ jobs:
           TAG="${{ env.TAG }}"
           REPO="luckpala88/novel-analyzer-flutter"
           REL_ID=$(curl -s -H "Authorization: token $TOKEN" "https://api.github.com/repos/$REPO/releases/tags/$TAG" | python3 -c "import json,sys; r=json.load(sys.stdin); print(r.get('id','MISS'))")
+          if [ "$REL_ID" = "MISS" ] && [ "${{ env.APK_OK }}" != "1" ]; then
+            # v785：APK缺失且release不存在=Android构建被取消/失败——禁止创建
+            # 仅zip的release（APP内更新取最高release找APK，残缺包会卡死更新链）
+            echo "APK缺失且release不存在——跳过zip孤悬发布（不创建残缺release）"
+            exit 0
+          fi
           if [ "$REL_ID" = "MISS" ]; then
             # 私有仓可能没有该tag（快照只在镜像仓打tag）——先创建tag指向私有仓main
             MAIN_SHA=$(curl -s -H "Authorization: token $TOKEN" "https://api.github.com/repos/$REPO/git/ref/heads/main" | python3 -c "import json,sys; print(json.load(sys.stdin)['object']['sha'])")
