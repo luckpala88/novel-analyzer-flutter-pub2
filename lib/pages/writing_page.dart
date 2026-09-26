@@ -14,6 +14,7 @@ import '../utils/encoding_detector.dart';
 import '../utils/app_version.dart';
 import '../state/app_state.dart';
 import '../models/writing.dart';
+import '../models/arc.dart'; // v792
 import '../models/api_config.dart';
 import '../utils/prompt_builder.dart';
 import '../widgets/v_scroll_bar.dart'; // v792
@@ -2858,11 +2859,37 @@ class _WritingPageState extends State<WritingPage>
         systemPrompt += PromptBuilder.freeModeOverride();
       }
       // v469对齐：前一场景正文结尾300字（衔接用）
+      // v792：首场景/前一场景未写时——原著切片兜底（前一条弧线优先，本弧线次之）
+      // 修续写弧线场景1断层：之前零上下文，AI凭条目硬写
       var prevEnding = '';
+      var prevSource = '';
       if (si > 0) {
         final prev = state.writings['${arcKey}_${si - 1}'];
         if (prev != null && prev.content.isNotEmpty) {
           prevEnding = prev.content;
+          prevSource = '前一场景正文';
+        }
+      }
+      if (prevEnding.isEmpty) {
+        final myNum = int.tryParse(arcKey.toString()) ?? 0;
+        Arc? prevArc;
+        for (final a in state.arcScan?.arcs ?? const <Arc>[]) {
+          if (a.number == myNum - 1) {
+            prevArc = a;
+            break;
+          }
+        }
+        final slice = (prevArc != null && prevArc.text.trim().isNotEmpty)
+            ? prevArc.text
+            : (state.arcScan?.arcs
+                    .where((a) => a.number == myNum)
+                    .firstWhere((a) => a.text.trim().isNotEmpty,
+                        orElse: () => Arc(number: 0, title: '', chapterRange: ''))
+                    .text ??
+                '');
+        if (slice.trim().isNotEmpty) {
+          prevEnding = slice;
+          prevSource = '原著前文切片';
         }
       }
       // v469对齐：弧线标题（从扫描结果找）
@@ -2951,6 +2978,7 @@ class _WritingPageState extends State<WritingPage>
         arcTitle: arcTitle,
         arcDeclaration: _arcDeclForWriting(state, arcKey.toString()),
         prevEnding: prevEnding,
+        prevSource: prevSource,
         sceneName: scene.$1,
         sceneChapterRange: scene.$2,
         // v357：attachments=全局文风素材+本场景内容素材

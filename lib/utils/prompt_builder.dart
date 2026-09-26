@@ -977,6 +977,7 @@ class PromptBuilder {
     String scenePrompt = '',
     String arcTitle = '',
     String prevEnding = '',
+    String prevSource = '', // v792：衔接锚点来源标注（'切片'→原著前文标头）
     String sceneName = '',
     String sceneChapterRange = '',
     List<Map<String, dynamic>>? attachments,
@@ -1064,8 +1065,12 @@ class PromptBuilder {
     // 世界观体系约束已内含在世界书条目content的【世界观设定】区块（v127架构简化）
 
     // ── 前一场景正文结尾（衔接用，v469同款300字）──
-    if (si > 0 && prevEnding.isNotEmpty) {
-      sb.writeln('## 前一场景正文结尾（用于衔接，不要重复）');
+    // v792：衔接锚点来源由调用方标注（前一场景正文 / 原著前文切片）——
+    // 首场景或前一场景未写时也可注入切片结尾，修续写弧线场景1断层
+    if (prevEnding.isNotEmpty) {
+      sb.writeln(prevSource.contains('切片')
+          ? '## 原著前文结尾（衔接锚点——本弧线首个创作场景，从该结尾自然续写，不要重复）'
+          : '## 前一场景正文结尾（用于衔接，不要重复）');
       sb.writeln(
         prevEnding.length > 300
             ? prevEnding.substring(prevEnding.length - 300)
