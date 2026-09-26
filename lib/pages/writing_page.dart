@@ -982,12 +982,28 @@ class _WritingPageState extends State<WritingPage>
                     ),
                   ),
                   const SizedBox(width: 5),
+                  // v792：自由二选一——自由改编/自由续写走不同提示词链（再点取消回沿分镜）
                   MiniButton(
-                    label: '自由',
-                    primary: state.writingFreeMode,
-                    onTap: () => state.setWritingFreeMode(
-                      !state.writingFreeMode,
-                    ),
+                    label: '自由·改编',
+                    primary: state.writingFreeMode &&
+                        !state.writingFreeContinue,
+                    onTap: () {
+                      final active =
+                          state.writingFreeMode && !state.writingFreeContinue;
+                      state.setWritingFreeMode(!active);
+                      if (!active) state.setWritingFreeContinue(false);
+                    },
+                  ),
+                  MiniButton(
+                    label: '自由·续写',
+                    primary: state.writingFreeMode &&
+                        state.writingFreeContinue,
+                    onTap: () {
+                      final active =
+                          state.writingFreeMode && state.writingFreeContinue;
+                      state.setWritingFreeMode(!active);
+                      state.setWritingFreeContinue(!active);
+                    },
                   ),
                   const SizedBox(width: 5),
                   MiniButton(
@@ -2370,7 +2386,7 @@ class _WritingPageState extends State<WritingPage>
           model: config.effectiveModel,
           temperature: config.temperature,
           draft: true,
-          genMode: '逐镜 · ${state.writingFreeMode ? '自由' : '沿分镜'}',
+          genMode: '逐镜 · ${state.writingFreeMode ? (state.writingFreeContinue ? '自由续写' : '自由改编') : '沿分镜'}',
         );
       } else {
         draftItem!.content = content;
@@ -2855,9 +2871,6 @@ class _WritingPageState extends State<WritingPage>
       var systemPrompt = PromptBuilder.buildWritingSystemPrompt(
         hasAdaptation: hasAdaptation,
       );
-      if (effectiveFree) {
-        systemPrompt += PromptBuilder.freeModeOverride();
-      }
       // v469对齐：前一场景正文结尾300字（衔接用）
       // v792：首场景/前一场景未写时——原著切片兜底（前一条弧线优先，本弧线次之）
       // 修续写弧线场景1断层：之前零上下文，AI凭条目硬写
@@ -2891,6 +2904,12 @@ class _WritingPageState extends State<WritingPage>
           prevEnding = slice;
           prevSource = '原著前文切片';
         }
+      }
+      if (effectiveFree) {
+        // v792：分支提示词链——自由续写=原著衔接链，自由改编=原自由链
+        systemPrompt += state.writingFreeContinue
+            ? PromptBuilder.freeContinueOverride(prevSource: prevSource)
+            : PromptBuilder.freeModeOverride();
       }
       // v469对齐：弧线标题（从扫描结果找）
       var arcTitle = '';
@@ -3059,7 +3078,7 @@ class _WritingPageState extends State<WritingPage>
               versions: versions,
               model: config.effectiveModel,
               temperature: config.temperature,
-              genMode: '逐镜 · ${state.writingFreeMode ? '自由' : '沿分镜'}',
+              genMode: '逐镜 · ${state.writingFreeMode ? (state.writingFreeContinue ? '自由续写' : '自由改编') : '沿分镜'}',
             );
           }
           state.writings[wkey] = writing;
@@ -3314,7 +3333,7 @@ class _WritingPageState extends State<WritingPage>
           versions: versions,
           model: config.effectiveModel,
           temperature: config.temperature,
-          genMode: '整场景 · ${state.writingFreeMode ? '自由' : '沿分镜'}',
+          genMode: '整场景 · ${state.writingFreeMode ? (state.writingFreeContinue ? '自由续写' : '自由改编') : '沿分镜'}',
         );
         state.writings[wkey] = writing;
         state.saveWritings();
@@ -3985,7 +4004,9 @@ class _WritingPageState extends State<WritingPage>
     if (!state.writingModelNote || model.isEmpty) return null;
     final mode = [
       state.writingShotByShot ? '逐镜' : '非逐镜',
-      state.writingFreeMode ? '自由' : '沿分镜',
+      state.writingFreeMode
+          ? (state.writingFreeContinue ? '自由续写' : '自由改编')
+          : '沿分镜',
     ].join('·');
     return '[模型：$model · 温度$temp · $mode · v${AppVersion.v}]';
   }
