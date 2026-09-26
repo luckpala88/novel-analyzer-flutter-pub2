@@ -13,6 +13,8 @@ import '../state/app_state.dart';
 import '../models/arc.dart';
 import '../models/scene.dart';
 import '../utils/prompt_builder.dart';
+import '../models/world_book.dart';
+import '../utils/text_cleaner.dart';
 import '../utils/chinese_number.dart';
 import '../utils/anchor_repair.dart';
 import '../utils/arc_text.dart';
@@ -90,6 +92,122 @@ class _ScenePageState extends State<ScenePage>
 
   final List<String> _logs = [];
   // 展开的场景分镜详情 key: "arcNum_sceneIdx"
+
+  bool _bibleRunning = false; // v782：圣经迭代进行中
+
+  /// v782：故事圣经入口弹窗（增量迭代/重新构建）
+  void _showBibleDialog(AppState state) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('📖 故事圣经'),
+        content: const Text(
+            '按弧线顺序逐个读取弧线总结，迭代世界书「故事圣经」条目（创作页全程注入的权威源）。\n\n'
+            '📖增量迭代：保留现有圣经，逐弧线滚入新事实。\n'
+            '🔄重新构建：清空圣经后从第一条弧线重建。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _iterateBible(state, rebuild: true);
+            },
+            child: const Text('🔄重新构建'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _iterateBible(state, rebuild: false);
+            },
+            child: const Text('📖增量迭代'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// v782：逐弧线迭代故事圣经（增量或重建），写入世界书story_bible条目
+  Future<void> _iterateBible(AppState state, {required bool rebuild}) async {
+    if (_bibleRunning) return;
+    final wb = state.worldBook;
+    if (wb == null) {
+      _addLog('❌ 世界书未初始化');
+      return;
+    }
+    final arcs = state.completedArcs
+        .where((a) => state.arcAnalyses[a.number.toString()] != null)
+        .toList()
+      ..sort((a, b) => a.number.compareTo(b.number));
+    if (arcs.isEmpty) {
+      _addLog('❌ 没有弧线拆解数据——先完成弧线扫描');
+      return;
+    }
+    final config = state.getApiConfig('wb');
+    state.api.clearAbort();
+    state.userAborted = false;
+    setState(() => _bibleRunning = true);
+    try {
+      if (rebuild) {
+        wb.adaptBible = '';
+        _addLog('📖 重新构建故事圣经（${arcs.length}条弧线，逐弧线迭代）…');
+      } else {
+        _addLog(
+            '📖 增量迭代故事圣经（弧线${arcs.first.number}→${arcs.last.number}）…');
+      }
+      for (final a in arcs) {
+        if (state.api.isAborted) {
+          _addLog('⏸ 用户中止');
+          break;
+        }
+        final an = state.arcAnalyses[a.number.toString()]!;
+        final src = StringBuffer()
+          ..writeln('弧线${a.number}：${a.title}')
+          ..writeln(
+              '概述：${(an.metadata?['arc_summary_detailed']?.toString() ?? an.arcSummary).trim()}');
+        for (var si = 0; si < an.scenes.length; si++) {
+          final sc = an.scenes[si];
+          src.writeln('场景${si + 1}：${sc.name}｜${sc.summary.trim()}');
+        }
+        final bible = wb.adaptBible.trim();
+        final r = await state.api.callApi(
+          systemPrompt: PromptBuilder.buildBibleUpdateSystemPrompt(),
+          userPrompt:
+              '【现有圣经（为空=从本弧线起构建）】\n${bible.isEmpty ? '（无——从本弧线开始构建）' : bible}\n\n【弧线${a.number}总结（新事实来源）】\n$src',
+          apiConfig: config,
+        );
+        if (!r.isSuccess) {
+          _addLog('❌ 弧线${a.number}圣经迭代失败：${r.error}');
+          break;
+        }
+        final out = TextCleaner.normalizeAiOutput(r.content).trim();
+        if (out.isEmpty) {
+          _addLog('⚠️ 弧线${a.number}输出为空，跳过');
+          continue;
+        }
+        wb.adaptBible = out;
+        const bibleUid = 'story_bible';
+        final old = wb.entries[bibleUid];
+        wb.entries[bibleUid] = WBEntry(
+          uid: bibleUid,
+          key: old?.key ?? '故事圣经',
+          comment: '全书故事圣经',
+          content: out,
+          constant: true,
+          selective: false,
+          disable: false,
+          order: 1,
+        );
+        state.saveWorldBook();
+        _addLog('✓ 圣经已迭代到弧线${a.number}（${out.length}字）');
+      }
+      _addLog('📖 圣经迭代结束——世界书「故事圣经」条目已更新');
+    } finally {
+      if (mounted) setState(() => _bibleRunning = false);
+    }
+  }
 
   void _addLog(String msg) {
     setState(() {
@@ -211,6 +329,12 @@ class _ScenePageState extends State<ScenePage>
                     onTap: () => state.setScenePromptPreview(
                       !state.scenePromptPreview,
                     ),
+                  ),
+                  const SizedBox(width: 4),
+                  // v782：故事圣经——按弧线分步迭代世界书故事圣经条目
+                  MiniButton(
+                    label: '📖圣经',
+                    onTap: () => _showBibleDialog(state),
                   ),
                   const SizedBox(width: 4),
                   // v288：生成内容字号（本页独立）

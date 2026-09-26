@@ -1750,10 +1750,38 @@ class _AdaptPageState extends State<AdaptPage>
                       ListView.builder(
                         controller: _contArcCtl,
                         padding: const EdgeInsets.fromLTRB(8, 4, 12, 8),
-                        itemCount: allArcs.length + 2, // v781：末尾=添加世界书弧线条目+全局方向规划块
+                        itemCount: allArcs.length + 3, // v782：末尾=添加条目+批量映射表+全局方向规划块
                         itemBuilder: (ctx, i) {
-                          if (i == allArcs.length + 1) {
+                          if (i == allArcs.length + 2) {
                             return _buildContinueReqPlanner(state);
+                          }
+                          if (i == allArcs.length + 1) {
+                            // v782：续写映射表——批量采集（continueMode规则）+弹窗查看
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 8),
+                              child: Center(
+                                child: Wrap(
+                                  spacing: 8,
+                                  children: [
+                                    MiniButton(
+                                      label: '🗺批量生成映射表',
+                                      primary: true,
+                                      onTap: _isGenerating || allArcs.isEmpty
+                                          ? null
+                                          : () => _batchGenNameMap(state),
+                                    ),
+                                    MiniButton(
+                                      label:
+                                          '📄映射表${(state.worldBook?.nameMapping.isNotEmpty ?? false) ? '✓' : ''}',
+                                      primary: false,
+                                      onTap: () =>
+                                          _showMasterOutlineDialog(state),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
                           }
                           if (i >= allArcs.length) {
                             return Padding(
@@ -1879,6 +1907,28 @@ class _AdaptPageState extends State<AdaptPage>
     if (_reqOptChecked && opt.isNotEmpty) return opt;
     if (_reqRawChecked && raw.isNotEmpty) return raw;
     return raw; // 兜底=原始
+  }
+
+
+  /// v782：批量生成映射表——遍历所有弧线条目，逐条喂续写采集（continueMode规则：
+  /// 禁拟新名只登用户新名），与改编页采集管线统一（state.extractNameMapIncrement）
+  Future<void> _batchGenNameMap(AppState state) async {
+    final arcs = _getAllArcs(state);
+    var ok = 0;
+    _addLog('🗺 批量映射表采集开始（${arcs.length}条弧线条目）…');
+    for (final a in arcs) {
+      if (state.api.isAborted) {
+        _addLog('⏸ 用户中止');
+        break;
+      }
+      final ek = _arcEntryKey(state, a.number.toString());
+      if (ek == null) continue;
+      final c = state.worldBook!.entries[ek]!.content.trim();
+      if (c.isEmpty) continue;
+      await state.extractNameMapIncrement(c, sourceLabel: '弧线${a.number}条目');
+      ok++;
+    }
+    _addLog('🗺 批量映射表采集完成（$ok/${arcs.length}条弧线）——📄映射表查看/编辑');
   }
 
   /// v781：全局方向规划块（弧线续写层末尾，样式对齐新增场景工作台）
@@ -2431,6 +2481,7 @@ class _AdaptPageState extends State<AdaptPage>
             '人名一律沿用原著原名；必须从当前进度自然衔接；禁止输出解释性文字。',
         userPrompt:
             '【续写方向】\n${_continueReqSource(state).isEmpty ? '（未填写，按故事逻辑自然推进）' : _continueReqSource(state)}\n\n'
+            '【世界书既有设定基准（人设/人物名/关系一律以此为准，禁止另起炉灶自拟新人物新设定；新弧线登场角色必须是基准里已有的原著角色）】\n${_wbContinuityDigest(state, newNum)}\n\n'
             '【当前进度】\n$prevCtx\n\n'
             '【新弧线编号】N=$newNum',
         apiConfig: config,
@@ -2509,6 +2560,38 @@ class _AdaptPageState extends State<AdaptPage>
     }
   }
 
+
+  /// v782：世界书连贯性摘要——已有弧线条目的【人设】块+标题，附最近弧线条目节选
+  /// （修v781事故：第105弧条目生成时userPrompt零世界书上下文，AI瞎捏人设出"韩立"）
+  String _wbContinuityDigest(AppState state, int beforeNum, {int maxLen = 8000}) {
+    final sb = StringBuffer();
+    String? tailKey;
+    var tailNum = -1;
+    state.worldBook?.entries.forEach((k, e) {
+      final ak = int.tryParse(e.arcKey ?? '') ?? -1;
+      if (ak < 0 || ak >= beforeNum) return;
+      if (e.sceneTag != null && e.sceneTag!.isNotEmpty) return;
+      if (ak > tailNum) { tailNum = ak; tailKey = k; }
+      // 抽【人设】块（到下一个【标记或结尾）
+      final c = e.content;
+      final i = c.indexOf('【人设】');
+      if (i < 0) return;
+      var block = c.substring(i);
+      final nxt = RegExp(r'\n\s*【').firstMatch(block.substring(4));
+      if (nxt != null) block = block.substring(0, 4 + nxt.start);
+      sb.writeln('弧线$ak（${e.comment}）人设基准：${block.trim()}');
+      sb.writeln();
+    });
+    var out = sb.toString().trim();
+    // 最近弧线全文节选（衔接上下文）
+    if (tailKey != null) {
+      final tail = state.worldBook!.entries[tailKey]!.content.trim();
+      final excerpt = tail.length > 2000 ? tail.substring(tail.length - 2000) : tail;
+      out += '\n\n弧线$tailNum条目尾部节选（剧情衔接锚点）：\n$excerpt';
+    }
+    if (out.length > maxLen) out = out.substring(out.length - maxLen);
+    return out;
+  }
 
   /// v765：续写依据——弧线进度+最新正文结尾（声明/条目生成的衔接上下文）
   String _continueCtx(AppState state, String arcKey) {
