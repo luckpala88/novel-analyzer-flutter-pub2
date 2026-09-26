@@ -2477,17 +2477,20 @@ class _AdaptPageState extends State<AdaptPage>
     try {
       _addLog('🤖 优化新场景规划中（场景$nextNum起编）…');
       final sys = '你是网文续写规划师。任务：把用户的粗糙新场景规划扩写为规范场景条目规划，'
-          '供后续原样写入世界书。输出规则：\n'
+          '供后续写入世界书（同号场景=修订替换原规划）。输出规则：\n'
           '1.每行一个场景，格式严格为：场景N：名称｜概述\n'
           '2.概述80-150字，需含时间地点/出场人物/剧情推进；人物全部沿用原著原名\n'
-          '3.必须从当前进度自然衔接；N从$nextNum开始连续编号\n'
-          '4.禁止输出解释性文字、小标题、markdown';
+          '3.必须从当前进度自然衔接\n'
+          '4.编号规则：用户规划与【已有场景规划清单】重叠的场景→沿用其原号输出修订版；'
+          '只有全新场景才从$nextNum开始连续编号\n'
+          '5.禁止输出解释性文字、小标题、markdown';
       final usr = '【世界书既有设定基准（人物名/人设/状态一律以此为准，禁止自拟新人物新设定；登场角色须是基准里已有的原著角色，用户规划明确新增的除外）】\n${_wbContinuityDigest(state, int.tryParse(arcKey) ?? 0)}\n\n'
           '【当前进度】\n${_continueCtx(state, arcKey)}\n\n'
           '【该弧线世界书条目（节选）】\n'
           '${entry.content.length > 2000 ? entry.content.substring(0, 2000) : entry.content}\n\n'
+          '【已有场景规划清单（同号=修订替换；用户规划覆盖到谁就改谁的号）】\n${_existingScenePlanText(state, arcKey)}\n\n'
           '【用户新场景规划】\n$raw\n\n'
-          '【新场景起始编号】N=$nextNum';
+          '【全新场景起始编号】N=$nextNum';
       // v783：词链检查
       final okSend = await PromptPreview.maybePreview(
         context,
@@ -2554,6 +2557,7 @@ class _AdaptPageState extends State<AdaptPage>
     final entry = state.worldBook!.entries[entryKey]!;
     final sb = StringBuffer();
     var added = 0;
+    var replaced = 0; // v792：同号修订计数
     for (final m in RegExp(
       r'^场景(\d+)：(.+?)｜(.+)$',
       multiLine: true,
@@ -2561,17 +2565,22 @@ class _AdaptPageState extends State<AdaptPage>
       final sceneNum = int.tryParse(m.group(1)!) ?? 0;
       final name = m.group(2)!.trim();
       final brief = m.group(3)!.trim();
-      if (RegExp('场景\\s*$sceneNum\\s*[：:]').hasMatch(entry.content)) {
-        continue; // 已存在跳过
+      final block = '场景$sceneNum：$name\n概述：$brief';
+      final span = _sceneBlockSpan(entry.content, sceneNum);
+      if (span != null) {
+        // v792：同号=修订替换原场景块（融合两套规划）
+        entry.content = entry.content.replaceRange(span.$1, span.$2, block);
+        replaced++;
+        _addLog('✓ 场景$sceneNum（$name）已修订替换原规划');
+      } else {
+        sb.writeln();
+        sb.writeln(block);
+        added++;
+        _addLog('✓ 场景$sceneNum（$name）规划已写入世界书');
       }
-      sb.writeln();
-      sb.writeln('场景$sceneNum：$name');
-      sb.writeln('概述：$brief');
-      added++;
-      _addLog('✓ 场景$sceneNum（$name）规划已写入世界书');
     }
-    if (added == 0) {
-      _addLog('ℹ️ 没有新增场景（规划行需格式：场景N：名称｜概述，且N未存在于条目）');
+    if (added == 0 && replaced == 0) {
+      _addLog('ℹ️ 没有新增/修订场景（规划行需格式：场景N：名称｜概述）');
       return;
     }
     // v783：写入预览确认（本步纯代码零AI，预览即检查）
@@ -2603,9 +2612,12 @@ class _AdaptPageState extends State<AdaptPage>
       _addLog('已取消写入');
       return;
     }
-    entry.content = entry.content.trimRight() + '\n' + sb.toString().trimRight();
+    if (added > 0) {
+      entry.content =
+          entry.content.trimRight() + '\n' + sb.toString().trimRight();
+    }
     state.saveWorldBook();
-    _addLog('📖 共写入$added个场景条目（无正文）——创作页出现待创作场景，正文在创作页完成');
+    _addLog('📖 写入完成：新增$added/修订$replaced个场景条目（无正文）——创作页出现待创作场景，正文在创作页完成');
   }
 
 
@@ -2765,6 +2777,40 @@ class _AdaptPageState extends State<AdaptPage>
     }
   }
 
+
+  /// v792：定位条目中场景N块（start=场景N行首，end=下一场景行首或文末）
+  (int, int)? _sceneBlockSpan(String content, int sceneNum) {
+    final spans = RegExp(r'^场景\d+：', multiLine: true).allMatches(content).toList();
+    for (var i = 0; i < spans.length; i++) {
+      final n = RegExp(r'\d+').firstMatch(spans[i].group(0)!)?.group(0);
+      if (n == '$sceneNum') {
+        return (
+          spans[i].start,
+          i + 1 < spans.length ? spans[i + 1].start : content.length,
+        );
+      }
+    }
+    return null;
+  }
+
+  /// v792：该弧线已有场景规划清单文本（喂给优化prompt，同号=修订）
+  String _existingScenePlanText(AppState state, String arcKey) {
+    final ek = _arcEntryKey(state, arcKey);
+    if (ek == null) return '（无）';
+    final c = state.worldBook!.entries[ek]!.content;
+    final lines = c.split('\n');
+    final out = <String>[];
+    for (var i = 0; i < lines.length; i++) {
+      final l = lines[i].trim();
+      if (!RegExp(r'^场景\d+：').hasMatch(l)) continue;
+      var block = l;
+      if (i + 1 < lines.length && lines[i + 1].trim().startsWith('概述：')) {
+        block += '\n${lines[i + 1].trim()}';
+      }
+      out.add(block);
+    }
+    return out.isEmpty ? '（无）' : out.join('\n');
+  }
 
   /// v783：从世界书条目解析AI规划场景行（场景N：名称 + 概述：xxx 或 场景N：名称｜概述）
   /// 返回{'num':场景号, 'label':显示文本}
