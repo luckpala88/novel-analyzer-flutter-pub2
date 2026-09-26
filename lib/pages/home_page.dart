@@ -647,7 +647,10 @@ class _HomePageState extends State<HomePage>
     final ok = await _doBackup(
       state,
       'novel_backup_${state.currentBook}_${DateTime.now().toIso8601String().substring(0, 10)}.json',
-      () => state.packageSyncData(onlyBook: state.currentBook), // v800：本地备份改用云同步格式（排障定稿）
+      () => state.packageSyncData(
+            onlyBook: state.currentBook,
+            includeGlobal: false, // v801：本地备份不含API设置（用户定稿）
+          ),
     );
     if (mounted && ok) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -660,7 +663,7 @@ class _HomePageState extends State<HomePage>
     final ok = await _doBackup(
       state,
       'novel_backup_all_${DateTime.now().toIso8601String().substring(0, 10)}.json',
-      () => state.packageSyncData(), // v800：全部书目=云同步格式本来就叫全部
+      () => state.packageSyncData(includeGlobal: false), // v801：全部书目，不含API设置
     );
     if (mounted && ok) {
       ScaffoldMessenger.of(context).showSnackBar(

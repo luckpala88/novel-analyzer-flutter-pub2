@@ -2090,7 +2090,8 @@ class AppState extends ChangeNotifier {
   /// 打包云同步数据（对应v318的packageSyncData）
   /// 格式：{version:1, timestamp:..., books:{书名:{文件名:内容}}, global:{文件名:内容}}
   /// v800：[onlyBook] 非空=仅打包该书（本地"备份当前书目"按钮语义保留）
-  String packageSyncData({String? onlyBook}) {
+  /// [includeGlobal] false=不打包global/API配置（v801：本地备份只备书数据）
+  String packageSyncData({String? onlyBook, bool includeGlobal = true}) {
     final pkg = <String, dynamic>{
       'version': 1,
       'timestamp': DateTime.now().millisecondsSinceEpoch,
@@ -2134,6 +2135,8 @@ class AppState extends ChangeNotifier {
     }
 
     // 收集全局文件
+    // v801：本地备份不含global/API设置（用户定稿），仅云同步打包
+    if (!includeGlobal) return jsonEncode(pkg);
     final gFiles = storage.listFiles('global');
     for (final fname in gFiles) {
       if (fname.isEmpty) continue;
