@@ -336,6 +336,43 @@ class TextCleaner {
     return t.replaceAll(r'\n', '\n').replaceAll(r'\"', '"');
   }
 
+  /// v787b：条目纯文本的行级JSON壳清洗——AI把整条当JSON对象返回：
+  /// `📖 弧线105": "xxx` / `📖 "【弧线概述】":"承接…` / `▶"【人设】":[` /
+  /// 数组项 `"韦多宝，…`。逐行剥emoji前缀/键引号/值首引号/行尾引号逗号/孤立括号
+  static String unwrapJsonLines(String t) {
+    t = t.replaceAll('\\n', '\n');
+    final out = <String>[];
+    for (var raw in t.split('\n')) {
+      var l = raw.trim();
+      if (l.isEmpty) continue;
+      if (l == '[' || l == ']' || l == '{' || l == '}' || l == '},' || l == '],') {
+        continue;
+      }
+      // 行首装饰emoji/符号
+      l = l.replaceFirst(RegExp(r'''^(?:[^\u4e00-\u9fa5A-Za-z【"'（(]{1,3})+'''), '');
+      // 键值残留：`【X】": "` / `X": "` / `"【X】":"` → `【X】：` / `X：`
+      final km = RegExp(r'^"?((?:【[^】]+】)|[^"：:\s]{1,24})"?\s*[:：]\s*"?').firstMatch(l);
+      if (km != null) {
+        final key = km.group(1)!;
+        l = '$key：${l.substring(km.end)}';
+      } else if (l.startsWith('"')) {
+        l = l.substring(1);
+      }
+      // 行尾引号/逗号/方括号残留
+      while (l.isNotEmpty &&
+          (l.endsWith('"') ||
+              l.endsWith(',') ||
+              l.endsWith('，') ||
+              l.endsWith('[') ||
+              l.endsWith(':') ||
+              l.endsWith('：'))) {
+        l = l.substring(0, l.length - 1).trim();
+      }
+      if (l.isNotEmpty) out.add(l);
+    }
+    return out.join('\n');
+  }
+
   /// v787：剥AI输出首尾的JSON残留引号壳——形如 `": "承接…\n"` 的输出
   /// （低温模型把纯文本当JSON字符串值返回：键前缀+首尾双引号+字面\n）。
   /// 用于续写规划/优化方向等纯文本产物（结构化输出仍走normalizeAiOutput）

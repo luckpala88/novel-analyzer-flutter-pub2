@@ -2670,11 +2670,10 @@ class _AdaptPageState extends State<AdaptPage>
         return;
       }
       var content = TextCleaner.stripQuotedFragment(
-        TextCleaner.decodeLiteralNewlines(
-          TextCleaner.stripDecorativeEmoji(
-            TextCleaner.normalizeAiOutput(
-              result.content,
-              jsonMode: config.formatMode == 'json',
+        TextCleaner.unwrapJsonLines(
+          TextCleaner.decodeLiteralNewlines(
+            TextCleaner.stripDecorativeEmoji(
+              TextCleaner.normalizeAiOutput(result.content), // v788：纯文本产物不走jsonMode(jsonMode正是引号壳根源)
             ),
           ),
         ),
