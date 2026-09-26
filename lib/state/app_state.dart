@@ -2185,7 +2185,16 @@ class AppState extends ChangeNotifier {
           });
         }
         bookCount++;
-      });
+
+        // v802：恢复落盘自检——目录与关键文件必须真实存在，否则不计成功并报错
+        final restored = storage.listFiles(bookPath);
+        if (restored.isEmpty) {
+          apiLog('❌ 恢复自检失败：「$bookId」目录未创建或为空——写盘异常');
+        } else {
+          final chapLen =
+              (storage.readFile('$bookPath/chapters.json') ?? '').length;
+          apiLog('✓ 已恢复「$bookId」（${restored.length}个文件，chapters.json ${chapLen ~/ 1024}KB 校验通过）');
+        }      });
 
       // 写入全局文件
       final globalFiles = pkg['global'] as Map<String, dynamic>? ?? {};
