@@ -2370,7 +2370,8 @@ class _AdaptPageState extends State<AdaptPage>
             '2.概述80-150字，需含时间地点/出场人物/剧情推进；人物全部沿用原著原名\n'
             '3.必须从当前进度自然衔接；N从$nextNum开始连续编号\n'
             '4.禁止输出解释性文字、小标题、markdown',
-        userPrompt: '【当前进度】\n${_continueCtx(state, arcKey)}\n\n'
+        userPrompt: '【世界书既有设定基准（人物名/人设/状态一律以此为准，禁止自拟新人物新设定；登场角色须是基准里已有的原著角色，用户规划明确新增的除外）】\n${_wbContinuityDigest(state, int.tryParse(arcKey) ?? 0)}\n\n'
+            '【当前进度】\n${_continueCtx(state, arcKey)}\n\n'
             '【该弧线世界书条目（节选）】\n'
             '${entry.content.length > 2000 ? entry.content.substring(0, 2000) : entry.content}\n\n'
             '【用户新场景规划】\n$raw\n\n'
