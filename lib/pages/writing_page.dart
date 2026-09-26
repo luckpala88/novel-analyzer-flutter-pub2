@@ -1358,21 +1358,41 @@ class _WritingPageState extends State<WritingPage>
         seen.add(k);
       }
     }
-    // ③ 世界书条目arcKey集合（最终兜底：有世界书就能列）
-    if (result.isEmpty &&
-        state.worldBook != null &&
-        state.worldBook!.entries.isNotEmpty) {
+    // ③ 世界书条目arcKey集合——v787：不再门槛result.isEmpty，
+    // 缺的弧线（🧩续写generated弧线/新加条目）一律补进列表尾
+    {
       final keys = <String>{};
+      final titles = <String, String>{};
       for (final e in state.worldBook!.entries.values) {
         final ak = (e.arcKey ?? '').trim();
-        if (ak.isNotEmpty) keys.add(ak);
+        if (ak.isNotEmpty) {
+          keys.add(ak);
+          titles[ak] ??= e.comment;
+        }
       }
       final sorted = keys.toList()
         ..sort(
           (a, b) => (int.tryParse(a) ?? 0).compareTo(int.tryParse(b) ?? 0),
         );
       for (final k in sorted) {
-        result.add(_PseudoArc(int.tryParse(k) ?? 0, '弧线$k', ''));
+        if (seen.contains(k)) continue;
+        var t = (titles[k] ?? '弧线$k').trim();
+        while (t.isNotEmpty &&
+            (t.startsWith('"') ||
+                t.startsWith('“') ||
+                t.startsWith(':') ||
+                t.endsWith('"') ||
+                t.endsWith('”'))) {
+          t = (t.startsWith(':')
+                  ? t.substring(1)
+                  : t.substring(1).substring(0))
+              .trim();
+        }
+        result.add(_PseudoArc(
+          int.tryParse(k) ?? 0,
+          t.startsWith('弧线') ? t : '弧线$k $t',
+          '续写',
+        ));
         seen.add(k);
       }
     }

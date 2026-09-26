@@ -332,12 +332,6 @@ class _ScenePageState extends State<ScenePage>
                     ),
                   ),
                   const SizedBox(width: 4),
-                  // v782：故事圣经——按弧线分步迭代世界书故事圣经条目
-                  MiniButton(
-                    label: '📖圣经',
-                    onTap: () => _showBibleDialog(state),
-                  ),
-                  const SizedBox(width: 4),
                   // v288：生成内容字号（本页独立）
                   ContentFontButtons(
                     pageKey: 'scene',
