@@ -17,7 +17,8 @@ class FilePickerService {
     // 仅Android实现，桌面MissingPluginException被吞→点添加txt零反应）
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
       try {
-        const typeGroup = XTypeGroup(label: '文本文档', extensions: ['txt']);
+        // v804：加json——恢复备份要选json文件（安卓v798同款问题的桌面版）
+        const typeGroup = XTypeGroup(label: '文本/数据文件', extensions: ['txt', 'json']);
         final file = await openFile(acceptedTypeGroups: [typeGroup]);
         if (file == null) return null;
         return FilePickResult(path: file.path, name: file.name);
