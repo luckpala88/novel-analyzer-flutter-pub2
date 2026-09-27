@@ -91,7 +91,11 @@ Future<AgentToolResult> runTool(AppState state, String tool,
       }
       return AgentToolResult(tool, true, lines.join('\n'));
     case 'query_worldbook':
-      final kw = (args['keyword'] ?? '').toString();
+      var kw = (args['keyword'] ?? '').toString();
+      // v868：符号清洗——去残留引号、全角数字转半角（AI输出符号污染导致检索不中）
+      kw = kw.replaceAll('"', '').replaceAll('“', '').replaceAll('”', '').trim();
+      kw = kw.replaceAllMapped(RegExp(r'[０-９]'),
+          (m) => String.fromCharCode(m[0]!.runes.first - 0xFEE0));
       if (kw.isEmpty) return AgentToolResult(tool, false, '缺少keyword参数');
       final wb = state.worldBook;
       if (wb == null || wb.entries.isEmpty) {
@@ -101,17 +105,25 @@ Future<AgentToolResult> runTool(AppState state, String tool,
       wb.entries.forEach((uid, e) {
         final hay = '${e.key} ${e.comment} ${e.content}';
         if (kw.isEmpty || hay.contains(kw)) {
-          final brief = e.content.length > 120
-              ? e.content.substring(0, 120)
+          // v868：附带条目内场景清单行——此前brief只取前120字=只有概述，
+          // 场景清单在条目后半段，agent"查不到已有场景"的根因
+          final sceneLines = RegExp(r'^场景\d+.*$', multiLine: true)
+              .allMatches(e.content)
+              .map((m2) => m2.group(0)!)
+              .take(30)
+              .join('\n');
+          final brief = e.content.length > 150
+              ? e.content.substring(0, 150)
               : e.content;
-          hits.add('【${e.key}】${e.comment}\n$brief…');
+          hits.add('【${e.key}】${e.comment}\n$brief…'
+              '${sceneLines.isNotEmpty ? '\n已有场景：\n$sceneLines' : '\n（条目内暂无场景清单）'}');
         }
       });
       if (hits.isEmpty) {
         return AgentToolResult(tool, true, '世界书无「$kw」命中条目');
       }
-      return AgentToolResult(
-          tool, true, '命中${hits.length}条（取前10）：\n${hits.take(10).join('\n')}');
+      return AgentToolResult(tool, true,
+          '命中${hits.length}条（取前10）：\n${hits.take(10).join('\n\n')}');
     case 'write_scene':
       final arc = (args['arc'] as num?)?.toInt() ?? 0;
       final sc = ((args['scene'] as num?)?.toInt() ?? 1) - 1; // UI场景号1基→0基
