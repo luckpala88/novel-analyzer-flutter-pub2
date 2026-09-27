@@ -38,6 +38,47 @@ class _HomePageState extends State<HomePage>
   @override
   void initState() {
     super.initState();
+    // v854：启动引导——公共目录模式缺"所有文件访问"授权时弹引导（卸载重装后必触发）
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (!mounted) return;
+      final st = context.read<AppState>();
+      if (!st.storage.needsPublicGrant()) return;
+      final go = await showDialog<bool>(
+        context: context,
+        builder: (d) => AlertDialog(
+          title: const Text('需要存储权限'),
+          content: const Text(
+              '检测到公共目录模式但缺少"所有文件访问"授权\n\n'
+              '没有它APP将无法读写书籍数据（卸载重装后常见）\n\n'
+              '点"去授权"跳转系统开关页，打开后返回即可。'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(d, false),
+                child: const Text('改用专属目录')),
+            FilledButton(
+                onPressed: () => Navigator.pop(d, true),
+                child: const Text('去授权')),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      if (go == true) {
+        await st.storage.ensurePublicWritable();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('授权后请回到存储模式重新选择"公共目录"'),
+              duration: Duration(seconds: 5)));
+        }
+      } else {
+        final ok = await st.storage.setStorageMode('appprivate');
+        AppState.instance.apiLog(ok
+            ? '已切换到专属目录（无需权限；卸载APP会清除此目录数据）'
+            : '切换失败');
+      }
+    });
+
     _silentCheckUpdate();
   }
 

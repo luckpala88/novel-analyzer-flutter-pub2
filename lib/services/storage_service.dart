@@ -301,6 +301,24 @@ class StorageService {
   /// 书目路径前缀
   String get bookPath => _currentBook.isNotEmpty ? 'books/$_currentBook/' : '';
 
+  /// v854：启动引导检测——配置为公共模式但公共目录写测试失败=缺"所有文件访问"授权
+  bool needsPublicGrant() {
+    if (_isDesktop) return false;
+    if (prefsStorageMode() != 'public') return false;
+    final dir = Directory('/storage/emulated/0/Documents');
+    try {
+      final probe = File('${dir.path}/.na_write_test');
+      probe.writeAsStringSync('t');
+      probe.deleteSync();
+      return false; // 可写=无需授权
+    } catch (_) {
+      return true; // 写失败=缺授权
+    }
+  }
+
+  /// prefs中记录的存储模式
+  String prefsStorageMode() => _storageMode;
+
   /// v386：确保公共目录可写——老手机（Android<=9）公共Documents需要运行时存储权限，
   /// 主工程从未申请过=备份/导出静默失败。返回false=用户拒绝（调用方应提示）
   /// v850：Android 11+走MANAGE_EXTERNAL_STORAGE"所有文件访问"授权页
