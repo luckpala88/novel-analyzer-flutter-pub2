@@ -377,7 +377,7 @@ class _CloudSyncPanelState extends State<CloudSyncPanel> {
     // v850：公共目录模式先确保"所有文件访问"授权（Android 11+卸载重装后必丢）
     final writable = await widget.state.storage.ensurePublicWritable();
     if (!writable) {
-      _log('❌ 存储权限被拒绝——公共目录写不进，请授权或切专属目录模式');
+      _log('❌ 存储权限被拒绝——手动修复：系统设置→应用→网文拆解器→特殊访问权限→所有文件访问→允许');
       _setWorking(false, '存储权限被拒绝');
       return;
     }
@@ -419,7 +419,7 @@ class _CloudSyncPanelState extends State<CloudSyncPanel> {
     // v850：公共目录模式先确保"所有文件访问"授权（恢复写盘同理）
     final writable = await widget.state.storage.ensurePublicWritable();
     if (!writable) {
-      _log('❌ 存储权限被拒绝——恢复数据写不进本地，请授权或切专属目录模式');
+      _log('❌ 存储权限被拒绝——手动修复：系统设置→应用→网文拆解器→特殊访问权限→所有文件访问→允许');
       _setWorking(false, '存储权限被拒绝');
       return;
     }

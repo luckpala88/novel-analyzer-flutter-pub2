@@ -2579,7 +2579,8 @@ class AppState extends ChangeNotifier {
         final restored = storage.listFiles(bookPath);
         if (restored.isEmpty) {
           apiLog('❌ 恢复自检失败：「$bookId」目录未创建或为空——'
-              '写盘异常：${storage.lastWriteError ?? '未知（见上方❌行）'}');
+              '写盘异常：${storage.lastWriteError ?? '未知（见上方❌行）'}。'
+              '⚠️ 手动修复：系统设置→应用→网文拆解器→特殊访问权限→所有文件访问→允许，然后重新恢复');
           failCount++;
         } else {
           bookCount++;
