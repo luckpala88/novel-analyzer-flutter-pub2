@@ -2436,14 +2436,28 @@ class _AdaptPageState extends State<AdaptPage>
             ],
           ),
           const SizedBox(height: 6),
-          Center(
-            child: MiniButton(
-              label: '⚙生成世界书新场景条目', // v783：语义对齐弧线键
-              primary: false,
-              onTap: _isGenerating
-                  ? null
-                  : () => _writePlannedSceneToWb(state, arc),
-            ),
+          // v826：写入前AI细化开关+写入按钮（细化结果回填优化框可手改，写入预览兜底）
+          Row(
+            children: [
+              SizedBox(
+                width: 28,
+                height: 32,
+                child: Checkbox(
+                  value: _preWriteRefine,
+                  onChanged: (v) =>
+                      setState(() => _preWriteRefine = v ?? true),
+                ),
+              ),
+              Expanded(
+                child: MiniButton(
+                  label: '⚙生成世界书新场景条目${_preWriteRefine ? "（先AI细化再写入）" : ""}',
+                  primary: false,
+                  onTap: _isGenerating
+                      ? null
+                      : () => _writePlannedSceneToWb(state, arc),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -2550,6 +2564,24 @@ class _AdaptPageState extends State<AdaptPage>
       return;
     }
     if (arc != null && !_closedArcGuard(state, arc)) return; // v781：闭合守卫（v824：0弧线开新书跳过）
+    // v826：写入前AI细化（开关默认开）——完善补充/剔除毒点，细化结果回填优化框可手改
+    if (_preWriteRefine) {
+      setState(() => _isGenerating = true);
+      String? refined;
+      try {
+        refined = await _refineScenePlanBeforeWrite(state, arcKey, source);
+      } finally {
+        if (mounted) setState(() => _isGenerating = false);
+      }
+      if (refined != null && refined.trim().isNotEmpty) {
+        source = refined.trim();
+        state.worldBook?.continuePlans[_plannerOptKey(arcKey)] = source;
+        state.saveWorldBook();
+        setState(() => _newSceneOptChecked = true);
+      } else {
+        _addLog('⚠️ 写入前细化失败/为空——按原规划写入');
+      }
+    }
     final entry = state.worldBook!.entries[entryKey]!;
     final sb = StringBuffer();
     var added = 0;
@@ -2614,6 +2646,62 @@ class _AdaptPageState extends State<AdaptPage>
     }
     state.saveWorldBook();
     _addLog('📖 写入完成：新增$added/修订$replaced个场景条目（无正文）——创作页出现待创作场景，正文在创作页完成');
+  }
+
+  /// v826：写入前AI细化——对勾选的场景规划做终审：完善补充+剔除毒点后再落世界书
+  /// 返回null/空=细化失败（调用方回退原规划写入）；输出保持"场景N：名称｜概述"逐行格式
+  Future<String?> _refineScenePlanBeforeWrite(
+      AppState state, String arcKey, String source) async {
+    final config = state.getApiConfig('wb');
+    state.api.clearAbort();
+    state.userAborted = false;
+    _addLog('🤖 写入前细化中（完善补充/剔除毒点）…');
+    final sys = '你是网文续写主编。世界书条目即将写入的场景规划交给你终审细化。规则：\n'
+        '1.逐场景优化：完善时间地点/人物动机/因果衔接，补充让场景立得住的必要细节\n'
+        '2.剔除毒点：与语料设定冲突、逻辑硬伤、主角降智、人物OOC、跳出衔接锚点的情节——直接修正或删掉该情节\n'
+        '3.人物全部沿用原著原名，禁止自拟新人物新设定\n'
+        '4.输出格式与输入完全一致：每场景一行"场景N：名称｜概述"（编号保持不变），概述80-150字\n'
+        '5.只输出场景行，禁止解释性文字、小标题、markdown';
+    final usr = '【续写语料（锚点/本弧线零件/已规划场景/前情概述/未回收伏笔/人物基准——人物与设定以此为准）】\n${state.continueCorpus(arcKey)}\n\n'
+        '【待写入的场景规划（逐场景终审细化）】\n$source';
+    final okSend = await PromptPreview.maybePreview(
+      context,
+      sysPrompt: sys,
+      userPrompt: usr,
+      title: '写入前AI细化词链预览（弧线$arcKey）',
+      enabled: state.wbPromptPreview,
+    );
+    if (!okSend) {
+      _addLog('已取消细化——按原规划写入');
+      return null;
+    }
+    final result = await state.api.callApi(
+      task: '写入前细化',
+      systemPrompt: sys,
+      userPrompt: usr,
+      apiConfig: config,
+    );
+    if (!result.isSuccess) {
+      _addLog('❌ 写入前细化失败：${result.error}');
+      return null;
+    }
+    final content = TextCleaner.stripQuotedFragment(
+      TextCleaner.unwrapJsonLines(
+        TextCleaner.decodeLiteralNewlines(
+          TextCleaner.stripDecorativeEmoji(
+            TextCleaner.normalizeAiOutput(result.content),
+          ),
+        ),
+      ),
+    );
+    final hits =
+        RegExp(r'^场景\d+：.+?｜.+$', multiLine: true).allMatches(content).length;
+    if (content.trim().isEmpty || hits == 0) {
+      _addLog('⚠️ 细化输出无有效场景行——回退原规划');
+      return null;
+    }
+    _addLog('✓ 细化完成：$hits个场景——已回填优化框，可手改后写入');
+    return content;
   }
 
 
@@ -3169,6 +3257,7 @@ class _AdaptPageState extends State<AdaptPage>
   // v780：新增场景规划工作台（勾选状态，输入文本持久化在continuePlans专用key）
   bool _newSceneRawChecked = false; // 用户原始规划勾选（写入世界书时的备选源）
   bool _newSceneOptChecked = true; // AI优化规划勾选（默认写入源）
+  bool _preWriteRefine = true; // v826：写入前AI细化开关（完善补充/剔除毒点，默认开）
   bool _reqRawChecked = true; // v781：原始续写方向勾选
   bool _reqOptChecked = true; // v781：优化方向勾选
   final ScrollController _arcListCtl = ScrollController(); // v771：弧线列表垂直滚动条
