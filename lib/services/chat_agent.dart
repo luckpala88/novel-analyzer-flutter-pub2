@@ -22,6 +22,7 @@ const String agentToolDoc = '''
 4. {"tool":"get_arcs"} —— 弧线列表（编号/标题/闭合状态/场景范围）
 5. {"tool":"query_worldbook","args":{"keyword":"关键词"}} —— 世界书条目检索（返回命中条目名与摘要）
 6. {"tool":"start_batch_shots"} —— 启动批量拆分镜（全部已划分未拆场景；需用户确认；长任务，去分镜页盯终端进度）
+7. {"tool":"write_scene","args":{"arc":1,"scene":1}} —— 创作指定弧线第N个场景的续写正文（需用户确认；前提：世界书已有该场景条目；长任务，正文写到创作页）
 规则：一次只发一个指令，发出后停止等待结果；任务完成后用自然语言汇报结果；用户闲聊/问功能时不要发指令。
 ''';
 
@@ -111,6 +112,16 @@ Future<AgentToolResult> runTool(AppState state, String tool,
       }
       return AgentToolResult(
           tool, true, '命中${hits.length}条（取前10）：\n${hits.take(10).join('\n')}');
+    case 'write_scene':
+      final arc = (args['arc'] as num?)?.toInt() ?? 0;
+      final sc = ((args['scene'] as num?)?.toInt() ?? 1) - 1; // UI场景号1基→0基
+      if (state.continueWriteStarter == null) {
+        return AgentToolResult(
+            tool, false, '创作页尚未打开过——请用户先切到创作页一次，再重试');
+      }
+      final ok = await state.continueWriteStarter!('$arc', sc);
+      return AgentToolResult(tool, ok,
+          ok ? '弧线$arc场景${sc + 1}续写正文已完成（结果在创作页）' : '创作失败（场景不存在或生成报错，详情见终端）');
     case 'start_batch_shots':
       if (state.batchShotStarter == null) {
         return AgentToolResult(tool, false,

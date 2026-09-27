@@ -815,6 +815,12 @@ class _WritingPageState extends State<WritingPage>
 
   void initState() {
     super.initState();
+    // v843：注册agent创作钩子——聊天经确认后远程触发单场景续写
+    Future.microtask(() {
+      final st = context.read<AppState>();
+      st.continueWriteStarter =
+          (String arcKey, int si) => _createSceneWriting(st, arcKey, si, batch: true);
+    });
     ContentFont.load('writing_scene').then((v) {
       if (mounted) setState(() => _fontScale = v);
     });

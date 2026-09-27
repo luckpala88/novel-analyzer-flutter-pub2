@@ -69,6 +69,8 @@ class AppState extends ChangeNotifier {
   ApiConfig chatApi = ApiConfig(); // v833：聊天页独立API配置
   // v840：agent工具钩子——分镜页initState注册批量拆分入口，聊天agent经确认后调用
   Future<void> Function()? batchShotStarter;
+  // v843：agent创作钩子——创作页initState注册单场景续写入口(arcKey,场景idx0基)
+  Future<bool> Function(String arcKey, int sceneIdx)? continueWriteStarter;
   // 世界书API
   ApiConfig wbApi = ApiConfig();
   // 场景API
