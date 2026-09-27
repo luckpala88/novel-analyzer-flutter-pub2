@@ -655,7 +655,16 @@ class TextCleaner {
     if (samePair) {
       final inner = x.substring(1, x.length - 1).trim();
       // 剥后为空=整段就是俩引号（空正文包装），不返回空串
-      if (inner.isNotEmpty) x = inner;
+      // v869：内部含同类引号=对话段（“回禀师尊……‘只是……’……休养。”）
+      // 首尾引号是正文自己的对话引号，不是AI壳——绝不剥（用户截图实证：
+      // 草稿对话段首“尾”成对被吃，与stripQuotedFragment同一判定标准）
+      final hasInnerQuote = inner.contains('"') ||
+          inner.contains('\u201c') ||
+          inner.contains('\u201d') ||
+          inner.contains("'") ||
+          inner.contains('\u2018') ||
+          inner.contains('\u2019');
+      if (inner.isNotEmpty && !hasInnerQuote) x = inner;
     }
     return x;
   }

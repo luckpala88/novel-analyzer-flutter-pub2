@@ -44,5 +44,13 @@ void main() {
       final body = '“对白开头。”正文继续。';
       expect(TextCleaner.stripQuotedFragment(body), body);
     });
+    test('v869：stripWrapQuotes对话段（内部含引号）不剥', () {
+      final body = '“回禀师尊，护岛大阵受损严重。”刘鸣快速禀报，“只是……恐需些时日休养。”';
+      expect(TextCleaner.stripWrapQuotes(body), body);
+    });
+    test('v869：stripWrapQuotes纯壳段仍剥', () {
+      expect(TextCleaner.stripWrapQuotes('“这是一段没有任何引号的普通叙述内容哦”'), '这是一段没有任何引号的普通叙述内容哦');
+    });
   });
 }
+

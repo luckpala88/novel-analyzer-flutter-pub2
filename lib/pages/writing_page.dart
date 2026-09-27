@@ -4553,7 +4553,7 @@ class _WritingPageState extends State<WritingPage>
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               child: Text(
-                raw2,
+                '　　$raw2',
                 style: TextStyle(
                   fontSize: fontSize,
                   height: 1.8,
@@ -4578,7 +4578,7 @@ class _WritingPageState extends State<WritingPage>
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
           child: Text(
-            raw,
+            '　　$raw',
             style: TextStyle(
               fontSize: fontSize,
               height: 1.8,
