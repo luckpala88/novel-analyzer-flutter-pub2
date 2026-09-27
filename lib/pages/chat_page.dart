@@ -857,13 +857,30 @@ class _ChatPageState extends State<ChatPage>
             : CrossAxisAlignment.start,
         children: [
           _bubbleBody(state, m, isUser),
-          // v836：重新回答——重发该轮提问，新答案追加不覆盖
-          if (!isUser && idx > 0 && !_sending && m.content != '…')
+          // v863：气泡下操作行——复制（全部消息）+重新回答（AI消息）
+          if (!_sending && m.content != '…')
             Padding(
               padding: const EdgeInsets.only(top: 2),
-              child: MiniButton(
-                label: '↻ 重新回答',
-                onTap: () => _regen(state, idx),
+              child: Wrap(
+                spacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  MiniButton(
+                    label: '📋 复制',
+                    onTap: () {
+                      Clipboard.setData(
+                          ClipboardData(text: _copyPlain(m.content)));
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('已复制（纯文本）'),
+                          duration: Duration(seconds: 1)));
+                    },
+                  ),
+                  if (!isUser && idx > 0)
+                    MiniButton(
+                      label: '↻ 重新回答',
+                      onTap: () => _regen(state, idx),
+                    ),
+                ],
               ),
             ),
         ],
