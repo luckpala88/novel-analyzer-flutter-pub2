@@ -875,6 +875,29 @@ class _ChatPageState extends State<ChatPage>
                           duration: Duration(seconds: 1)));
                     },
                   ),
+                  // v864：转发——调系统分享面板（微信/QQ等已安装应用）
+                  MiniButton(
+                    label: '↗ 转发',
+                    onTap: () {
+                      final plain = _copyPlain(m.content);
+                      final title = '【${m.role == 'user' ? '我' : 'AI'}】';
+                      if (m.attachments.isNotEmpty) {
+                        // 带附件：把图片/文件一并分享（文本+首图）
+                        final img = m.attachments
+                            .where((a) => a.isImage)
+                            .toList();
+                        if (img.isNotEmpty) {
+                          final tmp = File(
+                              '${Directory.systemTemp.path}/chat_share_${DateTime.now().millisecondsSinceEpoch}.png');
+                          tmp.writeAsBytesSync(base64Decode(img.first.data));
+                          Share.shareXFiles([XFile(tmp.path)],
+                              text: '$title\n$plain');
+                          return;
+                        }
+                      }
+                      Share.share('$title\n$plain');
+                    },
+                  ),
                   if (!isUser && idx > 0)
                     MiniButton(
                       label: '↻ 重新回答',
