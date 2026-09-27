@@ -723,13 +723,13 @@ class _ChatPageState extends State<ChatPage>
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _navBtn('⎯↑', () {
+                        _navBtn('⏫', () {
                           _curFloor = 0;
                           if (_listCtl.hasClients) _listCtl.jumpTo(0);
                         }),
                         _navBtn('↑', () => _jumpFloor(-1)),
                         _navBtn('↓', () => _jumpFloor(1)),
-                        _navBtn('↓⎯', () {
+                        _navBtn('⏬', () {
                           // v862：同步直达底部（不走postFrame，点击即生效）
                           _curFloor = state_msgCount - 1;
                           if (_listCtl.hasClients) {
