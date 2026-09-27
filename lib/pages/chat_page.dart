@@ -24,15 +24,11 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage>
     with AutomaticKeepAliveClientMixin {
   final ApiService _chatApi = ApiService(); // 独立实例
-  final ScrollController _listCtl = ScrollController(); // v845：回滚普通列表（ScrollablePositionedList启动死循环）
+  final ScrollController _listCtl = ScrollController();
   final TextEditingController _inputCtl = TextEditingController();
   final FocusNode _inputFocus = FocusNode();
   bool _sending = false;
   final List<ChatAttachment> _pending = []; // v838：待发送附件
-  bool _didOpenJump = false; // v845：首次进入跳末尾标记
-  // v844：jumpTo节流——scrollable_positioned_list每次jump都触发目标布局，
-  // 流式期间逐chunk调用=布局风暴=主线程卡死（v842死机根因），500ms内只跳一次
-  int _lastJumpMs = 0;
 
   @override
   bool get wantKeepAlive => true;
@@ -53,22 +49,12 @@ class _ChatPageState extends State<ChatPage>
     super.dispose();
   }
 
-  // v845：回滚普通列表——打开/新消息直达末尾（v842的ScrollablePositionedList启动死循环弃用）
   void _jumpBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_listCtl.hasClients) {
         _listCtl.jumpTo(_listCtl.position.maxScrollExtent);
       }
     });
-  }
-
-  // v845：侧边快捷键——顶/底精确，上/下层≈翻一屏（普通列表无按index跳，近似定位）
-  void _jumpFloor(int delta) {
-    if (!_listCtl.hasClients) return;
-    final pos = _listCtl.position;
-    final target = (pos.pixels + delta * pos.viewportDimension * 0.85)
-        .clamp(0.0, pos.maxScrollExtent);
-    _listCtl.jumpTo(target);
   }
 
   // ===== v838：附件选择 =====
@@ -154,30 +140,6 @@ class _ChatPageState extends State<ChatPage>
   void _toast(String msg) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
-  }
-
-  /// v842：半透明圆形楼层导航键
-  Widget _navBtn(String label, VoidCallback? onTap) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 34,
-          height: 34,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: const Color(0x99C89137), // 半透明金棕
-            borderRadius: BorderRadius.circular(17),
-          ),
-          child: Text(label,
-              style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white)),
-        ),
-      ),
-    );
   }
 
   /// v836：历史文本构造（含upto索引，inclusive）——v840：tool消息入历史
@@ -493,17 +455,21 @@ class _ChatPageState extends State<ChatPage>
       body: Column(
         children: [
           Expanded(
-            // v842：Stack包裹——列表+右侧楼层快捷键浮层；v845列表回滚普通ListView
-            child: Stack(
-              children: [
-                if (sess != null && sess.messages.isNotEmpty)
-                  ListView.builder(
+            child: sess == null || sess.messages.isEmpty
+                ? Center(
+                    child: Text(
+                      sess == null ? '点右上「新建」开始会话' : '输入第一条消息开始聊天',
+                      style: const TextStyle(color: Color(0xFF9B8F7A)),
+                    ),
+                  )
+                : ListView.builder(
                     controller: _listCtl,
                     padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
                     itemCount: sess.messages.length,
                     itemBuilder: (ctx, i) {
                       final m = sess.messages[i];
                       if (m.role == 'tool') {
+                        // v840：工具执行结果窄条
                         return Align(
                           alignment: Alignment.center,
                           child: Container(
@@ -528,61 +494,10 @@ class _ChatPageState extends State<ChatPage>
                         );
                       }
                       final isUser = m.role == 'user';
-                      // v845：打开/切回聊天页时定位到末尾（一次性）
-                      if (!_didOpenJump) {
-                        _didOpenJump = true;
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (_listCtl.hasClients) {
-                            _listCtl.jumpTo(_listCtl.position.maxScrollExtent);
-                          }
-                        });
-                      }
                       return _bubble(state, m, isUser, i);
                     },
-                  )
-                else
-                  Center(
-                    child: Text(
-                      sess == null ? '点右上「新建」开始会话' : '输入第一条消息开始聊天',
-                      style: const TextStyle(color: Color(0xFF9B8F7A)),
-                    ),
                   ),
-                // v842：右侧竖排半透明楼层快捷键（有消息时显示）
-                if (sess != null && sess.messages.isNotEmpty)
-                  // v847：只锚bottom——v842的top+bottom双约束在键盘弹出时聊天区
-                  // 高度被压缩成负值→布局崩溃循环→输入文字即死+启动卡死根因
-                  Positioned(
-                    right: 4,
-                    bottom: 90,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _navBtn('⤒', () => _listCtl.hasClients ? _listCtl.jumpTo(0) : null),
-                        _navBtn('↑', () => _jumpFloor(-1)),
-                        _navBtn('↓', () => _jumpFloor(1)),
-                        _navBtn('⤓', () => _jumpBottom()),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
           ),
-// v842：右侧竖排半透明楼层快捷键（有消息时显示）
-          if (sess != null && sess.messages.isNotEmpty)
-            Positioned(
-              right: 4,
-              top: 60,
-              bottom: 120,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _navBtn('⤒', () => _listCtl.hasClients ? _listCtl.jumpTo(0) : null),
-                  _navBtn('↑', () => _jumpFloor(-1)),
-                  _navBtn('↓', () => _jumpFloor(1)),
-                  _navBtn('⤓', () => _jumpBottom()),
-                ],
-              ),
-            ),
           if (_sending)
             Padding(
               padding: const EdgeInsets.only(bottom: 4),
@@ -741,12 +656,6 @@ class _ChatPageState extends State<ChatPage>
                           base64Decode(a.data),
                           width: 180,
                           fit: BoxFit.cover,
-                          // v846：坏base64兜底，防启动build反复崩
-                          errorBuilder: (_, __, ___) => const SizedBox(
-                              height: 40,
-                              child: Center(
-                                  child: Text('🖼 图片数据损坏',
-                                      style: TextStyle(fontSize: 12)))),
                         ),
                       )
                     : Container(
