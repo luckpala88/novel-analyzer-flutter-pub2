@@ -605,20 +605,7 @@ class _ChatPageState extends State<ChatPage>
     if (isJson) {
       try {
         final obj = jsonDecode(trimmed);
-        const enc = JsonEncoder.withIndent('  ');
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF5F1E6),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: SelectableText(
-            enc.convert(obj),
-            style: const TextStyle(
-                fontSize: 12.5, height: 1.45, fontFamily: 'monospace'),
-          ),
-        );
+        return _jsonWidget(obj);
       } catch (_) {}
     }
     return SelectableText.rich(
@@ -679,6 +666,90 @@ class _ChatPageState extends State<ChatPage>
     }
     if (inCode && codeBuf.isNotEmpty) spans.add(_codeSpan(codeBuf.toString()));
     return spans;
+  }
+
+  // ===== v839：JSON结构化卡片渲染（通用规则，非写死schema）=====
+  // object→字段块(key金色小标)；数组→卡片列表；长字符串→正文段；短值→键值行
+  Widget _jsonWidget(dynamic node, {String? key, bool inCard = false}) {
+    Widget body;
+    if (node is Map) {
+      final kids = <Widget>[];
+      for (final e in node.entries) {
+        final v = e.value;
+        // 标量短值→行；复合→递归块
+        if (v is String || v is num || v is bool) {
+          kids.add(Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: SelectableText.rich(
+              TextSpan(children: [
+                TextSpan(
+                    text: '${_zhKey(e.key)}：',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF8B5E1E))),
+                TextSpan(text: '$v'),
+              ]),
+              style: const TextStyle(fontSize: 14, height: 1.5),
+            ),
+          ));
+        } else {
+          kids.add(_jsonWidget(v, key: e.key.toString(), inCard: inCard));
+        }
+      }
+      body = Column(
+          crossAxisAlignment: CrossAxisAlignment.start, children: kids);
+    } else if (node is List) {
+      body = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final item in node)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F1E6),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE2D9C6)),
+                ),
+                child: _jsonWidget(item, inCard: true),
+              ),
+            ),
+        ],
+      );
+    } else {
+      // 标量（含数组内长文本正文）
+      final s = node.toString();
+      body = SelectableText(s,
+          style: const TextStyle(fontSize: 14, height: 1.5));
+    }
+    // 组key标题（顶层不显）
+    if (key == null) return body;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 4, bottom: 3),
+          child: Text(_zhKey(key),
+              style: const TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF8B5E1E))),
+        ),
+        body,
+      ],
+    );
+  }
+
+  /// key美化：下划线/驼峰→空格（不做翻译，AI的key多为英文短语）
+  String _zhKey(String k) {
+    final spaced = k
+        .replaceAllMapped(RegExp(r'_+'), (m) => ' ')
+        .replaceAllMapped(
+            RegExp(r'([a-z])([A-Z])'), (m) => '${m.group(1)} ${m.group(2)}');
+    if (spaced.isEmpty) return spaced;
+    return spaced[0].toUpperCase() + spaced.substring(1);
   }
 
   InlineSpan _codeSpan(String s) {
