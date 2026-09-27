@@ -53,6 +53,16 @@ class _ChatPageState extends State<ChatPage>
     });
   }
 
+  /// v836：历史文本构造（含upto索引，inclusive）
+  String _histText(List<ChatMessage> msgs, int upto) {
+    final hist = StringBuffer();
+    for (var i = 0; i <= upto && i < msgs.length; i++) {
+      hist.writeln(
+          '${msgs[i].role == 'user' ? "用户" : "AI"}：${msgs[i].content}');
+    }
+    return hist.toString();
+  }
+
   Future<void> _send(AppState state) async {
     final text = _inputCtl.text.trim();
     if (text.isEmpty || _sending) return;
@@ -72,24 +82,49 @@ class _ChatPageState extends State<ChatPage>
         content: text,
         ts: DateTime.now().millisecondsSinceEpoch,
       ));
-      sess!.messages.add(ChatMessage(
+    });
+    _inputCtl.clear();
+    final hist = _histText(sess.messages, sess.messages.length - 1);
+    await _generate(state, text, hist);
+  }
+
+  /// v836：重新回答——把该条AI回复对应的提问重新发送，新答案追加不覆盖旧答案
+  Future<void> _regen(AppState state, int aiIdx) async {
+    if (_sending) return;
+    final sess = state.chatActive;
+    if (sess == null || aiIdx <= 0) return;
+    // 向前找最近的user消息
+    String text = '';
+    var userIdx = -1;
+    for (var i = aiIdx - 1; i >= 0; i--) {
+      if (sess.messages[i].role == 'user') {
+        text = sess.messages[i].content;
+        userIdx = i;
+        break;
+      }
+    }
+    if (text.isEmpty) return;
+    // 历史=该提问及之前（不含旧AI答案与更早内容）——fresh重答
+    final hist = _histText(sess.messages, userIdx);
+    await _generate(state, text, hist);
+  }
+
+  /// v836：生成核心（追加assistant占位→流式更新→落盘），供_send/_regen共用
+  Future<void> _generate(AppState state, String text, String hist) async {
+    final sess = state.chatActive;
+    if (sess == null || _sending) return;
+    setState(() {
+      sess.messages.add(ChatMessage(
         role: 'assistant',
         content: '…',
         ts: DateTime.now().millisecondsSinceEpoch,
       ));
       _sending = true;
     });
-    _inputCtl.clear();
     state.saveChatSessions();
     _jumpBottom();
 
-    final replyIdx = sess!.messages.length - 1;
-    // 历史→prompt（全量携带；篇章大了再砍）
-    final hist = StringBuffer();
-    for (final m in sess.messages) {
-      if (identical(m, sess.messages[replyIdx])) continue;
-      hist.writeln('${m.role == 'user' ? "用户" : "AI"}：${m.content}');
-    }
+    final replyIdx = sess.messages.length - 1;
     final sys = '你是网文创作搭子，与作者自由聊天：可以讨论剧情/人物/设定/写作技巧，'
         '也可以闲聊；同时你是本APP「网文拆解器」的功能助手，作者问APP功能/选项/流程时按下助手手册解答，'
         '手册没写的不要编。回答直接自然，不需要客套。当前书目：${state.currentBook}'
@@ -249,7 +284,7 @@ class _ChatPageState extends State<ChatPage>
                     itemBuilder: (ctx, i) {
                       final m = sess.messages[i];
                       final isUser = m.role == 'user';
-                      return _bubble(state, m, isUser);
+                      return _bubble(state, m, isUser, i);
                     },
                   ),
           ),
@@ -300,7 +335,30 @@ class _ChatPageState extends State<ChatPage>
     );
   }
 
-  Widget _bubble(AppState state, ChatMessage m, bool isUser) {
+  Widget _bubble(AppState state, ChatMessage m, bool isUser, int idx) {
+    return Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Column(
+        crossAxisAlignment: isUser
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
+        children: [
+          _bubbleBody(state, m, isUser),
+          // v836：重新回答——重发该轮提问，新答案追加不覆盖
+          if (!isUser && idx > 0 && !_sending && m.content != '…')
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: MiniButton(
+                label: '↻ 重新回答',
+                onTap: () => _regen(state, idx),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _bubbleBody(AppState state, ChatMessage m, bool isUser) {
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
