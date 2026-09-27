@@ -549,12 +549,13 @@ class _ChatPageState extends State<ChatPage>
                   ),
                 // v842：右侧竖排半透明楼层快捷键（有消息时显示）
                 if (sess != null && sess.messages.isNotEmpty)
+                  // v847：只锚bottom——v842的top+bottom双约束在键盘弹出时聊天区
+                  // 高度被压缩成负值→布局崩溃循环→输入文字即死+启动卡死根因
                   Positioned(
                     right: 4,
-                    top: 60,
                     bottom: 90,
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         _navBtn('⤒', () => _listCtl.hasClients ? _listCtl.jumpTo(0) : null),
                         _navBtn('↑', () => _jumpFloor(-1)),
