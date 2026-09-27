@@ -17,6 +17,7 @@ import '../models/world_book.dart';
 import '../models/writing.dart';
 import '../models/preset.dart';
 import '../services/storage_service.dart';
+import 'dart:convert';
 import '../services/api_service.dart';
 import '../services/cloud_sync_service.dart';
 import '../services/tts_service.dart';
@@ -66,6 +67,8 @@ class AppState extends ChangeNotifier {
   // 审核API
   ApiConfig detectApi = ApiConfig();
   ApiConfig chatApi = ApiConfig(); // v833：聊天页独立API配置
+  // v840：agent工具钩子——分镜页initState注册批量拆分入口，聊天agent经确认后调用
+  Future<void> Function()? batchShotStarter;
   // 世界书API
   ApiConfig wbApi = ApiConfig();
   // 场景API

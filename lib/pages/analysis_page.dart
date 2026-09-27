@@ -73,6 +73,11 @@ class _AnalysisPageState extends State<AnalysisPage>
 
   void initState() {
     super.initState();
+    // v840：注册批量拆分镜钩子——聊天agent经用户确认后可远程启动
+    Future.microtask(() {
+      final st = context.read<AppState>();
+      st.batchShotStarter = () => _batchAnalyzeShots(st, false);
+    });
     _restoreUiState();    ContentFont.load('shot').then((v) {
       if (mounted) setState(() => _fontScale = v);
     });

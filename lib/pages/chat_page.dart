@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import '../models/chat_session.dart';
 import '../services/api_service.dart';
+import '../services/chat_agent.dart';
 import '../utils/prompt_builder.dart';
 import '../state/app_state.dart';
 import '../widgets/api_config_panel.dart';
@@ -141,12 +142,16 @@ class _ChatPageState extends State<ChatPage>
         .showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
   }
 
-  /// v836：历史文本构造（含upto索引，inclusive）
+  /// v836：历史文本构造（含upto索引，inclusive）——v840：tool消息入历史
   String _histText(List<ChatMessage> msgs, int upto) {
     final hist = StringBuffer();
     for (var i = 0; i <= upto && i < msgs.length; i++) {
-      hist.writeln(
-          '${msgs[i].role == 'user' ? "用户" : "AI"}：${msgs[i].content}');
+      final m = msgs[i];
+      if (m.role == 'tool') {
+        hist.writeln('【工具结果】${m.content}');
+      } else {
+        hist.writeln('${m.role == 'user' ? "用户" : "AI"}：${m.content}');
+      }
     }
     return hist.toString();
   }
@@ -202,27 +207,18 @@ class _ChatPageState extends State<ChatPage>
 
   /// v836：生成核心（追加assistant占位→流式更新→落盘），供_send/_regen共用
   /// v838：atts——文本类附件注入prompt，图片附件走vision
+  /// v840：agent循环——AI输出工具指令→执行（写类确认）→结果回喂→继续，最多4轮
   Future<void> _generate(AppState state, String text, String hist,
       {List<ChatAttachment> atts = const []}) async {
     final sess = state.chatActive;
     if (sess == null || _sending) return;
-    setState(() {
-      sess.messages.add(ChatMessage(
-        role: 'assistant',
-        content: '…',
-        ts: DateTime.now().millisecondsSinceEpoch,
-      ));
-      _sending = true;
-    });
-    state.saveChatSessions();
-    _jumpBottom();
 
-    final replyIdx = sess.messages.length - 1;
     final sys = '你是网文创作搭子，与作者自由聊天：可以讨论剧情/人物/设定/写作技巧，'
         '也可以闲聊；同时你是本APP「网文拆解器」的功能助手，作者问APP功能/选项/流程时按下助手手册解答，'
         '手册没写的不要编。回答直接自然，不需要客套。当前书目：${state.currentBook}'
         '${state.chapters.isNotEmpty ? '（共${state.chapters.length}章）' : ''}。\n\n'
-        '${PromptBuilderHelp.appHelpDoc}';
+        '${PromptBuilderHelp.appHelpDoc}\n\n$agentToolDoc';
+
     // v838：文本类附件注入prompt（图片走vision）；文本上限60KB防prompt爆炸
     String textAll = text;
     final imgs = <({String mime, String base64})>[];
@@ -236,40 +232,122 @@ class _ChatPageState extends State<ChatPage>
         textAll += '\n\n【附件：${a.name}】\n$body';
       }
     }
-    final usr = hist.isEmpty
+    var usr = hist.isEmpty
         ? textAll
         : '【聊天历史】\n${hist}【本轮用户消息】\n$textAll';
+
+    setState(() => _sending = true);
+    _jumpBottom();
     try {
-      final r = await _chatApi.callApi(
-        task: '聊天回复',
-        systemPrompt: sys,
-        userPrompt: usr,
-        apiConfig: state.getApiConfig('chat'),
-        images: imgs,
-        onChunk: (chunk) {
-          if (!mounted) return;
-          setState(() {
-            final m = state.chatActive!.messages[replyIdx];
-            m.content = m.content == '…' ? chunk : m.content + chunk;
-          });
-          _jumpBottom();
-        },
-      );
-      if (mounted) {
+      // v840：agent循环
+      for (var round = 0; round < 4; round++) {
+        // 追加assistant占位
         setState(() {
-          final m = state.chatActive!.messages[replyIdx];
-          if (r.isSuccess) {
-            if (m.content == '…') m.content = r.content;
-          } else {
-            m.content = '⚠️ ${r.error ?? '请求失败'}';
-          }
+          state.chatActive?.messages.add(ChatMessage(
+            role: 'assistant',
+            content: '…',
+            ts: DateTime.now().millisecondsSinceEpoch,
+          ));
         });
         state.saveChatSessions();
+        _jumpBottom();
+        final replyIdx = state.chatActive!.messages.length - 1;
+        final r = await _chatApi.callApi(
+          task: '聊天回复',
+          systemPrompt: sys,
+          userPrompt: usr,
+          apiConfig: state.getApiConfig('chat'),
+          images: imgs,
+          onChunk: (chunk) {
+            if (!mounted) return;
+            setState(() {
+              final m = state.chatActive!.messages[replyIdx];
+              m.content = m.content == '…' ? chunk : m.content + chunk;
+            });
+            _jumpBottom();
+          },
+        );
+        if (mounted) {
+          setState(() {
+            final m = state.chatActive!.messages[replyIdx];
+            if (r.isSuccess) {
+              if (m.content == '…') m.content = r.content;
+            } else {
+              m.content = '⚠️ ${r.error ?? '请求失败'}';
+            }
+          });
+          state.saveChatSessions();
+        }
+        if (!mounted) return;
+        final reply = state.chatActive?.messages[replyIdx].content ?? '';
+        // 工具指令检测
+        final call = parseToolCall(reply);
+        if (call == null) break; // 普通回复——结束
+        if (round >= 3) {
+          setState(() {
+            state.chatActive?.messages.add(ChatMessage(
+              role: 'tool',
+              content: '⚙ 连续工具轮次达上限——请用户继续下达指令',
+              ts: DateTime.now().millisecondsSinceEpoch,
+            ));
+          });
+          state.saveChatSessions();
+          break;
+        }
+        // 写类工具确认
+        var result = AgentToolResult(call.tool, false, '用户拒绝执行');
+        final needConfirm = _writeTools.contains(call.tool);
+        if (!needConfirm ||
+            await _confirmTool(state, call.tool, call.args)) {
+          result = await runTool(state, call.tool, call.args);
+        }
+        if (!mounted) return;
+        setState(() {
+          state.chatActive?.messages.add(ChatMessage(
+            role: 'tool',
+            content:
+                '⚙ ${call.tool}（${result.ok ? "成功" : "失败"}）：${result.message}',
+            ts: DateTime.now().millisecondsSinceEpoch,
+          ));
+        });
+        state.saveChatSessions();
+        _jumpBottom();
+        final msgs = state.chatActive!.messages;
+        usr =
+            '【聊天历史】\n${_histText(msgs, msgs.length - 1)}\n【本轮用户消息】\n（上一条为工具执行结果，请基于结果继续：完成汇报或发出下一条工具指令）';
       }
     } finally {
       if (mounted) setState(() => _sending = false);
       _inputFocus.requestFocus();
     }
+  }
+
+  // v840：写类工具（需确认）
+  static const _writeTools = {'switch_book', 'start_batch_shots'};
+
+  Future<bool> _confirmTool(
+      AppState state, String tool, Map<String, dynamic> args) async {
+    final desc = tool == 'switch_book'
+        ? '切换当前书目到「${args['name'] ?? '?'}」'
+        : tool == 'start_batch_shots'
+            ? '启动批量拆分镜（长任务，当前书全部已划分未拆场景）'
+            : '$tool ${args.toString()}';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('AI请求执行操作'),
+        content: Text(desc, style: const TextStyle(fontSize: 15)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('拒绝')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('允许')),
+        ],
+      ),
+    );
+    return ok == true;
   }
 
   Future<void> _renameSession(AppState state, ChatSession s) async {
@@ -390,6 +468,31 @@ class _ChatPageState extends State<ChatPage>
                     itemCount: sess.messages.length,
                     itemBuilder: (ctx, i) {
                       final m = sess.messages[i];
+                      if (m.role == 'tool') {
+                        // v840：工具执行结果窄条
+                        return Align(
+                          alignment: Alignment.center,
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 5),
+                            constraints: BoxConstraints(
+                                maxWidth:
+                                    MediaQuery.of(context).size.width * 0.9),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEFE9DB),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: SelectableText(
+                              m.content,
+                              style: const TextStyle(
+                                  fontSize: 12.5,
+                                  height: 1.45,
+                                  color: Color(0xFF6B5230)),
+                            ),
+                          ),
+                        );
+                      }
                       final isUser = m.role == 'user';
                       return _bubble(state, m, isUser, i);
                     },
