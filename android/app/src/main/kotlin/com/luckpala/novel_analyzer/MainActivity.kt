@@ -31,6 +31,22 @@ class MainActivity : FlutterActivity() {
                     }
                     startActivityForResult(intent, REQUEST_CODE)
                 }
+                "requestAllFilesAccess" -> {
+                    // v850：Android 11+引导用户到"所有文件访问"授权页
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R &&
+                        !android.os.Environment.isExternalStorageManager()) {
+                        try {
+                            val intent = Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                            intent.data = Uri.parse("package:$packageName")
+                            startActivity(intent)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.success(false)
+                        }
+                    } else {
+                        result.success(true)
+                    }
+                }
                 "requestStoragePermission" -> {
                     // v386：老手机（Android<=9）公共目录写入必须运行时授权——
                     // manifest声明了WRITE_EXTERNAL_STORAGE但从未运行时申请过，

@@ -374,6 +374,13 @@ class _CloudSyncPanelState extends State<CloudSyncPanel> {
   }
 
   Future<void> _doUpload() async {
+    // v850：公共目录模式先确保"所有文件访问"授权（Android 11+卸载重装后必丢）
+    final writable = await widget.state.storage.ensurePublicWritable();
+    if (!writable) {
+      _log('❌ 存储权限被拒绝——公共目录写不进，请授权或切专属目录模式');
+      _setWorking(false, '存储权限被拒绝');
+      return;
+    }
     _setWorking(true, '正在上传到云端...');
     _log('开始打包数据');
     final json = widget.state.packageSyncData();
@@ -409,6 +416,13 @@ class _CloudSyncPanelState extends State<CloudSyncPanel> {
     );
     if (confirmed != true) return;
 
+    // v850：公共目录模式先确保"所有文件访问"授权（恢复写盘同理）
+    final writable = await widget.state.storage.ensurePublicWritable();
+    if (!writable) {
+      _log('❌ 存储权限被拒绝——恢复数据写不进本地，请授权或切专属目录模式');
+      _setWorking(false, '存储权限被拒绝');
+      return;
+    }
     _setWorking(true, '正在从云端拉取...');
     _log('开始下载');
     final json = await widget.state.cloudSync.download(

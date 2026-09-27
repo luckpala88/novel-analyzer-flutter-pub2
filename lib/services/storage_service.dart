@@ -303,10 +303,14 @@ class StorageService {
 
   /// v386：确保公共目录可写——老手机（Android<=9）公共Documents需要运行时存储权限，
   /// 主工程从未申请过=备份/导出静默失败。返回false=用户拒绝（调用方应提示）
+  /// v850：Android 11+走MANAGE_EXTERNAL_STORAGE"所有文件访问"授权页
   Future<bool> ensurePublicWritable() async {
     if (_isDesktop || _storageMode != 'public') return true;
     try {
       const ch = MethodChannel('com.luckpala/novel_analyzer');
+      // 先试所有文件访问（Android 11+）
+      final all = await ch.invokeMethod<bool>('requestAllFilesAccess') ?? false;
+      if (all) return true;
       return await ch.invokeMethod<bool>('requestStoragePermission') ?? false;
     } catch (_) {
       return true; // 通道异常不阻塞（新系统本就无需授权）
