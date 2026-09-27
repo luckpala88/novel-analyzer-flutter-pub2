@@ -2548,6 +2548,7 @@ class AppState extends ChangeNotifier {
       }
 
       int bookCount = 0;
+      int failCount = 0; // v855：自检失败计数
 
       // 写入书目数据
       final books = pkg['books'] as Map<String, dynamic>? ?? {};
@@ -2572,13 +2573,14 @@ class AppState extends ChangeNotifier {
             storage.writeFile('$bookPath/writings/$fname', content.toString());
           });
         }
-        bookCount++;
-
         // v802：恢复落盘自检——目录与关键文件必须真实存在，否则不计成功并报错
+        // v855：bookCount只在自检通过时计数——此前无条件++，写盘全挂也报"恢复成功"（用户实测误导）
         final restored = storage.listFiles(bookPath);
         if (restored.isEmpty) {
           apiLog('❌ 恢复自检失败：「$bookId」目录未创建或为空——写盘异常');
+          failCount++;
         } else {
+          bookCount++;
           final chapLen =
               (storage.readFile('$bookPath/chapters.json') ?? '').length;
           apiLog('✓ 已恢复「$bookId」（${restored.length}个文件，chapters.json ${chapLen ~/ 1024}KB 校验通过）');
@@ -2616,6 +2618,11 @@ class AppState extends ChangeNotifier {
       _persistBookList();
       _syncBookListPrefs();
 
+      // v855：结果如实汇报——失败数非0时明确警示
+      if (failCount > 0) {
+        apiLog('⚠️ 恢复结果：成功$bookCount本，失败$failCount本（写盘异常）——'
+            '失败的书数据未恢复！常见原因：公共目录缺"所有文件访问"授权');
+      }
       return bookCount;
     } catch (e) {
       debugPrint('unpackSyncData error: $e');

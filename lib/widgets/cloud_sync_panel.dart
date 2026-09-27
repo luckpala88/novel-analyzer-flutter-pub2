@@ -437,7 +437,8 @@ class _CloudSyncPanelState extends State<CloudSyncPanel> {
     setState(() => _statusText = '正在恢复数据...');
 
     final bookCount = await widget.state.unpackSyncData(json);
-    _log('解包完成：$bookCount本书目');
+    // v855：bookCount=自检通过数；失败数从终端日志看"恢复结果"行
+    _log('解包完成：自检通过$bookCount本书目（失败的书见上方❌行）');
 
     if (bookCount > 0) {
       // 重新加载设置和书目数据
