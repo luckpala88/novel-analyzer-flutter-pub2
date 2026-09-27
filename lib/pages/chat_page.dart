@@ -28,6 +28,7 @@ class _ChatPageState extends State<ChatPage>
   final TextEditingController _inputCtl = TextEditingController();
   final FocusNode _inputFocus = FocusNode();
   bool _sending = false;
+  bool _didOpenJump = false; // v860：打开跳末尾标记
   final List<ChatAttachment> _pending = []; // v838：待发送附件
 
   @override
@@ -400,7 +401,11 @@ class _ChatPageState extends State<ChatPage>
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontSize: 14))))
                     .toList(),
-                onChanged: (id) => setState(() => state.chatActiveId = id ?? ''),
+                onChanged: (id) {
+                  // v860：切会话重新定位末尾
+                  _didOpenJump = false;
+                  setState(() => state.chatActiveId = id ?? '');
+                },
                 hint: const Text('暂无会话', style: TextStyle(fontSize: 14)),
               ),
             ),
@@ -468,6 +473,15 @@ class _ChatPageState extends State<ChatPage>
                     itemCount: sess.messages.length,
                     itemBuilder: (ctx, i) {
                       final m = sess.messages[i];
+                      // v860：打开/切回聊天页定位到末尾（一次性；v845方案普通列表安全）
+                      if (!_didOpenJump && i == sess.messages.length - 1) {
+                        _didOpenJump = true;
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (_listCtl.hasClients) {
+                            _listCtl.jumpTo(_listCtl.position.maxScrollExtent);
+                          }
+                        });
+                      }
                       if (m.role == 'tool') {
                         // v840：工具执行结果窄条
                         return Align(
@@ -656,6 +670,12 @@ class _ChatPageState extends State<ChatPage>
                           base64Decode(a.data),
                           width: 180,
                           fit: BoxFit.cover,
+                          // v860：v846防御补回——坏图片数据显示占位，防启动build反复崩
+                          errorBuilder: (_, __, ___) => const SizedBox(
+                              height: 40,
+                              child: Center(
+                                  child: Text('🖼 图片数据损坏',
+                                      style: TextStyle(fontSize: 12)))),
                         ),
                       )
                     : Container(
