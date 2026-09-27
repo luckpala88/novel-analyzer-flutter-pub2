@@ -173,6 +173,7 @@ class _ScenePageState extends State<ScenePage>
         }
         final bible = wb.adaptBible.trim();
         final r = await state.api.callApi(
+          task: '世界书迭代',  // v824任务级反馈
           systemPrompt: PromptBuilder.buildBibleUpdateSystemPrompt(),
           userPrompt:
               '【现有圣经（为空=从本弧线起构建）】\n${bible.isEmpty ? '（无——从本弧线开始构建）' : bible}\n\n【弧线${a.number}总结（新事实来源）】\n$src',
@@ -821,6 +822,7 @@ const Spacer(), // ⚙API推到最右
       // 调用API
       final config = state.getApiConfig('scene');
       final result = await state.api.callApi(
+        task: '场景划分',  // v824任务级反馈
         systemPrompt: systemPrompt,
         userPrompt: userPrompt,
         apiConfig: config,

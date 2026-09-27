@@ -56,6 +56,7 @@ Future<void> regenSceneSummary({
   state.api.clearAbort();
   final config = state.getApiConfig('scene');
   final result = await state.api.callApi(
+    task: '场景重概述',  // v824任务级反馈
     systemPrompt: sys,
     userPrompt: user,
     apiConfig: config,
@@ -111,6 +112,7 @@ Future<int> verifyLastSceneClosure(
     state.api.clearAbort();
     final config = state.getApiConfig('scene');
     final result = await state.api.callApi(
+      task: '末场景闭合校验',  // v824任务级反馈
       systemPrompt: sys,
       userPrompt: user,
       apiConfig: config,
@@ -297,6 +299,7 @@ Future<void> runGlobalSceneScan({
 
         final config = state.getApiConfig('scene');
         final result = await state.api.callApi(
+          task: '场景流扫描',  // v824任务级反馈
           systemPrompt: systemPrompt,
           userPrompt: userPrompt,
           apiConfig: config,
@@ -541,8 +544,32 @@ Future<void> groupArcsFromScenes({
     state.setSceneStreamBusy(true);
     state.api.clearAbort(); // v432：同上，abort残留清除
     state.userAborted = false;
+    // v824：'终章/大结局/尾声/后记/番外'被章号解析沉底为100000（chinese_number v281）——
+    // 分组前钳回实际章数，否则对账lastChapter=100000误报99958章未覆盖+scannedChapterCount污染
+    final totalCh = state.chapters.length;
+    if (totalCh > 0) {
+      var clamped = 0;
+      for (final sc in gs) {
+        if (sc.endChapter > totalCh) {
+          sc.endChapter = totalCh;
+          clamped++;
+        }
+      }
+      if (clamped > 0) {
+        log('ℹ v824：$clamped个场景章号超总章数（终章沉底100000）已钳回$totalCh');
+      }
+    }
     log('开始弧线分组：${gs.length}个场景');
     try {
+      // v824：任务开始摘要——模式/输入规模/模型/批量/RPM一眼可查
+      final cfg0 = state.getApiConfig('arc');
+      final sw = Stopwatch()..start();
+      log(
+        '▶ 任务开始：弧线分组｜${resume ? "增量续跑" : "全新分组"}｜输入${gs.length}个场景'
+        '（第${gs.first.startChapter}-${gs.last.endChapter}章）'
+        '｜模型${cfg0.effectiveModel}｜批量${state.groupBatchSize > 0 ? state.groupBatchSize : 30}场景/批'
+        '｜RPM${cfg0.rpmLimit > 0 ? cfg0.rpmLimit : "不限"}',
+      );
       final batch = state.groupBatchSize > 0 ? state.groupBatchSize : 30;
       final arcs = <Arc>[]; // 组装中的弧线
       final extractedArcs = <int>{}; // v495已提取零件的弧线号
@@ -894,6 +921,13 @@ Future<void> groupArcsFromScenes({
           log('零件提取进度：$done/${arcs.length}');
         }
         log('=== 弧线零件提取完成 ===');
+        // v824：任务完成总汇报——结果规模/章覆盖/耗时/提取完整度
+        log(
+          '✅ 任务完成：弧线分组共${arcs.length}条弧线'
+          '（第${arcs.first.startChapter}-${arcs.last.endChapter}章），'
+          '覆盖${gs.length}场景，耗时${(sw.elapsed.inSeconds / 60).toStringAsFixed(1)}分钟，'
+          '零件提取${extractedArcs.length}/${arcs.length}条',
+        );
       }
     } catch (err) {
       log('异常：$err');
@@ -924,6 +958,7 @@ Future<void> extractArcParts({
   );
   final config = state.getApiConfig('arc');
   final result = await state.api.callApi(
+    task: '弧线零件提取',  // v824任务级反馈
     systemPrompt: systemPrompt,
     userPrompt: userPrompt,
     apiConfig: config,

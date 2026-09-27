@@ -1773,10 +1773,14 @@ class _AdaptPageState extends State<AdaptPage>
                                 child: MiniButton(
                                   label: '⚙生成世界书新弧线条目',
                                   primary: true,
-                                  onTap: _isGenerating || allArcs.isEmpty
+                                  // v824：0弧线也可添加——开新书从弧线1起步
+                                  onTap: _isGenerating
                                       ? null
                                       : () => _addContinueArc(
-                                          state, allArcs.last),
+                                          state,
+                                          allArcs.isEmpty
+                                              ? null
+                                              : allArcs.last),
                                 ),
                               ),
                             );
@@ -1807,20 +1811,10 @@ class _AdaptPageState extends State<AdaptPage>
                         itemCount: allArcs.length + 1, // v780：末尾=新增场景规划工作台
                         itemBuilder: (ctx, i) {
                           if (i >= allArcs.length) {
-                            if (allArcs.isEmpty) {
-                              return const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 8),
-                                child: Center(
-                                  child: Text('还没有弧线——先在弧线续写层添加',
-                                      style: TextStyle(
-                                          fontSize: 11,
-                                          color: Color(0xFF5B7A99))),
-                                ),
-                              );
-                            }
-                            // v780：新增场景规划区挂在最后一个弧线下
+                            // v824：0弧线也可新增场景规划——开新书场景1起步
                             return _buildNewScenePlanner(
-                                state, allArcs.last);
+                                state,
+                                allArcs.isEmpty ? null : allArcs.last);
                           }
                           return _buildContinueSceneCard(
                               state, allArcs[i]);
@@ -1926,6 +1920,7 @@ class _AdaptPageState extends State<AdaptPage>
       setState(() => _isGenerating = true);
       try {
         final r = await state.api.callApi(
+          task: '批量名称映射',  // v824任务级反馈
           systemPrompt: PromptBuilder.buildNameMapInventorySystemPrompt(),
           userPrompt: '【已有清单（这些名称跳过）】\n'
               '${state.worldBook!.nameMapping.isEmpty ? '（空）' : state.worldBook!.nameMapping}\n\n'
@@ -2347,8 +2342,10 @@ class _AdaptPageState extends State<AdaptPage>
     return false;
   }
 
-  Widget _buildNewScenePlanner(AppState state, Arc arc) {
-    final arcKey = arc.number.toString();
+  /// v824：arc可空——0弧线（开新书）时目标=弧线1（待添加），场景键仍走'1'与
+  /// _addContinueArc生成的弧线1条目对齐
+  Widget _buildNewScenePlanner(AppState state, Arc? arc) {
+    final arcKey = arc?.number.toString() ?? '1';
     final plans = state.worldBook?.continuePlans ?? {};
     final raw = plans[_plannerRawKey(arcKey)] ?? '';
     final opt = plans[_plannerOptKey(arcKey)] ?? '';
@@ -2363,7 +2360,7 @@ class _AdaptPageState extends State<AdaptPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('➕ 新增场景（目标：弧线${arc.number}：${arc.title}）',
+          Text('➕ 新增场景（目标：弧线${arc?.number ?? 1}：${arc?.title ?? "待规划——先在弧线续写层添加条目"}）',
               style: TextStyle(
                   fontSize: _cf(12.5), fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
@@ -2454,8 +2451,9 @@ class _AdaptPageState extends State<AdaptPage>
   }
 
   /// v780：🤖AI优化规划——把用户粗糙规划扩写为规范场景条目规划（零零件迭代，只整格式）
-  Future<void> _optimizeNewScenePlan(AppState state, Arc arc) async {
-    final arcKey = arc.number.toString();
+  /// v824：arc可空（0弧线开新书，场景键fallback'1'）；条目守卫兜底提示
+  Future<void> _optimizeNewScenePlan(AppState state, Arc? arc) async {
+    final arcKey = arc?.number.toString() ?? '1';
     final raw =
         (state.worldBook?.continuePlans[_plannerRawKey(arcKey)] ?? '').trim();
     if (raw.isEmpty) {
@@ -2467,7 +2465,7 @@ class _AdaptPageState extends State<AdaptPage>
       _addLog('❌ 弧线$arcKey还没有世界书条目——先在改编模式生成原样世界书');
       return;
     }
-    if (!_closedArcGuard(state, arc)) return; // v781：闭合守卫
+    if (arc != null && !_closedArcGuard(state, arc)) return; // v781：闭合守卫（v824：0弧线开新书跳过）
     final entry = state.worldBook!.entries[entryKey]!;
     final nextNum = _maxSceneNumInEntry(state, entryKey) + 1;
     final config = state.getApiConfig('wb');
@@ -2501,6 +2499,7 @@ class _AdaptPageState extends State<AdaptPage>
         return;
       }
       final result = await state.api.callApi(
+        task: '新场景规划优化',  // v824任务级反馈
         systemPrompt: sys,
         userPrompt: usr,
         apiConfig: config,
@@ -2531,8 +2530,8 @@ class _AdaptPageState extends State<AdaptPage>
   }
 
   /// v780：📝写入世界书——把勾选的规划追加为该弧线条目的场景N块（纯代码零AI，无正文）
-  Future<void> _writePlannedSceneToWb(AppState state, Arc arc) async {
-    final arcKey = arc.number.toString();
+  Future<void> _writePlannedSceneToWb(AppState state, Arc? arc) async {
+    final arcKey = arc?.number.toString() ?? '1'; // v824：0弧线开新书fallback
     final plans = state.worldBook?.continuePlans ?? {};
     final opt = (plans[_plannerOptKey(arcKey)] ?? '').trim();
     final raw = (plans[_plannerRawKey(arcKey)] ?? '').trim();
@@ -2550,7 +2549,7 @@ class _AdaptPageState extends State<AdaptPage>
       _addLog('❌ 弧线$arcKey还没有世界书条目——先在改编模式生成原样世界书');
       return;
     }
-    if (!_closedArcGuard(state, arc)) return; // v781：闭合守卫
+    if (arc != null && !_closedArcGuard(state, arc)) return; // v781：闭合守卫（v824：0弧线开新书跳过）
     final entry = state.worldBook!.entries[entryKey]!;
     final sb = StringBuffer();
     var added = 0;
@@ -2589,7 +2588,7 @@ class _AdaptPageState extends State<AdaptPage>
         content: SizedBox(
           width: double.maxFinite,
           child: SingleChildScrollView(
-            child: SelectableText('将追加到弧线${arc.number}条目：\n\n$preview',
+            child: SelectableText('将追加到弧线${arc?.number ?? 1}条目：\n\n$preview',
                 style: const TextStyle(fontSize: 12, height: 1.5)),
           ),
         ),
@@ -2620,7 +2619,10 @@ class _AdaptPageState extends State<AdaptPage>
 
   /// v768：➕添加弧线——按续写方向+当前进度推演新弧线九件套条目
   /// （arcKey=最大弧线+1，弧线总结+场景清单，无分镜=自由创作）
-  Future<void> _addContinueArc(AppState state, Arc arc) async {
+  /// v824：arc可空——0弧线也能添加（开新书，从弧线1起步）
+  Future<void> _addContinueArc(AppState state, Arc? arc) async {
+    // v824：开新书worldBook可能为null——兜底建空世界书（对齐app_state.dart:1814先例）
+    state.worldBook ??= WorldBook();
     final nums = _getAllArcs(state).map((a) => a.number).toList()
       ..sort();
     final newNum = (nums.isEmpty ? 0 : nums.last) + 1;
@@ -2630,7 +2632,7 @@ class _AdaptPageState extends State<AdaptPage>
     setState(() => _isGenerating = true);
     try {
       _addLog('➕ 生成世界书新弧线条目（弧线$newNum，依据设定与前文推演）…');
-      final prevCtx = _continueCtx(state, arc.number.toString());
+      final prevCtx = _continueCtx(state, arc?.number.toString() ?? '$newNum');
       // v805：弧线条目不再生成场景清单（用户定稿：场景规划唯一入口=场景续写页工作台，
       // 避免条目清单与工作台规划两套数据乱套）
       final sys = '你是原著续写作家。世界书=原样原著（全原名）。任务：为长篇规划一条全新的续写弧线，'
@@ -2660,6 +2662,7 @@ class _AdaptPageState extends State<AdaptPage>
         return;
       }
       final result = await state.api.callApi(
+        task: '续写弧线添加',  // v824任务级反馈
         systemPrompt: sys,
         userPrompt: usr,
         apiConfig: config,
@@ -2747,6 +2750,7 @@ class _AdaptPageState extends State<AdaptPage>
         return;
       }
       final r = await state.api.callApi(
+        task: '续写规划优化',  // v824任务级反馈
         systemPrompt: sys,
         userPrompt: usr,
         apiConfig: config,
@@ -4661,6 +4665,7 @@ class _AdaptPageState extends State<AdaptPage>
     try {
       _addLog('━━ 生成弧线$arcKey场景${bi + 1}改编声明…');
       final result = await state.api.callApi(
+        task: '单场景声明生成',  // v824任务级反馈
         systemPrompt: PromptBuilder.buildSceneDeclarationSystemPrompt(),
         userPrompt: PromptBuilder.buildSceneDeclarationUserPrompt(
           arcContext: arcContext,
@@ -4734,6 +4739,7 @@ class _AdaptPageState extends State<AdaptPage>
         final scene = scenes[bi];
         _addLog('━━ 批量声明 ${bi + 1}/${scenes.length}：${scene.name}');
         final result = await state.api.callApi(
+          task: '场景声明批量生成',  // v824任务级反馈
           systemPrompt: PromptBuilder.buildSceneDeclarationSystemPrompt(),
           userPrompt: PromptBuilder.buildSceneDeclarationUserPrompt(
             arcContext: arcContext,
@@ -4795,6 +4801,7 @@ class _AdaptPageState extends State<AdaptPage>
     try {
       _addLog('🤖 AI优化弧线$arcKey改编要求…');
       final result = await state.api.callApi(
+        task: '弧线优化',  // v824任务级反馈
         systemPrompt: PromptBuilder.buildArcReqSuggestSystemPrompt(),
         userPrompt: PromptBuilder.buildArcReqSuggestUserPrompt(
           arcContext: arcContext,
@@ -4853,6 +4860,7 @@ class _AdaptPageState extends State<AdaptPage>
     try {
       _addLog('🤖 AI生成场景${sceneIdx + 1}改编要求…');
       final result = await state.api.callApi(
+        task: '场景建议',  // v824任务级反馈
         systemPrompt: PromptBuilder.buildSceneReqSuggestSystemPrompt(),
         userPrompt: PromptBuilder.buildSceneReqSuggestUserPrompt(
           arcContext: arcContext,
@@ -5070,6 +5078,7 @@ class _AdaptPageState extends State<AdaptPage>
       if (existed) {
         // v626：回流校正——实际改编结果滚入全书总结
         result = await state.api.callApi(
+          task: '世界书更新',  // v824任务级反馈
           systemPrompt: PromptBuilder.buildBibleUpdateSystemPrompt(),
           userPrompt: PromptBuilder.buildBibleUpdateUserPrompt(
             bible: wb.adaptBible,
@@ -5396,6 +5405,7 @@ class _AdaptPageState extends State<AdaptPage>
           }
         }
         final sumResult = await state.api.callApi(
+          task: '弧线改编',  // v824任务级反馈
           systemPrompt: summarySys,
           userPrompt: summaryUser,
           apiConfig: config,
@@ -6017,6 +6027,7 @@ class _AdaptPageState extends State<AdaptPage>
           }
         }
         final frameResult = await state.api.callApi(
+          task: '单场景改编',  // v824任务级反馈
           systemPrompt: frameSys,
           userPrompt: frameUser,
           apiConfig: config,

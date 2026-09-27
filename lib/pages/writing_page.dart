@@ -602,6 +602,7 @@ class _WritingPageState extends State<WritingPage>
       }
       final config = state.getApiConfig('writing');
       var result = await state.api.callApi(
+        task: '自由创作·单发',  // v824任务级反馈
         systemPrompt: sys,
         userPrompt: user,
         apiConfig: config,
@@ -1375,6 +1376,7 @@ class _WritingPageState extends State<WritingPage>
     try {
       _addLog('📄 生成分弧线$arcKey创作声明…');
       final result = await state.api.callApi(
+        task: '创作声明生成',  // v824任务级反馈
         systemPrompt: PromptBuilder.buildCreationDeclSystemPrompt(),
         userPrompt: PromptBuilder.buildCreationDeclUserPrompt(
           arcContext: arcContext,
@@ -2503,6 +2505,7 @@ class _WritingPageState extends State<WritingPage>
           }
         }
         final cResult = await state.api.callApi(
+          task: '分镜式续写',  // v824任务级反馈
           systemPrompt: PromptBuilder.buildSingleShotWriteSystemPrompt(),
           userPrompt: cUser,
           apiConfig: config,
@@ -3187,6 +3190,7 @@ class _WritingPageState extends State<WritingPage>
         }
       }
       var result = await state.api.callApi(
+        task: '场景续写',  // v824任务级反馈
         systemPrompt: systemPrompt,
         userPrompt: userPrompt,
         apiConfig: config,

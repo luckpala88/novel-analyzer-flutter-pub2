@@ -614,6 +614,7 @@ class _DetectionPageState extends State<DetectionPage>
       }
       final config = state.getApiConfig('detect');
       final result = await state.api.callApi(
+        task: '防抄检测',  // v824任务级反馈
         systemPrompt: systemPrompt,
         userPrompt: userPrompt,
         apiConfig: config,
@@ -750,6 +751,7 @@ class _DetectionPageState extends State<DetectionPage>
       }
       final config = state.getApiConfig('detect');
       final result = await state.api.callApi(
+        task: '问题检测',  // v824任务级反馈
         systemPrompt: systemPrompt,
         userPrompt: userPrompt,
         apiConfig: config,
@@ -978,6 +980,7 @@ class _DetectionPageState extends State<DetectionPage>
       }
       final config = state.getApiConfig('detect');
       final result = await state.api.callApi(
+        task: 'AI重写',  // v824任务级反馈
         systemPrompt: systemPrompt,
         userPrompt: sb.toString(),
         apiConfig: config,

@@ -152,14 +152,24 @@ class ApiService {
   void Function()? onStopGen;
 
   /// 便捷方法：用ApiConfig调用
+  /// v824：task传入任务名后统一输出任务级反馈（▶开始含参数/✅完成含耗时字数/⛔失败含原因）
   Future<ApiResult> callApi({
     required String systemPrompt,
     required String userPrompt,
     required ApiConfig apiConfig,
     void Function(String chunk)? onChunk,
-  }) {
+    String task = '',
+  }) async {
     rpmLimit = apiConfig.rpmLimit; // 配置的每分钟请求上限（0=不限）
-    return call(
+    final sw = Stopwatch()..start();
+    if (task.isNotEmpty) {
+      _log(
+        '▶ $task｜模型${apiConfig.effectiveModel}'
+        '｜温度${apiConfig.temperature}｜max_tokens${apiConfig.maxTokens}'
+        '｜RPM${apiConfig.rpmLimit > 0 ? apiConfig.rpmLimit : "不限"}',
+      );
+    }
+    final r = await call(
       apiType: apiConfig.effectiveApiType,
       baseUrl: apiConfig.effectiveApiBase,
       apiKey: apiConfig.effectiveApiKey,
@@ -171,6 +181,15 @@ class ApiService {
       formatMode: apiConfig.formatMode,
       onChunk: onChunk,
     );
+    if (task.isNotEmpty) {
+      final mins = (sw.elapsed.inSeconds / 60).toStringAsFixed(1);
+      if (r.isSuccess) {
+        _log('✅ $task完成｜耗时$mins分钟｜输出${r.content.length}字');
+      } else {
+        _log('⛔ $task失败｜耗时$mins分钟｜${r.error}');
+      }
+    }
+    return r;
   }
 
   /// 发送API请求
