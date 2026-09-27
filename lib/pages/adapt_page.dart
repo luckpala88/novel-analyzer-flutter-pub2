@@ -2318,6 +2318,16 @@ class _AdaptPageState extends State<AdaptPage>
   // 数据流：用户粗糙规划 → 🤖AI优化 → 勾选 → 📝写入世界书（纯条目无正文，零AI）→ 创作页出现待创作场景
   String _plannerRawKey(String arcKey) => 'new_raw_$arcKey';
   String _plannerOptKey(String arcKey) => 'new_opt_$arcKey';
+  String _plannerMatKey(String arcKey) => 'new_mat_$arcKey'; // v827：素材块
+
+  /// v827：素材注入块（空=不注入）——AI规划/细化时有机融入场景
+  String _matBlock(AppState state, String arcKey) {
+    final mat =
+        (state.worldBook?.continuePlans[_plannerMatKey(arcKey)] ?? '').trim();
+    return mat.isEmpty
+        ? ''
+        : '\n【素材（必须有机融入场景情节：自然带出设定/物品/信息，禁止生硬堆砌或机械罗列）】\n$mat\n';
+  }
 
   /// 该弧线条目里已有的最大场景号（新场景从max+1起编）
   int _maxSceneNumInEntry(AppState state, String entryKey) {
@@ -2349,6 +2359,7 @@ class _AdaptPageState extends State<AdaptPage>
     final plans = state.worldBook?.continuePlans ?? {};
     final raw = plans[_plannerRawKey(arcKey)] ?? '';
     final opt = plans[_plannerOptKey(arcKey)] ?? '';
+    final mat = plans[_plannerMatKey(arcKey)] ?? ''; // v827
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(8),
@@ -2363,6 +2374,33 @@ class _AdaptPageState extends State<AdaptPage>
           Text('➕ 新增场景（目标：弧线${arc?.number ?? 1}：${arc?.title ?? "待规划——先在弧线续写层添加条目"}）',
               style: TextStyle(
                   fontSize: _cf(12.5), fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          // v827：素材折叠区——素材内容注入AI规划/细化，要求有机融入场景
+          Align(
+            alignment: Alignment.centerRight,
+            child: MiniButton(
+              label: _matExpanded ? '📎收起素材' : '📎添加素材',
+              primary: false,
+              onTap: () => setState(() => _matExpanded = !_matExpanded),
+            ),
+          ),
+          if (_matExpanded) ...[
+            const SizedBox(height: 4),
+            TextField(
+              controller: TextEditingController(text: mat),
+              maxLines: 4,
+              style: TextStyle(fontSize: _cf(11.5)),
+              decoration: const InputDecoration(
+                isDense: true,
+                hintText: '素材内容（设定/物品/灵感片段——AI规划时有机融入场景）',
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (v) =>
+                  state.worldBook?.continuePlans[_plannerMatKey(arcKey)] = v,
+              onSubmitted: (_) => state.saveWorldBook(),
+            ),
+            const SizedBox(height: 6),
+          ],
           const SizedBox(height: 6),
           // ① 用户原始规划（勾选=写入源备选）
           Row(
@@ -2496,8 +2534,10 @@ class _AdaptPageState extends State<AdaptPage>
           '2.概述80-150字，需含时间地点/出场人物/剧情推进；人物全部沿用原著原名\n'
           '3.必须从当前进度自然衔接\n'
           '4.场景编号从N=$nextNum起连续递增，不要跳号\n'
-          '5.禁止解释性文字、小标题、markdown';
+          '5.若提供【素材】块：素材内容必须有机融入场景情节（自然带出，禁止生硬堆砌）\n'
+          '6.禁止解释性文字、小标题、markdown';
       final usr = '【续写语料（锚点/本弧线零件/已规划场景/前情概述/未回收伏笔/人物基准——人物与设定以此为准，禁止自拟新人物新设定）】\n${state.continueCorpus(arcKey)}\n\n'
+          '${_matBlock(state, arcKey)}'
           '【用户新场景规划】\n$raw\n\n'
           '【起始场景编号】N=$nextNum';
       // v783：词链检查
@@ -2661,8 +2701,10 @@ class _AdaptPageState extends State<AdaptPage>
         '2.剔除毒点：与语料设定冲突、逻辑硬伤、主角降智、人物OOC、跳出衔接锚点的情节——直接修正或删掉该情节\n'
         '3.人物全部沿用原著原名，禁止自拟新人物新设定\n'
         '4.输出格式与输入完全一致：每场景一行"场景N：名称｜概述"（编号保持不变），概述80-150字\n'
-        '5.只输出场景行，禁止解释性文字、小标题、markdown';
+        '5.若提供【素材】块：素材内容必须有机融入场景情节（自然带出，禁止生硬堆砌），同时照常剔除毒点\n'
+        '6.只输出场景行，禁止解释性文字、小标题、markdown';
     final usr = '【续写语料（锚点/本弧线零件/已规划场景/前情概述/未回收伏笔/人物基准——人物与设定以此为准）】\n${state.continueCorpus(arcKey)}\n\n'
+        '${_matBlock(state, arcKey)}'
         '【待写入的场景规划（逐场景终审细化）】\n$source';
     final okSend = await PromptPreview.maybePreview(
       context,
@@ -3258,6 +3300,7 @@ class _AdaptPageState extends State<AdaptPage>
   bool _newSceneRawChecked = false; // 用户原始规划勾选（写入世界书时的备选源）
   bool _newSceneOptChecked = true; // AI优化规划勾选（默认写入源）
   bool _preWriteRefine = true; // v826：写入前AI细化开关（完善补充/剔除毒点，默认开）
+  bool _matExpanded = false; // v827：素材折叠区展开状态
   bool _reqRawChecked = true; // v781：原始续写方向勾选
   bool _reqOptChecked = true; // v781：优化方向勾选
   final ScrollController _arcListCtl = ScrollController(); // v771：弧线列表垂直滚动条
