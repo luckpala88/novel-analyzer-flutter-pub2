@@ -316,11 +316,10 @@ class _ChatPageState extends State<ChatPage>
         ),
         child: Stack(
           children: [
-            // v833：单条复制——按钮占右侧
+            // v836：富文本渲染（JSON美化/简易markdown），单条复制保留
             Padding(
               padding: const EdgeInsets.only(right: 22),
-              child: SelectableText(m.content,
-                  style: const TextStyle(fontSize: 14.5, height: 1.5)),
+              child: _richContent(m.content),
             ),
             Positioned(
               right: 0,
@@ -338,5 +337,135 @@ class _ChatPageState extends State<ChatPage>
         ),
       ),
     );
+  }
+
+  // ===== v836：聊天富文本渲染 =====
+
+  /// 内容分发：JSON→美化卡片；markdown→富文本span；普通文本原样
+  Widget _richContent(String content) {
+    final trimmed = content.trim();
+    final isJson = (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+        (trimmed.startsWith('[') && trimmed.endsWith(']'));
+    if (isJson) {
+      try {
+        final obj = jsonDecode(trimmed);
+        const enc = JsonEncoder.withIndent('  ');
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF5F1E6),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: SelectableText(
+            enc.convert(obj),
+            style: const TextStyle(
+                fontSize: 12.5, height: 1.45, fontFamily: 'monospace'),
+          ),
+        );
+      } catch (_) {}
+    }
+    return SelectableText.rich(
+      TextSpan(children: _mdSpans(trimmed)),
+      style: const TextStyle(fontSize: 14.5, height: 1.5),
+    );
+  }
+
+  /// 简易markdown解析：#/##/###标题、**粗体**、`code`、-列表、1.列表、```代码块
+  List<InlineSpan> _mdSpans(String text) {
+    final spans = <InlineSpan>[];
+    final lines = text.split('\n');
+    var inCode = false;
+    var codeBuf = StringBuffer();
+    for (final line in lines) {
+      if (line.trimLeft().startsWith('```')) {
+        if (inCode) {
+          // 代码块结束——整块等宽底色
+          spans.add(_codeSpan(codeBuf.toString()));
+          codeBuf = StringBuffer();
+          inCode = false;
+        } else {
+          inCode = true;
+        }
+        continue;
+      }
+      if (inCode) {
+        codeBuf.writeln(line);
+        continue;
+      }
+      final t = line.trimLeft();
+      final headingM = RegExp(r'^(#{1,4})\s+(.*)').firstMatch(t);
+      if (headingM != null) {
+        final level = headingM.group(1)!.length;
+        final size = 17.0 - level;
+        spans.add(TextSpan(
+          text: '\n${headingM.group(2)!}\n',
+          style: TextStyle(
+              fontSize: size,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF8B5E1E),
+              height: 1.3),
+        ));
+        continue;
+      }
+      final listM = RegExp(r'^([-*]|\d+[.)])\s+(.*)').firstMatch(t);
+      if (listM != null) {
+        spans.add(TextSpan(
+          children: [
+            const TextSpan(text: '• ', style: TextStyle(color: Color(0xFFC89137))),
+            ..._inlineSpans(listM.group(2)!),
+          ],
+        ));
+        continue;
+      }
+      spans.addAll(_inlineSpans(line));
+      spans.add(const TextSpan(text: '\n'));
+    }
+    if (inCode && codeBuf.isNotEmpty) spans.add(_codeSpan(codeBuf.toString()));
+    return spans;
+  }
+
+  InlineSpan _codeSpan(String s) {
+    return WidgetSpan(
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF0EBDD),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: SelectableText(s.trimRight(),
+            style: const TextStyle(
+                fontSize: 12.5, fontFamily: 'monospace', height: 1.4)),
+      ),
+    );
+  }
+
+  /// 行内解析：**粗体**、`code`
+  List<InlineSpan> _inlineSpans(String text) {
+    final spans = <InlineSpan>[];
+    final re = RegExp(r'\*\*(.+?)\*\*|`([^`]+)`');
+    var last = 0;
+    for (final m in re.allMatches(text)) {
+      if (m.start > last) {
+        spans.add(TextSpan(text: text.substring(last, m.start)));
+      }
+      if (m.group(1) != null) {
+        spans.add(TextSpan(
+            text: m.group(1),
+            style: const TextStyle(fontWeight: FontWeight.w700)));
+      } else {
+        spans.add(TextSpan(
+            text: m.group(2),
+            style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 13,
+                color: Color(0xFF7A5B1E))));
+      }
+      last = m.end;
+    }
+    if (last < text.length) spans.add(TextSpan(text: text.substring(last)));
+    return spans;
   }
 }
