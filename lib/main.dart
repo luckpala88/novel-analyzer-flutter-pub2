@@ -15,6 +15,7 @@ import 'pages/adapt_page.dart';
 import 'pages/worldbook_page.dart';
 import 'pages/writing_page.dart';
 import 'pages/detection_page.dart';
+import 'pages/chat_page.dart'; // v833
 import 'widgets/api_terminal_widget.dart';
 
 void main() {
@@ -136,7 +137,7 @@ class _AppShellState extends State<AppShell> {
   late PageController _pageController;
   bool _forceDesktop = false; // 手动分栏开关（null=自动检测横屏）
   // 桌面8栏并排：栏目显隐（对齐HTML版column-toolbar，prefs持久化）
-  final List<bool> _colVisible = List.filled(8, true);
+  final List<bool> _colVisible = List.filled(9, true); // v833：+聊天栏
   bool _colsRestored = false;
 
   final _pages = const [
@@ -148,6 +149,7 @@ class _AppShellState extends State<AppShell> {
     WorldBookPage(),
     WritingPage(),
     DetectionPage(),
+    ChatPage(), // v833：AI聊天独立页
   ];
 
   final _tabs = const [
@@ -159,6 +161,7 @@ class _AppShellState extends State<AppShell> {
     ('世界', Icons.menu_book),
     ('创作', Icons.edit_note),
     ('二创', Icons.fact_check),
+    ('聊天', Icons.chat_bubble_outline), // v833
   ];
 
   @override

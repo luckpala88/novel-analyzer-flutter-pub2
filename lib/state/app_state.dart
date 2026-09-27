@@ -9,6 +9,7 @@ import '../models/api_config.dart';
 import '../models/chapter.dart';
 import '../models/arc.dart';
 import '../models/scene.dart';
+import '../models/chat_session.dart'; // v833
 import '../utils/json_repair.dart';
 import '../utils/prompt_builder.dart';
 import '../utils/text_cleaner.dart';
@@ -64,6 +65,7 @@ class AppState extends ChangeNotifier {
   ApiConfig writingApi = ApiConfig();
   // 审核API
   ApiConfig detectApi = ApiConfig();
+  ApiConfig chatApi = ApiConfig(); // v833：聊天页独立API配置
   // 世界书API
   ApiConfig wbApi = ApiConfig();
   // 场景API
@@ -670,6 +672,9 @@ class AppState extends ChangeNotifier {
     final synced = syncArcSummariesFromAnalyses();
     if (synced > 0) saveArcScan();
 
+    // v833：聊天会话随书加载
+    loadChatSessions();
+
     // v210自愈：两步拆解历史上不写analyzedArcNumbers（只有一步拆解写）——
     // 有分镜数据却没标记的弧线补标记，否则v209严格化后改编页看不到这些弧线
     for (final e in arcAnalyses.values) {
@@ -818,6 +823,7 @@ class AppState extends ChangeNotifier {
       'scene': null,
       'arc': null,
       'analysis': null,
+      'chat': null, // v833
     };
     final cfgMap = <String, ApiConfig>{
       'main': mainApi,
@@ -827,6 +833,7 @@ class AppState extends ChangeNotifier {
       'scene': sceneApi,
       'arc': arcApi,
       'analysis': analysisApi,
+      'chat': chatApi,
     };
     for (final section in sections.keys.toList()) {
       var cfg = _loadApiConfigFromFile('${section}_api', cfgMap[section]!);
@@ -846,6 +853,7 @@ class AppState extends ChangeNotifier {
     sceneApi = sections['scene'] ?? sceneApi;
     arcApi = sections['arc'] ?? arcApi;
     analysisApi = sections['analysis'] ?? analysisApi;
+    chatApi = sections['chat'] ?? chatApi;
 
     // 预设（文件 → prefs fallback）
     final presetsJson = storage.readGlobalJson('saved_presets');
@@ -1047,6 +1055,59 @@ class AppState extends ChangeNotifier {
       }
       storage.writeFile('${p}arc_scan.json', jsonEncode(arcScan!.toJson()));
     }
+  }
+
+  // ===== v833：AI聊天会话（书级持久化chat_sessions.json，独立ApiService不被busy锁互斥） =====
+  List<ChatSession> chatSessions = [];
+  String chatActiveId = ''; // 当前会话id
+
+  ChatSession? get chatActive {
+    for (final s in chatSessions) {
+      if (s.id == chatActiveId) return s;
+    }
+    return null;
+  }
+
+  void saveChatSessions() {
+    storage.writeFile(
+      '${storage.bookPath}chat_sessions.json',
+      jsonEncode(chatSessions.map((s) => s.toJson()).toList()),
+    );
+  }
+
+  void loadChatSessions() {
+    final raw = storage.readFile('${storage.bookPath}chat_sessions.json');
+    chatSessions = [];
+    chatActiveId = '';
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        chatSessions = ChatSession.listFromJson(jsonDecode(raw) as List);
+        if (chatSessions.isNotEmpty) chatActiveId = chatSessions.first.id;
+      } catch (e) {
+        debugPrint('Load chat_sessions error: $e');
+      }
+    }
+  }
+
+  String newChatSession() {
+    final s = ChatSession(
+      id: 'chat_${DateTime.now().millisecondsSinceEpoch}',
+      title: '新会话',
+      messages: [],
+      createdAt: DateTime.now().millisecondsSinceEpoch,
+    );
+    chatSessions.insert(0, s);
+    chatActiveId = s.id;
+    saveChatSessions();
+    return s.id;
+  }
+
+  void deleteChatSession(String id) {
+    chatSessions.removeWhere((s) => s.id == id);
+    if (chatActiveId == id) {
+      chatActiveId = chatSessions.isNotEmpty ? chatSessions.first.id : '';
+    }
+    saveChatSessions();
   }
 
   /// v461：场景流/分组busy统一入口（notifyListeners驱动两页UI）
@@ -1958,6 +2019,9 @@ class AppState extends ChangeNotifier {
         break;
       case 'analysis':
         config = analysisApi;
+        break;
+      case 'chat': // v833
+        config = chatApi;
         break;
       default:
         return mainApi;
