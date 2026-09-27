@@ -159,6 +159,7 @@ class ApiService {
     required ApiConfig apiConfig,
     void Function(String chunk)? onChunk,
     String task = '',
+    List<({String mime, String base64})> images = const [], // v838：vision图片
   }) async {
     rpmLimit = apiConfig.rpmLimit; // 配置的每分钟请求上限（0=不限）
     final sw = Stopwatch()..start();
@@ -180,6 +181,7 @@ class ApiService {
       maxTokens: apiConfig.maxTokens,
       formatMode: apiConfig.formatMode,
       onChunk: onChunk,
+      images: images,
     );
     if (task.isNotEmpty) {
       final mins = (sw.elapsed.inSeconds / 60).toStringAsFixed(1);
@@ -204,6 +206,7 @@ class ApiService {
     int maxTokens = 8192,
     String formatMode = 'compatible',
     void Function(String chunk)? onChunk,
+    List<({String mime, String base64})> images = const [], // v838：vision图片
   }) async {
     // 全局忙锁：已有任务在跑→拒绝（禁止并行生成，防止多任务乱序写盘脏数据）
     if (_busy) {
@@ -236,9 +239,34 @@ class ApiService {
       final isClaude = apiType == 'claude';
       final url = isClaude ? '$baseUrl/messages' : '$baseUrl/chat/completions';
 
+      // v838：vision图片——openai=content数组image_url(data URI)；claude=base64 source块
+      final userContent = images.isEmpty
+          ? userPrompt
+          : (isClaude
+              ? [
+                  {'type': 'text', 'text': userPrompt},
+                  for (final img in images)
+                    {
+                      'type': 'image',
+                      'source': {
+                        'type': 'base64',
+                        'media_type': img.mime,
+                        'data': img.base64,
+                      },
+                    },
+                ]
+              : [
+                  {'type': 'text', 'text': userPrompt},
+                  for (final img in images)
+                    {
+                      'type': 'image_url',
+                      'image_url': {'url': 'data:${img.mime};base64,${img.base64}'},
+                    },
+                ]);
+
       final messages = [
         {'role': 'system', 'content': systemPrompt},
-        {'role': 'user', 'content': userPrompt},
+        {'role': 'user', 'content': userContent},
       ];
 
       Map<String, String> headers;

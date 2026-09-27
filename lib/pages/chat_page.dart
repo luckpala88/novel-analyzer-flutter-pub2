@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import '../models/chat_session.dart';
 import '../services/api_service.dart';
@@ -25,6 +27,7 @@ class _ChatPageState extends State<ChatPage>
   final TextEditingController _inputCtl = TextEditingController();
   final FocusNode _inputFocus = FocusNode();
   bool _sending = false;
+  final List<ChatAttachment> _pending = []; // v838：待发送附件
 
   @override
   bool get wantKeepAlive => true;
@@ -53,6 +56,91 @@ class _ChatPageState extends State<ChatPage>
     });
   }
 
+  // ===== v838：附件选择 =====
+  static const _imgExt = ['png', 'jpg', 'jpeg', 'webp', 'gif'];
+  static const _textExt = [
+    'txt', 'md', 'markdown', 'json', 'csv', 'log', 'yaml', 'yml',
+    'html', 'htm', 'xml', 'dart', 'py', 'js', 'ts',
+  ];
+
+  Future<void> _pickAttachment() async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.image_outlined),
+              title: const Text('图片（识别需模型支持视觉）'),
+              onTap: () => Navigator.pop(context, 'image'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.description_outlined),
+              title: const Text('文本文件（txt/md/json等）'),
+              onTap: () => Navigator.pop(context, 'file'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (choice == null) return;
+    final files = await FilePicker.pickFiles(
+      type: choice == 'image' ? FileType.image : FileType.any,
+    );
+    if (files.isEmpty) return;
+    final f = files.first;
+    // v838：file_picker v13无withData——按uri读字节
+    Uint8List bytes;
+    try {
+      bytes = await File.fromUri(f.uri).readAsBytes();
+    } catch (e) {
+      _toast('读取文件失败：$e');
+      return;
+    }
+    if (bytes.isEmpty) return;
+    final ext = (f.extension ?? '').toLowerCase();
+    if (choice == 'image') {
+      if (!_imgExt.contains(ext)) {
+        _toast('暂不支持该图片格式：$ext');
+        return;
+      }
+      if (bytes.length > 4 * 1024 * 1024) {
+        _toast('图片超过4MB——请压缩后重试');
+        return;
+      }
+      final mime = ext == 'png'
+          ? 'image/png'
+          : ext == 'webp'
+              ? 'image/webp'
+              : ext == 'gif'
+                  ? 'image/gif'
+                  : 'image/jpeg';
+      setState(() => _pending.add(ChatAttachment(
+            name: f.name,
+            mime: mime,
+            data: base64Encode(bytes),
+            isImage: true,
+          )));
+    } else {
+      if (!_textExt.contains(ext)) {
+        _toast('不支持的文本格式：.$ext（支持${_textExt.join("/")}）');
+        return;
+      }
+      setState(() => _pending.add(ChatAttachment(
+            name: f.name,
+            mime: 'text/plain',
+            data: utf8.decode(bytes, allowMalformed: true),
+            isImage: false,
+          )));
+    }
+  }
+
+  void _toast(String msg) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
+  }
+
   /// v836：历史文本构造（含upto索引，inclusive）
   String _histText(List<ChatMessage> msgs, int upto) {
     final hist = StringBuffer();
@@ -65,7 +153,7 @@ class _ChatPageState extends State<ChatPage>
 
   Future<void> _send(AppState state) async {
     final text = _inputCtl.text.trim();
-    if (text.isEmpty || _sending) return;
+    if ((text.isEmpty && _pending.isEmpty) || _sending) return;
     var sess = state.chatActive;
     if (sess == null) {
       state.newChatSession();
@@ -76,16 +164,19 @@ class _ChatPageState extends State<ChatPage>
     if (sess.messages.isEmpty) {
       sess.title = text.length > 16 ? text.substring(0, 16) : text;
     }
+    final atts = List<ChatAttachment>.from(_pending);
     setState(() {
       sess!.messages.add(ChatMessage(
         role: 'user',
         content: text,
         ts: DateTime.now().millisecondsSinceEpoch,
+        attachments: atts,
       ));
+      _pending.clear();
     });
     _inputCtl.clear();
     final hist = _histText(sess.messages, sess.messages.length - 1);
-    await _generate(state, text, hist);
+    await _generate(state, text, hist, atts: atts);
   }
 
   /// v836：重新回答——把该条AI回复对应的提问重新发送，新答案追加不覆盖旧答案
@@ -110,7 +201,9 @@ class _ChatPageState extends State<ChatPage>
   }
 
   /// v836：生成核心（追加assistant占位→流式更新→落盘），供_send/_regen共用
-  Future<void> _generate(AppState state, String text, String hist) async {
+  /// v838：atts——文本类附件注入prompt，图片附件走vision
+  Future<void> _generate(AppState state, String text, String hist,
+      {List<ChatAttachment> atts = const []}) async {
     final sess = state.chatActive;
     if (sess == null || _sending) return;
     setState(() {
@@ -130,15 +223,29 @@ class _ChatPageState extends State<ChatPage>
         '手册没写的不要编。回答直接自然，不需要客套。当前书目：${state.currentBook}'
         '${state.chapters.isNotEmpty ? '（共${state.chapters.length}章）' : ''}。\n\n'
         '${PromptBuilderHelp.appHelpDoc}';
+    // v838：文本类附件注入prompt（图片走vision）；文本上限60KB防prompt爆炸
+    String textAll = text;
+    final imgs = <({String mime, String base64})>[];
+    for (final a in atts) {
+      if (a.isImage) {
+        imgs.add((mime: a.mime, base64: a.data));
+      } else {
+        final body = a.data.length > 60000
+            ? '${a.data.substring(0, 60000)}\n…（超长截断）'
+            : a.data;
+        textAll += '\n\n【附件：${a.name}】\n$body';
+      }
+    }
     final usr = hist.isEmpty
-        ? text
-        : '【聊天历史】\n${hist}【本轮用户消息】\n$text';
+        ? textAll
+        : '【聊天历史】\n${hist}【本轮用户消息】\n$textAll';
     try {
       final r = await _chatApi.callApi(
         task: '聊天回复',
         systemPrompt: sys,
         userPrompt: usr,
         apiConfig: state.getApiConfig('chat'),
+        images: imgs,
         onChunk: (chunk) {
           if (!mounted) return;
           setState(() {
@@ -296,11 +403,70 @@ class _ChatPageState extends State<ChatPage>
                 onTap: () => _chatApi.abort(),
               ),
             ),
+          // v838：待发送附件预览条
+          if (_pending.isNotEmpty)
+            Container(
+              height: 56,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  for (var i = 0; i < _pending.length; i++)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: Stack(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFFE2D9C6)),
+                            ),
+                            child: _pending[i].isImage
+                                ? Image.memory(
+                                    base64Decode(_pending[i].data),
+                                    height: 44,
+                                    fit: BoxFit.cover,
+                                  )
+                                : SizedBox(
+                                    height: 44,
+                                    child: Center(
+                                      child: Text('📄 ${_pending[i].name}',
+                                          style: const TextStyle(fontSize: 12)),
+                                    ),
+                                  ),
+                          ),
+                          Positioned(
+                            right: -2,
+                            top: -2,
+                            child: GestureDetector(
+                              onTap: () => setState(() => _pending.removeAt(i)),
+                              child: const CircleAvatar(
+                                radius: 9,
+                                backgroundColor: Color(0xFFB4552D),
+                                child: Icon(Icons.close,
+                                    size: 12, color: Colors.white),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
               child: Row(
                 children: [
+                  // v838：附件按钮
+                  MiniButton(
+                    label: '📎',
+                    onTap: _sending ? null : () => _pickAttachment(),
+                  ),
+                  const SizedBox(width: 6),
                   Expanded(
                     child: TextField(
                       controller: _inputCtl,
@@ -372,24 +538,56 @@ class _ChatPageState extends State<ChatPage>
           border: Border.all(
               color: isUser ? const Color(0xFFB7D3B9) : const Color(0xFFE2D9C6)),
         ),
-        child: Stack(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // v836：富文本渲染（JSON美化/简易markdown），单条复制保留
-            Padding(
-              padding: const EdgeInsets.only(right: 22),
-              child: _richContent(m.content),
-            ),
-            Positioned(
-              right: 0,
-              top: 0,
-              child: GestureDetector(
-                onTap: () {
-                  Clipboard.setData(ClipboardData(text: m.content));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('已复制'), duration: Duration(seconds: 1)));
-                },
-                child: const Icon(Icons.copy, size: 15, color: Color(0xFF9B8F7A)),
+            // v838：消息附件（图片缩略图/文件名chip）
+            for (final a in m.attachments)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: a.isImage
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: Image.memory(
+                          base64Decode(a.data),
+                          width: 180,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    : Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF5F1E6),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text('📄 ${a.name}',
+                            style: const TextStyle(fontSize: 12)),
+                      ),
               ),
+            Stack(
+              children: [
+                // v836：富文本渲染（JSON美化/简易markdown），单条复制保留
+                Padding(
+                  padding: const EdgeInsets.only(right: 22),
+                  child: _richContent(m.content),
+                ),
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: GestureDetector(
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: m.content));
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('已复制'),
+                          duration: Duration(seconds: 1)));
+                    },
+                    child: const Icon(Icons.copy,
+                        size: 15, color: Color(0xFF9B8F7A)),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
