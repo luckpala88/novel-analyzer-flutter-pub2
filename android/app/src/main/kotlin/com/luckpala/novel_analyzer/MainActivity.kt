@@ -32,17 +32,26 @@ class MainActivity : FlutterActivity() {
                     startActivityForResult(intent, REQUEST_CODE)
                 }
                 "requestAllFilesAccess" -> {
-                    // v851：已授权=true；未授权=跳授权页并返回false（Dart端提示用户授权后重试）
+                    // v853：未授权→跳授权页；带包名intent失败（Android 14+收紧）降级通用授权页
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R &&
                         !android.os.Environment.isExternalStorageManager()) {
+                        var jumped = false
                         try {
                             val intent = Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
                             intent.data = Uri.parse("package:$packageName")
                             startActivity(intent)
-                            result.success(false)
+                            jumped = true
                         } catch (e: Exception) {
-                            result.success(false)
+                            // 降级：通用"所有文件访问"列表页（无版本差异）
                         }
+                        if (!jumped) {
+                            try {
+                                startActivity(Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+                                jumped = true
+                            } catch (e: Exception) {
+                            }
+                        }
+                        result.success(jumped)
                     } else {
                         result.success(true)
                     }
