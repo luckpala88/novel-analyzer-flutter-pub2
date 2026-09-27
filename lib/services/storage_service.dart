@@ -305,7 +305,9 @@ class StorageService {
   /// 主工程从未申请过=备份/导出静默失败。返回false=用户拒绝（调用方应提示）
   /// v850：Android 11+走MANAGE_EXTERNAL_STORAGE"所有文件访问"授权页
   Future<bool> ensurePublicWritable() async {
-    if (_isDesktop || _storageMode != 'public') return true;
+    // v852：去掉storageMode=='public'短路——切模式时当前还是专属，授权检查
+    // 必须执行（为即将切换的公共目录预备），否则永远不弹授权页（v851死循环根因）
+    if (_isDesktop) return true;
     try {
       const ch = MethodChannel('com.luckpala/novel_analyzer');
       // 先试所有文件访问（Android 11+）
