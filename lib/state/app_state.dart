@@ -1090,10 +1090,26 @@ class AppState extends ChangeNotifier {
     if (raw != null && raw.isNotEmpty) {
       try {
         chatSessions = ChatSession.listFromJson(jsonDecode(raw) as List);
-        if (chatSessions.isNotEmpty) chatActiveId = chatSessions.first.id;
       } catch (e) {
         debugPrint('Load chat_sessions error: $e');
+        chatSessions = [];
       }
+      // v846：启动防御——坏数据隔离（单会话>200条/单消息>1MB截断丢弃，防启动build死循环）
+      final kept = <ChatSession>[];
+      for (final s in chatSessions.take(30)) {
+        final msgs = s.messages.take(200).toList();
+        for (final m in msgs) {
+          if (m.content.length > 1000000) m.content = m.content.substring(0, 1000000);
+          // 坏附件隔离：data超8MB或图片base64非法→丢弃附件保文字
+          m.attachments.removeWhere((a) =>
+              a.data.length > 8 * 1024 * 1024 ||
+              (a.isImage && a.data.length < 100));
+        }
+        kept.add(ChatSession(
+            id: s.id, title: s.title, messages: msgs, createdAt: s.createdAt));
+      }
+      chatSessions = kept;
+      if (chatSessions.isNotEmpty) chatActiveId = chatSessions.first.id;
     }
   }
 

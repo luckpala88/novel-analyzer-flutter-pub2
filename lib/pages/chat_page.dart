@@ -740,6 +740,12 @@ class _ChatPageState extends State<ChatPage>
                           base64Decode(a.data),
                           width: 180,
                           fit: BoxFit.cover,
+                          // v846：坏base64兜底，防启动build反复崩
+                          errorBuilder: (_, __, ___) => const SizedBox(
+                              height: 40,
+                              child: Center(
+                                  child: Text('🖼 图片数据损坏',
+                                      style: TextStyle(fontSize: 12)))),
                         ),
                       )
                     : Container(
