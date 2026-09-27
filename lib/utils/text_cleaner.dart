@@ -397,22 +397,29 @@ class TextCleaner {
 
   /// v787：剥AI输出首尾的JSON残留引号壳——形如 `": "承接…\n"` 的输出
   /// （低温模型把纯文本当JSON字符串值返回：键前缀+首尾双引号+字面\n）。
-  /// 用于续写规划/优化方向等纯文本产物（结构化输出仍走normalizeAiOutput）
+  /// v866：引号**配对且成壳**才剥——壳的特征=剥壳后内部无同类引号；
+  /// 正文自己的对话引号（对白开头/对话收尾）恒成对出现且内部还有引号，绝不剥。
+  /// 实证旧逻辑：无条件剥首引号+while连环剥尾→对白开头正文首“被吃+开头残留英文"
   static String stripQuotedFragment(String t) {
     t = t.trim();
     // JSON键值残留开头：`": "` / `"key": "`
     final m = RegExp(r'^"\s*[a-zA-Z_\u4e00-\u9fa5]*"\s*:').firstMatch(t);
     if (m != null) t = t.substring(m.end).trim();
     if (t.startsWith(':')) t = t.substring(1).trim();
-    // 首引号
-    if (t.startsWith('"') || t.startsWith('“')) t = t.substring(1).trim();
-    // 尾部引号/逗号组合剥除（JSON字符串值残留，非正文引语）
-    while (t.isNotEmpty &&
-        (t.endsWith('"') ||
-            t.endsWith('”') ||
-            t.endsWith(',') ||
-            t.endsWith('，'))) {
-      t = t.substring(0, t.length - 1).trim();
+    // 尾部JSON残留逗号（只剥逗号，引号留给壳判定）
+    final tailComma = RegExp(r'(?:"|”|“)[,，]$');
+    if (tailComma.hasMatch(t)) t = t.substring(0, t.length - 1).trim();
+    // 首尾引号配对且剥后内部无同类引号=壳，才剥
+    if (t.length >= 2) {
+      final f = t[0];
+      final l = t[t.length - 1];
+      final isQuote = (String c) => c == '"' || c == '“' || c == '”';
+      if (isQuote(f) && isQuote(l)) {
+        final inner = t.substring(1, t.length - 1);
+        if (!inner.contains('"') && !inner.contains('“') && !inner.contains('”')) {
+          t = inner.trim();
+        }
+      }
     }
     // 字面\n转真实换行
     t = t.replaceAll('\\n', '\n');
