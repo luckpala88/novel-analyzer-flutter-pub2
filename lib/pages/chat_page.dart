@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'package:share_plus/share_plus.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:scroll_to_index/scroll_to_index.dart'; // v861：楼层跳转
 import 'package:provider/provider.dart';
 import '../models/chat_session.dart';
 import '../services/api_service.dart';
@@ -24,7 +26,10 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage>
     with AutomaticKeepAliveClientMixin {
   final ApiService _chatApi = ApiService(); // 独立实例
-  final ScrollController _listCtl = ScrollController();
+  // v861：AutoScrollController=标准ScrollController子类（jumpTo(max)用法不变），
+  // 额外支持scrollToIndex按楼层定位；不像v842的ScrollablePositionedList替换滚动组件（死机教训）
+  final AutoScrollController _listCtl = AutoScrollController();
+  int _curFloor = 0; // 当前楼层（↑↓基准，随跳转推进）
   final TextEditingController _inputCtl = TextEditingController();
   final FocusNode _inputFocus = FocusNode();
   bool _sending = false;
@@ -54,9 +59,27 @@ class _ChatPageState extends State<ChatPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_listCtl.hasClients) {
         _listCtl.jumpTo(_listCtl.position.maxScrollExtent);
+        _curFloor = state_msgCount - 1;
       }
     });
   }
+
+  // v861：楼层跳转（楼层号=消息序号1基）
+  Future<void> _jumpFloor(int delta) async {
+    final n = state_msgCount;
+    if (n == 0) return;
+    final target = (_curFloor + delta).clamp(0, n - 1);
+    if (target == _curFloor) return;
+    _curFloor = target;
+    if (_listCtl.hasClients) {
+      await _listCtl.scrollToIndex(target,
+          preferPosition: AutoScrollPosition.begin,
+          duration: const Duration(milliseconds: 180));
+    }
+  }
+
+  int get state_msgCount =>
+      context.read<AppState>().chatActive?.messages.length ?? 0;
 
   // ===== v838：附件选择 =====
   static const _imgExt = ['png', 'jpg', 'jpeg', 'webp', 'gif'];
@@ -137,6 +160,132 @@ class _ChatPageState extends State<ChatPage>
           )));
     }
   }
+
+  /// v861：半透明圆形楼层导航键
+  Widget _navBtn(String label, VoidCallback? onTap) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 34,
+          height: 34,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: const Color(0x99C89137),
+            borderRadius: BorderRadius.circular(17),
+          ),
+          child: Text(label,
+              style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white)),
+        ),
+      ),
+    );
+  }
+
+  // ===== v861：会话导入/导出 =====
+
+  void _exportImportMenu(AppState state) {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.ios_share),
+              title: const Text('导出当前会话（txt，可分享）'),
+              onTap: () {
+                Navigator.pop(context);
+                _exportSession(state);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.download_outlined),
+              title: const Text('导入会话（从txt文件）'),
+              onTap: () {
+                Navigator.pop(context);
+                _importSession(state);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 导出格式：--- 用户 --- / --- AI --- 分段（导入可回解析）
+  Future<void> _exportSession(AppState state) async {
+    final sess = state.chatActive;
+    if (sess == null || sess.messages.isEmpty) {
+      _toast('当前会话为空');
+      return;
+    }
+    final sb = StringBuffer();
+    sb.writeln('【会话】' + sess.title);
+    sb.writeln('【导出】' + DateTime.now().toString().substring(0, 19));
+    for (final m in sess.messages) {
+      sb.writeln('--- ' + (m.role == 'user' ? '用户' : 'AI') + ' ---');
+      sb.writeln(m.content);
+    }
+    final fname =
+        'chat_' + sess.title.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_') + '.txt';
+    final path = state.storage.getBackupPath(fname);
+    File(path).writeAsStringSync(sb.toString());
+    _log('[聊天] 已导出：' + path);
+    await Share.shareXFiles([XFile(path)], text: sess.title);
+  }
+
+  Future<void> _importSession(AppState state) async {
+    final files = await FilePicker.pickFiles(type: FileType.any);
+    if (files.isEmpty) return;
+    final f = files.first;
+    String content;
+    try {
+      content = await File.fromUri(f.uri).readAsString();
+    } catch (e) {
+      _toast('读取失败：' + e.toString());
+      return;
+    }
+    // 解析 --- 用户 --- / --- AI --- 分段；无分隔符则整段作为第一条用户消息
+    final msgs = <ChatMessage>[];
+    final re = RegExp(r'^--- (用户|AI) ---\s*$', multiLine: true);
+    final matches = re.allMatches(content).toList();
+    if (matches.isEmpty) {
+      msgs.add(ChatMessage(
+          role: 'user',
+          content: content.trim(),
+          ts: DateTime.now().millisecondsSinceEpoch));
+    } else {
+      for (var i = 0; i < matches.length; i++) {
+        final start = matches[i].end;
+        final end =
+            i + 1 < matches.length ? matches[i + 1].start : content.length;
+        final body = content.substring(start, end).trim();
+        if (body.isEmpty) continue;
+        msgs.add(ChatMessage(
+          role: matches[i].group(1) == '用户' ? 'user' : 'assistant',
+          content: body,
+          ts: DateTime.now().millisecondsSinceEpoch,
+        ));
+      }
+    }
+    if (msgs.isEmpty) {
+      _toast('未解析到消息');
+      return;
+    }
+    state.newChatSession();
+    final sess = state.chatActive!;
+    sess.title = f.name.replaceFirst(RegExp(r'\.txt$'), '');
+    sess.messages.addAll(msgs);
+    state.saveChatSessions();
+    if (mounted) setState(() => _didOpenJump = false);
+    _log('[聊天] 导入完成：' + msgs.length.toString() + '条消息');
+  }
+
+  void _log(String msg) => AppState.instance.apiLog(msg);
 
   void _toast(String msg) {
     ScaffoldMessenger.of(context)
@@ -412,6 +561,7 @@ class _ChatPageState extends State<ChatPage>
           ),
         ]),
         actions: [
+          MiniButton(label: '⇅', onTap: () => _exportImportMenu(state)),
           MiniButton(
               label: '新建',
               onTap: () {
@@ -460,14 +610,16 @@ class _ChatPageState extends State<ChatPage>
       body: Column(
         children: [
           Expanded(
-            child: sess == null || sess.messages.isEmpty
-                ? Center(
-                    child: Text(
-                      sess == null ? '点右上「新建」开始会话' : '输入第一条消息开始聊天',
-                      style: const TextStyle(color: Color(0xFF9B8F7A)),
-                    ),
+            // v861：Stack包列表+右侧楼层快捷键（只锚bottom——v847教训：禁top+bottom双约束）
+            child: Stack(
+              children: [
+                if (sess == null || sess.messages.isEmpty)
+                  const Center(
+                    child: Text('输入第一条消息开始聊天',
+                        style: TextStyle(color: Color(0xFF9B8F7A))),
                   )
-                : ListView.builder(
+                else
+                  ListView.builder(
                     controller: _listCtl,
                     padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
                     itemCount: sess.messages.length,
@@ -482,9 +634,11 @@ class _ChatPageState extends State<ChatPage>
                           }
                         });
                       }
+                      // v861：统一包楼层号+AutoScrollTag
+                      Widget body;
                       if (m.role == 'tool') {
                         // v840：工具执行结果窄条
-                        return Align(
+                        body = Align(
                           alignment: Alignment.center,
                           child: Container(
                             margin: const EdgeInsets.symmetric(vertical: 3),
@@ -506,11 +660,81 @@ class _ChatPageState extends State<ChatPage>
                             ),
                           ),
                         );
+                      } else {
+                        final isUser = m.role == 'user';
+                        body = _bubble(state, m, isUser, i);
                       }
-                      final isUser = m.role == 'user';
-                      return _bubble(state, m, isUser, i);
+                      return AutoScrollTag(
+                        key: ValueKey('floor_$i'),
+                        controller: _listCtl,
+                        index: i,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 1),
+                              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                Text('#${i + 1}',
+                                    style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Color(0xFFB8AF9F))),
+                                const SizedBox(width: 6),
+                                // v861：单条删除——整理聊天记录用
+                                GestureDetector(
+                                  onTap: () async {
+                                    final okDel = await showDialog<bool>(
+                                        context: context,
+                                        builder: (d) => AlertDialog(
+                                            title: const Text('删除这条消息'),
+                                            content: Text('删除第${i + 1}楼（不影响其他楼层）'),
+                                            actions: [
+                                              TextButton(
+                                                  onPressed: () =>
+                                                      Navigator.pop(d, false),
+                                                  child: const Text('取消')),
+                                              FilledButton(
+                                                  onPressed: () =>
+                                                      Navigator.pop(d, true),
+                                                  child: const Text('删除')),
+                                            ]));
+                                    if (okDel != true || !mounted) return;
+                                    setState(() {
+                                      state.chatActive!.messages.removeAt(i);
+                                    });
+                                    state.saveChatSessions();
+                                  },
+                                  child: const Icon(Icons.close,
+                                      size: 12, color: Color(0xFFB8AF9F)),
+                                ),
+                              ]),
+                            ),
+                            body,
+                          ],
+                        ),
+                      );
                     },
                   ),
+                // v861：右侧竖排半透明楼层快捷键
+                if (sess != null && sess.messages.isNotEmpty)
+                  Positioned(
+                    right: 4,
+                    bottom: 90,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _navBtn('⤒', () {
+                          _curFloor = 0;
+                          if (_listCtl.hasClients) _listCtl.jumpTo(0);
+                        }),
+                        _navBtn('↑', () => _jumpFloor(-1)),
+                        _navBtn('↓', () => _jumpFloor(1)),
+                        _navBtn('⤓', () => _jumpBottom()),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
           ),
           if (_sending)
             Padding(
