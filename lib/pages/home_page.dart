@@ -806,12 +806,21 @@ class _HomePageState extends State<HomePage>
           ),
           FilledButton.tonal(
             onPressed: () async {
-              final ok = await state.storage.setStorageMode('public');
-              if (ctx.mounted) {
-                Navigator.pop(ctx);
-                AppState.instance.apiLog(ok ? '已切换到公共目录' : '公共目录不可用，请使用专属目录');;
-                state.refresh();
+              Navigator.pop(ctx); // v851：先关弹窗——授权页会盖上来
+              // v851：先确保"所有文件访问"授权（未授权→跳系统授权页+返回false）
+              final writable = await state.storage.ensurePublicWritable();
+              if (!writable) {
+                AppState.instance.apiLog('ℹ 已跳转"所有文件访问"授权页——请允许后重新选择公共目录');
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('请在授权页允许"所有文件访问"后，重新选择公共目录'),
+                      duration: Duration(seconds: 5)));
+                }
+                return;
               }
+              final ok = await state.storage.setStorageMode('public');
+              AppState.instance.apiLog(ok ? '已切换到公共目录' : '公共目录不可写——请确认授权或重启手机后重试');
+              state.refresh();
             },
             child: const Text('公共目录'),
           ),
