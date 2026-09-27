@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:provider/provider.dart';
 import '../models/chat_session.dart';
 import '../services/api_service.dart';
@@ -25,14 +24,12 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage>
     with AutomaticKeepAliveClientMixin {
   final ApiService _chatApi = ApiService(); // 独立实例
-  final ScrollController _listCtl = ScrollController();
-  // v842：定位楼层列表——打开即到末尾/侧边快捷键跳层
-  final ItemScrollController _itemCtl = ItemScrollController();
-  final ItemPositionsListener _posListener = ItemPositionsListener.create();
+  final ScrollController _listCtl = ScrollController(); // v845：回滚普通列表（ScrollablePositionedList启动死循环）
   final TextEditingController _inputCtl = TextEditingController();
   final FocusNode _inputFocus = FocusNode();
   bool _sending = false;
   final List<ChatAttachment> _pending = []; // v838：待发送附件
+  bool _didOpenJump = false; // v845：首次进入跳末尾标记
   // v844：jumpTo节流——scrollable_positioned_list每次jump都触发目标布局，
   // 流式期间逐chunk调用=布局风暴=主线程卡死（v842死机根因），500ms内只跳一次
   int _lastJumpMs = 0;
@@ -50,36 +47,28 @@ class _ChatPageState extends State<ChatPage>
 
   @override
   void dispose() {
-    // _itemCtl无需dispose（v842）
+    _listCtl.dispose();
     _inputCtl.dispose();
     _inputFocus.dispose();
     super.dispose();
   }
 
-  // v842：楼层定位——打开/新消息直达末尾；v844：500ms节流防布局风暴卡死
+  // v845：回滚普通列表——打开/新消息直达末尾（v842的ScrollablePositionedList启动死循环弃用）
   void _jumpBottom() {
-    final n = state_msgCount;
-    if (n == 0) return;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    if (now - _lastJumpMs < 500) return;
-    _lastJumpMs = now;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_itemCtl.isAttached) {
-        _itemCtl.jumpTo(index: n - 1);
+      if (_listCtl.hasClients) {
+        _listCtl.jumpTo(_listCtl.position.maxScrollExtent);
       }
     });
   }
 
-  // v842：侧边快捷键跳层（当前楼层=可见最小index）
-  int get state_msgCount =>
-      context.read<AppState>().chatActive?.messages.length ?? 0;
-
+  // v845：侧边快捷键——顶/底精确，上/下层≈翻一屏（普通列表无按index跳，近似定位）
   void _jumpFloor(int delta) {
-    final visible = _posListener.itemPositions.value;
-    if (visible.isEmpty) return;
-    var cur = visible.map((p) => p.index).reduce((a, b) => a < b ? a : b);
-    final target = (cur + delta).clamp(0, state_msgCount - 1);
-    if (_itemCtl.isAttached) _itemCtl.jumpTo(index: target);
+    if (!_listCtl.hasClients) return;
+    final pos = _listCtl.position;
+    final target = (pos.pixels + delta * pos.viewportDimension * 0.85)
+        .clamp(0.0, pos.maxScrollExtent);
+    _listCtl.jumpTo(target);
   }
 
   // ===== v838：附件选择 =====
@@ -504,14 +493,12 @@ class _ChatPageState extends State<ChatPage>
       body: Column(
         children: [
           Expanded(
-            // v842：Stack包裹——列表+右侧楼层快捷键浮层
+            // v842：Stack包裹——列表+右侧楼层快捷键浮层；v845列表回滚普通ListView
             child: Stack(
               children: [
                 if (sess != null && sess.messages.isNotEmpty)
-                  ScrollablePositionedList.builder(
-                    itemScrollController: _itemCtl,
-                    itemPositionsListener: _posListener,
-                    initialScrollIndex: sess.messages.length - 1, // v842：打开即末尾
+                  ListView.builder(
+                    controller: _listCtl,
                     padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
                     itemCount: sess.messages.length,
                     itemBuilder: (ctx, i) {
@@ -541,6 +528,15 @@ class _ChatPageState extends State<ChatPage>
                         );
                       }
                       final isUser = m.role == 'user';
+                      // v845：打开/切回聊天页时定位到末尾（一次性）
+                      if (!_didOpenJump) {
+                        _didOpenJump = true;
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (_listCtl.hasClients) {
+                            _listCtl.jumpTo(_listCtl.position.maxScrollExtent);
+                          }
+                        });
+                      }
                       return _bubble(state, m, isUser, i);
                     },
                   )
@@ -560,10 +556,10 @@ class _ChatPageState extends State<ChatPage>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        _navBtn('⤒', () => _itemCtl.isAttached ? _itemCtl.jumpTo(index: 0) : null),
+                        _navBtn('⤒', () => _listCtl.hasClients ? _listCtl.jumpTo(0) : null),
                         _navBtn('↑', () => _jumpFloor(-1)),
                         _navBtn('↓', () => _jumpFloor(1)),
-                        _navBtn('⤓', () => _itemCtl.isAttached ? _itemCtl.jumpTo(index: state_msgCount - 1) : null),
+                        _navBtn('⤓', () => _jumpBottom()),
                       ],
                     ),
                   ),
@@ -579,10 +575,10 @@ class _ChatPageState extends State<ChatPage>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _navBtn('⤒', () => _itemCtl.isAttached ? _itemCtl.jumpTo(index: 0) : null),
+                  _navBtn('⤒', () => _listCtl.hasClients ? _listCtl.jumpTo(0) : null),
                   _navBtn('↑', () => _jumpFloor(-1)),
                   _navBtn('↓', () => _jumpFloor(1)),
-                  _navBtn('⤓', () => _itemCtl.isAttached ? _itemCtl.jumpTo(index: state_msgCount - 1) : null),
+                  _navBtn('⤓', () => _jumpBottom()),
                 ],
               ),
             ),
