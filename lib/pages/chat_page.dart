@@ -161,23 +161,23 @@ class _ChatPageState extends State<ChatPage>
     }
   }
 
-  /// v861：半透明圆形楼层导航键
+  /// v861：半透明圆形楼层导航键；v862：加大尺寸+间隔，位置左移
   Widget _navBtn(String label, VoidCallback? onTap) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
+      padding: const EdgeInsets.symmetric(vertical: 7),
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          width: 34,
-          height: 34,
+          width: 44,
+          height: 44,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: const Color(0x99C89137),
-            borderRadius: BorderRadius.circular(17),
+            borderRadius: BorderRadius.circular(22),
           ),
           child: Text(label,
               style: const TextStyle(
-                  fontSize: 15,
+                  fontSize: 18,
                   fontWeight: FontWeight.w700,
                   color: Colors.white)),
         ),
@@ -718,18 +718,24 @@ class _ChatPageState extends State<ChatPage>
                 // v861：右侧竖排半透明楼层快捷键
                 if (sess != null && sess.messages.isNotEmpty)
                   Positioned(
-                    right: 4,
+                    right: 14,
                     bottom: 90,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _navBtn('⤒', () {
+                        _navBtn('⎯↑', () {
                           _curFloor = 0;
                           if (_listCtl.hasClients) _listCtl.jumpTo(0);
                         }),
                         _navBtn('↑', () => _jumpFloor(-1)),
                         _navBtn('↓', () => _jumpFloor(1)),
-                        _navBtn('⤓', () => _jumpBottom()),
+                        _navBtn('↓⎯', () {
+                          // v862：同步直达底部（不走postFrame，点击即生效）
+                          _curFloor = state_msgCount - 1;
+                          if (_listCtl.hasClients) {
+                            _listCtl.jumpTo(_listCtl.position.maxScrollExtent);
+                          }
+                        }),
                       ],
                     ),
                   ),
