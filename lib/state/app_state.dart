@@ -196,6 +196,7 @@ class AppState extends ChangeNotifier {
     await loadAllData();
     await loadSettings();
     await cloudSync.init();
+    storage.errorLog = apiLog; // v857：写盘异常透传终端
     _setupApiCallbacks();
   }
 
@@ -2577,7 +2578,8 @@ class AppState extends ChangeNotifier {
         // v855：bookCount只在自检通过时计数——此前无条件++，写盘全挂也报"恢复成功"（用户实测误导）
         final restored = storage.listFiles(bookPath);
         if (restored.isEmpty) {
-          apiLog('❌ 恢复自检失败：「$bookId」目录未创建或为空——写盘异常');
+          apiLog('❌ 恢复自检失败：「$bookId」目录未创建或为空——'
+              '写盘异常：${storage.lastWriteError ?? '未知（见上方❌行）'}');
           failCount++;
         } else {
           bookCount++;

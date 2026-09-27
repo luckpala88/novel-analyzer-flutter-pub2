@@ -349,6 +349,10 @@ class StorageService {
   }
 
   /// 写文件
+  /// v857：最近一次写盘异常（自检失败时透传给终端，定位真实原因）
+  String? lastWriteError;
+  void Function(String msg)? errorLog; // v857：异常透传（AppState注入apiLog）
+
   bool writeFile(String filename, String data) {
     try {
       if (_baseDir == null) return false;
@@ -363,7 +367,8 @@ class StorageService {
       tmp.renameSync(file.path);
       return true;
     } catch (e) {
-      print('writeFile error: $e');
+      lastWriteError = e.toString();
+      errorLog?.call('❌ 写盘失败 $filename：$e');
       return false;
     }
   }
@@ -472,6 +477,8 @@ class StorageService {
       if (!dir.existsSync()) dir.createSync(recursive: true);
       return true;
     } catch (e) {
+      lastWriteError = e.toString();
+      errorLog?.call('❌ 建目录失败 $path：$e');
       return false;
     }
   }
