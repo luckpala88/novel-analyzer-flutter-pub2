@@ -681,9 +681,11 @@ class _ChatPageState extends State<ChatPage>
                   top: 0,
                   child: GestureDetector(
                     onTap: () {
-                      Clipboard.setData(ClipboardData(text: m.content));
+                      // v841：复制净化文本——JSON转可读文本/markdown去符号，换行保留
+                      Clipboard.setData(
+                          ClipboardData(text: _copyPlain(m.content)));
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text('已复制'),
+                          content: Text('已复制（纯文本）'),
                           duration: Duration(seconds: 1)));
                     },
                     child: const Icon(Icons.copy,
@@ -699,6 +701,56 @@ class _ChatPageState extends State<ChatPage>
   }
 
   // ===== v836：聊天富文本渲染 =====
+
+  /// v841：复制净化——JSON转"key：值"可读文本（换行保留），markdown去符号
+  String _copyPlain(String content) {
+    var trimmed = content.trim();
+    final isJson = (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+        (trimmed.startsWith('[') && trimmed.endsWith(']'));
+    if (isJson) {
+      try {
+        return _flatJson(jsonDecode(trimmed), '');
+      } catch (_) {}
+    }
+    // markdown去符号（保留换行）
+    final out = StringBuffer();
+    var inCode = false;
+    for (final line in trimmed.split('\n')) {
+      final t = line.trimLeft();
+      if (t.startsWith('```')) {
+        inCode = !inCode;
+        continue; // 围栏行去掉
+      }
+      if (inCode) {
+        out.writeln(line);
+        continue;
+      }
+      var l = t;
+      l = l.replaceFirst(RegExp(r'^#{1,4}\s+'), ''); // 标题#
+      l = l.replaceFirst(RegExp(r'^([-*]|\d+[.)])\s+'), '· '); // 列表符→·
+      l = l.replaceAll('**', ''); // 粗体
+      l = l.replaceAll('`', ''); // 行内code
+      out.writeln(l);
+    }
+    return out.toString().trimRight();
+  }
+
+  /// JSON→纯文本递归（key：value行/数组逐项换行，字符串原样保换行）
+  String _flatJson(dynamic node, String key) {
+    final label = key.isEmpty ? '' : '${_zhKey(key)}：';
+    if (node is Map) {
+      return node.entries
+          .map((e) => _flatJson(e.value, e.key.toString()))
+          .where((s) => s.isNotEmpty)
+          .join('\n');
+    }
+    if (node is List) {
+      return node.map((e) => _flatJson(e, '')).where((s) => s.isNotEmpty).join('\n\n');
+    }
+    final s = node.toString();
+    if (s.contains('\n')) return s; // 长文本原样（自带换行）
+    return '$label$s';
+  }
 
   /// 内容分发：JSON→美化卡片；markdown→富文本span；普通文本原样
   Widget _richContent(String content) {
