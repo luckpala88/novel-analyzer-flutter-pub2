@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:provider/provider.dart';
 import '../models/chat_session.dart';
 import '../services/api_service.dart';
@@ -25,6 +26,9 @@ class _ChatPageState extends State<ChatPage>
     with AutomaticKeepAliveClientMixin {
   final ApiService _chatApi = ApiService(); // 独立实例
   final ScrollController _listCtl = ScrollController();
+  // v842：定位楼层列表——打开即到末尾/侧边快捷键跳层
+  final ItemScrollController _itemCtl = ItemScrollController();
+  final ItemPositionsListener _posListener = ItemPositionsListener.create();
   final TextEditingController _inputCtl = TextEditingController();
   final FocusNode _inputFocus = FocusNode();
   bool _sending = false;
@@ -43,18 +47,33 @@ class _ChatPageState extends State<ChatPage>
 
   @override
   void dispose() {
-    _listCtl.dispose();
+    // _itemCtl无需dispose（v842）
     _inputCtl.dispose();
     _inputFocus.dispose();
     super.dispose();
   }
 
+  // v842：楼层定位——打开/新消息直达末尾（initialScrollIndex兜底+此处跳转）
   void _jumpBottom() {
+    final n = state_msgCount;
+    if (n == 0) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_listCtl.hasClients) {
-        _listCtl.jumpTo(_listCtl.position.maxScrollExtent);
+      if (_itemCtl.isAttached) {
+        _itemCtl.jumpTo(index: n - 1);
       }
     });
+  }
+
+  // v842：侧边快捷键跳层（当前楼层=可见最小index）
+  int get state_msgCount =>
+      context.read<AppState>().chatActive?.messages.length ?? 0;
+
+  void _jumpFloor(int delta) {
+    final visible = _posListener.itemPositions.value;
+    if (visible.isEmpty) return;
+    var cur = visible.map((p) => p.index).reduce((a, b) => a < b ? a : b);
+    final target = (cur + delta).clamp(0, state_msgCount - 1);
+    if (_itemCtl.isAttached) _itemCtl.jumpTo(index: target);
   }
 
   // ===== v838：附件选择 =====
@@ -140,6 +159,30 @@ class _ChatPageState extends State<ChatPage>
   void _toast(String msg) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
+  }
+
+  /// v842：半透明圆形楼层导航键
+  Widget _navBtn(String label, VoidCallback? onTap) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 34,
+          height: 34,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: const Color(0x99C89137), // 半透明金棕
+            borderRadius: BorderRadius.circular(17),
+          ),
+          child: Text(label,
+              style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white)),
+        ),
+      ),
+    );
   }
 
   /// v836：历史文本构造（含upto索引，inclusive）——v840：tool消息入历史
@@ -455,21 +498,19 @@ class _ChatPageState extends State<ChatPage>
       body: Column(
         children: [
           Expanded(
-            child: sess == null || sess.messages.isEmpty
-                ? Center(
-                    child: Text(
-                      sess == null ? '点右上「新建」开始会话' : '输入第一条消息开始聊天',
-                      style: const TextStyle(color: Color(0xFF9B8F7A)),
-                    ),
-                  )
-                : ListView.builder(
-                    controller: _listCtl,
+            // v842：Stack包裹——列表+右侧楼层快捷键浮层
+            child: Stack(
+              children: [
+                if (sess != null && sess.messages.isNotEmpty)
+                  ScrollablePositionedList.builder(
+                    itemScrollController: _itemCtl,
+                    itemPositionsListener: _posListener,
+                    initialScrollIndex: sess.messages.length - 1, // v842：打开即末尾
                     padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
                     itemCount: sess.messages.length,
                     itemBuilder: (ctx, i) {
                       final m = sess.messages[i];
                       if (m.role == 'tool') {
-                        // v840：工具执行结果窄条
                         return Align(
                           alignment: Alignment.center,
                           child: Container(
@@ -496,8 +537,49 @@ class _ChatPageState extends State<ChatPage>
                       final isUser = m.role == 'user';
                       return _bubble(state, m, isUser, i);
                     },
+                  )
+                else
+                  Center(
+                    child: Text(
+                      sess == null ? '点右上「新建」开始会话' : '输入第一条消息开始聊天',
+                      style: const TextStyle(color: Color(0xFF9B8F7A)),
+                    ),
                   ),
+                // v842：右侧竖排半透明楼层快捷键（有消息时显示）
+                if (sess != null && sess.messages.isNotEmpty)
+                  Positioned(
+                    right: 4,
+                    top: 60,
+                    bottom: 90,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _navBtn('⤒', () => _itemCtl.isAttached ? _itemCtl.jumpTo(index: 0) : null),
+                        _navBtn('↑', () => _jumpFloor(-1)),
+                        _navBtn('↓', () => _jumpFloor(1)),
+                        _navBtn('⤓', () => _itemCtl.isAttached ? _itemCtl.jumpTo(index: state_msgCount - 1) : null),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
           ),
+// v842：右侧竖排半透明楼层快捷键（有消息时显示）
+          if (sess != null && sess.messages.isNotEmpty)
+            Positioned(
+              right: 4,
+              top: 60,
+              bottom: 120,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _navBtn('⤒', () => _itemCtl.isAttached ? _itemCtl.jumpTo(index: 0) : null),
+                  _navBtn('↑', () => _jumpFloor(-1)),
+                  _navBtn('↓', () => _jumpFloor(1)),
+                  _navBtn('⤓', () => _itemCtl.isAttached ? _itemCtl.jumpTo(index: state_msgCount - 1) : null),
+                ],
+              ),
+            ),
           if (_sending)
             Padding(
               padding: const EdgeInsets.only(bottom: 4),
