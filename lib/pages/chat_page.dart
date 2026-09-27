@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/chat_session.dart';
 import '../services/api_service.dart';
+import '../utils/prompt_builder.dart';
 import '../state/app_state.dart';
 import '../widgets/api_config_panel.dart';
 import '../widgets/v119_ui.dart'; // showV119Sheet / MiniButton
@@ -90,8 +91,10 @@ class _ChatPageState extends State<ChatPage>
       hist.writeln('${m.role == 'user' ? "用户" : "AI"}：${m.content}');
     }
     final sys = '你是网文创作搭子，与作者自由聊天：可以讨论剧情/人物/设定/写作技巧，'
-        '也可以闲聊。回答直接自然，不需要客套。当前书目：${state.currentBook}'
-        '${state.chapters.isNotEmpty ? '（共${state.chapters.length}章）' : ''}。';
+        '也可以闲聊；同时你是本APP「网文拆解器」的功能助手，作者问APP功能/选项/流程时按下助手手册解答，'
+        '手册没写的不要编。回答直接自然，不需要客套。当前书目：${state.currentBook}'
+        '${state.chapters.isNotEmpty ? '（共${state.chapters.length}章）' : ''}。\n\n'
+        '${PromptBuilderHelp.appHelpDoc}';
     final usr = hist.isEmpty
         ? text
         : '【聊天历史】\n${hist}【本轮用户消息】\n$text';
