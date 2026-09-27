@@ -949,6 +949,9 @@ class AppState extends ChangeNotifier {
       case 'analysis':
         analysisApi = config;
         break;
+      case 'chat': // v835：补chat分支——漏掉导致聊天API设置不生效
+        chatApi = config;
+        break;
     }
     notifyListeners();
   }
