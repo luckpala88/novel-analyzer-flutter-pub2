@@ -29,7 +29,6 @@ class _ChatPageState extends State<ChatPage>
   // v861：AutoScrollController=标准ScrollController子类（jumpTo(max)用法不变），
   // 额外支持scrollToIndex按楼层定位；不像v842的ScrollablePositionedList替换滚动组件（死机教训）
   final AutoScrollController _listCtl = AutoScrollController();
-  int _curFloor = 0; // 当前楼层（↑↓基准，随跳转推进）
   final TextEditingController _inputCtl = TextEditingController();
   final FocusNode _inputFocus = FocusNode();
   bool _sending = false;
@@ -59,23 +58,24 @@ class _ChatPageState extends State<ChatPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_listCtl.hasClients) {
         _listCtl.jumpTo(_listCtl.position.maxScrollExtent);
-        _curFloor = state_msgCount - 1;
       }
     });
   }
 
-  // v861：楼层跳转（楼层号=消息序号1基）
+  // v866：楼层跳转——当前楼层按滚动比例实时估算（手动滚动后仍准确，
+  // 修复此前_curFloor与实际视口错位导致按键要按两次）
   Future<void> _jumpFloor(int delta) async {
     final n = state_msgCount;
-    if (n == 0) return;
-    final target = (_curFloor + delta).clamp(0, n - 1);
-    if (target == _curFloor) return;
-    _curFloor = target;
-    if (_listCtl.hasClients) {
-      await _listCtl.scrollToIndex(target,
-          preferPosition: AutoScrollPosition.begin,
-          duration: const Duration(milliseconds: 180));
-    }
+    if (n == 0 || !_listCtl.hasClients) return;
+    final pos = _listCtl.position;
+    if (pos.maxScrollExtent <= 0) return;
+    final curEst =
+        ((pos.pixels / pos.maxScrollExtent) * (n - 1)).round().clamp(0, n - 1);
+    final target = (curEst + delta).clamp(0, n - 1);
+    if (target == curEst) return;
+    await _listCtl.scrollToIndex(target,
+        preferPosition: AutoScrollPosition.begin,
+        duration: const Duration(milliseconds: 180));
   }
 
   int get state_msgCount =>
@@ -724,17 +724,20 @@ class _ChatPageState extends State<ChatPage>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _navBtn('⏫', () {
-                          _curFloor = 0;
                           if (_listCtl.hasClients) _listCtl.jumpTo(0);
                         }),
                         _navBtn('↑', () => _jumpFloor(-1)),
                         _navBtn('↓', () => _jumpFloor(1)),
                         _navBtn('⏬', () {
-                          // v862：同步直达底部（不走postFrame，点击即生效）
-                          _curFloor = state_msgCount - 1;
-                          if (_listCtl.hasClients) {
-                            _listCtl.jumpTo(_listCtl.position.maxScrollExtent);
-                          }
+                          // v866：直达底部+下一帧补跳一次（列表刚变化时maxExtent可能未刷新）
+                          if (!_listCtl.hasClients) return;
+                          _listCtl.jumpTo(_listCtl.position.maxScrollExtent);
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (_listCtl.hasClients) {
+                              _listCtl
+                                  .jumpTo(_listCtl.position.maxScrollExtent);
+                            }
+                          });
                         }),
                       ],
                     ),
