@@ -33,6 +33,9 @@ class _ChatPageState extends State<ChatPage>
   final FocusNode _inputFocus = FocusNode();
   bool _sending = false;
   final List<ChatAttachment> _pending = []; // v838：待发送附件
+  // v844：jumpTo节流——scrollable_positioned_list每次jump都触发目标布局，
+  // 流式期间逐chunk调用=布局风暴=主线程卡死（v842死机根因），500ms内只跳一次
+  int _lastJumpMs = 0;
 
   @override
   bool get wantKeepAlive => true;
@@ -53,10 +56,13 @@ class _ChatPageState extends State<ChatPage>
     super.dispose();
   }
 
-  // v842：楼层定位——打开/新消息直达末尾（initialScrollIndex兜底+此处跳转）
+  // v842：楼层定位——打开/新消息直达末尾；v844：500ms节流防布局风暴卡死
   void _jumpBottom() {
     final n = state_msgCount;
     if (n == 0) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - _lastJumpMs < 500) return;
+    _lastJumpMs = now;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_itemCtl.isAttached) {
         _itemCtl.jumpTo(index: n - 1);
