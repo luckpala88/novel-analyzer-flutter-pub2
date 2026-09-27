@@ -2596,7 +2596,9 @@ class AppState extends ChangeNotifier {
         'detect',
         'wb',
         'scene',
+        'arc', // v849：补漏——此前arc/chat恢复后prefs缺失
         'analysis',
+        'chat', // v849
       ]) {
         if (globalFiles.containsKey('${section}_api.json')) {
           try {
