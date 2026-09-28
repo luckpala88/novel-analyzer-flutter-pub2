@@ -1532,14 +1532,18 @@ const SizedBox(width: 8),
           '场景${an.scenes.indexOf(sc) + 1}：${sc.name}（${sc.chapterRange}）',
         );
         if (sc.summary.isNotEmpty) sb.writeln('概述：${sc.summary}');
+        if (sc.choreo.isNotEmpty) sb.writeln('场景编排(Choreo)：${sc.choreo}'); // v878
         for (var i = 0; i < sc.shots.length; i++) {
           final sh = sc.shots[i];
+          if (i == 0 && sc.choreo.isNotEmpty)
+            sb.writeln('分镜编排(Choreo)：${sc.choreo}'); // v878
           sb.writeln('分镜${i + 1}：');
           sb.writeln('焦点(Focus)：${sh.focus}');
           sb.writeln('镜头类型(Shot Type)：${sh.shotType}');
           sb.writeln('视角(POV)：${sh.pov}');
           sb.writeln('投放信息(Info)：${sh.info}');
           sb.writeln('作者意图(Intent)：${sh.intent}');
+          if (sh.trick.isNotEmpty) sb.writeln('手法(Trick)：${sh.trick}'); // v878
           sb.writeln('转场手法(Transition)：${sh.transition}');
           sb.writeln('篇幅(Length)：${sh.length}');
           sb.writeln('文笔节奏(Prose Style)：${sh.proseStyle}');
@@ -1703,14 +1707,18 @@ const SizedBox(width: 8),
           '场景${an.scenes.indexOf(sc) + 1}：${sc.name}（${sc.chapterRange}）',
         );
         if (sc.summary.isNotEmpty) sb.writeln('概述：${sc.summary}');
+        if (sc.choreo.isNotEmpty) sb.writeln('场景编排(Choreo)：${sc.choreo}'); // v878
         for (var i = 0; i < sc.shots.length; i++) {
           final sh = sc.shots[i];
+          if (i == 0 && sc.choreo.isNotEmpty)
+            sb.writeln('分镜编排(Choreo)：${sc.choreo}'); // v878
           sb.writeln('分镜${i + 1}：');
           sb.writeln('焦点(Focus)：${sh.focus}');
           sb.writeln('镜头类型(Shot Type)：${sh.shotType}');
           sb.writeln('视角(POV)：${sh.pov}');
           sb.writeln('投放信息(Info)：${sh.info}');
           sb.writeln('作者意图(Intent)：${sh.intent}');
+          if (sh.trick.isNotEmpty) sb.writeln('手法(Trick)：${sh.trick}'); // v878
           sb.writeln('转场手法(Transition)：${sh.transition}');
           sb.writeln('篇幅(Length)：${sh.length}');
           sb.writeln('文笔节奏(Prose Style)：${sh.proseStyle}');
@@ -2094,6 +2102,7 @@ const SizedBox(width: 8),
         scene.shots = shotsJson
             .map((e) => Shot.fromJson(e as Map<String, dynamic>))
             .toList();
+        scene.choreo = (parsed?['choreo'] as String?) ?? ''; // v878：分镜编排落库
           // v363：镜级切片物化（尽力而为）——从scene.text链式定位每镜end_text。
           // 失败→该镜text留空，创作端回退场景切片，绝不影响拆解落库（与场景
           // 物化的严格模式相反：场景切片是拆解输入必须严，镜切片只是创作范文必须宽）

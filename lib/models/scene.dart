@@ -16,6 +16,7 @@ class Shot {
   String voice; // 语感锚（v218：修饰密度|句式|语域|原著例句——约束改编与正文的行文质感，治AI文学腔）
   String ink; // 笔墨配额（v219：分镜内各部分字数分配"心理盘算70字·摊主反应30字"——治AI平均用力，作者注意力权重的分镜级量化）
   String style; // 文风量化标尺（v640：句长N字|短句占比N%|动词密度N|对话占比N%|形容词密度N|比喻密度N——逐镜独立统计，防AI退回默认文风）
+  String trick; // v878：手法（细节策略四问：特质→呈现路径+直接度+释放批次+细节任务数——作者把本镜写出彩的具体做法）
   String endText; // v363：镜级分界原句（本分镜结束处的最后一句原文，照抄含标点）
   String text; // v363：镜级锚定切片（拆解后按end_text链式物化；空=未物化回退场景切片）
 
@@ -33,6 +34,7 @@ class Shot {
     this.voice = '',
     this.ink = '',
     this.style = '',
+    this.trick = '',
     this.endText = '',
     this.text = '',
   });
@@ -52,6 +54,7 @@ class Shot {
       voice: json['voice'] ?? '',
       style: json['style'] ?? '',
       ink: json['ink'] ?? '',
+      trick: json['trick'] ?? '',
       endText: json['end_text'] ?? json['endText'] ?? '',
       text: json['text'] ?? '',
     );
@@ -71,6 +74,7 @@ class Shot {
     if (voice.isNotEmpty) 'voice': voice,
     if (style.isNotEmpty) 'style': style,
     if (ink.isNotEmpty) 'ink': ink,
+    if (trick.isNotEmpty) 'trick': trick,
     if (endText.isNotEmpty) 'end_text': endText,
     if (text.isNotEmpty) 'text': text,
   };
@@ -88,6 +92,7 @@ class Scene {
   String endText; // v320：本场景结束处分界原句（该句含之前归本场景）
   int globalIndex; // v431：全局场景流序号（全书唯一，弧线分组引用；-1=弧线内局部场景）
   String changes; // v473：本场景关键变化/得失（供弧线概述与closure提炼）
+  String choreo; // v878：编排——场景级=场景功能链+张力作用；分镜级=入口出口/推进关系/详略取舍
 
   bool continuation; // v437：跨窗口续写标记——与全局流最后场景合并，不持久化
 
@@ -103,6 +108,7 @@ class Scene {
     this.globalIndex = -1,
     this.continuation = false,
     this.changes = '',
+    this.choreo = '',
   });
 
   factory Scene.fromJson(Map<String, dynamic> json) {
@@ -125,6 +131,7 @@ class Scene {
       globalIndex: json['global_index'] ?? -1,
       continuation: json['continuation'] == true,
       changes: json['changes'] ?? '',
+      choreo: json['choreo'] ?? '',
     );
   }
 
@@ -133,6 +140,7 @@ class Scene {
     'chapter_range': chapterRange,
     'start_chapter': startChapter,
     'end_chapter': endChapter,
+    'choreo': choreo,
     'shots': shots.map((e) => e.toJson()).toList(),
     'summary': summary,
     'text': text,
