@@ -2210,6 +2210,14 @@ class AppState extends ChangeNotifier {
       sb.writeln(core);
       sb.writeln();
     }
+    // v894：弧线编排总纲进语料（场景规划/写入前细化时AI按它安排功能链）
+    final an = arcAnalyses[arcKey];
+    final choreo = an?.metadata?['arc_choreo']?.toString() ?? '';
+    if (choreo.isNotEmpty) {
+      sb.writeln('【弧线编排总纲（本弧线各场景的功能链与张力设计——规划新场景时必须遵循此节奏安排）】');
+      sb.writeln(choreo);
+      sb.writeln();
+    }
     final cur = _continueEntryOf(myNum);
     if (cur != null && cur.isNotEmpty) {
       final lines = RegExp(r'^(场景\d+：[^\n]*)(\n概述：[^\n]*)?', multiLine: true)

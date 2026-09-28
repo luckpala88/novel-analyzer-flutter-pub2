@@ -439,6 +439,37 @@ const SizedBox(width: 8),
     return state.arcScenes[arc.number.toString()] ?? [];
   }
 
+
+  /// v894：弧线编排总纲显示块（metadata优先，退回arc对象）
+  List<Widget> _buildArcChoreoBlock(String fromMeta, String fromArc) {
+    final v = fromMeta.isNotEmpty ? fromMeta : fromArc;
+    if (v.isEmpty) return [];
+    return [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+        child: ReadableWidth(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('🎬 弧线编排',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFB45309),
+                  )),
+              Text(v,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    height: 1.5,
+                    color: V469Style.textSec,
+                  )),
+            ],
+          ),
+        ),
+      ),
+    ];
+  }
+
   Widget _buildArcCard(
     BuildContext context,
     AppState state,
@@ -618,6 +649,15 @@ const SizedBox(width: 8),
             // （detailed），无则退回分组/场景划分概述（analysis.arcSummary）
             // ❌旧逻辑（v469，直读arcSummary与弧线页同一字段=两页概述一模一样，已废弃）：
             // if (hasAnalysis && analysis.arcSummary.isNotEmpty)
+            // v894：弧线编排总纲显示（重提零件/分组产出，独立于概述块）
+            if (hasAnalysis)
+              ..._buildArcChoreoBlock(
+                analysis!.metadata?['arc_choreo']?.toString() ?? '',
+                state.allArcs
+                    .where((a) => a.number.toString() == arcKey)
+                    .map((a) => a.arcChoreo)
+                    .firstWhere((c) => c.isNotEmpty, orElse: () => ''),
+              ),
             if (hasAnalysis &&
                 (analysis.metadata?['arc_summary_detailed']?.toString() ?? analysis.arcSummary).isNotEmpty)
               Padding(
@@ -1245,6 +1285,22 @@ const SizedBox(width: 8),
                 ),
             ],
           ),
+          // v894：场景编排标注（分组/重提零件产出）
+          if (analyzedScene?.choreo.isNotEmpty == true)
+            Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '🎬 ${analyzedScene!.choreo}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    height: 1.4,
+                    color: Colors.brown.shade600,
+                  ),
+                ),
+              ),
+            ),
           // 场景概述
           if (analyzedScene?.summary.isNotEmpty == true)
             Padding(

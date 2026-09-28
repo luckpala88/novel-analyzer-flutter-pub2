@@ -1035,7 +1035,15 @@ Future<void> extractArcParts({
   if (arcChoreoV2.isNotEmpty) {
     arc.arcChoreo = arcChoreoV2;
     state.saveArcScan();
-    log('✓ 弧线${arc.number}编排总纲已落库');
+    // v894：同步进analysis.metadata——续写语料continueCorpus从这里读
+    final curAnalysis = state.arcAnalyses[arc.number.toString()];
+    if (curAnalysis != null) {
+      curAnalysis.metadata = {
+        ...?curAnalysis.metadata,
+        'arc_choreo': arcChoreoV2,
+      };
+    }
+    log('✓ 弧线${arc.number}编排总纲已落库（含语料注入源）');
   }
   final scChoreosV2 = parts['scene_choreos']?.toString() ?? '';
   if (scChoreosV2.isNotEmpty) {
