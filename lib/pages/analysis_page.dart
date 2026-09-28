@@ -1230,6 +1230,13 @@ const SizedBox(width: 8),
                   ),
                 ),
               ),
+            ],
+          ),
+          // v902：按钮行独立（此前与场景名同Row=名称被挤成竖排，用户截图）
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
               // v508c：场景切片浏览（场景text优先，旧数据回退全局场景流）
               SizedBox(
                 height: 26,
@@ -1333,7 +1340,7 @@ const SizedBox(width: 8),
                 ),
             ],
           ),
-          // v894：场景编排标注（分组/重提零件产出）
+   // v894：场景编排标注（分组/重提零件产出）
           if (analyzedScene?.choreo.isNotEmpty == true)
             Padding(
               padding: const EdgeInsets.only(top: 3),
