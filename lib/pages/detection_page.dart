@@ -2043,21 +2043,10 @@ class _DtScrollViewState extends State<_DtScrollView> {
 
   /// v870：段首缩进两中文字（显示层——按\n拆span行首插全角空格，
   /// 不改content本身，TTS高亮偏移计算不受影响）
+  /// v877：用户裁决——渲染零缩进兜底，txt实际怎样就显示怎样
+  /// （txt正文层v875已自带缩进，渲染层任何加工都是画蛇添足）
   List<InlineSpan> _indentSpans(String t) {
-    final parts = t.split('\n');
-    final out = <InlineSpan>[];
-    for (var i = 0; i < parts.length; i++) {
-      // v876：第一行也缩进（v874只在换行后加=首段顶格，用户实测）
-      if (i > 0) {
-        out.add(
-          TextSpan(text: parts[i].startsWith('\u3000') ? '\n' : '\n　　'),
-        );
-      } else if (!parts[i].startsWith('\u3000') && parts[i].isNotEmpty) {
-        out.add(const TextSpan(text: '　　'));
-      }
-      if (parts[i].isNotEmpty) out.add(TextSpan(text: parts[i]));
-    }
-    return out;
+    return [TextSpan(text: t)];
   }
 
   TextSpan _buildContentSpan(String content, TextStyle style) {
@@ -2177,34 +2166,6 @@ class _DtPagedViewState extends State<_DtPagedView> {
   // v370b：行首缓存（主页chapter_reader三段式探测配套）
   final Map<int, int> _lineStartCache = {};
 
-  /// v870：段首缩进显示文本（每段前插两个全角空格）+原偏移→显示偏移映射
-  /// （分页/显示用display文本保证排版一致，TTS高亮偏移经_toDisplay换算）
-  String get _displayText {
-    final parts = widget.content.split('\n');
-    final sb = StringBuffer();
-    for (var i = 0; i < parts.length; i++) {
-      if (i > 0) sb.write('\n');
-      // v874：幂等——行首已有全角空格不双加；v876：第一行也缩进
-      if (!parts[i].startsWith('\u3000') && parts[i].isNotEmpty) {
-        sb.write('　　');
-      }
-      sb.write(parts[i]);
-    }
-    return sb.toString();
-  }
-
-  int _toDisplay(int orig) {
-    if (orig <= 0) return 0;
-    var added = 0, rest = orig;
-    final parts = widget.content.split('\n');
-    for (var i = 0; i < parts.length; i++) {
-      if (rest <= parts[i].length) return orig + added;
-      rest -= parts[i].length + 1; // +1=换行符
-      added += 3; // \n后插的\n　　=3字符（含缩进2）
-    }
-    return widget.content.length + added;
-  }
-
   void _computePages(Size viewSize) {
     final padding = 16.0;
     final bottomBarHeight = 20.0; // 底部页码小字（悬浮按钮不占正文空间）
@@ -2213,7 +2174,7 @@ class _DtPagedViewState extends State<_DtPagedView> {
 
     if (availableHeight <= 0 || availableWidth <= 0) return;
 
-    final fullText = _displayText;
+    final fullText = widget.content; // v877：显示即原样（用户裁决撤渲染缩进）
     final style = TextStyle(
       fontSize: widget.fontSize,
       height: widget.lineHeight,
@@ -2306,12 +2267,9 @@ class _DtPagedViewState extends State<_DtPagedView> {
     if (widget.hlStart < 0 || widget.hlEnd <= widget.hlStart) {
       return TextSpan(text: content, style: style);
     }
-    // v870：高亮偏移按显示文本换算（display比原文每段多2字符缩进）
-    final hlS = _toDisplay(widget.hlStart);
-    final hlE = _toDisplay(widget.hlEnd);
     // 计算高亮与当前页的交集
-    final localStart = hlS - pageStart;
-    final localEnd = hlE - pageStart;
+    final localStart = widget.hlStart - pageStart;
+    final localEnd = widget.hlEnd - pageStart;
     if (localEnd <= 0 || localStart >= content.length) {
       return TextSpan(text: content, style: style);
     }

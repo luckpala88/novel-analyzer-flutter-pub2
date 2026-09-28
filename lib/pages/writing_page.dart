@@ -4590,8 +4590,7 @@ class _WritingPageState extends State<WritingPage>
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               child: Text(
-                // v874：幂等缩进（txt正文层已带缩进不双加）
-                raw2.startsWith('\u3000') ? raw2 : '　　$raw2',
+                raw2, // v877：显示即原样（用户裁决撤渲染缩进兜底）
                 style: TextStyle(
                   fontSize: fontSize,
                   height: 1.8,
@@ -4616,7 +4615,7 @@ class _WritingPageState extends State<WritingPage>
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
           child: Text(
-            raw.startsWith('\u3000') ? raw : '　　$raw',
+            raw, // v877：显示即原样（用户裁决撤渲染缩进兜底）
             style: TextStyle(
               fontSize: fontSize,
               height: 1.8,
