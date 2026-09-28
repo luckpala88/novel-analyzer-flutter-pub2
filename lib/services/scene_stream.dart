@@ -779,28 +779,18 @@ Future<void> groupArcsFromScenes({
           final seg = gs.sublist(from2, to2 + 1);
           if (seg.isEmpty) continue;
           prevTo = to2 + 1;
-          // v881：逐场景编排落库（scene_choreos="场景N:…；场景M:…"按序号映射）
-          // v885：分隔符兼容全角/半角分号+换行（AI输出格式漂移容错），落库打日志
+          // v900概念定稿：scene_choreos=弧线内场景编排策略的**逐场景落点**
+          // （弧线层表述层数据）——存arcAnalyses.metadata，不再写Scene.choreo
+          // （Scene.choreo专属"场景内分镜编排策略"=拆分镜详版，字段分家防覆盖）
           final scChoreos = m['scene_choreos']?.toString() ?? '';
+          String scChoreosSaved = ''; // v900：延后到analysis创建后落库
           if (scChoreos.isNotEmpty) {
-            var choreoCount = 0;
-            // v889：通用解析——实测AI输出两种形态都吃：
-            // ①"场景N:功能；场景M:…" ②"[899:功能, 900:功能]"（JSON数组风，
-            // 序号无场景前缀+半角逗号——v887实测该形态全丢）。直接扫所有
-            // "数字:内容"对，分隔符/前缀都不敏感
-            for (final mm in RegExp(
-              r'(\d+)\s*[:：]\s*([^,，；;\n\]}]+)',
-            ).allMatches(scChoreos)) {
-              final seq = int.tryParse(mm.group(1)!) ?? 0;
-              final val = mm.group(2)!.trim();
-              if (val.isEmpty) continue;
-              if (seq - 1 >= from2 && seq - 1 <= to2) {
-                gs[seq - 1].choreo = val;
-                choreoCount++;
-              }
-            }
+            final choreoCount = RegExp(
+              r'(\d+)\s*[:：]',
+            ).allMatches(scChoreos).length;
+            scChoreosSaved = scChoreos;
             if (choreoCount > 0) {
-              log('✓ 编排落库：弧线$arcNum $choreoCount个场景choreo');
+              log('✓ 编排落库：弧线$arcNum $choreoCount个场景编排落点');
             } else {
               log('⚠️ 弧线$arcNum scene_choreos格式未解析出任何场景（原文头80字：${scChoreos.substring(0, scChoreos.length > 80 ? 80 : scChoreos.length)}）');
             }
@@ -870,6 +860,13 @@ Future<void> groupArcsFromScenes({
           analysis.arcTitle = arc.title;
           analysis.arcSummary = arc.summary;
           analysis.scenes = [...?prevAnalysis?.scenes, ...seg];
+          // v900：scene_choreos（弧线内场景编排策略的逐场景落点）存弧线级metadata
+          if (scChoreosSaved.isNotEmpty) {
+            analysis.metadata = {
+              ...?analysis.metadata,
+              'scene_choreos': scChoreosSaved,
+            };
+          }
           state.arcAnalyses[arc.number.toString()] = analysis;
         }
         // v491批尾检查：AI最后一条弧线没覆盖到批尾→中断告警（不静默兜底）
@@ -1047,33 +1044,16 @@ Future<void> extractArcParts({
   }
   final scChoreosV2 = parts['scene_choreos']?.toString() ?? '';
   if (scChoreosV2.isNotEmpty) {
-    var choreoCount = 0;
-    // v893：双容器写——globalScenes与analysis.scenes重载后是反序列化的
-    // 独立实例，只写前者=弧线页场景卡（读analysis.scenes）看不到编排
-    final anScenes = state.arcAnalyses[arc.number.toString()]?.scenes ?? const <Scene>[];
-    for (final mm
-        in RegExp(r'(\d+)\s*[:：]\s*([^,，；;\n\]}]+)').allMatches(scChoreosV2)) {
-      final seq = int.tryParse(mm.group(1)!) ?? 0;
-      final val = mm.group(2)!.trim();
-      if (val.isEmpty) continue;
-      if (arc.sceneFrom >= 1 &&
-          seq >= arc.sceneFrom &&
-          seq <= arc.sceneTo) {
-        if (gsAll.length >= seq) gsAll[seq - 1].choreo = val;
-        for (final sc in anScenes) {
-          if (sc.globalIndex + 1 == seq) {
-            sc.choreo = val;
-            break;
-          }
-        }
-        choreoCount++;
-      }
-    }
-    if (choreoCount > 0) {
-      state.saveArcScenes();
-      log('✓ 弧线${arc.number}编排落库：$choreoCount个场景choreo');
-    } else {
-      log('⚠️ 弧线${arc.number} scene_choreos格式未解析（头80字：${scChoreosV2.substring(0, scChoreosV2.length > 80 ? 80 : scChoreosV2.length)}）');
+    // v900概念定稿：scene_choreos=弧线内场景编排策略的逐场景落点，
+    // 存analysis.metadata（弧线层），不写Scene.choreo（那是场景内分镜编排策略专属）
+    final curAnalysis2 = state.arcAnalyses[arc.number.toString()];
+    if (curAnalysis2 != null) {
+      curAnalysis2.metadata = {
+        ...?curAnalysis2.metadata,
+        'scene_choreos': scChoreosV2,
+      };
+      state.saveArcAnalyses();
+      log('✓ 弧线${arc.number}逐场景编排落点已落库（弧线层）');
     }
   }
   analysis.metadata = {

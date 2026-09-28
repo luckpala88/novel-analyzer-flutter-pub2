@@ -688,10 +688,10 @@ class _ScanPageState extends State<ScanPage>
                                           ],
                                         );
                                       }),
-                                      // v882：弧线编排总纲显示（分组产出，没生成过则不显示）
+                                      // v882/v900：弧线内场景编排策略=总纲+逐场景落点
                                       if (arc.arcChoreo.isNotEmpty) ...[
                                         Text(
-                                          '🎬 弧线内场景编排策略',
+                                          '🎬 弧线内场景编排策略（总纲）',
                                           style: const TextStyle(
                                             fontSize: 11,
                                             fontWeight: FontWeight.w700,
@@ -702,6 +702,33 @@ class _ScanPageState extends State<ScanPage>
                                           arc.arcChoreo,
                                           style: const TextStyle(
                                             fontSize: 12,
+                                            height: 1.5,
+                                            color: V469Style.textSec,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                      ],
+                                      if ((state.arcAnalyses[arc.number
+                                              .toString()]
+                                          ?.metadata?['scene_choreos']
+                                              as String? ??
+                                          '')
+                                      .isNotEmpty) ...[
+                                        Text(
+                                          '📋 逐场景编排落点（各场景功能与蓄力方向——详版在拆分镜后见各场景卡）',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(0xFF64748B),
+                                          ),
+                                        ),
+                                        Text(
+                                          state.arcAnalyses[arc.number
+                                                  .toString()]!
+                                              .metadata?['scene_choreos']
+                                              as String,
+                                          style: const TextStyle(
+                                            fontSize: 11.5,
                                             height: 1.5,
                                             color: V469Style.textSec,
                                           ),
