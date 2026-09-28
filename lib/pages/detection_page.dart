@@ -2047,11 +2047,13 @@ class _DtScrollViewState extends State<_DtScrollView> {
     final parts = t.split('\n');
     final out = <InlineSpan>[];
     for (var i = 0; i < parts.length; i++) {
-      // v874：幂等——行首已有全角空格（txt正文层自带缩进）不再加
+      // v876：第一行也缩进（v874只在换行后加=首段顶格，用户实测）
       if (i > 0) {
         out.add(
           TextSpan(text: parts[i].startsWith('\u3000') ? '\n' : '\n　　'),
         );
+      } else if (!parts[i].startsWith('\u3000') && parts[i].isNotEmpty) {
+        out.add(const TextSpan(text: '　　'));
       }
       if (parts[i].isNotEmpty) out.add(TextSpan(text: parts[i]));
     }
@@ -2182,7 +2184,7 @@ class _DtPagedViewState extends State<_DtPagedView> {
     final sb = StringBuffer();
     for (var i = 0; i < parts.length; i++) {
       if (i > 0) sb.write('\n');
-      // v874：幂等——行首已有全角空格不双加
+      // v874：幂等——行首已有全角空格不双加；v876：第一行也缩进
       if (!parts[i].startsWith('\u3000') && parts[i].isNotEmpty) {
         sb.write('　　');
       }
