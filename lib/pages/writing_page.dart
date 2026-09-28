@@ -1161,6 +1161,12 @@ class _WritingPageState extends State<WritingPage>
         final cv = TextCleaner.stripJsonShells(v.content);
         if (cv != v.content) {
           v.content = cv;
+          // v871b：历史版本重写必须带备注（用版本自身model/temp快照，与
+          // 生成时一致）——此前无备注重写=清残渣后历史版本txt备注消失
+          // 的真凶（用户实测：刚创作有备注，之后"不能持久"）
+          final vNote = _txtNote(state, model: v.model, temp: v.temperature);
+          var vTxt = TextCleaner.stripShotHeaders(cv);
+          if (vNote != null) vTxt = '$vNote\n\n$vTxt';
           state.storage.writeFile(
             state.storage.getWritingPath(
               v.arcKey,
@@ -1169,7 +1175,7 @@ class _WritingPageState extends State<WritingPage>
               v.chapterRange,
               v.version,
             ),
-            TextCleaner.stripShotHeaders(cv),
+            vTxt,
           );
         }
       }

@@ -1275,7 +1275,12 @@ class AppState extends ChangeNotifier {
       item.chapterRange,
       1,
     );
-    storage.writeFile(path, item.content);
+    // v871b：agent创作链txt也带备注（对齐创作页_txtNote格式，版本号固定v1）
+    final model = item.model.isNotEmpty ? item.model : '';
+    final note = model.isEmpty
+        ? null
+        : '[模型：$model · 温度${item.temperature} · v${item.version}]';
+    storage.writeFile(path, note == null ? item.content : '$note\n\n${item.content}');
     notifyListeners();
   }
 
