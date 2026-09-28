@@ -784,13 +784,18 @@ Future<void> groupArcsFromScenes({
           final scChoreos = m['scene_choreos']?.toString() ?? '';
           if (scChoreos.isNotEmpty) {
             var choreoCount = 0;
-            final items = scChoreos.split(RegExp(r'[；;\n]'));
-            for (final item in items) {
-              final mm = RegExp(r'场景\s*(\d+)\s*[:：]\s*(.+)').firstMatch(item.trim());
-              if (mm == null) continue;
+            // v889：通用解析——实测AI输出两种形态都吃：
+            // ①"场景N:功能；场景M:…" ②"[899:功能, 900:功能]"（JSON数组风，
+            // 序号无场景前缀+半角逗号——v887实测该形态全丢）。直接扫所有
+            // "数字:内容"对，分隔符/前缀都不敏感
+            for (final mm in RegExp(
+              r'(\d+)\s*[:：]\s*([^,，；;\n\]}]+)',
+            ).allMatches(scChoreos)) {
               final seq = int.tryParse(mm.group(1)!) ?? 0;
+              final val = mm.group(2)!.trim();
+              if (val.isEmpty) continue;
               if (seq - 1 >= from2 && seq - 1 <= to2) {
-                gs[seq - 1].choreo = mm.group(2)!.trim();
+                gs[seq - 1].choreo = val;
                 choreoCount++;
               }
             }
