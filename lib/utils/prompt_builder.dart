@@ -2227,6 +2227,15 @@ class PromptBuilder {
         sb.writeln('$k：$v');
       }
     });
+    // v925：弧线内场景编排策略进语料（总纲+逐场景落点——表述层数据）
+    final arcChoreo = arcData['arc_choreo']?.toString() ?? '';
+    final sceneChoreos = arcData['scene_choreos']?.toString() ?? '';
+    if (arcChoreo.isNotEmpty) {
+      sb.writeln('弧线内场景编排策略（总纲）：$arcChoreo');
+    }
+    if (sceneChoreos.isNotEmpty) {
+      sb.writeln('逐场景编排落点：$sceneChoreos');
+    }
     final scenes = arcData['scenes'] as List? ?? [];
     if (scenes.isNotEmpty) {
       sb.writeln('场景列表（仅标题，供人设/冲突参照）：');
