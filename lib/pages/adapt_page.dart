@@ -86,6 +86,9 @@ class _AdaptPageState extends State<AdaptPage>
     _reqController.dispose();
     _contReqRawCtrl.dispose();
     _contReqOptCtrl.dispose();
+    for (final c in _scenePlanRawCtrl.values) c.dispose();
+    for (final c in _scenePlanOptCtrl.values) c.dispose();
+    for (final c in _scenePlanMatCtrl.values) c.dispose();
     _layerTabCtrl.dispose();
     super.dispose();
   }
@@ -2368,6 +2371,17 @@ class _AdaptPageState extends State<AdaptPage>
     final raw = plans[_plannerRawKey(arcKey)] ?? '';
     final opt = plans[_plannerOptKey(arcKey)] ?? '';
     final mat = plans[_plannerMatKey(arcKey)] ?? ''; // v827
+    // v921：控制器与持久化值同步（仅空时填，防覆盖用户输入）
+    _scenePlanRawCtrl.putIfAbsent(arcKey, () => TextEditingController());
+    if ((_scenePlanRawCtrl[arcKey]?.text.isEmpty ?? true) && raw.isNotEmpty) {
+      _scenePlanRawCtrl[arcKey]!.text = raw;
+    }
+    if ((_scenePlanOptCtrl[arcKey]?.text.isEmpty ?? true) && opt.isNotEmpty) {
+      _scenePlanOptCtrl[arcKey]!.text = opt;
+    }
+    if ((_scenePlanMatCtrl[arcKey]?.text.isEmpty ?? true) && mat.isNotEmpty) {
+      _scenePlanMatCtrl[arcKey]!.text = mat;
+    }
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(8),
@@ -2394,51 +2408,35 @@ class _AdaptPageState extends State<AdaptPage>
           ),
           if (_matExpanded) ...[
             const SizedBox(height: 4),
-            TextField(
-              controller: TextEditingController(text: mat),
-              maxLines: 4,
-              style: TextStyle(fontSize: _cf(11.5)),
-              decoration: const InputDecoration(
-                isDense: true,
-                hintText: '素材内容（设定/物品/灵感片段——AI规划时有机融入场景）',
-                border: OutlineInputBorder(),
-              ),
+            _CollapseReqField(
+              prefKey: 'scene_plan_mat_$arcKey',
+              controller: _scenePlanMatCtrl.putIfAbsent(
+                  arcKey, () => TextEditingController()),
+              labelText: '素材内容（设定/物品/灵感片段——AI规划时有机融入场景）',
+              fontSize: 11.5,
               onChanged: (v) =>
                   state.worldBook?.continuePlans[_plannerMatKey(arcKey)] = v,
-              onSubmitted: (_) => state.saveWorldBook(),
             ),
             const SizedBox(height: 6),
           ],
           const SizedBox(height: 6),
-          // ① 用户原始规划（勾选=写入源备选）
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 28,
-                height: 32,
-                child: Checkbox(
-                  value: _newSceneRawChecked,
-                  onChanged: (v) =>
-                      setState(() => _newSceneRawChecked = v ?? false),
-                ),
-              ),
-              Expanded(
-                child: TextField(
-                  controller: TextEditingController(text: raw),
-                  maxLines: 3,
-                  style: TextStyle(fontSize: _cf(11.5)),
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    hintText: '新场景规划（想怎么写就写什么，一两句话也行）',
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (v) =>
-                      state.worldBook?.continuePlans[_plannerRawKey(arcKey)] = v,
-                  onSubmitted: (_) => state.saveWorldBook(),
-                ),
-              ),
-            ],
+          // ① 用户原始规划（v921：折叠展开+自适应，勾选=写入源备选）
+          CheckboxListTile(
+            value: _newSceneRawChecked,
+            onChanged: (v) => setState(() => _newSceneRawChecked = v ?? false),
+            dense: true,
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: EdgeInsets.zero,
+            title: _CollapseReqField(
+              prefKey: 'scene_plan_raw_$arcKey',
+              controller: _scenePlanRawCtrl.putIfAbsent(
+                  arcKey, () => TextEditingController()),
+              labelText: '新场景规划（想怎么写就写什么，一两句话也行）',
+              hintText: '如：主角夜探禁地发现上古阵法\n引出守阵老者这条暗线',
+              fontSize: 11.5,
+              onChanged: (v) =>
+                  state.worldBook?.continuePlans[_plannerRawKey(arcKey)] = v,
+            ),
           ),
           const SizedBox(height: 6),
           Center(
@@ -2451,35 +2449,23 @@ class _AdaptPageState extends State<AdaptPage>
             ),
           ),
           const SizedBox(height: 6),
-          // ② AI优化结果（勾选=默认写入源）
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 28,
-                height: 32,
-                child: Checkbox(
-                  value: _newSceneOptChecked,
-                  onChanged: (v) =>
-                      setState(() => _newSceneOptChecked = v ?? false),
-                ),
-              ),
-              Expanded(
-                child: TextField(
-                  controller: TextEditingController(text: opt),
-                  maxLines: 5,
-                  style: TextStyle(fontSize: _cf(11.5)),
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    hintText: 'AI优化后的规划（可手改；格式：场景N：名称｜概述…）',
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (v) =>
-                      state.worldBook?.continuePlans[_plannerOptKey(arcKey)] = v,
-                  onSubmitted: (_) => state.saveWorldBook(),
-                ),
-              ),
-            ],
+          // ② AI优化结果（v921：折叠展开+自适应，勾选=默认写入源）
+          CheckboxListTile(
+            value: _newSceneOptChecked,
+            onChanged: (v) => setState(() => _newSceneOptChecked = v ?? false),
+            dense: true,
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: EdgeInsets.zero,
+            title: _CollapseReqField(
+              prefKey: 'scene_plan_opt_$arcKey',
+              controller: _scenePlanOptCtrl.putIfAbsent(
+                  arcKey, () => TextEditingController()),
+              labelText: 'AI优化后的规划（可手改；格式：场景N：名称｜概述…）',
+              hintText: 'AI优化稿会出现在这里，可手动修改',
+              fontSize: 11.5,
+              onChanged: (v) =>
+                  state.worldBook?.continuePlans[_plannerOptKey(arcKey)] = v,
+            ),
           ),
           const SizedBox(height: 6),
           // v826：写入前AI细化开关+写入按钮（细化结果回填优化框可手改，写入预览兜底）
@@ -3320,6 +3306,9 @@ class _AdaptPageState extends State<AdaptPage>
   bool _preWriteRefine = true; // v826：写入前AI细化开关（完善补充/剔除毒点，默认开）
   bool _matExpanded = false; // v827：素材折叠区展开状态
   final _contReqRawCtrl = TextEditingController(); // v920
+  final _scenePlanRawCtrl = <String, TextEditingController>{}; // v921：per-arc规划框
+  final _scenePlanOptCtrl = <String, TextEditingController>{}; // v921
+  final _scenePlanMatCtrl = <String, TextEditingController>{}; // v921
   final _contReqOptCtrl = TextEditingController(); // v920
   bool _reqRawChecked = true; // v781：原始续写方向勾选
   bool _reqOptChecked = true; // v781：优化方向勾选
