@@ -971,6 +971,68 @@ Future<void> groupArcsFromScenes({
 
 /// v474：逐弧线零件提取——分组定边界后，啃该弧线原文切片（场景切片拼接）
 /// 提取全套弧线零件写arcAnalyses（对齐旧版"划分即提取"信息量）
+/// v901：弧线内场景编排策略分析（独立按键——骨架/表述分离，单任务保质量）
+Future<void> analyzeArcChoreo({
+  required AppState state,
+  required Arc arc,
+  required void Function(String msg) log,
+}) async {
+  if (arc.text.isEmpty) {
+    log('⚠ 弧线${arc.number}无正文切片，跳过编排分析');
+    return;
+  }
+  final gsAll = state.globalScenes;
+  final sceneList = (arc.sceneFrom >= 1 && gsAll.length >= arc.sceneTo)
+      ? [
+          for (var i = arc.sceneFrom; i <= arc.sceneTo && i <= gsAll.length; i++)
+            '场景$i：${gsAll[i - 1].name}｜${gsAll[i - 1].summary.length > 60 ? gsAll[i - 1].summary.substring(0, 60) : gsAll[i - 1].summary}',
+        ].join('\n')
+      : '';
+  final systemPrompt = PromptBuilder.buildArcChoreoSystemPrompt();
+  final userPrompt = PromptBuilder.buildArcPartsUserPrompt(
+    arcTitle: arc.title,
+    arcSummary: arc.summary,
+    arcText: arc.text,
+    sceneList: sceneList,
+    choreoMode: true,
+  );
+  final config = state.getApiConfig('arc');
+  final result = await state.api.callApi(
+    task: '编排策略分析', // v824任务级反馈
+    systemPrompt: systemPrompt,
+    userPrompt: userPrompt,
+    apiConfig: config,
+  );
+  if (!result.isSuccess) {
+    log('⚠ 弧线${arc.number}编排分析失败：${result.error}');
+    return;
+  }
+  final parts = JsonRepair.parseResponse(result.content);
+  if (parts == null) {
+    log('⚠ 弧线${arc.number}编排分析解析失败——跳过');
+    return;
+  }
+  // 总纲：Arc+metadata双写（显示+语料两个消费端）
+  final arcChoreoV = parts['arc_choreo']?.toString() ?? '';
+  if (arcChoreoV.isNotEmpty) {
+    arc.arcChoreo = arcChoreoV;
+    state.saveArcScan();
+  }
+  final scChoreos = parts['scene_choreos']?.toString() ?? '';
+  if (scChoreos.isNotEmpty) {
+    final analysis = state.arcAnalyses[arc.number.toString()];
+    if (analysis != null) {
+      analysis.metadata = {
+        ...?analysis.metadata,
+        'arc_choreo': arcChoreoV,
+        'scene_choreos': scChoreos,
+      };
+      state.saveArcAnalyses();
+    }
+  }
+  log('✓ 弧线${arc.number}编排策略已落库（总纲${arcChoreoV.length}字+逐场景落点${scChoreos.length}字）');
+}
+
 Future<void> extractArcParts({
   required AppState state,
   required Arc arc,
@@ -1027,35 +1089,7 @@ Future<void> extractArcParts({
   final key = arc.number.toString();
   final old = state.arcAnalyses[key];
   final analysis = old ?? ArcAnalysis(arcNumber: arc.number, arcTitle: arc.title);
-  // v889：编排落库（重提零件=存量弧线补析通道）——总纲进Arc+逐场景进Scene.choreo
-  final arcChoreoV2 = parts['arc_choreo']?.toString() ?? '';
-  if (arcChoreoV2.isNotEmpty) {
-    arc.arcChoreo = arcChoreoV2;
-    state.saveArcScan();
-    // v894：同步进analysis.metadata——续写语料continueCorpus从这里读
-    final curAnalysis = state.arcAnalyses[arc.number.toString()];
-    if (curAnalysis != null) {
-      curAnalysis.metadata = {
-        ...?curAnalysis.metadata,
-        'arc_choreo': arcChoreoV2,
-      };
-    }
-    log('✓ 弧线${arc.number}编排总纲已落库（含语料注入源）');
-  }
-  final scChoreosV2 = parts['scene_choreos']?.toString() ?? '';
-  if (scChoreosV2.isNotEmpty) {
-    // v900概念定稿：scene_choreos=弧线内场景编排策略的逐场景落点，
-    // 存analysis.metadata（弧线层），不写Scene.choreo（那是场景内分镜编排策略专属）
-    final curAnalysis2 = state.arcAnalyses[arc.number.toString()];
-    if (curAnalysis2 != null) {
-      curAnalysis2.metadata = {
-        ...?curAnalysis2.metadata,
-        'scene_choreos': scChoreosV2,
-      };
-      state.saveArcAnalyses();
-      log('✓ 弧线${arc.number}逐场景编排落点已落库（弧线层）');
-    }
-  }
+  // v901：编排已拆到独立按键analyzeArcChoreo（骨架/表述分离，单任务保质量）
   analysis.metadata = {
     ...?analysis.metadata,
     'arc_summary_detailed': newSummary,

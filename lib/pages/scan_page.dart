@@ -865,6 +865,37 @@ class _ScanPageState extends State<ScanPage>
                                                     }
                                                   },
                                           ),
+                                          // v901：分析编排——独立按键（骨架/表述分离，单任务保质量）
+                                          const SizedBox(width: 4),
+                                          FilledButton.tonalIcon(
+                                            icon: const Icon(
+                                              Icons.auto_awesome,
+                                              size: 14,
+                                            ),
+                                            label: const Text('分析编排'),
+                                            style: FilledButton.styleFrom(
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                              textStyle: const TextStyle(
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                            onPressed: _isScanning ||
+                                                    state.sceneStreamBusy
+                                                ? null
+                                                : () async {
+                                                    _addLog(
+                                                        '🧠 弧线${arc.number}编排策略分析（只做编排一项，质量优先）…');
+                                                    await analyzeArcChoreo(
+                                                      state: state,
+                                                      arc: arc,
+                                                      log: _addLog,
+                                                    );
+                                                    if (mounted) {
+                                                      setState(() {});
+                                                    }
+                                                  },
+                                          ),
                                         ],
                                       ),
                                     ],

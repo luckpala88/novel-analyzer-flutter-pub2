@@ -1128,6 +1128,55 @@ const SizedBox(width: 8),
     return widgets;
   }
 
+  /// v901：场景内分镜编排策略分析（独立按键——拆分镜后才能跑）
+  Future<void> _analyzeSceneChoreo(
+    AppState state,
+    String arcKey,
+    Scene scene,
+  ) async {
+    if (scene.shots.isEmpty) {
+      _addLog('⛔ 场景无分镜——先拆分镜，编排策略基于分镜序列分析');
+      return;
+    }
+    if (scene.text.isEmpty) {
+      _addLog('⛔ 场景无锚定切片（旧数据）——无法分析编排');
+      return;
+    }
+    final skeleton = [
+      for (var i = 0; i < scene.shots.length; i++)
+        '分镜${i + 1}：焦点=${scene.shots[i].focus}｜意图=${scene.shots[i].intent}',
+    ].join('\n');
+    final config = state.getApiConfig('shot');
+    state.api.clearAbort();
+    final result = await state.api.callApi(
+      task: '编排策略分析',
+      systemPrompt: PromptBuilder.buildSceneChoreoSystemPrompt(),
+      userPrompt:
+          '【场景原文切片】\n${scene.text}\n\n【分镜骨架清单】\n$skeleton',
+      apiConfig: config,
+    );
+    if (!result.isSuccess) {
+      _addLog('⚠ 编排分析失败：${result.error}');
+      return;
+    }
+    final parts = JsonRepair.parseResponse(result.content);
+    final choreo = parts?['choreo']?.toString() ?? '';
+    if (choreo.isEmpty) {
+      _addLog('⚠ 编排分析解析失败（无choreo字段）');
+      return;
+    }
+    // 双容器写（重载后两实例独立，v893教训）
+    scene.choreo = choreo;
+    final gsAll = state.globalScenes;
+    if (scene.globalIndex >= 0 && scene.globalIndex < gsAll.length) {
+      gsAll[scene.globalIndex].choreo = choreo;
+    }
+    state.saveArcAnalyses();
+    state.saveGlobalScenes();
+    _addLog('✓ 场景${scene.globalIndex + 1}编排策略已落库（${choreo.length}字）');
+    if (mounted) setState(() {});
+  }
+
   Widget _buildSceneCard(
     BuildContext context,
     AppState state,
@@ -1237,6 +1286,24 @@ const SizedBox(width: 8),
                     );
                   },
                   child: const Text('切片'),
+                ),
+              ),
+              const SizedBox(width: 6),
+              // v901：分析编排（场景内分镜编排策略——拆分镜后才能跑）
+              SizedBox(
+                height: 26,
+                child: FilledButton.tonal(
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    textStyle: const TextStyle(fontSize: 11),
+                    visualDensity: VisualDensity.compact,
+                    backgroundColor: const Color(0xFFB45309),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: analyzedScene == null || analyzedScene!.shots.isEmpty
+                      ? null
+                      : () => _analyzeSceneChoreo(state, arcKey, analyzedScene!),
+                  child: const Text('🧠分析编排'),
                 ),
               ),
               const SizedBox(width: 6),
@@ -2177,16 +2244,8 @@ const SizedBox(width: 8),
         scene.shots = shotsJson
             .map((e) => Shot.fromJson(e as Map<String, dynamic>))
             .toList();
-        scene.choreo = (parsed?['choreo'] as String?) ?? ''; // v878：分镜编排落库
-        // v898：详版编排双写回场景页容器——拆分镜产出的详尽分析覆盖分组
-        // 简版（用户裁决：场景页/弧线页都应显示详版），globalScenes与
-        // analysis.scenes重载后是独立实例，只写一份另一边看不到
-        if (scene.choreo.isNotEmpty && scene.globalIndex >= 0) {
-          final gsAll = state.globalScenes;
-          if (scene.globalIndex < gsAll.length) {
-            gsAll[scene.globalIndex].choreo = scene.choreo;
-          }
-        }
+        // v901：choreo已拆到独立按键（拆分镜纯骨架+镜级维度，编排策略
+        // 单独分析保质量）——Scene.choreo由analyzeSceneChoreo写入，此处不再赋值
           // v363：镜级切片物化（尽力而为）——从scene.text链式定位每镜end_text。
           // 失败→该镜text留空，创作端回退场景切片，绝不影响拆解落库（与场景
           // 物化的严格模式相反：场景切片是拆解输入必须严，镜切片只是创作范文必须宽）
