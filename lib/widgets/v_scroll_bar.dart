@@ -105,7 +105,7 @@ class _VScrollBarState extends State<VScrollBar> {
             .clamp(0.08, 1.0);
     var thumbH = (trackH * viewRatio).clamp(24.0, trackH);
     // v931：offset内部=positions.single（v667同款坑）——用pos.last.offset
-    var top = (pos.offset / maxScroll) * (trackH - thumbH);
+    var top = (pos.pixels / maxScroll) * (trackH - thumbH);
     top = top.isFinite ? top.clamp(0.0, trackH - thumbH) : 0.0;
     final cs = Theme.of(context).colorScheme;
     return SizedBox(
