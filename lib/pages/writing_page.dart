@@ -3887,7 +3887,8 @@ class _WritingPageState extends State<WritingPage>
                           fontSize: 10.5,
                           color: V469Style.textMuted,
                         ),
-                        maxLines: 1,
+                        // v873：2行全显——1行截断=版本号/模式被吃（用户实测）
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -4085,12 +4086,28 @@ class _WritingPageState extends State<WritingPage>
                     }
                     return ListView(
                       padding: const EdgeInsets.all(14),
-                      children: _buildInterleavedView(
-                        w.content,
-                        _viewerFontSize,
-                        item: w,
-                        appState: state,
-                      ),
+                      children: [
+                        // v873：正文顶部备注行（txt同款格式，模型空不显示）
+                        if (w.model.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Text(
+                              '[模型：${w.model} · 温度${w.temperature}'
+                              '${w.genMode.isNotEmpty ? " · ${w.genMode}" : ""}'
+                              ' · v${w.version}]',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: V469Style.textMuted,
+                              ),
+                            ),
+                          ),
+                        ..._buildInterleavedView(
+                          w.content,
+                          _viewerFontSize,
+                          item: w,
+                          appState: state,
+                        ),
+                      ],
                     );
                   }),
           ),

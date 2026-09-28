@@ -1076,6 +1076,44 @@ class _DetectionPageState extends State<DetectionPage>
     }
   }
 
+  /// v872：阅读器正文体（翻页/滚动统一，从build抽出以便备注行包装）
+  Widget _readerBody(String content, AppState state) {
+    return _pageMode
+        ? SizedBox(
+            height: MediaQuery.of(context).size.height * 0.55,
+            child: _DtPagedView(
+              title: (_visibleFiles.isNotEmpty &&
+                      _currentIndex >= 0 &&
+                      _currentIndex < _visibleFiles.length
+                  ? _visibleFiles[_currentIndex]['name'] as String? ?? ''
+                  : ''),
+              content: content,
+              fontSize: _fontSize,
+              lineHeight: 1.8,
+              hlStart: _ttsPlaying ? _ttsHlStart : -1,
+              hlEnd: _ttsPlaying ? _ttsHlEnd : -1,
+              onPrev: () => _turnPage(-1, state),
+              onNext: () => _turnPage(1, state),
+            ),
+          )
+        : _DtScrollView(
+            key: ValueKey('dt_${_currentIndex}_$_fontSize'),
+            title: (_visibleFiles.isNotEmpty &&
+                    _currentIndex >= 0 &&
+                    _currentIndex < _visibleFiles.length
+                ? _visibleFiles[_currentIndex]['name'] as String? ?? ''
+                : ''),
+            content: content,
+            fontSize: _fontSize,
+            lineHeight: 1.8,
+            hlStart: _ttsPlaying ? _ttsHlStart : -1,
+            hlEnd: _ttsPlaying ? _ttsHlEnd : -1,
+            // v382：就地编辑——点击正文进入编辑态，改动即存盘
+            onContentEdited: (t) => _saveEditedContent(t),
+            editDisabled: state.nameReplaceEnabled,
+          );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context); // AutomaticKeepAlive必须
@@ -1667,36 +1705,29 @@ class _DetectionPageState extends State<DetectionPage>
                             border: Border.all(color: Colors.grey.shade300),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: _pageMode
-                              ? SizedBox(
-                                  height:
-                                      MediaQuery.of(context).size.height * 0.55,
-                                  child: _DtPagedView(
-                                    title: (file['name'] as String? ?? ''),
-                                    content: content,
-                                    fontSize: _fontSize,
-                                    lineHeight: 1.8,
-                                    hlStart: _ttsPlaying ? _ttsHlStart : -1,
-                                    hlEnd: _ttsPlaying ? _ttsHlEnd : -1,
-                                    onPrev: () => _turnPage(-1, state),
-                                    onNext: () => _turnPage(1, state),
-                                  ),
+                          // v872：正文开头显示备注信息（v737声明"提到正文头显示"
+                          // 但一直没落地——用户多次点名；从原始content提取）
+                          child: _modelNoteOf(file?['content']) != null
+                              ? Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        12, 8, 12, 0,
+                                      ),
+                                      child: Text(
+                                        '[模型：${_modelNoteOf(file!['content'])}]',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: V469Style.textMuted,
+                                        ),
+                                      ),
+                                    ),
+                                    _readerBody(content, state),
+                                  ],
                                 )
-                              : _DtScrollView(
-                                  key: ValueKey(
-                                    'dt_${_currentIndex}_$_fontSize',
-                                  ),
-                                  title: (file['name'] as String? ?? ''),
-                                  content: content,
-                                  fontSize: _fontSize,
-                                  lineHeight: 1.8,
-                                  hlStart: _ttsPlaying ? _ttsHlStart : -1,
-                                  hlEnd: _ttsPlaying ? _ttsHlEnd : -1,
-                                  // v382：就地编辑——点击正文进入编辑态，改动即存盘
-                                  onContentEdited: (t) =>
-                                      _saveEditedContent(t),
-                                  editDisabled: state.nameReplaceEnabled,
-                                ),
+                              : _readerBody(content, state),
                         ),
                       ),
                       // 分析结果（可折叠，默认展开）
