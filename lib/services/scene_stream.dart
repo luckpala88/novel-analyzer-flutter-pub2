@@ -779,16 +779,27 @@ Future<void> groupArcsFromScenes({
           if (seg.isEmpty) continue;
           prevTo = to2 + 1;
           // v881：逐场景编排落库（scene_choreos="场景N:…；场景M:…"按序号映射）
+          // v885：分隔符兼容全角/半角分号+换行（AI输出格式漂移容错），落库打日志
           final scChoreos = m['scene_choreos']?.toString() ?? '';
           if (scChoreos.isNotEmpty) {
-            for (final item in scChoreos.split('；')) {
+            var choreoCount = 0;
+            final items = scChoreos.split(RegExp(r'[；;\n]'));
+            for (final item in items) {
               final mm = RegExp(r'场景\s*(\d+)\s*[:：]\s*(.+)').firstMatch(item.trim());
               if (mm == null) continue;
               final seq = int.tryParse(mm.group(1)!) ?? 0;
               if (seq - 1 >= from2 && seq - 1 <= to2) {
                 gs[seq - 1].choreo = mm.group(2)!.trim();
+                choreoCount++;
               }
             }
+            if (choreoCount > 0) {
+              log('✓ 编排落库：弧线$arcNum $choreoCount个场景choreo');
+            } else {
+              log('⚠️ 弧线$arcNum scene_choreos格式未解析出任何场景（原文头80字：${scChoreos.substring(0, scChoreos.length > 80 ? 80 : scChoreos.length)}）');
+            }
+          } else {
+            log('⚠️ 弧线$arcNum AI未输出scene_choreos字段（arc_choreo=${m['arc_choreo'] != null ? "有" : "无"}）');
           }
           final arcChoreoV = m['arc_choreo']?.toString() ?? '';
           final isContinuation = openArc != null &&
