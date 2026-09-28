@@ -2515,9 +2515,13 @@ class PromptBuilder {
         sb.writeln('  语感锚：${voice.isNotEmpty ? voice : '（旧数据缺失——按新设定同等腔调设计，禁止文艺加戏）'}');
         final ink = sh['ink']?.toString() ?? '';
         sb.writeln('  笔墨配额：${ink.isNotEmpty ? ink : '（旧数据缺失——按功能主次分配，主要内容占六成以上）'}');
+        // v926b：trick进推演呈现——trick是讲法结构层不是情节（零暴露只拦
+        // 情节不拦讲法），推演模式同样继承原著表述策略
+        final tr = sh['trick']?.toString() ?? '';
+        sb.writeln('  手法(Trick)：${tr.isNotEmpty ? tr : '（旧数据缺失——按意图与焦点自行设计呈现路径，心法打底）'}');
       }
       sb.writeln();
-      sb.writeln('请为已生成条目中的每个新场景填充分镜明细（推演模式：从功能骨架+新场景内容+声明推演全新具体情节，每镜11维齐全+手法(Trick)行——trick按四要素自行设计：呈现路径/直接度/批次/多职，心法打底）。');
+      sb.writeln('请为已生成条目中的每个新场景填充分镜明细（推演模式：从功能骨架+新场景内容+声明推演全新具体情节，每镜11维齐全+手法(Trick)行——**原著该镜有trick=呈现路径/直接度/批次/多职设计原样继承**（讲法不变，仅内容按新世界推演）；无trick按四要素自行设计，心法打底）。');
       return sb.toString();
     }
     sb.writeln('## 原著场景${sceneIdx + 1}分镜骨架（逐镜转换的结构参照）');
