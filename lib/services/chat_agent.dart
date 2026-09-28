@@ -24,7 +24,7 @@ const String agentToolDoc = '''
 5. {"tool":"query_worldbook","args":{"keyword":"关键词"}} —— 世界书条目检索（返回命中条目名与摘要）
 6. {"tool":"start_batch_shots"} —— 启动批量拆分镜（全部已划分未拆场景；需用户确认；长任务，去分镜页盯终端进度）
 7. {"tool":"write_scene","args":{"arc":1,"scene":1}} —— 创作指定弧线第N个场景的续写正文（需用户确认；前提：世界书已有该场景条目；长任务，正文写到创作页）
-8. {"tool":"verify_data","args":{"target":"choreo","arc":210}} —— 数据诊断（只读）：target=choreo查编排字段落库情况（弧线总纲+逐场景统计，可带arc过滤单条弧线）；target=trick查手法维度（已拆分镜中trick非空的镜数统计，可带arc过滤）——用于验证新版本功能是否落库
+8. {"tool":"verify_data","args":{"target":"choreo","arc":210}} —— 数据诊断（只读）：target=choreo查编排字段落库情况（弧线总纲+逐场景统计，可带arc过滤单条弧线）；target=trick查手法维度（已拆分镜中trick非空的镜数统计，可带arc过滤）——用于验证新版本功能是否落库。注意：choreo/trick分别是"生成弧线(分组)"和"拆分镜"步骤的产物，重扫场景不会产生它们；choreo缺失应重新分组，trick缺失应重拆分镜
 规则：一次只发一个指令，发出后停止等待结果；任务完成后用自然语言汇报结果；用户闲聊/问功能时不要发指令。
 ''';
 
