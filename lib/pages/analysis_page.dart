@@ -661,7 +661,9 @@ const SizedBox(width: 8),
                   arcKey,
                   si,
                   scene,
-                  scenes.isNotEmpty ? scenes[si] : null,
+                  // v881：长度守卫——重拆后analysis.scenes与arcScenes数量
+                  // 错位时scenes[si]越界崩溃(用户实测RangeError页面红字)
+                  si < scenes.length ? scenes[si] : null,
                 );
               })
             else if (scenes.isNotEmpty)
