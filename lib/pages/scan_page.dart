@@ -688,8 +688,13 @@ class _ScanPageState extends State<ScanPage>
                                           ],
                                         );
                                       }),
-                                      // v882/v900：弧线内场景编排策略=总纲+逐场景落点
-                                      if (arc.arcChoreo.isNotEmpty) ...[
+                                      // v917：权威存储=analysis.metadata（单一容器）
+                                      if ((state.arcAnalyses[arc.number
+                                                  .toString()]
+                                              ?.metadata?['arc_choreo']
+                                              as String? ??
+                                          '')
+                                      .isNotEmpty) ...[
                                         Text(
                                           '🎬 弧线内场景编排策略（总纲）',
                                           style: const TextStyle(
@@ -708,7 +713,10 @@ class _ScanPageState extends State<ScanPage>
                                                 BorderRadius.circular(6),
                                           ),
                                           child: Text(
-                                            arc.arcChoreo,
+                                            state.arcAnalyses[arc.number
+                                                    .toString()]!
+                                                .metadata?['arc_choreo']
+                                                as String,
                                             style: const TextStyle(
                                               fontSize: 12,
                                               height: 1.5,

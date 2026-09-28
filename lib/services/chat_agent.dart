@@ -135,8 +135,10 @@ Future<AgentToolResult> runTool(AppState state, String tool,
         var withChoreo = 0, totalScenes = 0;
         for (final a in state.allArcs) {
           if (arcFilter != null && a.number != arcFilter) continue;
+          // v917：权威存储=analysis.metadata['arc_choreo']
+          final ch = state.arcAnalyses[a.number.toString()]?.metadata?['arc_choreo']?.toString() ?? a.arcChoreo;
           lines.add(
-              '弧线${a.number}「${a.title}」总纲: ${a.arcChoreo.isEmpty ? "（空）" : a.arcChoreo}');
+              '弧线${a.number}「${a.title}」总纲: ${ch.isEmpty ? "（空）" : ch}');
           final an = state.arcAnalyses[a.number.toString()];
           final scenes = an?.scenes ?? const [];
           for (final sc in scenes) {

@@ -821,7 +821,6 @@ Future<void> groupArcsFromScenes({
             summary: m['summary']?.toString() ?? '',
             focusCharacter: m['focus']?.toString() ?? '',
             closeType: m['close_type']?.toString() ?? 'pseudo',
-            arcChoreo: arcChoreoV, // v881
             boundaryAnchor: '',
             boundaryOffset: -1,
             text: seg.map((s2) => s2.text).where((t) => t.isNotEmpty).join('\n\n'),
@@ -862,13 +861,12 @@ Future<void> groupArcsFromScenes({
           analysis.arcTitle = arc.title;
           analysis.arcSummary = arc.summary;
           analysis.scenes = [...?prevAnalysis?.scenes, ...seg];
-          // v900：scene_choreos（弧线内场景编排策略的逐场景落点）存弧线级metadata
-          if (scChoreosSaved.isNotEmpty) {
-            analysis.metadata = {
-              ...?analysis.metadata,
-              'scene_choreos': scChoreosSaved,
-            };
-          }
+          // v900/v917：弧线层策略数据统一存analysis.metadata（语料/条目唯一读取源）
+          // arc_choreo总纲+scene_choreos逐场景落点——分组即落，不等重提零件
+          final newMeta = <String, dynamic>{...?analysis.metadata};
+          if (scChoreosSaved.isNotEmpty) newMeta['scene_choreos'] = scChoreosSaved;
+          if (arcChoreoV.isNotEmpty) newMeta['arc_choreo'] = arcChoreoV;
+          analysis.metadata = newMeta;
           state.arcAnalyses[arc.number.toString()] = analysis;
         }
         // v491批尾检查：AI最后一条弧线没覆盖到批尾→中断告警（不静默兜底）
@@ -1068,10 +1066,6 @@ Future<void> analyzeArcChoreo({
   }
   // 总纲：Arc+metadata双写（显示+语料两个消费端）
   final arcChoreoV = parts['arc_choreo']?.toString() ?? '';
-  if (arcChoreoV.isNotEmpty) {
-    arc.arcChoreo = arcChoreoV;
-    state.saveArcScan();
-  }
   final scChoreos = parts['scene_choreos']?.toString() ?? '';
   if (scChoreos.isNotEmpty) {
     final analysis = state.arcAnalyses[arc.number.toString()];
