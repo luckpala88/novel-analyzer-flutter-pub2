@@ -838,38 +838,24 @@ class _ScanPageState extends State<ScanPage>
                                           ),
                                           // v296：浏览弧线精准正文（人工抽查分割）
                                           const SizedBox(width: 4),
-                                          FilledButton.tonalIcon(
-                                            icon: const Icon(
-                                              Icons.article_outlined,
-                                              size: 14,
-                                            ),
-                                            label: const Text('正文'),
-                                            style: FilledButton.styleFrom(
-                                              visualDensity:
-                                                  VisualDensity.compact,
-                                              textStyle: const TextStyle(
-                                                fontSize: 11,
+                                          FilledButton(
+                                              style: FilledButton.styleFrom(
+                                                visualDensity: VisualDensity.compact,
+                                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                                textStyle: const TextStyle(fontSize: 11),
                                               ),
-                                            ),
-                                            onPressed: () =>
+                                              child: const Text('正文'),                                            onPressed: () =>
                                                 _showArcText(state, arc),
                                           ),
                                           // v819：重提零件——重跑extractArcParts刷新全套零件+详细概述
                                           const SizedBox(width: 4),
-                                          FilledButton.tonalIcon(
-                                            icon: const Icon(
-                                              Icons.refresh_outlined,
-                                              size: 12,
-                                            ),
-                                            label: const Text('零件'),
-                                            style: FilledButton.styleFrom(
-                                              visualDensity:
-                                                  VisualDensity.compact,
-                                              textStyle: const TextStyle(
-                                                fontSize: 11,
+                                          FilledButton(
+                                              style: FilledButton.styleFrom(
+                                                visualDensity: VisualDensity.compact,
+                                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                                textStyle: const TextStyle(fontSize: 11),
                                               ),
-                                            ),
-                                            onPressed: _isScanning ||
+                                              child: const Text('零件'),                                            onPressed: _isScanning ||
                                                     state.sceneStreamBusy
                                                 ? null
                                                 : () async {
@@ -887,20 +873,13 @@ class _ScanPageState extends State<ScanPage>
                                           ),
                                           // v901：分析编排——独立按键（骨架/表述分离，单任务保质量）
                                           const SizedBox(width: 4),
-                                          FilledButton.tonalIcon(
-                                            icon: const Icon(
-                                              Icons.auto_awesome,
-                                              size: 12,
-                                            ),
-                                            label: const Text('编排'),
-                                            style: FilledButton.styleFrom(
-                                              visualDensity:
-                                                  VisualDensity.compact,
-                                              textStyle: const TextStyle(
-                                                fontSize: 11,
+                                          FilledButton(
+                                              style: FilledButton.styleFrom(
+                                                visualDensity: VisualDensity.compact,
+                                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                                textStyle: const TextStyle(fontSize: 11),
                                               ),
-                                            ),
-                                            onPressed: _isScanning ||
+                                              child: const Text('编排'),                                            onPressed: _isScanning ||
                                                     state.sceneStreamBusy
                                                 ? null
                                                 : () async {
