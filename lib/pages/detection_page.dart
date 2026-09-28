@@ -2009,11 +2009,24 @@ class _DtScrollViewState extends State<_DtScrollView> {
   }
 
   /// 构建正文TextSpan，按偏移量高亮TTS当前句
+
+  /// v870：段首缩进两中文字（显示层——按\n拆span行首插全角空格，
+  /// 不改content本身，TTS高亮偏移计算不受影响）
+  List<InlineSpan> _indentSpans(String t) {
+    final parts = t.split('\n');
+    final out = <InlineSpan>[];
+    for (var i = 0; i < parts.length; i++) {
+      if (i > 0) out.add(const TextSpan(text: '\n　　'));
+      if (parts[i].isNotEmpty) out.add(TextSpan(text: parts[i]));
+    }
+    return out;
+  }
+
   TextSpan _buildContentSpan(String content, TextStyle style) {
     if (widget.hlStart < 0 ||
         widget.hlEnd <= widget.hlStart ||
         widget.hlStart >= content.length) {
-      return TextSpan(text: content, style: style);
+      return TextSpan(style: style, children: _indentSpans(content));
     }
     final end = widget.hlEnd.clamp(0, content.length);
     final before = content.substring(0, widget.hlStart);
@@ -2022,7 +2035,7 @@ class _DtScrollViewState extends State<_DtScrollView> {
     return TextSpan(
       style: style,
       children: [
-        if (before.isNotEmpty) TextSpan(text: before),
+        ..._indentSpans(before),
         WidgetSpan(
           child: Container(
             key: _hlKey,
@@ -2030,7 +2043,7 @@ class _DtScrollViewState extends State<_DtScrollView> {
             child: Text(mid, style: style),
           ),
         ),
-        if (after.isNotEmpty) TextSpan(text: after),
+        ..._indentSpans(after),
       ],
     );
   }
@@ -2126,6 +2139,31 @@ class _DtPagedViewState extends State<_DtPagedView> {
   // v370b：行首缓存（主页chapter_reader三段式探测配套）
   final Map<int, int> _lineStartCache = {};
 
+  /// v870：段首缩进显示文本（每段前插两个全角空格）+原偏移→显示偏移映射
+  /// （分页/显示用display文本保证排版一致，TTS高亮偏移经_toDisplay换算）
+  String get _displayText {
+    final parts = widget.content.split('\n');
+    final sb = StringBuffer();
+    for (var i = 0; i < parts.length; i++) {
+      if (i > 0) sb.write('\n');
+      sb.write('　　');
+      sb.write(parts[i]);
+    }
+    return sb.toString();
+  }
+
+  int _toDisplay(int orig) {
+    if (orig <= 0) return 0;
+    var added = 0, rest = orig;
+    final parts = widget.content.split('\n');
+    for (var i = 0; i < parts.length; i++) {
+      if (rest <= parts[i].length) return orig + added;
+      rest -= parts[i].length + 1; // +1=换行符
+      added += 3; // \n后插的\n　　=3字符（含缩进2）
+    }
+    return widget.content.length + added;
+  }
+
   void _computePages(Size viewSize) {
     final padding = 16.0;
     final bottomBarHeight = 20.0; // 底部页码小字（悬浮按钮不占正文空间）
@@ -2134,7 +2172,7 @@ class _DtPagedViewState extends State<_DtPagedView> {
 
     if (availableHeight <= 0 || availableWidth <= 0) return;
 
-    final fullText = widget.content;
+    final fullText = _displayText;
     final style = TextStyle(
       fontSize: widget.fontSize,
       height: widget.lineHeight,
@@ -2227,9 +2265,12 @@ class _DtPagedViewState extends State<_DtPagedView> {
     if (widget.hlStart < 0 || widget.hlEnd <= widget.hlStart) {
       return TextSpan(text: content, style: style);
     }
+    // v870：高亮偏移按显示文本换算（display比原文每段多2字符缩进）
+    final hlS = _toDisplay(widget.hlStart);
+    final hlE = _toDisplay(widget.hlEnd);
     // 计算高亮与当前页的交集
-    final localStart = widget.hlStart - pageStart;
-    final localEnd = widget.hlEnd - pageStart;
+    final localStart = hlS - pageStart;
+    final localEnd = hlE - pageStart;
     if (localEnd <= 0 || localStart >= content.length) {
       return TextSpan(text: content, style: style);
     }

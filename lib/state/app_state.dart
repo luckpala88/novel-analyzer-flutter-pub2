@@ -142,7 +142,7 @@ class AppState extends ChangeNotifier {
   bool writingFreeContinue = false; // v792：自由分支二选一——true=自由续写(原著衔接链)，false=自由改编
   bool writingLeanShots = false; // v592：精简分镜
   int writingShotStep = 1; // v642：逐镜批量步进（每次API生成N镜，1=传统逐镜）——屏蔽投放信息/文笔节奏/语感/笔墨（v612转场手法移出：它是镜间衔接指令）
-  bool writingModelNote = false;
+  bool writingModelNote = true; // v870：默认开（用户实测flag丢失=txt备注消失，备注应是默认行为）
   bool nameReplaceEnabled = false; // v388：二创页按映射表替换原著名（flag持久化）
   /// v266：逐镜分步生成开关（默认开）——每镜单独API，结构行由代码从
   /// 世界书确定性插入，AI只输出纯正文（用户架构方案：信息与正文天然
@@ -746,8 +746,9 @@ class AppState extends ChangeNotifier {
     // v469对齐：提示词预览开关+模型名备注开关（flag文件）
     writingPromptPreview =
         storage.readFile('${p}writing_prompt_preview.flag') == 'true';
+    // v870：默认开——flag文件不存在（换机/清数据）时不再静默回退false
     writingModelNote =
-        storage.readFile('${p}writing_model_note.flag') == 'true';
+        storage.readFile('${p}writing_model_note.flag') != 'false';
     nameReplaceEnabled =
         storage.readFile('${p}name_replace.flag') == 'true';
     // v313：模仿原文作者开关
