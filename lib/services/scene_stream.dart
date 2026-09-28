@@ -984,10 +984,19 @@ Future<void> extractArcParts({
     return;
   }
   final systemPrompt = PromptBuilder.buildArcPartsSystemPrompt();
+  // v889：场景清单（全局序号+名称）——scene_choreos标号依据
+  final gsAll = state.globalScenes;
+  final sceneList = (arc.sceneFrom >= 1 && gsAll.length >= arc.sceneTo)
+      ? [
+          for (var i = arc.sceneFrom; i <= arc.sceneTo && i <= gsAll.length; i++)
+            '场景$i：${gsAll[i - 1].name}｜${gsAll[i - 1].summary.length > 60 ? gsAll[i - 1].summary.substring(0, 60) : gsAll[i - 1].summary}',
+        ].join('\n')
+      : '';
   final userPrompt = PromptBuilder.buildArcPartsUserPrompt(
     arcTitle: arc.title,
     arcSummary: arc.summary,
     arcText: arc.text,
+    sceneList: sceneList,
   );
   final config = state.getApiConfig('arc');
   final result = await state.api.callApi(
@@ -1021,6 +1030,36 @@ Future<void> extractArcParts({
   final key = arc.number.toString();
   final old = state.arcAnalyses[key];
   final analysis = old ?? ArcAnalysis(arcNumber: arc.number, arcTitle: arc.title);
+  // v889：编排落库（重提零件=存量弧线补析通道）——总纲进Arc+逐场景进Scene.choreo
+  final arcChoreoV2 = parts['arc_choreo']?.toString() ?? '';
+  if (arcChoreoV2.isNotEmpty) {
+    arc.arcChoreo = arcChoreoV2;
+    state.saveArcScan();
+    log('✓ 弧线${arc.number}编排总纲已落库');
+  }
+  final scChoreosV2 = parts['scene_choreos']?.toString() ?? '';
+  if (scChoreosV2.isNotEmpty) {
+    var choreoCount = 0;
+    for (final mm
+        in RegExp(r'(\d+)\s*[:：]\s*([^,，；;\n\]}]+)').allMatches(scChoreosV2)) {
+      final seq = int.tryParse(mm.group(1)!) ?? 0;
+      final val = mm.group(2)!.trim();
+      if (val.isEmpty) continue;
+      if (arc.sceneFrom >= 1 &&
+          seq >= arc.sceneFrom &&
+          seq <= arc.sceneTo &&
+          gsAll.length >= seq) {
+        gsAll[seq - 1].choreo = val;
+        choreoCount++;
+      }
+    }
+    if (choreoCount > 0) {
+      state.saveArcScenes();
+      log('✓ 弧线${arc.number}编排落库：$choreoCount个场景choreo');
+    } else {
+      log('⚠️ 弧线${arc.number} scene_choreos格式未解析（头80字：${scChoreosV2.substring(0, scChoreosV2.length > 80 ? 80 : scChoreosV2.length)}）');
+    }
+  }
   analysis.metadata = {
     ...?analysis.metadata,
     'arc_summary_detailed': newSummary,

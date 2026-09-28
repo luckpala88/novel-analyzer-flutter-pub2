@@ -2862,15 +2862,21 @@ class PromptBuilder {
         '**6. 情绪曲线（emotional_curve）**：读者/主角情绪轨迹，如「低谷→希望→兴奋→满足」。\n\n'
         '**8. 世界观设定facts（worldbuilding_facts）**：**以下10个体系每个必须各输出至少一条fact**（体系完整性检查清单，即使本弧线只间接提到也要提取；确实完全未涉及的体系输出一条rule为"本弧线未涉及"的fact）：经济体系/修炼境界体系/功法技能体系/社会政治体系/地理世界体系/法宝物品体系/丹药灵草体系/种族生物体系/组织势力体系/历史传说体系。每条fact含system（体系类型）、text（原文片段）、rule（提取的规则）、function（功能目的）。输出自查：没有worldbuilding_facts键=不完整。\n\n'
         '**7. 作者脑洞（author_fantasy）**：作者反复铺陈、明显投入的具体幻想内容。3-5条，格式「类别：具体内容（出处举例）」。落到具体类别（捡漏文化/知识变现/冤家搭档/以小博大/因祸得福等），不笼统。\n\n'
-        '只输出纯JSON（不要markdown）：{"arc_summary": "高质量弧线概述", "characters": [...], "conflicts": [...], "foreshadowing": [...], "arc_functions": [...], "irreversible_changes": "...", "emotional_curve": "...", "author_fantasy": [...], "worldbuilding_facts": [...]}\n\n';
+        '**8. 弧线编排总纲（arc_choreo，v889必填）**：一句话——本弧线张力曲线（哪紧哪松哪蓄力哪爆）+期待在哪埋在哪兑现+信息差怎么经营\n'
+        '**9. 逐场景编排（scene_choreos，v889必填，本弧线每个场景一项）**：格式"场景N:功能(钩子/建立/铺垫/升级/转折/爆点/余波)+给哪个场景蓄力或回收什么；场景M:…"——场景N用全局场景序号（用户会提供场景清单）\n'
+        '只输出纯JSON（不要markdown）：{"arc_summary": "高质量弧线概述", "arc_choreo": "弧线编排总纲", "scene_choreos": "场景N:功能+蓄力；场景M:…", "characters": [...], "conflicts": [...], "foreshadowing": [...], "arc_functions": [...], "irreversible_changes": "...", "emotional_curve": "...", "author_fantasy": [...], "worldbuilding_facts": [...]}\n\n';
   }
 
   static String buildArcPartsUserPrompt({
     required String arcTitle,
     required String arcSummary,
     required String arcText,
+    String sceneList = '', // v889：场景清单（全局序号+名称+概述头）供scene_choreos标号
   }) {
-    return '弧线「$arcTitle」的原文切片如下，请生成高质量弧线概述并提取全套弧线零件（按系统提示的JSON格式输出）：\n\n$arcText';
+    final listBlock = sceneList.isEmpty
+        ? ''
+        : '\n\n【本弧线场景清单（scene_choreos的场景N用这些全局序号）】\n$sceneList';
+    return '弧线「$arcTitle」的原文切片如下，请生成高质量弧线概述并提取全套弧线零件（按系统提示的JSON格式输出）：\n\n$arcText$listBlock';
   }
 
 }
