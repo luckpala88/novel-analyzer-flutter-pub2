@@ -880,6 +880,8 @@ Future<void> groupArcsFromScenes({
         for (final a in arcs) {
           if (a.status == 'complete' && !extractedArcs.contains(a.number)) {
             await extractArcParts(state: state, arc: a, log: log);
+            // v903：编排分析自动化（滚动模式同步）
+            await analyzeArcChoreo(state: state, arc: a, log: log);
             extractedArcs.add(a.number);
             // v496：一条弧线内容完整即保存（前面成果永不丢）
             if (state.arcScan == null || state.arcScan!.arcs.length < arcs.length) {
@@ -947,8 +949,10 @@ Future<void> groupArcsFromScenes({
             break;
           }
           await extractArcParts(state: state, arc: a, log: log);
+          // v903：编排分析自动化——批量流程内嵌，用户零手感（v899起编排是表述层标配）
+          await analyzeArcChoreo(state: state, arc: a, log: log);
           done++;
-          log('零件提取进度：$done/${arcs.length}');
+          log('零件+编排提取进度：$done/${arcs.length}');
         }
         log('=== 弧线零件提取完成 ===');
         // v824：任务完成总汇报——结果规模/章覆盖/耗时/提取完整度

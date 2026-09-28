@@ -2470,6 +2470,30 @@ const SizedBox(width: 8),
       }
       _addLog('批量拆分镜完成');
       state.saveArcScenes();
+      // v903：编排分析自动化——批量拆完后对全部已拆场景统一跑场景内分镜编排策略
+      if (!state.api.isAborted && !state.userAborted) {
+        _addLog('━━ 编排策略分析开始（批量拆解后自动）…');
+        var choreoDone = 0;
+        for (final entry in toAnalyze.entries) {
+          final arc = state.allArcs.firstWhere(
+            (a) => a.number.toString() == entry.key,
+            orElse: () => state.allArcs.first,
+          );
+          final scenes = _arcScenesOf(state, arc);
+          for (final si in entry.value) {
+            if (state.api.isAborted || state.userAborted) break;
+            if (si < scenes.length && scenes[si].shots.isNotEmpty) {
+              await analyzeSceneChoreo(
+                state: state,
+                scene: scenes[si],
+                log: _addLog,
+              );
+              choreoDone++;
+            }
+          }
+        }
+        _addLog('✅ 编排策略分析完成：$choreoDone个场景');
+      }
     } finally {
       if (mounted) {
         setState(() {
