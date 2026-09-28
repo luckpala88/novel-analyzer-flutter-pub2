@@ -612,7 +612,7 @@ class _ScanPageState extends State<ScanPage>
                                     children: [
                                       if (arc.summary.isNotEmpty) ...[
                                         Text(
-                                          '📝 概述',
+                                          '📝 弧线概述',
                                           style: const TextStyle(
                                             fontSize: 11,
                                             fontWeight: FontWeight.w700,
@@ -698,12 +698,22 @@ class _ScanPageState extends State<ScanPage>
                                             color: Color(0xFFB45309),
                                           ),
                                         ),
-                                        Text(
-                                          arc.arcChoreo,
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            height: 1.5,
-                                            color: V469Style.textSec,
+                                        Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFB45309)
+                                                .withOpacity(0.06),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            arc.arcChoreo,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              height: 1.5,
+                                              color: V469Style.textSec,
+                                            ),
                                           ),
                                         ),
                                         const SizedBox(height: 6),
@@ -722,15 +732,25 @@ class _ScanPageState extends State<ScanPage>
                                             color: Color(0xFF64748B),
                                           ),
                                         ),
-                                        Text(
-                                          state.arcAnalyses[arc.number
-                                                  .toString()]!
-                                              .metadata?['scene_choreos']
-                                              as String,
-                                          style: const TextStyle(
-                                            fontSize: 11.5,
-                                            height: 1.5,
-                                            color: V469Style.textSec,
+                                        Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF64748B)
+                                                .withOpacity(0.06),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            state.arcAnalyses[arc.number
+                                                    .toString()]!
+                                                .metadata?['scene_choreos']
+                                                as String,
+                                            style: const TextStyle(
+                                              fontSize: 11.5,
+                                              height: 1.5,
+                                              color: V469Style.textSec,
+                                            ),
                                           ),
                                         ),
                                         const SizedBox(height: 8),

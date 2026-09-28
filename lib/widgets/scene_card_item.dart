@@ -115,6 +115,15 @@ class SceneCardItem extends StatelessWidget {
           // 行2：概述完整显示（不截断）
           if (scene.summary.isNotEmpty) ...[
             const SizedBox(height: 5),
+            const Text(
+              '📋 场景概述',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF475569),
+              ),
+            ),
+            const SizedBox(height: 2),
             Text(
               scene.summary,
               style: const TextStyle(

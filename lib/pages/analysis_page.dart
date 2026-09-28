@@ -664,43 +664,62 @@ const SizedBox(width: 8),
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                 child: ReadableWidth(
-                  child: Row(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Text(
-                          analysis.metadata?['arc_summary_detailed']?.toString() ?? analysis.arcSummary,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            height: 1.6,
-                            color: V469Style.textSec,
-                          ),
+                      const Text(
+                        '📝 弧线概述（详细）',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF475569),
                         ),
                       ),
-                      GestureDetector(
-                        onTap: () {
-                          Clipboard.setData(
-                            ClipboardData(text: analysis.metadata?['arc_summary_detailed']?.toString() ?? analysis.arcSummary),
-                          );
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: V469Style.accent,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Text(
-                            '复制',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.white,
-                              fontWeight: FontWeight.w500,
+                      const SizedBox(height: 4),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              analysis.metadata?['arc_summary_detailed']
+                                      ?.toString() ??
+                                  analysis.arcSummary,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                height: 1.6,
+                                color: V469Style.textSec,
+                              ),
                             ),
                           ),
-                        ),
+                          GestureDetector(
+                            onTap: () {
+                              Clipboard.setData(
+                                ClipboardData(
+                                    text: analysis.metadata?['arc_summary_detailed']
+                                            ?.toString() ??
+                                        analysis.arcSummary),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: V469Style.accent,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Text(
+                                '复制',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -1334,7 +1353,19 @@ const SizedBox(width: 8),
           if (analyzedScene?.summary.isNotEmpty == true)
             Padding(
               padding: const EdgeInsets.only(top: 4, right: 4),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '📋 场景概述',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
@@ -1372,7 +1403,9 @@ const SizedBox(width: 8),
                       ),
                     ),
                   ),
-                ],
+                  ],
+                ),
+              ],
               ),
             ),
           if (hasShots && isExpanded)
