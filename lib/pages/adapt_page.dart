@@ -89,6 +89,7 @@ class _AdaptPageState extends State<AdaptPage>
     for (final c in _scenePlanRawCtrl.values) c.dispose();
     for (final c in _scenePlanOptCtrl.values) c.dispose();
     for (final c in _scenePlanMatCtrl.values) c.dispose();
+    for (final c in _sceneShotPlanCtrl.values) c.dispose();
     _layerTabCtrl.dispose();
     super.dispose();
   }
@@ -2468,6 +2469,57 @@ class _AdaptPageState extends State<AdaptPage>
             ),
           ),
           const SizedBox(height: 6),
+          // v922：分镜规划框+按键（场景写入条目后可用——新场景走沿分镜创作）
+          Row(
+            children: [
+              const SizedBox(width: 4),
+              MiniButton(
+                label: '🧩AI分镜规划',
+                primary: false,
+                onTap: _isGenerating ? null : () => _planNewSceneShots(state, arc),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  '把最新场景拆成分镜序列（继承编排策略），写入后走沿分镜创作',
+                  style: TextStyle(fontSize: 10, color: V469Style.textMuted),
+                ),
+              ),
+            ],
+          ),
+          if ((_sceneShotPlanCtrl[arcKey]?.text.isNotEmpty ?? false) ||
+              (state.worldBook?.continuePlans['shot_plan_${arcKey ?? "1"}']
+                      ?.isNotEmpty ??
+                  false))
+            _CollapseReqField(
+              prefKey: 'scene_shot_plan_$arcKey',
+              controller: _sceneShotPlanCtrl.putIfAbsent(
+                  arcKey, () => TextEditingController()),
+              labelText: '🧩 分镜规划（可手改，写入条目后创作页走沿分镜模式）',
+              fontSize: 11.5,
+              onChanged: (v) => state.worldBook
+                  ?.continuePlans['shot_plan_${arcKey ?? "1"}'] = v,
+            ),
+          Row(
+            children: [
+              const SizedBox(width: 4),
+              MiniButton(
+                label: '📝写入条目',
+                primary: true,
+                onTap: _isGenerating
+                    ? null
+                    : () => _writeShotPlanToEntry(state, arc),
+              ),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text(
+                  '写入后创作页该场景走沿分镜模式（逐镜有编排/trick指导）',
+                  style: TextStyle(fontSize: 10, color: V469Style.textMuted),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
           // v826：写入前AI细化开关+写入按钮（细化结果回填优化框可手改，写入预览兜底）
           Row(
             children: [
@@ -2494,6 +2546,125 @@ class _AdaptPageState extends State<AdaptPage>
         ],
       ),
     );
+  }
+
+
+  /// v922：相邻场景编排样本（分镜规划讲法对齐用）——取本弧线最后一个
+  /// 有choreo的场景的策略 + 该场景前2镜的trick
+  String _continueShotPlanSample(AppState state, String arcKey) {
+    final an = state.arcAnalyses[arcKey];
+    Scene? sample;
+    for (final sc in (an?.scenes ?? const <Scene>[]).reversed) {
+      if (sc.choreo.isNotEmpty && sc.shots.isNotEmpty) {
+        sample = sc;
+        break;
+      }
+    }
+    if (sample == null) {
+      for (final sc in state.globalScenes.reversed) {
+        if (sc.choreo.isNotEmpty && sc.shots.isNotEmpty) {
+          sample = sc;
+          break;
+        }
+      }
+    }
+    if (sample == null) return '';
+    final tricks = [
+      for (final sh in sample.shots.take(3))
+        if (sh.trick.isNotEmpty) sh.trick,
+    ];
+    final buf = StringBuffer();
+    buf.writeln('场景「${sample.name}」分镜编排策略：');
+    buf.writeln(sample.choreo);
+    if (tricks.isNotEmpty) {
+      buf.writeln('该场景前几镜的镜内表述策略：');
+      for (final t in tricks) {
+        buf.writeln('- $t');
+      }
+    }
+    return buf.toString();
+  }
+
+
+
+  /// v922：分镜规划写入条目（append到弧线条目尾部——创作页hasShots走沿分镜）
+  void _writeShotPlanToEntry(AppState state, Arc? arc) {
+    final arcKey = arc?.number.toString() ?? '1';
+    final entryKey = _arcEntryKey(state, arcKey);
+    if (entryKey == null) {
+      _addLog('❌ 弧线$arcKey还没有世界书条目');
+      return;
+    }
+    final plan =
+        (state.worldBook?.continuePlans['shot_plan_$arcKey'] ?? '').trim();
+    if (plan.isEmpty) {
+      _addLog('❌ 分镜规划为空——先🧩AI分镜规划');
+      return;
+    }
+    final entry = state.worldBook!.entries[entryKey]!;
+    if (RegExp(r'分镜\s*0*[1-9]').hasMatch(entry.content)) {
+      _addLog('⚠️ 条目已含分镜结构——如需重规划请先手动清理旧分镜');
+      return;
+    }
+    entry.content = '${entry.content.trimRight()}\n\n$plan\n';
+    state.saveWorldBook();
+    _addLog('✓ 分镜规划已写入条目（${plan.length}字）——创作页该场景将走沿分镜模式');
+  }
+
+  /// v922：🧩AI分镜规划——新场景拆分镜（有编排策略理论支持后，续写场景
+  /// 可走沿分镜创作；输出写continuePlans+显示在分镜规划框可手改）
+  Future<void> _planNewSceneShots(AppState state, Arc? arc) async {
+    final arcKey = arc?.number.toString() ?? '1';
+    final entryKey = _arcEntryKey(state, arcKey);
+    if (entryKey == null) {
+      _addLog('❌ 弧线$arcKey还没有世界书条目——先规划并写入场景');
+      return;
+    }
+    final entry = state.worldBook!.entries[entryKey]!;
+    final nextNum = _maxSceneNumInEntry(state, entryKey) + 1;
+    // 本场景概述=条目内最后一个场景块
+    final sceneSpans = RegExp(r'^场景\d+：', multiLine: true)
+        .allMatches(entry.content)
+        .toList();
+    String entryBrief = entry.content.length > 500
+        ? entry.content.substring(entry.content.length - 500)
+        : entry.content;
+    if (sceneSpans.isNotEmpty) {
+      final last = sceneSpans.last;
+      entryBrief = entry.content.substring(last.start);
+    }
+    final planKey = 'shot_plan_${arcKey}_$nextNum';
+    final sample = _continueShotPlanSample(state, arcKey);
+    final config = state.getApiConfig('wb');
+    state.api.clearAbort();
+    state.userAborted = false;
+    setState(() => _isGenerating = true);
+    try {
+      _addLog('🧩 分镜规划中（场景$nextNum，弧线$arcKey）…');
+      final result = await state.api.callApi(
+        task: '续写分镜规划',
+        systemPrompt: PromptBuilder.buildContinueShotPlanSystemPrompt(),
+        userPrompt: PromptBuilder.buildContinueShotPlanUserPrompt(
+          entryBrief: entryBrief,
+          corpus: state.continueCorpus(arcKey),
+          sampleBlock: sample,
+        ),
+        apiConfig: config,
+      );
+      if (!result.isSuccess) {
+        _addLog('❌ 分镜规划失败：${result.error}');
+        return;
+      }
+      final plan = TextCleaner.stripQuotedFragment(result.content);
+      state.worldBook!.continuePlans[planKey] = plan;
+      state.saveWorldBook();
+      _sceneShotPlanCtrl[arcKey]?.text = plan;
+      _addLog('✓ 分镜规划完成（${plan.length}字）——可在分镜规划框手改后点"写入条目"');
+    } finally {
+      if (mounted) {
+        setState(() => _isGenerating = false);
+      }
+    }
   }
 
   /// v780：🤖AI优化规划——把用户粗糙规划扩写为规范场景条目规划（零零件迭代，只整格式）
@@ -3309,6 +3480,7 @@ class _AdaptPageState extends State<AdaptPage>
   final _scenePlanRawCtrl = <String, TextEditingController>{}; // v921：per-arc规划框
   final _scenePlanOptCtrl = <String, TextEditingController>{}; // v921
   final _scenePlanMatCtrl = <String, TextEditingController>{}; // v921
+  final _sceneShotPlanCtrl = <String, TextEditingController>{}; // v922：分镜规划框
   final _contReqOptCtrl = TextEditingController(); // v920
   bool _reqRawChecked = true; // v781：原始续写方向勾选
   bool _reqOptChecked = true; // v781：优化方向勾选
