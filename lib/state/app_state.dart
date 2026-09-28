@@ -1293,6 +1293,9 @@ class AppState extends ChangeNotifier {
     if (worldBook != null) {
       final p = storage.bookPath;
       storage.writeFile('${p}worldbook.json', jsonEncode(worldBook!.toJson()));
+      // v923：实时刷新（用户实测：清空/写入要重启才看到变化——此前
+      // saveWorldBook不通知，依赖各调用方记得refresh，漏了就假死）
+      notifyListeners();
     }
   }
 
