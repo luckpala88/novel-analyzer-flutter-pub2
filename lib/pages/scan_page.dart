@@ -758,7 +758,11 @@ class _ScanPageState extends State<ScanPage>
                                                 ? null
                                                 : () {
                                                   // v474：走分组通道——从本弧线
-                                                  // 起始场景剪断（旧通道兜底）
+                                                  // 起始场景剪断（只解除归属不动场景）
+                                                  // v887：定位优先级 arcScenes→
+                                                  // 全局流；全局流也没有才走重扫
+                                                  // （此前fallback直入_rescanFromArc
+                                                  // =未拆弧线剪断误删场景流,用户实测）
                                                   final scenes = state
                                                       .arcScenes[
                                                           arc.number.toString()]
@@ -770,6 +774,15 @@ class _ScanPageState extends State<ScanPage>
                                                     _confirmCutRegroup(
                                                       state,
                                                       scenes.first,
+                                                    );
+                                                  } else if (arc.sceneFrom >= 1 &&
+                                                      state.globalScenes
+                                                              .length >=
+                                                          arc.sceneFrom) {
+                                                    _confirmCutRegroup(
+                                                      state,
+                                                      state.globalScenes[
+                                                          arc.sceneFrom - 1],
                                                     );
                                                   } else {
                                                     _rescanFromArc(state, arc);
