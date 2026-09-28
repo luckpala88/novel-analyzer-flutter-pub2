@@ -2214,7 +2214,7 @@ class AppState extends ChangeNotifier {
     final an = arcAnalyses[arcKey];
     final choreo = an?.metadata?['arc_choreo']?.toString() ?? '';
     if (choreo.isNotEmpty) {
-      sb.writeln('【弧线编排总纲（本弧线各场景的功能链与张力设计——规划新场景时必须遵循此节奏安排）】');
+      sb.writeln('【弧线内场景编排策略（本弧线各场景的功能链与张力设计——规划新场景时必须遵循此节奏安排）】');
       sb.writeln(choreo);
       sb.writeln();
     }

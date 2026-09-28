@@ -691,7 +691,7 @@ class _ScanPageState extends State<ScanPage>
                                       // v882：弧线编排总纲显示（分组产出，没生成过则不显示）
                                       if (arc.arcChoreo.isNotEmpty) ...[
                                         Text(
-                                          '🎬 弧线编排',
+                                          '🎬 弧线内场景编排策略',
                                           style: const TextStyle(
                                             fontSize: 11,
                                             fontWeight: FontWeight.w700,

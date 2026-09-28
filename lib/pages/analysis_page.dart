@@ -451,7 +451,7 @@ const SizedBox(width: 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('🎬 弧线编排',
+              const Text('🎬 弧线内场景编排策略',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -1457,7 +1457,7 @@ const SizedBox(width: 8),
           dimLine('💡', '作者意图/Intent', shot.intent, const Color(0xFF92400E)),
           // v889：手法/Trick显示（细节策略四问——拆分镜产出，创作AI的讲法规格）
           if (shot.trick.isNotEmpty)
-            dimLine('🃏', '手法/Trick', shot.trick, const Color(0xFFB45309)),
+            dimLine('🃏', '镜内表述策略/Trick', shot.trick, const Color(0xFFB45309)),
           dimLine(
             '✂️',
             '转场手法/Transition',
@@ -1607,11 +1607,11 @@ const SizedBox(width: 8),
           '场景${an.scenes.indexOf(sc) + 1}：${sc.name}（${sc.chapterRange}）',
         );
         if (sc.summary.isNotEmpty) sb.writeln('概述：${sc.summary}');
-        if (sc.choreo.isNotEmpty) sb.writeln('场景编排(Choreo)：${sc.choreo}'); // v878
+        if (sc.choreo.isNotEmpty) sb.writeln('弧线内场景编排策略——本场景：${sc.choreo}'); // v878
         for (var i = 0; i < sc.shots.length; i++) {
           final sh = sc.shots[i];
           if (i == 0 && sc.choreo.isNotEmpty)
-            sb.writeln('分镜编排(Choreo)：${sc.choreo}'); // v878
+            sb.writeln('场景内分镜编排策略(Choreo)：${sc.choreo}'); // v878
           sb.writeln('分镜${i + 1}：');
           sb.writeln('焦点(Focus)：${sh.focus}');
           sb.writeln('镜头类型(Shot Type)：${sh.shotType}');
@@ -1782,11 +1782,11 @@ const SizedBox(width: 8),
           '场景${an.scenes.indexOf(sc) + 1}：${sc.name}（${sc.chapterRange}）',
         );
         if (sc.summary.isNotEmpty) sb.writeln('概述：${sc.summary}');
-        if (sc.choreo.isNotEmpty) sb.writeln('场景编排(Choreo)：${sc.choreo}'); // v878
+        if (sc.choreo.isNotEmpty) sb.writeln('弧线内场景编排策略——本场景：${sc.choreo}'); // v878
         for (var i = 0; i < sc.shots.length; i++) {
           final sh = sc.shots[i];
           if (i == 0 && sc.choreo.isNotEmpty)
-            sb.writeln('分镜编排(Choreo)：${sc.choreo}'); // v878
+            sb.writeln('场景内分镜编排策略(Choreo)：${sc.choreo}'); // v878
           sb.writeln('分镜${i + 1}：');
           sb.writeln('焦点(Focus)：${sh.focus}');
           sb.writeln('镜头类型(Shot Type)：${sh.shotType}');

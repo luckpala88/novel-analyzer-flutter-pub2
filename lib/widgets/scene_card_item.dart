@@ -125,7 +125,7 @@ class SceneCardItem extends StatelessWidget {
           if (scene.choreo.isNotEmpty) ...[
             const SizedBox(height: 5),
             Text(
-              '🎬 ${scene.choreo}',
+              '🎬 分镜编排：${scene.choreo}',
               style: TextStyle(
                 fontSize: 11,
                 height: 1.4,

@@ -701,7 +701,7 @@ Future<void> groupArcsFromScenes({
             '- focus=视角主角\n'
             '- 最后一条弧线若叙事未收束（书未读完的中间态），status=incomplete\n\n'
             '- ⚠️ arc_choreo与scene_choreos为**必填字段**（v886实测：模型常只给arc_choreo漏scene_choreos=输出不完整）\n'
-            '- arc_choreo（弧线编排总纲，一句话）：本弧线的张力曲线（哪紧哪松哪蓄力哪爆）+期待在哪埋在哪兑现+信息差怎么经营\n'
+            '- arc_choreo（弧线内场景编排策略，详尽分析不少于150字）：张力曲线逐段（哪几场蓄力/紧绷/爆）+场景功能链递进（钩子→建立→升级→转折→爆点→余波）+期待管理与信息差跨场景经营——禁止一句话\n'
             '- scene_choreos（逐场景编排，**本弧线每个场景都必须有一项**，格式"场景序号:功能(钩子/建立/铺垫/升级/转折/爆点/余波)+给哪个场景蓄力或回收什么"）——这是给创作AI的菜单设计逻辑\n'
             '只输出纯JSON：{"arcs": [{"title": "...", "summary": "...", "focus": "...", "close_type": "real/pseudo", "status": "complete/incomplete", "scene_from": 起始场景序号, "scene_to": 结束场景序号, "closure_reason": "闭合依据(a)落定在哪个场景(b)为什么不是前一场景(c)提前闭合会怎样", "arc_choreo": "弧线编排总纲", "scene_choreos": "场景N:功能+蓄力；场景M:功能+蓄力"}]}';
         final userPrompt =
