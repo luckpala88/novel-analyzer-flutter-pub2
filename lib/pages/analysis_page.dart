@@ -2178,6 +2178,15 @@ const SizedBox(width: 8),
             .map((e) => Shot.fromJson(e as Map<String, dynamic>))
             .toList();
         scene.choreo = (parsed?['choreo'] as String?) ?? ''; // v878：分镜编排落库
+        // v898：详版编排双写回场景页容器——拆分镜产出的详尽分析覆盖分组
+        // 简版（用户裁决：场景页/弧线页都应显示详版），globalScenes与
+        // analysis.scenes重载后是独立实例，只写一份另一边看不到
+        if (scene.choreo.isNotEmpty && scene.globalIndex >= 0) {
+          final gsAll = state.globalScenes;
+          if (scene.globalIndex < gsAll.length) {
+            gsAll[scene.globalIndex].choreo = scene.choreo;
+          }
+        }
           // v363：镜级切片物化（尽力而为）——从scene.text链式定位每镜end_text。
           // 失败→该镜text留空，创作端回退场景切片，绝不影响拆解落库（与场景
           // 物化的严格模式相反：场景切片是拆解输入必须严，镜切片只是创作范文必须宽）
