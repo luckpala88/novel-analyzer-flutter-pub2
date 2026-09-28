@@ -6484,6 +6484,9 @@ class _AdaptPageState extends State<AdaptPage>
       // v227：世界观facts（阶段A生成【世界观设定】的数据源——
       // 此前漏传，AI手里没有facts只能全写"本弧线未涉及"）
       'worldbuilding_facts': analysis?.metadata?['worldbuilding_facts'] ?? [],
+      // v924：编排策略进条目生成数据（三层表述层）
+      'arc_choreo': analysis?.metadata?['arc_choreo'] ?? '',
+      'scene_choreos': analysis?.metadata?['scene_choreos'] ?? '',
     };
 
     return {
