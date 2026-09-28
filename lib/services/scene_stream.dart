@@ -1040,6 +1040,9 @@ Future<void> extractArcParts({
   final scChoreosV2 = parts['scene_choreos']?.toString() ?? '';
   if (scChoreosV2.isNotEmpty) {
     var choreoCount = 0;
+    // v893：双容器写——globalScenes与analysis.scenes重载后是反序列化的
+    // 独立实例，只写前者=弧线页场景卡（读analysis.scenes）看不到编排
+    final anScenes = state.arcAnalyses[arc.number.toString()]?.scenes ?? const <Scene>[];
     for (final mm
         in RegExp(r'(\d+)\s*[:：]\s*([^,，；;\n\]}]+)').allMatches(scChoreosV2)) {
       final seq = int.tryParse(mm.group(1)!) ?? 0;
@@ -1047,9 +1050,14 @@ Future<void> extractArcParts({
       if (val.isEmpty) continue;
       if (arc.sceneFrom >= 1 &&
           seq >= arc.sceneFrom &&
-          seq <= arc.sceneTo &&
-          gsAll.length >= seq) {
-        gsAll[seq - 1].choreo = val;
+          seq <= arc.sceneTo) {
+        if (gsAll.length >= seq) gsAll[seq - 1].choreo = val;
+        for (final sc in anScenes) {
+          if (sc.globalIndex + 1 == seq) {
+            sc.choreo = val;
+            break;
+          }
+        }
         choreoCount++;
       }
     }
