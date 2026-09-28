@@ -423,6 +423,19 @@ class TextCleaner {
     }
     // 字面\n转真实换行
     t = t.replaceAll('\\n', '\n');
+    // v870：孤儿引号清理——段首英文"但段内再无配对"（实证：AI输出壳
+    // 尾半被上游剥掉只剩开头单边"韦多宝…，首尾配对判定永远打不中）
+    // →剥掉这个孤儿开引号。段内有配对引号=正常引用/对白，绝不动
+    t = t.split('\n').map((line) {
+      var x = line.trim();
+      if (x.length >= 2 && x.startsWith('"') && !x.substring(1).contains('"')) {
+        x = x.substring(1).trim();
+      }
+      if (x.length >= 2 && x.endsWith('"') && !x.substring(0, x.length - 1).contains('"')) {
+        x = x.substring(0, x.length - 1).trim();
+      }
+      return x.isEmpty ? line : x;
+    }).join('\n');
     return t.trim();
   }
 

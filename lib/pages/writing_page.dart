@@ -4120,7 +4120,9 @@ class _WritingPageState extends State<WritingPage>
       // 兼容模式存量字面\n（中转假流式残留）——仅解码不做其它变换
       return text.replaceAll(r'\n', '\n').replaceAll(r'\"', '"');
     }
-    return text;
+    // v870：孤儿引号兜底自愈（段首单边英文"无配对→剥，纯格式修复随写回落盘）
+    final orph = TextCleaner.stripQuotedFragment(text);
+    return orph == text ? text : orph;
   }
 
   /// 穿插渲染（从_WritingViewerPage抽出共用：v469 formatWritingContent对齐）

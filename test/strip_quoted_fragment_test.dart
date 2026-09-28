@@ -51,6 +51,14 @@ void main() {
     test('v869：stripWrapQuotes纯壳段仍剥', () {
       expect(TextCleaner.stripWrapQuotes('“这是一段没有任何引号的普通叙述内容哦”'), '这是一段没有任何引号的普通叙述内容哦');
     });
+    test('v870：孤儿英文开引号剥掉（无配对）', () {
+      final t = '"韦多宝收回目光，身形化作一道清风。\n密室厚重的断龙石门轰然落下。';
+      expect(TextCleaner.stripQuotedFragment(t), '韦多宝收回目光，身形化作一道清风。\n密室厚重的断龙石门轰然落下。');
+    });
+    test('v870：段内有配对引号=正常对白绝不动', () {
+      final t = '“玄晶宫倾巢而出。”韦多宝双眼微眯。';
+      expect(TextCleaner.stripQuotedFragment(t), t);
+    });
   });
 }
 
