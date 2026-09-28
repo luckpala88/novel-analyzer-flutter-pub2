@@ -1399,6 +1399,9 @@ const SizedBox(width: 8),
           dimLine('👁', '视角/POV', shot.pov, const Color(0xFF3730A3)),
           dimLine('📋', '投放信息/Info', shot.info, const Color(0xFF475569)),
           dimLine('💡', '作者意图/Intent', shot.intent, const Color(0xFF92400E)),
+          // v889：手法/Trick显示（细节策略四问——拆分镜产出，创作AI的讲法规格）
+          if (shot.trick.isNotEmpty)
+            dimLine('🃏', '手法/Trick', shot.trick, const Color(0xFFB45309)),
           dimLine(
             '✂️',
             '转场手法/Transition',
