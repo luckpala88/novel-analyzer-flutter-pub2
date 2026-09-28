@@ -700,7 +700,9 @@ Future<void> groupArcsFromScenes({
             '- **闭合判定看下一场景**：处理到场景M时，场景M+1仍是本弧线主角/叙事延续→继续；切到别的角色/线→本场景收束（伪闭合）；主角发生不可逆变化（真闭合）→也可在此收束\n'
             '- focus=视角主角\n'
             '- 最后一条弧线若叙事未收束（书未读完的中间态），status=incomplete\n\n'
-            '只输出纯JSON：{"arcs": [{"title": "...", "summary": "...", "focus": "...", "close_type": "real/pseudo", "status": "complete/incomplete", "scene_from": 起始场景序号, "scene_to": 结束场景序号, "closure_reason": "闭合依据(a)落定在哪个场景(b)为什么不是前一场景(c)提前闭合会怎样"}]}';
+            '- arc_choreo（v881弧线编排总纲，一句话）：本弧线的张力曲线（哪紧哪松哪蓄力哪爆）+期待在哪埋在哪兑现+信息差怎么经营\n'
+            '- scene_choreos（v881逐场景编排，本弧线每个场景一项，格式"场景序号:功能(钩子/建立/铺垫/升级/转折/爆点/余波)+给哪个场景蓄力或回收什么"）——这是给创作AI的菜单设计逻辑\n'
+            '只输出纯JSON：{"arcs": [{"title": "...", "summary": "...", "focus": "...", "close_type": "real/pseudo", "status": "complete/incomplete", "scene_from": 起始场景序号, "scene_to": 结束场景序号, "closure_reason": "闭合依据(a)落定在哪个场景(b)为什么不是前一场景(c)提前闭合会怎样", "arc_choreo": "弧线编排总纲", "scene_choreos": "场景N:功能+蓄力；场景M:功能+蓄力"}]}';
         final userPrompt =
             '${openArc == null ? '上文弧线均已闭合，请从本批第一个场景开始新弧线' : '已分组上文的未闭合弧线：$openDesc（延续它时title保持一致，必要时加"·续"）'}\n\n'
             '以下是场景$cursor+1-$to的序列：\n\n$sb\n\n'
@@ -776,6 +778,19 @@ Future<void> groupArcsFromScenes({
           final seg = gs.sublist(from2, to2 + 1);
           if (seg.isEmpty) continue;
           prevTo = to2 + 1;
+          // v881：逐场景编排落库（scene_choreos="场景N:…；场景M:…"按序号映射）
+          final scChoreos = m['scene_choreos']?.toString() ?? '';
+          if (scChoreos.isNotEmpty) {
+            for (final item in scChoreos.split('；')) {
+              final mm = RegExp(r'场景\s*(\d+)\s*[:：]\s*(.+)').firstMatch(item.trim());
+              if (mm == null) continue;
+              final seq = int.tryParse(mm.group(1)!) ?? 0;
+              if (seq - 1 >= from2 && seq - 1 <= to2) {
+                gs[seq - 1].choreo = mm.group(2)!.trim();
+              }
+            }
+          }
+          final arcChoreoV = m['arc_choreo']?.toString() ?? '';
           final isContinuation = openArc != null &&
               (m['title']?.toString() ?? '').contains(openArc.title);
           arcNum = isContinuation ? openArc!.number : arcNum + 1;
@@ -797,6 +812,7 @@ Future<void> groupArcsFromScenes({
             summary: m['summary']?.toString() ?? '',
             focusCharacter: m['focus']?.toString() ?? '',
             closeType: m['close_type']?.toString() ?? 'pseudo',
+            arcChoreo: arcChoreoV, // v881
             boundaryAnchor: '',
             boundaryOffset: -1,
             text: seg.map((s2) => s2.text).where((t) => t.isNotEmpty).join('\n\n'),

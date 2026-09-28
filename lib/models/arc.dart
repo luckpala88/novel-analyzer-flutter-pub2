@@ -15,6 +15,7 @@ class Arc {
   String? closureEvidence; // v439：闭合依据（a落定b为何是这幕c提前会怎样）
   String focusCharacter; // v283：视角主角（focus_character，群像书多线判定的锚点）
   String closeType; // v283：'real'=真闭合（不可逆变化）/ 'pseudo'=伪闭合（该线叙事段结束且切线）
+  String arcChoreo; // v881：弧线编排总纲（张力曲线/期待埋兑/信息差——分组产出，条目组装进创作语料）
   String boundaryAnchor; // v293：闭合章内分界原句（该句前含属本弧线、后属下一弧线），弧线精准正文切分锚点
   int boundaryOffset; // v294：解析时定位好的切分点字符偏移（章文本内，锚点句末尾）；-1=未定位
   String text; // v294：弧线精准正文（扫描闭合时物化落库，场景/分镜直接读）
@@ -39,6 +40,7 @@ class Arc {
     this.closureEvidence,
     this.focusCharacter = '',
     this.closeType = 'real',
+    this.arcChoreo = '',
     this.boundaryAnchor = '',
     this.boundaryOffset = -1,
     this.text = '',
@@ -66,6 +68,7 @@ class Arc {
       focusCharacter:
           json['focus_character'] ?? json['focusCharacter'] ?? '',
       closeType: json['close_type'] ?? json['closeType'] ?? 'real',
+      arcChoreo: json['arc_choreo'] ?? json['arcChoreo'] ?? '',
       boundaryAnchor:
           json['boundary_text'] ?? json['boundaryAnchor'] ?? '',
       boundaryOffset: json['boundary_offset'] ?? -1,
@@ -90,6 +93,7 @@ class Arc {
     if (closureEvidence != null) 'closure_evidence': closureEvidence,
     if (focusCharacter.isNotEmpty) 'focus_character': focusCharacter,
     if (closeType != 'real') 'close_type': closeType,
+    if (arcChoreo.isNotEmpty) 'arc_choreo': arcChoreo,
     if (boundaryAnchor.isNotEmpty) 'boundary_text': boundaryAnchor,
     if (boundaryOffset >= 0) 'boundary_offset': boundaryOffset,
     if (tailTrim >= 0) 'tail_trim': tailTrim,
