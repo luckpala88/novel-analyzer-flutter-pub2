@@ -764,9 +764,9 @@ class _ScanPageState extends State<ScanPage>
                                           FilledButton.tonalIcon(
                                             icon: const Icon(
                                               Icons.content_cut,
-                                              size: 14,
+                                              size: 12,
                                             ),
-                                            label: const Text('剪断重分'),
+                                            label: const Text('剪断'),
                                             style: FilledButton.styleFrom(
                                               backgroundColor: const Color(
                                                 0xFFFEE2E2,
@@ -839,9 +839,9 @@ class _ScanPageState extends State<ScanPage>
                                           FilledButton.tonalIcon(
                                             icon: const Icon(
                                               Icons.refresh_outlined,
-                                              size: 14,
+                                              size: 12,
                                             ),
-                                            label: const Text('重提零件'),
+                                            label: const Text('零件'),
                                             style: FilledButton.styleFrom(
                                               visualDensity:
                                                   VisualDensity.compact,
@@ -870,9 +870,9 @@ class _ScanPageState extends State<ScanPage>
                                           FilledButton.tonalIcon(
                                             icon: const Icon(
                                               Icons.auto_awesome,
-                                              size: 14,
+                                              size: 12,
                                             ),
-                                            label: const Text('分析编排'),
+                                            label: const Text('编排'),
                                             style: FilledButton.styleFrom(
                                               visualDensity:
                                                   VisualDensity.compact,
