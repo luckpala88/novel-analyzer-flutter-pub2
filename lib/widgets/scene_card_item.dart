@@ -121,6 +121,18 @@ class SceneCardItem extends StatelessWidget {
                 color: V469Style.textSec,
               ),
             ),
+          // v882：编排标注（分组产出，逐场景功能+蓄力）
+          if (scene.choreo.isNotEmpty) ...[
+            const SizedBox(height: 5),
+            Text(
+              '🎬 ${scene.choreo}',
+              style: TextStyle(
+                fontSize: 11,
+                height: 1.4,
+                color: Colors.brown.shade600,
+              ),
+            ),
+          ],
           ],
           // 行3：章节范围+剪断重扫键
           const SizedBox(height: 6),

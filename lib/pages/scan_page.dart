@@ -688,6 +688,26 @@ class _ScanPageState extends State<ScanPage>
                                           ],
                                         );
                                       }),
+                                      // v882：弧线编排总纲显示（分组产出，没生成过则不显示）
+                                      if (arc.arcChoreo.isNotEmpty) ...[
+                                        Text(
+                                          '🎬 弧线编排',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(0xFFB45309),
+                                          ),
+                                        ),
+                                        Text(
+                                          arc.arcChoreo,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            height: 1.5,
+                                            color: V469Style.textSec,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                      ],
                                       if (arc.coreChange.isNotEmpty) ...[
                                         Text(
                                           '💎 不可逆变化',
