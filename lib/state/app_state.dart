@@ -2241,12 +2241,15 @@ class AppState extends ChangeNotifier {
       sb.writeln(core);
       sb.writeln();
     }
-    // v894：弧线编排总纲进语料（场景规划/写入前细化时AI按它安排功能链）
+    // v894/v918：编排策略进语料——总纲+逐场景落点（规划AI需要知道
+    // 每个已有场景的功能定位，新场景才能接续功能链）
     final an = arcAnalyses[arcKey];
     final choreo = an?.metadata?['arc_choreo']?.toString() ?? '';
-    if (choreo.isNotEmpty) {
-      sb.writeln('【弧线内场景编排策略（本弧线各场景的功能链与张力设计——规划新场景时必须遵循此节奏安排）】');
-      sb.writeln(choreo);
+    final scCh = an?.metadata?['scene_choreos']?.toString() ?? '';
+    if (choreo.isNotEmpty || scCh.isNotEmpty) {
+      sb.writeln('【弧线内场景编排策略（规划新场景时必须遵循此节奏与功能链安排）】');
+      if (choreo.isNotEmpty) sb.writeln('总纲：$choreo');
+      if (scCh.isNotEmpty) sb.writeln('逐场景落点：$scCh');
       sb.writeln();
     }
     final cur = _continueEntryOf(myNum);
