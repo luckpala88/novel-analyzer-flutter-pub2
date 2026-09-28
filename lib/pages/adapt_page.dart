@@ -34,7 +34,27 @@ class AdaptPage extends StatefulWidget {
 }
 
 class _AdaptPageState extends State<AdaptPage>
+
     with AutomaticKeepAliveClientMixin, TickerProviderStateMixin {
+
+  /// v904b：弧线场景统一取数——全局场景流切片（arc.sceneFrom/To 1-based）
+  /// 优先，arcScenes（拆镜回填）/analysis.scenes 兜底。v882删旧划分链后
+  /// 未重拆弧线的arcScenes恒空，改编链各步骤全靠这里读到场景
+  List<Scene> _arcScenesOf(AppState state, String arcKey) {
+    final arc = state.allArcs.firstWhere(
+      (a) => a.number.toString() == arcKey,
+      orElse: () => state.allArcs.first,
+    );
+    final gs = state.globalScenes;
+    if (arc.sceneFrom >= 1 &&
+        arc.sceneTo >= arc.sceneFrom &&
+        gs.length >= arc.sceneTo) {
+      return gs.sublist(arc.sceneFrom - 1, arc.sceneTo);
+    }
+    return state.arcScenes[arcKey] ??
+        state.arcAnalyses[arcKey]?.scenes ??
+        const <Scene>[];
+  }
   bool _mapPreview = false; // v702：浏览层换名预览
   @override
   bool get wantKeepAlive => true; // 页面滑出PageView时保持State：生成任务不中断/表单不清空
@@ -482,10 +502,7 @@ class _AdaptPageState extends State<AdaptPage>
       repaired++;
     }
     // 场景头缺章节范围→从场景数据补（第N场景→scenes[N-1].chapterRange）
-    final scenes =
-        state.arcScenes[arcKey] ??
-        state.arcAnalyses[arcKey]?.scenes ??
-        const <Scene>[];
+    final scenes = _arcScenesOf(state, arcKey); // v904b
     final fixedLines = <String>[];
     for (final raw in fixedContent.split('\n')) {
       final t = raw.trim();
@@ -3757,10 +3774,7 @@ class _AdaptPageState extends State<AdaptPage>
     }
 
     // 该弧线的场景列表
-    final scenes =
-        state.arcScenes[arcKey] ??
-        state.arcAnalyses[arcKey]?.scenes ??
-        <Scene>[];
+    final scenes = _arcScenesOf(state, arcKey); // v904b
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -4793,7 +4807,7 @@ class _AdaptPageState extends State<AdaptPage>
           .showSnackBar(const SnackBar(content: Text('该弧线尚无改编概述，先在"弧线改编"页生成')));
       return;
     }
-    final scenes = state.arcScenes[arcKey] ?? <Scene>[];
+    final scenes = _arcScenesOf(state, arcKey); // v904b
     if (bi >= scenes.length) return;
     final scene = scenes[bi];
     final entryContent = state.worldBook!.entries[entryKey]!.content;
@@ -4854,7 +4868,7 @@ class _AdaptPageState extends State<AdaptPage>
           .showSnackBar(const SnackBar(content: Text('该弧线尚无改编概述，先在"弧线改编"页生成')));
       return;
     }
-    final scenes = state.arcScenes[arcKey] ?? <Scene>[];
+    final scenes = _arcScenesOf(state, arcKey); // v904b
     if (scenes.isEmpty) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('该弧线无场景数据')));
@@ -4981,7 +4995,7 @@ class _AdaptPageState extends State<AdaptPage>
   Future<void> _aiSuggestSceneReq(AppState state, Arc arc, int sceneIdx) async {
     final arcKey = arc.number.toString();
     final sceneReqKey = '${arcKey}_$sceneIdx';
-    final scenes = state.arcScenes[arcKey] ?? <Scene>[];
+    final scenes = _arcScenesOf(state, arcKey); // v904b
     if (sceneIdx >= scenes.length) return;
     final scene = scenes[sceneIdx];
     String arcContext = '';
@@ -5056,7 +5070,7 @@ class _AdaptPageState extends State<AdaptPage>
     // v570：分层入口的级联清空确认（all层走原有全量/增量弹窗）
     if (layer != 'all') {
       final layerArcKey = arc.number.toString();
-      final scenes = state.arcScenes[layerArcKey] ?? <Scene>[];
+      final scenes = _arcScenesOf(state, layerArcKey); // v904b
       final entryKey = _arcEntryKey(state, layerArcKey);
       final entryContent = entryKey != null
           ? state.worldBook!.entries[entryKey]!.content
@@ -5487,10 +5501,7 @@ class _AdaptPageState extends State<AdaptPage>
           (state.worldBook?.arcDeclEnabled[arc.number.toString()] ?? true)
           ? _declarationText(state, arc.number)
           : ''; // v385：勾选框未勾选=不注入
-      final scenes =
-          state.arcScenes[arcKey] ??
-          state.arcAnalyses[arcKey]?.scenes ??
-          <Scene>[];
+      final scenes = _arcScenesOf(state, arcKey); // v904b
 
       // v217：无任何改编要求（全局/弧线/声明全空）=原样整理模式
       // v225：显式选择"原样"模式时强制原样（忽略一切改编要求）
@@ -6020,10 +6031,7 @@ class _AdaptPageState extends State<AdaptPage>
     _addLog('单独改编：弧线${arc.number} 场景${sceneIdx + 1}');
 
     try {
-      final scenes =
-          state.arcScenes[arcKey] ??
-          state.arcAnalyses[arcKey]?.scenes ??
-          <Scene>[];
+      final scenes = _arcScenesOf(state, arcKey); // v904b
       if (sceneIdx >= scenes.length) {
         _addLog('场景不存在');
         return;
@@ -6299,7 +6307,7 @@ class _AdaptPageState extends State<AdaptPage>
   Map<String, dynamic> _buildArcItemData(AppState state, Arc arc) {
     final arcKey = arc.number.toString();
     final analysis = state.arcAnalyses[arcKey];
-    final scenes = state.arcScenes[arcKey] ?? analysis?.scenes ?? <Scene>[];
+    final scenes = _arcScenesOf(state, arcKey); // v904b
 
     final arcData = <String, dynamic>{
       'title': arc.title,
