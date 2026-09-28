@@ -2472,7 +2472,7 @@ const SizedBox(width: 8),
       state.saveArcScenes();
       // v903：编排分析自动化——批量拆完后对全部已拆场景统一跑场景内分镜编排策略
       if (!state.api.isAborted && !state.userAborted) {
-        _addLog('━━ 编排策略分析开始（批量拆解后自动）…');
+        _addLog('━━ 【场景内分镜编排策略】分析开始（批量拆解后自动）…');
         var choreoDone = 0;
         for (final entry in toAnalyze.entries) {
           final arc = state.allArcs.firstWhere(
@@ -2492,7 +2492,7 @@ const SizedBox(width: 8),
             }
           }
         }
-        _addLog('✅ 编排策略分析完成：$choreoDone个场景');
+        _addLog('✅ 【场景内分镜编排策略】分析完成：$choreoDone个场景');
       }
     } finally {
       if (mounted) {

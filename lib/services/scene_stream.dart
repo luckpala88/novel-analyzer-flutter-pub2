@@ -881,6 +881,7 @@ Future<void> groupArcsFromScenes({
           if (a.status == 'complete' && !extractedArcs.contains(a.number)) {
             await extractArcParts(state: state, arc: a, log: log);
             // v903：编排分析自动化（滚动模式同步）
+            log('▶ 弧线${a.number}【弧线内场景编排策略】分析开始');
             await analyzeArcChoreo(state: state, arc: a, log: log);
             extractedArcs.add(a.number);
             // v496：一条弧线内容完整即保存（前面成果永不丢）
@@ -950,6 +951,7 @@ Future<void> groupArcsFromScenes({
           }
           await extractArcParts(state: state, arc: a, log: log);
           // v903：编排分析自动化——批量流程内嵌，用户零手感（v899起编排是表述层标配）
+          log('▶ 弧线${a.number}【弧线内场景编排策略】分析开始');
           await analyzeArcChoreo(state: state, arc: a, log: log);
           done++;
           log('零件+编排提取进度：$done/${arcs.length}');
@@ -996,7 +998,7 @@ Future<void> analyzeSceneChoreo({
   final config = state.getApiConfig('shot');
   state.api.clearAbort();
   final result = await state.api.callApi(
-    task: '编排策略分析',
+    task: '场景内分镜编排策略分析',
     systemPrompt: PromptBuilder.buildSceneChoreoSystemPrompt(),
     userPrompt: '【场景原文切片】\n${scene.text}\n\n【分镜骨架清单】\n$skeleton',
     apiConfig: config,
@@ -1018,7 +1020,7 @@ Future<void> analyzeSceneChoreo({
   }
   state.saveArcAnalyses();
   state.saveGlobalScenes();
-  log('✓ 场景${scene.globalIndex + 1}编排策略已落库（${choreo.length}字）');
+  log('✓ 场景${scene.globalIndex + 1}【场景内分镜编排策略】已落库（${choreo.length}字）');
 }
 
 /// v901：弧线内场景编排策略分析（独立按键——骨架/表述分离，单任务保质量）
@@ -1048,7 +1050,7 @@ Future<void> analyzeArcChoreo({
   );
   final config = state.getApiConfig('arc');
   final result = await state.api.callApi(
-    task: '编排策略分析', // v824任务级反馈
+    task: '场景内分镜编排策略分析', // v824任务级反馈
     systemPrompt: systemPrompt,
     userPrompt: userPrompt,
     apiConfig: config,
@@ -1080,7 +1082,7 @@ Future<void> analyzeArcChoreo({
       state.saveArcAnalyses();
     }
   }
-  log('✓ 弧线${arc.number}编排策略已落库（总纲${arcChoreoV.length}字+逐场景落点${scChoreos.length}字）');
+  log('✓ 弧线${arc.number}【弧线内场景编排策略】已落库（总纲${arcChoreoV.length}字+逐场景落点${scChoreos.length}字）');
 }
 
 Future<void> extractArcParts({
