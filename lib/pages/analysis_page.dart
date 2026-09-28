@@ -425,6 +425,20 @@ const SizedBox(width: 8),
     );
   }
 
+
+  /// v885：弧线场景统一取数——全局场景流切片（arc.sceneFrom/To 1-based闭区间）
+  /// 优先，arcScenes（拆镜回填容器）兜底。v882删旧划分链后未拆弧线的
+  /// arcScenes恒空，弧线内批量/批量拆解全靠这里才能读到场景
+  List<Scene> _arcScenesOf(AppState state, dynamic arc) {
+    final gs = state.globalScenes;
+    if (arc.sceneFrom >= 1 &&
+        arc.sceneTo >= arc.sceneFrom &&
+        gs.length >= arc.sceneTo) {
+      return gs.sublist(arc.sceneFrom - 1, arc.sceneTo);
+    }
+    return state.arcScenes[arc.number.toString()] ?? [];
+  }
+
   Widget _buildArcCard(
     BuildContext context,
     AppState state,
@@ -433,7 +447,7 @@ const SizedBox(width: 8),
   ) {
     final arcKey = arc.number.toString();
     final analysis = state.arcAnalyses[arcKey];
-    final scenes = state.arcScenes[arcKey] ?? [];
+    final scenes = _arcScenesOf(state, arc); // v885
     final hasAnalysis = analysis != null;
     final analyzedScenes = hasAnalysis
         ? analysis.scenes.where((s) => s.shots.isNotEmpty).length
@@ -2008,7 +2022,7 @@ const SizedBox(width: 8),
     }
     // v477：双容器兜底（卡片遍历的是analysis.scenes，拆解读arcScenes，
     // 长度不一致时越界——统一取并集来源）
-    var scenes = state.arcScenes[arcKey] ?? [];
+    var scenes = _arcScenesOf(state, arc); // v885：全局流切片优先
     if (sceneIdx >= scenes.length) {
       final alt = state.arcAnalyses[arcKey]?.scenes ?? [];
       if (sceneIdx < alt.length) {
@@ -2188,7 +2202,7 @@ const SizedBox(width: 8),
       _addLog('⛔ 弧线${arc.number}未闭合（incomplete）——拆解已阻止');
       return;
     }
-    final scenes = state.arcScenes[arc.number.toString()] ?? [];
+    final scenes = _arcScenesOf(state, arc); // v885
 
     if (scenes.isNotEmpty) {
       // 已划分场景：对场景独立拆分镜（三选对话框，v469同款）
@@ -2269,17 +2283,19 @@ const SizedBox(width: 8),
       }
       final key = arc.number.toString();
       // v477：双容器兜底（分组弧线两容器同步；旧数据可能只有其一）
-      final scenes = (state.arcScenes[key]?.isNotEmpty ?? false)
+      final scenes = _arcScenesOf(state, arc); // v885
+      final altScenes = (state.arcScenes[key]?.isNotEmpty ?? false)
           ? state.arcScenes[key]!
           : (state.arcAnalyses[key]?.scenes ?? []);
-      if (scenes.isEmpty) {
+      final effScenes = scenes.isNotEmpty ? scenes : altScenes;
+      if (effScenes.isEmpty) {
         // v521b：幽灵弧线可见化（arcScan残留/分组产出缺段——静默跳过=统计对不上）
         _addLog('⚠️ 弧线$key 无场景数据，跳过拆解（建议重扫场景流+重新分组）');
         continue;
       }
       final pending = <int>[];
-      for (var si = 0; si < scenes.length; si++) {
-        if (clearExisting || scenes[si].shots.isEmpty) pending.add(si);
+      for (var si = 0; si < effScenes.length; si++) {
+        if (clearExisting || effScenes[si].shots.isEmpty) pending.add(si);
       }
       if (pending.isNotEmpty) toAnalyze[key] = pending;
     }
@@ -2296,7 +2312,15 @@ const SizedBox(width: 8),
       try {
         var cleared = 0;
         for (final key in toAnalyze.keys) {
-          for (final s in state.arcScenes[key] ?? const []) {
+          // v885：全局流切片+arcScenes双容器都清（同一实例引用，防漏）
+          final arc = state.allArcs.firstWhere(
+            (a) => a.number.toString() == key,
+            orElse: () => state.allArcs.first,
+          );
+          for (final s in {
+            ..._arcScenesOf(state, arc),
+            ...?state.arcScenes[key],
+          }) {
             if (s.shots.isNotEmpty) {
               s.shots = <Shot>[];
               cleared++;
