@@ -3229,8 +3229,10 @@ class _WritingPageState extends State<WritingPage>
           state.saveWritings();
           checkSampleCopy(cleanContent);
           var txtContent = TextCleaner.indentParagraphs(
-            TextCleaner.stripShotHeaders(cleanContent),
-          ); // v874：txt正文层缩进（拷贝出来也带）
+            TextCleaner.stripQuotedFragment(
+              TextCleaner.stripShotHeaders(cleanContent),
+            ),
+          ); // v880：孤儿引号清理补写盘链 // v874：txt正文层缩进（拷贝出来也带）
           if (state.writingModelNote && config.effectiveModel.isNotEmpty) {
             txtContent = '[模型：${config.effectiveModel} · 温度${config.temperature} · v${AppVersion.v}]\n\n$txtContent';
           }
@@ -3488,11 +3490,16 @@ class _WritingPageState extends State<WritingPage>
 
         // 保存txt（纯正文，可选模型备注）
         // v259：导出前存量伪JSON剥壳（坏格式导出=提纯失败另一半）
-        var txtContent = TextCleaner.stripShotHeaders(
-          (config.formatMode == 'json' && TextCleaner.jsonFormatBad(cleanContent))
-              ? TextCleaner.salvagePseudoJson(cleanContent)
-              : cleanContent,
-        );
+        var txtContent = TextCleaner.indentParagraphs(
+          TextCleaner.stripQuotedFragment(
+            TextCleaner.stripShotHeaders(
+              (config.formatMode == 'json' &&
+                      TextCleaner.jsonFormatBad(cleanContent))
+                  ? TextCleaner.salvagePseudoJson(cleanContent)
+                  : cleanContent,
+            ),
+          ),
+        ); // v880：补缩进(v875漏改)+孤儿引号清理(v870只挂了查看器,写盘链漏了)
         final note = _txtNote(
           state,
           model: config.effectiveModel,

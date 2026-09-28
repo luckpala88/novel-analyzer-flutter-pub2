@@ -1080,7 +1080,9 @@ class _DetectionPageState extends State<DetectionPage>
   Widget _readerBody(String content, AppState state) {
     return _pageMode
         ? SizedBox(
-            height: MediaQuery.of(context).size.height * 0.55,
+            // v880：有备注包装时外层Flexible限高,固定55%会溢出→自适应;
+            // 无包装(直接ConstrainedBox maxHeight)时同样取bounded限高
+            height: double.infinity,
             child: _DtPagedView(
               title: (_visibleFiles.isNotEmpty &&
                       _currentIndex >= 0 &&
@@ -1709,6 +1711,7 @@ class _DetectionPageState extends State<DetectionPage>
                           // 但一直没落地——用户多次点名；从原始content提取）
                           child: _modelNoteOf(file?['content']) != null
                               ? Column(
+                                  mainAxisSize: MainAxisSize.min,
                                   crossAxisAlignment:
                                       CrossAxisAlignment.start,
                                   children: [
@@ -1724,7 +1727,10 @@ class _DetectionPageState extends State<DetectionPage>
                                         ),
                                       ),
                                     ),
-                                    _readerBody(content, state),
+                                    // v880：Flexible在剩余限高内收缩正文——
+                                    // 此前正文固定55%+备注=总高超出溢出绘制,
+                                    // 压到下方"修改意见"面板(用户截图实证)
+                                    Flexible(child: _readerBody(content, state)),
                                   ],
                                 )
                               : _readerBody(content, state),
