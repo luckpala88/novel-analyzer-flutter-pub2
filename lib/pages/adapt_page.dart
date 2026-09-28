@@ -5733,7 +5733,9 @@ return true;
         }
         // 删除旧条目，解析弧线总结条目
         state.worldBook!.entries.removeWhere((k, e) => e.arcKey == arcKey);
-        var sumOk = _parseWBResponse(state, sumResult.content, arc.number);
+        var sumOk = _parseWBResponse(state, sumResult.content, arc.number,
+            arcChoreo: (arcItem['analysis']?['arc']?['arc_choreo'] ?? '')
+                .toString());
         if (sumOk <= 0) {
           state.worldBook!.arcStatus[arcKey] = 'failed';
           _addLog('弧线${arc.number} 弧线总结解析失败');
@@ -6502,7 +6504,8 @@ return true;
   }
 
   /// 解析世界书API响应，返回添加的条目数
-  int _parseWBResponse(AppState state, String content, int arcNumber) {
+  int _parseWBResponse(AppState state, String content, int arcNumber,
+      {String? arcChoreo}) {
     final json = JsonRepair.parseResponse(content);
     if (json == null) {
       _addLog('世界书JSON解析失败');
@@ -6531,6 +6534,21 @@ return true;
       // 出现两次，第二次空块紧跟），只保留首次出现，后续重复行及其空块
       // （到下一个标记/文末）整段删除；若首块为空则保留内容完整的那个块
       entry.content = _dedupeStructSections(entry.content);
+      // v935：编排总纲代码级兜底——prompt规定了【弧线内场景编排策略】段但
+      // AI实测会漏写（用户实测条目里没有）；机器能查的走代码：条目无此段
+      // 且metadata有arc_choreo时，由代码把原文拼进条目（拼在【世界观设定】前，
+      // 与九件套段并列；弧线内场景编排策略=弧线级总纲，落库后场景/分镜层都读它）
+      final choreo = (arcChoreo ?? '').trim();
+      if (choreo.isNotEmpty &&
+          !entry.content.contains('弧线内场景编排策略')) {
+        final insertRe = RegExp(r'【世界观设定】');
+        final m = insertRe.firstMatch(entry.content);
+        final block = '\n【弧线内场景编排策略】\n$choreo\n';
+        entry.content = m == null
+            ? '${entry.content.trimRight()}\n$block'
+            : '${entry.content.substring(0, m.start)}$block${entry.content.substring(m.start)}';
+        _addLog('↩ 弧线$arcNumber：AI漏写编排总纲，代码级补入（${choreo.length}字）');
+      }
       entry.arcKey = arcNumber.toString();
       entry.uid =
           '${arcNumber}_${DateTime.now().millisecondsSinceEpoch}_$added';
