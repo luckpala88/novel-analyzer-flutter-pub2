@@ -674,6 +674,37 @@ class AppState extends ChangeNotifier {
       arcAnalyses = {};
     }
 
+    // v916：场景数据单一事实源——重绑analysis.scenes为globalScenes子列表
+    // **引用**（按弧线sceneFrom/To切片）。重载后fromJson会产生独立实例=
+    // 场景页/弧线页/分镜页三份数据脱钩（v893/v898/v915三次撞墙），重绑后
+    // 运行期所有容器指向同一Scene实例：任何页面修改，所有页面即时一致
+    if (arcScan != null && globalScenes.isNotEmpty) {
+      for (final an in arcAnalyses.values) {
+        final arc = arcScan!.arcs.firstWhere(
+          (a) => a.number == an.arcNumber,
+          orElse: () => Arc(number: an.arcNumber, title: '', chapterRange: ''),
+        );
+        if (arc.sceneFrom >= 1 &&
+            arc.sceneTo >= arc.sceneFrom &&
+            globalScenes.length >= arc.sceneTo) {
+          an.scenes = globalScenes.sublist(arc.sceneFrom - 1, arc.sceneTo);
+        }
+      }
+      // arcScenes容器同样重绑（批量拆解等历史消费点）
+      arcScenes.updateAll((k, v) {
+        final arc = arcScan!.arcs.firstWhere(
+          (a) => a.number.toString() == k,
+          orElse: () => Arc(number: -1, title: '', chapterRange: ''),
+        );
+        if (arc.sceneFrom >= 1 &&
+            arc.sceneTo >= arc.sceneFrom &&
+            globalScenes.length >= arc.sceneTo) {
+          return globalScenes.sublist(arc.sceneFrom - 1, arc.sceneTo);
+        }
+        return v;
+      });
+    }
+
     // v201方案A：场景划分的优质概述自动回写弧线页（幂等，只覆盖不清除）
     final synced = syncArcSummariesFromAnalyses();
     if (synced > 0) saveArcScan();
