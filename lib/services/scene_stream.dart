@@ -971,6 +971,52 @@ Future<void> groupArcsFromScenes({
 
 /// v474：逐弧线零件提取——分组定边界后，啃该弧线原文切片（场景切片拼接）
 /// 提取全套弧线零件写arcAnalyses（对齐旧版"划分即提取"信息量）
+/// v901：场景内分镜编排策略分析（场景页/分镜页共用——拆分镜后才能跑）
+Future<void> analyzeSceneChoreo({
+  required AppState state,
+  required Scene scene,
+  required void Function(String msg) log,
+}) async {
+  if (scene.shots.isEmpty) {
+    log('⛔ 场景无分镜——先拆分镜，编排策略基于分镜序列分析');
+    return;
+  }
+  if (scene.text.isEmpty) {
+    log('⛔ 场景无锚定切片（旧数据）——无法分析编排');
+    return;
+  }
+  final skeleton = [
+    for (var i = 0; i < scene.shots.length; i++)
+      '分镜${i + 1}：焦点=${scene.shots[i].focus}｜意图=${scene.shots[i].intent}',
+  ].join('\n');
+  final config = state.getApiConfig('shot');
+  state.api.clearAbort();
+  final result = await state.api.callApi(
+    task: '编排策略分析',
+    systemPrompt: PromptBuilder.buildSceneChoreoSystemPrompt(),
+    userPrompt: '【场景原文切片】\n${scene.text}\n\n【分镜骨架清单】\n$skeleton',
+    apiConfig: config,
+  );
+  if (!result.isSuccess) {
+    log('⚠ 编排分析失败：${result.error}');
+    return;
+  }
+  final parts = JsonRepair.parseResponse(result.content);
+  final choreo = parts?['choreo']?.toString() ?? '';
+  if (choreo.isEmpty) {
+    log('⚠ 编排分析解析失败（无choreo字段）');
+    return;
+  }
+  // 双容器写（重载后两实例独立）
+  scene.choreo = choreo;
+  if (scene.globalIndex >= 0 && scene.globalIndex < state.globalScenes.length) {
+    state.globalScenes[scene.globalIndex].choreo = choreo;
+  }
+  state.saveArcAnalyses();
+  state.saveGlobalScenes();
+  log('✓ 场景${scene.globalIndex + 1}编排策略已落库（${choreo.length}字）');
+}
+
 /// v901：弧线内场景编排策略分析（独立按键——骨架/表述分离，单任务保质量）
 Future<void> analyzeArcChoreo({
   required AppState state,

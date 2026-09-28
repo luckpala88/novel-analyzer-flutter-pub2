@@ -10,6 +10,7 @@ import '../models/scene.dart';
 import '../models/arc.dart'; // v772
 import '../models/world_book.dart'; // v772
 import '../utils/prompt_builder.dart';
+import '../services/scene_stream.dart';
 import '../utils/json_repair.dart';
 import '../utils/chinese_number.dart';
 import '../utils/prompt_preview.dart';
@@ -1134,46 +1135,7 @@ const SizedBox(width: 8),
     String arcKey,
     Scene scene,
   ) async {
-    if (scene.shots.isEmpty) {
-      _addLog('⛔ 场景无分镜——先拆分镜，编排策略基于分镜序列分析');
-      return;
-    }
-    if (scene.text.isEmpty) {
-      _addLog('⛔ 场景无锚定切片（旧数据）——无法分析编排');
-      return;
-    }
-    final skeleton = [
-      for (var i = 0; i < scene.shots.length; i++)
-        '分镜${i + 1}：焦点=${scene.shots[i].focus}｜意图=${scene.shots[i].intent}',
-    ].join('\n');
-    final config = state.getApiConfig('shot');
-    state.api.clearAbort();
-    final result = await state.api.callApi(
-      task: '编排策略分析',
-      systemPrompt: PromptBuilder.buildSceneChoreoSystemPrompt(),
-      userPrompt:
-          '【场景原文切片】\n${scene.text}\n\n【分镜骨架清单】\n$skeleton',
-      apiConfig: config,
-    );
-    if (!result.isSuccess) {
-      _addLog('⚠ 编排分析失败：${result.error}');
-      return;
-    }
-    final parts = JsonRepair.parseResponse(result.content);
-    final choreo = parts?['choreo']?.toString() ?? '';
-    if (choreo.isEmpty) {
-      _addLog('⚠ 编排分析解析失败（无choreo字段）');
-      return;
-    }
-    // 双容器写（重载后两实例独立，v893教训）
-    scene.choreo = choreo;
-    final gsAll = state.globalScenes;
-    if (scene.globalIndex >= 0 && scene.globalIndex < gsAll.length) {
-      gsAll[scene.globalIndex].choreo = choreo;
-    }
-    state.saveArcAnalyses();
-    state.saveGlobalScenes();
-    _addLog('✓ 场景${scene.globalIndex + 1}编排策略已落库（${choreo.length}字）');
+    await analyzeSceneChoreo(state: state, scene: scene, log: _addLog);
     if (mounted) setState(() {});
   }
 

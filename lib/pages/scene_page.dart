@@ -456,6 +456,13 @@ const Spacer(), // ⚙API推到最右
                                     _confirmCutResume(state, i),
                                 onRegenSummary: () =>
                                     _regenSceneSummary(state, i),
+                                onAnalyzeChoreo: () => analyzeSceneChoreo(
+                                  state: state,
+                                  scene: state.globalScenes[i],
+                                  log: _addLog,
+                                ).then((_) {
+                                  if (mounted) setState(() {});
+                                }),
                               ),
                             ),
                             Positioned(

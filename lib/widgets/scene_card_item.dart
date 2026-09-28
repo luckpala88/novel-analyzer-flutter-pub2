@@ -11,6 +11,7 @@ class SceneCardItem extends StatelessWidget {
   final VoidCallback? onView; // 切片查看
   final VoidCallback? onCutResume; // v462：从此场景剪断重扫
   final VoidCallback? onRegenSummary; // v819：单场景概述重生成（切片重喂，边界/弧线不动）
+  final VoidCallback? onAnalyzeChoreo; // v901：场景内分镜编排策略分析（拆分镜后可用）
   final Widget? trailing; // 行1右侧自定义区（默认分镜状态徽章）
 
   const SceneCardItem({
@@ -20,6 +21,7 @@ class SceneCardItem extends StatelessWidget {
     this.onView,
     this.onCutResume,
     this.onRegenSummary,
+    this.onAnalyzeChoreo,
     this.trailing,
   });
 
@@ -144,6 +146,22 @@ class SceneCardItem extends StatelessWidget {
                     fontSize: 10, color: V469Style.textMuted),
               ),
               const Spacer(),
+              // v901：编排策略分析（拆分镜后可用）
+              if (onAnalyzeChoreo != null && hasShots)
+                GestureDetector(
+                  onTap: onAnalyzeChoreo,
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 5),
+                    child: Text(
+                      '🧠 编排',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFFB45309),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
               // v819：单场景概述重生成（切片重喂，边界/弧线不动）
               if (onRegenSummary != null)
                 GestureDetector(
