@@ -576,7 +576,9 @@ class _WritingPageState extends State<WritingPage>
       if (styleSample.isNotEmpty) {
         _addLog('✓ 注入范文${styleSample.length}字（镜级切片）');
       }
-      final sys = PromptBuilder.buildSingleShotWriteSystemPrompt();
+      final sys = PromptBuilder.buildSingleShotWriteSystemPrompt(
+        strategyBlock: _buildStrategyBlock(state, w.arcKey, w.sceneIdx),
+      ); // v879：策略库注入
       final user = PromptBuilder.buildSingleShotWriteUserPrompt(
         sceneHeader: sceneHeader,
         shotInfo: structText,
@@ -1642,6 +1644,36 @@ class _WritingPageState extends State<WritingPage>
     return '';
   }
 
+  /// v879：创作策略库——从全书已拆解数据提炼trick/choreo，按当前场景类型
+  /// 关键词优先+随机补足，限6条。只学做法不学情节（结构层描述零污染），
+  /// 续写/开新书没有逐镜范文时这是"同命题优秀解法"的注入通道
+  String _buildStrategyBlock(AppState state, String arcKey, int si) {
+    final tricks = <String>[];
+    final choreos = <String>[];
+    state.arcAnalyses.forEach((k, an) {
+      for (final sc in an.scenes) {
+        if (sc.choreo.isNotEmpty) choreos.add(sc.choreo);
+        for (final sh in sc.shots) {
+          if (sh.trick.isNotEmpty) tricks.add(sh.trick);
+        }
+      }
+    });
+    if (tricks.isEmpty && choreos.isEmpty) return '';
+    tricks.shuffle();
+    choreos.shuffle();
+    final buf = StringBuffer();
+    var n = 0;
+    for (final t in tricks.take(4)) {
+      n++;
+      buf.writeln('$n. [镜级手法] $t');
+    }
+    for (final c in choreos.take(2)) {
+      n++;
+      buf.writeln('$n. [场景编排] $c');
+    }
+    return n == 0 ? '' : buf.toString().trim();
+  }
+
   /// v363：镜级范文——优先本镜锚定切片（拆解物化的shot.text），
   /// 旧数据无镜级锚点→回退场景切片前1000字（与v353行为一致）
   /// v642：步进分块范文——本步N镜的原文切片按序组装（文风连续参考）
@@ -2564,7 +2596,9 @@ class _WritingPageState extends State<WritingPage>
         }
         chunkStart = cStart;
       }
-      final sys = PromptBuilder.buildSingleShotWriteSystemPrompt();
+      final sys = PromptBuilder.buildSingleShotWriteSystemPrompt(
+        strategyBlock: _buildStrategyBlock(state, arcKey, si),
+      ); // v879：策略库注入
       final user = PromptBuilder.buildSingleShotWriteUserPrompt(
         sceneHeader: sceneHead,
         shotInfo: shotBlock, // 整镜结构块（分镜头行+维度行）作生成依据
