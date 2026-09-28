@@ -229,6 +229,9 @@ class _AdaptPageState extends State<AdaptPage>
         '$content\n$sceneFrame2',
       );
     }
+    // v928b：写入函数内部直接刷新（调用方漏调refresh/notify也不假死）
+    state.saveWorldBook();
+    state.refresh();
     return true;
   }
 
@@ -429,7 +432,10 @@ class _AdaptPageState extends State<AdaptPage>
       }
     }
     entry.content = TextCleaner.stripDecorativeEmoji('$head$newContent\n$tail');
-    return true;
+        // v928b：写入函数内部直接刷新（防调用方漏通知）
+    state.saveWorldBook();
+    state.refresh();
+return true;
   }
 
   /// v239：清扫v237/v238遗留污染——坏块的JSON残渣（{"content":）粘在
