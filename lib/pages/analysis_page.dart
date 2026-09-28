@@ -441,30 +441,99 @@ const SizedBox(width: 8),
   }
 
 
-  /// v894：弧线编排总纲显示块（metadata优先，退回arc对象）
-  List<Widget> _buildArcChoreoBlock(String fromMeta, String fromArc) {
-    final v = fromMeta.isNotEmpty ? fromMeta : fromArc;
-    if (v.isEmpty) return [];
+
+  /// v919：场景内分镜编排策略显示块（标题+边框+四要素分行）
+  List<Widget> _buildSceneChoreoBlock(Scene scene) {
+    final paras = scene.choreo
+        .split('\n')
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (paras.isEmpty) return [];
     return [
       Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-        child: ReadableWidth(
+        padding: const EdgeInsets.only(top: 6, right: 4),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFB45309).withOpacity(0.06),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: const Color(0xFFB45309).withOpacity(0.35),
+            ),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('🎬 弧线内场景编排策略',
+              const Text('🎬 场景内分镜编排策略',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFFB45309),
                   )),
-              Text(v,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    height: 1.5,
-                    color: V469Style.textSec,
-                  )),
+              const SizedBox(height: 6),
+              for (var i = 0; i < paras.length; i++) ...[
+                if (i > 0) const SizedBox(height: 4),
+                Text(paras[i],
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      height: 1.5,
+                      color: V469Style.textSec,
+                    )),
+              ],
             ],
+          ),
+        ),
+      ),
+    ];
+  }
+
+  /// v894/v918：弧线编排总纲显示块——边框容器+四要素分行（段间距）
+  List<Widget> _buildArcChoreoBlock(String fromMeta, String fromArc) {
+    final v = fromMeta.isNotEmpty ? fromMeta : fromArc;
+    if (v.isEmpty) return [];
+    final paras = v
+        .split('\n')
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
+        .toList();
+    return [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+        child: ReadableWidth(
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFB45309).withOpacity(0.06),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: const Color(0xFFB45309).withOpacity(0.35),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('🎬 弧线内场景编排策略',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFB45309),
+                    )),
+                const SizedBox(height: 6),
+                // v918：四要素分行渲染（模板输出按\n分段），段间距4
+                for (var i = 0; i < paras.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 4),
+                  Text(paras[i],
+                      style: const TextStyle(
+                        fontSize: 12,
+                        height: 1.5,
+                        color: V469Style.textSec,
+                      )),
+                ],
+              ],
+            ),
           ),
         ),
       ),
@@ -650,15 +719,6 @@ const SizedBox(width: 8),
             // （detailed），无则退回分组/场景划分概述（analysis.arcSummary）
             // ❌旧逻辑（v469，直读arcSummary与弧线页同一字段=两页概述一模一样，已废弃）：
             // if (hasAnalysis && analysis.arcSummary.isNotEmpty)
-            // v894：弧线编排总纲显示（重提零件/分组产出，独立于概述块）
-            if (hasAnalysis)
-              ..._buildArcChoreoBlock(
-                analysis!.metadata?['arc_choreo']?.toString() ?? '',
-                state.allArcs
-                    .where((a) => a.number.toString() == arcKey)
-                    .map((a) => a.arcChoreo)
-                    .firstWhere((c) => c.isNotEmpty, orElse: () => ''),
-              ),
             if (hasAnalysis &&
                 (analysis.metadata?['arc_summary_detailed']?.toString() ?? analysis.arcSummary).isNotEmpty)
               Padding(
@@ -724,6 +784,15 @@ const SizedBox(width: 8),
                     ],
                   ),
                 ),
+              ),
+            // v894：弧线编排总纲显示（重提零件/分组产出，独立于概述块）
+            if (hasAnalysis)
+              ..._buildArcChoreoBlock(
+                analysis!.metadata?['arc_choreo']?.toString() ?? '',
+                state.allArcs
+                    .where((a) => a.number.toString() == arcKey)
+                    .map((a) => a.arcChoreo)
+                    .firstWhere((c) => c.isNotEmpty, orElse: () => ''),
               ),
             if (hasAnalysis && analysis.scenes.isNotEmpty)
               ...analysis.scenes.asMap().entries.map((entry) {
@@ -1340,22 +1409,7 @@ const SizedBox(width: 8),
                 ),
             ],
           ),
-   // v894：场景编排标注（分组/重提零件产出）
-          if (analyzedScene?.choreo.isNotEmpty == true)
-            Padding(
-              padding: const EdgeInsets.only(top: 3),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  '🎬 ${analyzedScene!.choreo}',
-                  style: TextStyle(
-                    fontSize: 11,
-                    height: 1.4,
-                    color: Colors.brown.shade600,
-                  ),
-                ),
-              ),
-            ),
+   // v919：场景概述在前，编排策略在后（用户布局裁决）
           // 场景概述
           if (analyzedScene?.summary.isNotEmpty == true)
             Padding(
@@ -1415,6 +1469,10 @@ const SizedBox(width: 8),
               ],
               ),
             ),
+          // v919：场景内分镜编排策略（🧠分析编排产出，标题+边框+四要素分行）
+          if (analyzedScene?.choreo.isNotEmpty == true) ...[
+            ..._buildSceneChoreoBlock(analyzedScene!),
+          ],
           if (hasShots && isExpanded)
             ...shots.asMap().entries.map((entry) {
               final shi = entry.key;
