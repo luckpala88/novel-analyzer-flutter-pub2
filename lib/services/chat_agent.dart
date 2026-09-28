@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../models/scene.dart';
 import '../state/app_state.dart';
 
 /// v840：聊天agent工具层——AI按约定JSON输出指令，本文件解析执行
@@ -23,6 +24,7 @@ const String agentToolDoc = '''
 5. {"tool":"query_worldbook","args":{"keyword":"关键词"}} —— 世界书条目检索（返回命中条目名与摘要）
 6. {"tool":"start_batch_shots"} —— 启动批量拆分镜（全部已划分未拆场景；需用户确认；长任务，去分镜页盯终端进度）
 7. {"tool":"write_scene","args":{"arc":1,"scene":1}} —— 创作指定弧线第N个场景的续写正文（需用户确认；前提：世界书已有该场景条目；长任务，正文写到创作页）
+8. {"tool":"verify_data","args":{"target":"choreo","arc":210}} —— 数据诊断（只读）：target=choreo查编排字段落库情况（弧线总纲+逐场景统计，可带arc过滤单条弧线）；target=trick查手法维度（已拆分镜中trick非空的镜数统计，可带arc过滤）——用于验证新版本功能是否落库
 规则：一次只发一个指令，发出后停止等待结果；任务完成后用自然语言汇报结果；用户闲聊/问功能时不要发指令。
 ''';
 
@@ -124,6 +126,54 @@ Future<AgentToolResult> runTool(AppState state, String tool,
       }
       return AgentToolResult(tool, true,
           '命中${hits.length}条（取前10）：\n${hits.take(10).join('\n\n')}');
+    case 'verify_data':
+      // v883b：数据诊断（只读）——验证类测试交给agent：字段是否落库一查便知
+      final target = (args['target'] ?? '').toString();
+      final arcFilter = (args['arc'] as num?)?.toInt();
+      if (target == 'choreo') {
+        final lines = <String>[];
+        var withChoreo = 0, totalScenes = 0;
+        for (final a in state.allArcs) {
+          if (arcFilter != null && a.number != arcFilter) continue;
+          lines.add(
+              '弧线${a.number}「${a.title}」总纲: ${a.arcChoreo.isEmpty ? "（空）" : a.arcChoreo}');
+          final an = state.arcAnalyses[a.number.toString()];
+          final scenes = an?.scenes ?? const [];
+          for (final sc in scenes) {
+            totalScenes++;
+            if (sc.choreo.isNotEmpty) withChoreo++;
+          }
+          lines.add('  场景编排: ${scenes.where((s2) => s2.choreo.isNotEmpty).length}/${scenes.length}个场景有');
+        }
+        if (lines.isEmpty) {
+          return AgentToolResult(tool, true,
+              '未找到弧线${arcFilter ?? ""}（get_arcs核对编号）');
+        }
+        return AgentToolResult(tool, true,
+            '编排落库诊断：$totalScenes个场景中$withChoreo个有choreo\n${lines.join('\n')}');
+      }
+      if (target == 'trick') {
+        var withTrick = 0, totalShots = 0;
+        final perArc = <String>[];
+        for (final a in state.allArcs) {
+          if (arcFilter != null && a.number != arcFilter) continue;
+          final an = state.arcAnalyses[a.number.toString()];
+          var t = 0, tot = 0;
+          for (final sc in an?.scenes ?? <Scene>[]) {
+            for (final sh in sc.shots) {
+              tot++;
+              if (sh.trick.isNotEmpty) t++;
+            }
+          }
+          totalShots += tot;
+          withTrick += t;
+          if (tot > 0) perArc.add('弧线${a.number}: $t/$tot镜有trick');
+        }
+        return AgentToolResult(tool, true,
+            'trick落库诊断：$totalShots镜中$withTrick镜有\n${perArc.join('\n')}');
+      }
+      return AgentToolResult(
+          tool, false, '未知target：$target（可选choreo/trick）');
     case 'write_scene':
       final arc = (args['arc'] as num?)?.toInt() ?? 0;
       final sc = ((args['scene'] as num?)?.toInt() ?? 1) - 1; // UI场景号1基→0基
