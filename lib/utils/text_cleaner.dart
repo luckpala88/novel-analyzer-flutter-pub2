@@ -439,6 +439,18 @@ class TextCleaner {
     return t.trim();
   }
 
+  /// v874：段首缩进两中文字（txt正文层——用户要求拷贝出来也带缩进）。
+  /// 幂等：行首已有全角空格不重复加；空行/备注行[模型：…不动
+  static String indentParagraphs(String t) {
+    return t.split('\n').map((line) {
+      final x = line.trimLeft();
+      if (x.isEmpty) return line;
+      if (x.startsWith('\u3000')) return line; // 已缩进
+      if (x.startsWith('[模型')) return line; // 备注行
+      return '\u3000\u3000$x';
+    }).join('\n');
+  }
+
   static String normalizeAiOutput(String raw, {bool jsonMode = false}) {
     final out = jsonMode
         ? _normalizeJsonOutput(raw)

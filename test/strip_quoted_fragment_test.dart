@@ -59,6 +59,13 @@ void main() {
       final t = '“玄晶宫倾巢而出。”韦多宝双眼微眯。';
       expect(TextCleaner.stripQuotedFragment(t), t);
     });
+    test('v874：indentParagraphs段落缩进两全角空格', () {
+      expect(TextCleaner.indentParagraphs('第一段。\n\n第二段。'), '　　第一段。\n\n　　第二段。');
+    });
+    test('v874：indentParagraphs幂等+备注行不动', () {
+      expect(TextCleaner.indentParagraphs('　　已缩进。'), '　　已缩进。');
+      expect(TextCleaner.indentParagraphs('[模型：xx · v874]'), '[模型：xx · v874]');
+    });
   });
 }
 

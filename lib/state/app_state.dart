@@ -1280,7 +1280,8 @@ class AppState extends ChangeNotifier {
     final note = model.isEmpty
         ? null
         : '[模型：$model · 温度${item.temperature} · v${item.version}]';
-    storage.writeFile(path, note == null ? item.content : '$note\n\n${item.content}');
+    final body = TextCleaner.indentParagraphs(item.content); // v874：txt正文层缩进
+    storage.writeFile(path, note == null ? body : '$note\n\n$body');
     notifyListeners();
   }
 

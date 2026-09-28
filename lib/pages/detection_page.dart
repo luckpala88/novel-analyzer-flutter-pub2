@@ -2047,7 +2047,12 @@ class _DtScrollViewState extends State<_DtScrollView> {
     final parts = t.split('\n');
     final out = <InlineSpan>[];
     for (var i = 0; i < parts.length; i++) {
-      if (i > 0) out.add(const TextSpan(text: '\n　　'));
+      // v874：幂等——行首已有全角空格（txt正文层自带缩进）不再加
+      if (i > 0) {
+        out.add(
+          TextSpan(text: parts[i].startsWith('\u3000') ? '\n' : '\n　　'),
+        );
+      }
       if (parts[i].isNotEmpty) out.add(TextSpan(text: parts[i]));
     }
     return out;
@@ -2177,7 +2182,10 @@ class _DtPagedViewState extends State<_DtPagedView> {
     final sb = StringBuffer();
     for (var i = 0; i < parts.length; i++) {
       if (i > 0) sb.write('\n');
-      sb.write('　　');
+      // v874：幂等——行首已有全角空格不双加
+      if (!parts[i].startsWith('\u3000') && parts[i].isNotEmpty) {
+        sb.write('　　');
+      }
       sb.write(parts[i]);
     }
     return sb.toString();

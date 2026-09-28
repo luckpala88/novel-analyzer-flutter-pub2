@@ -318,7 +318,9 @@ class _WritingPageState extends State<WritingPage>
     }
     // 正文+全文持久化：json（完整对象）+txt（纯正文）
     state.saveWritings();
-    var txt = TextCleaner.stripShotHeaders(w.content);
+    var txt = TextCleaner.indentParagraphs(
+      TextCleaner.stripShotHeaders(w.content),
+    ); // v874：txt正文层缩进
     final note = _txtNote(state, model: w.model, temp: w.temperature);
     if (note != null) txt = '$note\n\n$txt';
     final path = state.storage.getWritingPath(
@@ -705,7 +707,9 @@ class _WritingPageState extends State<WritingPage>
           newBlock +
           w.content.substring(sh.end);
       state.saveWritings();
-      var txt = TextCleaner.stripShotHeaders(w.content);
+      var txt = TextCleaner.indentParagraphs(
+      TextCleaner.stripShotHeaders(w.content),
+    ); // v874：txt正文层缩进
       final note = _txtNote(state, model: w.model, temp: w.temperature);
       if (note != null) txt = '$note\n\n$txt';
       final path = state.storage.getWritingPath(
@@ -760,7 +764,9 @@ class _WritingPageState extends State<WritingPage>
           '\n\n' +
           w.content.substring(sh.end);
       state.saveWritings();
-      var txt = TextCleaner.stripShotHeaders(w.content);
+      var txt = TextCleaner.indentParagraphs(
+      TextCleaner.stripShotHeaders(w.content),
+    ); // v874：txt正文层缩进
       final note3 = _txtNote(state, model: w.model, temp: w.temperature);
       if (note3 != null) txt = '$note3\n\n$txt';
       final path = state.storage.getWritingPath(
@@ -1144,7 +1150,9 @@ class _WritingPageState extends State<WritingPage>
       }
       // 磁盘txt无条件按纯正文管线重写（存量坏txt自愈：维度行/JSON壳全剥）
       // v608：重写时补回备注行——此前无条件纯正文重写=备注消失的真凶
-      var fixedTxt = TextCleaner.stripShotHeaders(cleaned);
+      var fixedTxt = TextCleaner.indentParagraphs(
+        TextCleaner.stripShotHeaders(cleaned),
+      ); // v874：txt正文层缩进
       final note4 = _txtNote(state, model: w.model, temp: w.temperature);
       if (note4 != null) fixedTxt = '$note4\n\n$fixedTxt';
       state.storage.writeFile(
@@ -1165,7 +1173,9 @@ class _WritingPageState extends State<WritingPage>
           // 生成时一致）——此前无备注重写=清残渣后历史版本txt备注消失
           // 的真凶（用户实测：刚创作有备注，之后"不能持久"）
           final vNote = _txtNote(state, model: v.model, temp: v.temperature);
-          var vTxt = TextCleaner.stripShotHeaders(cv);
+          var vTxt = TextCleaner.indentParagraphs(
+            TextCleaner.stripShotHeaders(cv),
+          ); // v874：txt正文层缩进
           if (vNote != null) vTxt = '$vNote\n\n$vTxt';
           state.storage.writeFile(
             state.storage.getWritingPath(
@@ -3184,7 +3194,9 @@ class _WritingPageState extends State<WritingPage>
           state.writings[wkey] = writing;
           state.saveWritings();
           checkSampleCopy(cleanContent);
-          var txtContent = TextCleaner.stripShotHeaders(cleanContent);
+          var txtContent = TextCleaner.indentParagraphs(
+            TextCleaner.stripShotHeaders(cleanContent),
+          ); // v874：txt正文层缩进（拷贝出来也带）
           if (state.writingModelNote && config.effectiveModel.isNotEmpty) {
             txtContent = '[模型：${config.effectiveModel} · 温度${config.temperature} · v${AppVersion.v}]\n\n$txtContent';
           }
@@ -4578,7 +4590,8 @@ class _WritingPageState extends State<WritingPage>
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               child: Text(
-                '　　$raw2',
+                // v874：幂等缩进（txt正文层已带缩进不双加）
+                raw2.startsWith('\u3000') ? raw2 : '　　$raw2',
                 style: TextStyle(
                   fontSize: fontSize,
                   height: 1.8,
@@ -4603,7 +4616,7 @@ class _WritingPageState extends State<WritingPage>
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
           child: Text(
-            '　　$raw',
+            raw.startsWith('\u3000') ? raw : '　　$raw',
             style: TextStyle(
               fontSize: fontSize,
               height: 1.8,
