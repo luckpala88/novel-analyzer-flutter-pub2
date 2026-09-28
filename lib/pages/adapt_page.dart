@@ -84,6 +84,8 @@ class _AdaptPageState extends State<AdaptPage>
     _contArcCtl.dispose();
     _contSceneCtl.dispose();
     _reqController.dispose();
+    _contReqRawCtrl.dispose();
+    _contReqOptCtrl.dispose();
     _layerTabCtrl.dispose();
     super.dispose();
   }
@@ -1996,6 +1998,13 @@ class _AdaptPageState extends State<AdaptPage>
     final wb = state.worldBook;
     final raw = wb?.continueReq ?? '';
     final opt = wb?.continuePlans['req_opt'] ?? '';
+    // v920：控制器与持久化值同步（仅空时填，防覆盖用户输入）
+    if (_contReqRawCtrl.text.isEmpty && raw.isNotEmpty) {
+      _contReqRawCtrl.text = raw;
+    }
+    if (_contReqOptCtrl.text.isEmpty && opt.isNotEmpty) {
+      _contReqOptCtrl.text = opt;
+    }
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(8),
@@ -2011,33 +2020,25 @@ class _AdaptPageState extends State<AdaptPage>
               style: TextStyle(
                   fontSize: _cf(12.5), fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 28,
-                height: 32,
-                child: Checkbox(
-                  value: _reqRawChecked,
-                  onChanged: (v) =>
-                      setState(() => _reqRawChecked = v ?? false),
-                ),
-              ),
-              Expanded(
-                child: TextField(
-                  controller: TextEditingController(text: raw),
-                  maxLines: 2,
-                  style: TextStyle(fontSize: _cf(11.5)),
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    hintText: '全局续写方向（接下来写什么/收束哪条弧线/开什么新弧线）',
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (v) => wb?.continueReq = v,
-                  onSubmitted: (_) => state.saveWorldBook(),
-                ),
-              ),
-            ],
+          // v920：规划输入框改_CollapseReqField样式（折叠展开+自适应高度，
+          // 对齐改编要求输入框；控制器持久化修复一次性controller丢光标）
+          CheckboxListTile(
+            value: _reqRawChecked,
+            onChanged: (v) => setState(() => _reqRawChecked = v ?? false),
+            dense: true,
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: EdgeInsets.zero,
+            title: _CollapseReqField(
+              prefKey: 'cont_req_raw',
+              controller: _contReqRawCtrl,
+              labelText: '全局续写方向（接下来写什么/收束哪条弧线/开什么新弧线）',
+              hintText: '如：收束灵器弧线\n开启秘境探索新弧线\n主角修为突破到金丹',
+              fontSize: 11.5,
+              onChanged: (v) {
+                wb?.continueReq = v;
+                state.saveWorldBook();
+              },
+            ),
           ),
           const SizedBox(height: 6),
           Center(
@@ -2048,34 +2049,23 @@ class _AdaptPageState extends State<AdaptPage>
             ),
           ),
           const SizedBox(height: 6),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 28,
-                height: 32,
-                child: Checkbox(
-                  value: _reqOptChecked,
-                  onChanged: (v) =>
-                      setState(() => _reqOptChecked = v ?? false),
-                ),
-              ),
-              Expanded(
-                child: TextField(
-                  controller: TextEditingController(text: opt),
-                  maxLines: 3,
-                  style: TextStyle(fontSize: _cf(11.5)),
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    hintText: 'AI优化后的方向（可手改，勾选后生效）',
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (v) =>
-                      wb?.continuePlans['req_opt'] = v,
-                  onSubmitted: (_) => state.saveWorldBook(),
-                ),
-              ),
-            ],
+          CheckboxListTile(
+            value: _reqOptChecked,
+            onChanged: (v) => setState(() => _reqOptChecked = v ?? false),
+            dense: true,
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: EdgeInsets.zero,
+            title: _CollapseReqField(
+              prefKey: 'cont_req_opt',
+              controller: _contReqOptCtrl,
+              labelText: 'AI优化后的方向（可手改，勾选后生效）',
+              hintText: 'AI优化稿会出现在这里，可手动修改',
+              fontSize: 11.5,
+              onChanged: (v) {
+                wb?.continuePlans['req_opt'] = v;
+                state.saveWorldBook();
+              },
+            ),
           ),
         ],
       ),
@@ -2926,6 +2916,7 @@ class _AdaptPageState extends State<AdaptPage>
         return;
       }
       state.worldBook!.continuePlans['req_opt'] = out; // v781：优化结果进优化框
+      _contReqOptCtrl.text = out; // v920：同步控制器（折叠框显示AI优化稿）
       state.saveWorldBook();
       setState(() => _reqOptChecked = true);
       _addLog('✓ 续写方向已优化（${out.length}字）——勾选后生效');
@@ -3328,6 +3319,8 @@ class _AdaptPageState extends State<AdaptPage>
   bool _newSceneOptChecked = true; // AI优化规划勾选（默认写入源）
   bool _preWriteRefine = true; // v826：写入前AI细化开关（完善补充/剔除毒点，默认开）
   bool _matExpanded = false; // v827：素材折叠区展开状态
+  final _contReqRawCtrl = TextEditingController(); // v920
+  final _contReqOptCtrl = TextEditingController(); // v920
   bool _reqRawChecked = true; // v781：原始续写方向勾选
   bool _reqOptChecked = true; // v781：优化方向勾选
   final ScrollController _arcListCtl = ScrollController(); // v771：弧线列表垂直滚动条
