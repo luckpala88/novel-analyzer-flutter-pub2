@@ -72,20 +72,22 @@ Future<void> regenSceneSummary({
     log('⚠️ 场景${index + 1}重概述解析为空——保持原概述');
     return;
   }
-  state.globalScenes[index] = Scene(
-    name: sc.name,
-    summary: newSummary,
-    changes: newChanges.isNotEmpty ? newChanges : sc.changes,
-    chapterRange: sc.chapterRange,
-    startChapter: sc.startChapter,
-    endChapter: sc.endChapter,
-    endText: sc.endText,
-    text: sc.text,
-    globalIndex: sc.globalIndex,
-    continuation: sc.continuation,
-    shots: sc.shots,
-  );
+  // v915：字段赋值替代对象重建（v893教训：重建新实例=其它容器引用脱钩
+  // +此处原重建漏choreo字段会把已分析的编排策略清空）
+  sc.summary = newSummary;
+  if (newChanges.isNotEmpty) sc.changes = newChanges;
+  // v915：双容器同步——analysis.scenes（弧线页/分镜页数据源）重载后是
+  // 独立实例，按globalIndex同步概述/变化
+  state.arcAnalyses.forEach((_, an) {
+    for (final asc in an.scenes) {
+      if (asc.globalIndex == sc.globalIndex) {
+        asc.summary = newSummary;
+        if (newChanges.isNotEmpty) asc.changes = newChanges;
+      }
+    }
+  });
   state.saveGlobalScenes();
+  state.saveArcAnalyses();
   log('✓ 场景${index + 1}概述已重生成（${newSummary.length}字，changes：${newChanges.isEmpty ? "无变化" : newChanges}）——边界/弧线/分组未动');
 }
 
