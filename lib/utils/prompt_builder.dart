@@ -2331,6 +2331,18 @@ class PromptBuilder {
       sb.writeln(declaration);
       sb.writeln();
     }
+    // v931：编排策略进阶段B——总纲（本场景在功能链中的位置）+该场景原著
+    // 分镜编排策略（改编后概述的节奏设计对齐原著讲法）
+    final arcChoreoB = arcData['arc_choreo']?.toString() ?? '';
+    final sceneChoreoB = (sc['choreo'] ?? '').toString();
+    if (arcChoreoB.isNotEmpty) {
+      sb.writeln('## 弧线内场景编排策略（总纲）\n$arcChoreoB');
+      sb.writeln();
+    }
+    if (sceneChoreoB.isNotEmpty) {
+      sb.writeln('## 场景内分镜编排策略（原著本场景的调度分析——概述的事件节奏与详略取舍对齐此讲法）\n$sceneChoreoB');
+      sb.writeln();
+    }
     // v214/v216：弧线总结上下文（有人设卡=改编后总结全文：新世界观+人设映射表+
     // 冲突伏笔等；无人设卡=原著九件套兜底）
     if (arcContext.isNotEmpty) {
