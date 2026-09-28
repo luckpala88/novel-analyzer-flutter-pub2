@@ -2532,6 +2532,9 @@ class PromptBuilder {
       // v219：笔墨配额
       sb.writeln('  笔墨配额：${(sh['ink'] ?? '').toString().isNotEmpty ? sh['ink'] : '（旧数据缺失——按焦点与意图判断主次，主要内容占六成以上）'}');
       sb.writeln('  功能抽象：${sh['abstract'] ?? '（缺失，按焦点提炼）'}');
+      // v924b：镜内表述策略+文风标尺进参照（换皮分支同款，讲法继承）
+      sb.writeln('  手法(Trick)：${(sh['trick'] ?? '').toString().isNotEmpty ? sh['trick'] : '（旧数据缺失——按意图与焦点自行设计呈现路径，心法打底）'}');
+      sb.writeln('  文风(Style)：${(sh['style'] ?? '').toString().isNotEmpty ? sh['style'] : '（旧数据缺失）'}');
     }
     sb.writeln();
     sb.writeln();
@@ -2546,6 +2549,7 @@ class PromptBuilder {
       sb.writeln('- 意图/转场：与上一镜的因果衔接处在哪？怎么自然过渡？');
       sb.writeln('- 篇幅/文笔节奏/语感/笔墨：按本镜新内容的权重重新分配，禁止照抄原著数值');
       sb.writeln('- 功能抽象(Abstract)：功能语义保留，对象词必须换成改编后对应物');
+      sb.writeln("- 手法(Trick)：原著该镜的呈现路径/直接度/批次/多职设计原样继承（讲法不变），对象词换成改编后对应物；原著无trick时按四要素自行设计");
       sb.writeln('⚠️ 原著骨架值只是"这镜承担什么功能"的参照——任何维度值与原著雷同且非刻意保留=偷懒，重写');
       sb.writeln();
       sb.writeln('## 输出前自检（不达标自己重写后再输出）');
