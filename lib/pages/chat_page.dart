@@ -760,17 +760,26 @@ class _ChatPageState extends State<ChatPage>
                         _navBtn('↑', () => _jumpFloor(-1)),
                         _navBtn('↓', () => _jumpFloor(1)),
                         _navBtn('⏬', () {
-                          // v866：直达底部+下一帧补跳一次（列表刚变化时maxExtent可能未刷新）
-                          // v941：补跳改延时300ms——异步布局（图片/富文本）未完成时
-                          // maxExtent仍偏小，一帧补跳不够（用户实测要按两次）
-                          if (!_listCtl.hasClients) return;
-                          _listCtl.jumpTo(_listCtl.position.maxScrollExtent);
-                          Future.delayed(const Duration(milliseconds: 300), () {
-                            if (_listCtl.hasClients) {
-                              _listCtl.jumpTo(
-                                  _listCtl.position.maxScrollExtent);
+                          // v942：模拟手指拖到底——animateTo(max)后复查高度，
+                          // 异步布局追加了新高度就再跟一轮，直到稳定（jumpTo
+                          // 一次性设值会错过异步追加的高度，v941延时法只是
+                          // 打补丁，这个是正路：手指拖动就是持续跟最新的）
+                          Future<void> chase(int round) async {
+                            if (!_listCtl.hasClients || round > 5) return;
+                            final target = _listCtl.position.maxScrollExtent;
+                            await _listCtl.animateTo(target,
+                                duration: const Duration(milliseconds: 200),
+                                curve: Curves.easeOut);
+                            if (!_listCtl.hasClients) return;
+                            final now = _listCtl.position.maxScrollExtent;
+                            if ((now - target).abs() > 1) {
+                              await chase(round + 1);
+                            } else {
+                              _listCtl.jumpTo(now);
                             }
-                          });
+                          }
+
+                          chase(0);
                         }),
                       ],
                     ),
