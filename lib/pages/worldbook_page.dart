@@ -515,7 +515,7 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  '📝 场景概述：',
+                  '📝 场景概述/Summary：',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -546,7 +546,7 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  '🎬 编排：',
+                  '🎬 编排/Choreo：',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -596,7 +596,7 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    '分镜 $shotCount 条',
+                    '分镜/Shots $shotCount 条',
                     style: const TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w700,
