@@ -1893,21 +1893,23 @@ const SizedBox(width: 8),
     }
     final wb = state.worldBook ?? (state.worldBook = WorldBook());
     var written = 0;
+    var orphan = 0; // v956：脏数据计数（无弧线结构对应的孤立Analysis）
     final keys = state.arcAnalyses.keys.toList()
       ..sort((a, b) => (int.tryParse(a) ?? 0).compareTo(int.tryParse(b) ?? 0));
     for (final k in keys) {
       final an = state.arcAnalyses[k];
       if (an == null) continue;
-      final arc = state.allArcs.firstWhere(
-        (a) => a.number == an.arcNumber,
-        orElse: () => state.allArcs.isNotEmpty
-            ? state.allArcs.first
-            : Arc(
-                number: an.arcNumber,
-                title: '弧线${an.arcNumber}',
-                chapterRange: '',
-              ),
-      );
+      // v956防御：分析数据必须在arcScan弧线结构里有对应——找不到=脏数据
+      // （历史残留/云同步合并的孤立Analysis），跳过并告警，禁止fallback到
+      // 弧线1标题（v955用户裁决同源：取不到就终止提示，不许乱取）
+      final arc = state.allArcs
+          .where((a) => a.number == an.arcNumber)
+          .firstOrNull;
+      if (arc == null) {
+        orphan++;
+        _addLog('⚠️ 弧线${an.arcNumber}分析数据无对应弧线结构（脏数据）——已跳过');
+        continue;
+      }
       // 已有条目=跳过（幂等；重拆后想刷新先删旧条目）
       String? existing;
       wb.entries.forEach((ek, e) {
@@ -2009,7 +2011,8 @@ const SizedBox(width: 8),
       written++;
     }
     state.saveWorldBook();
-    _addLog('📖 直写世界书完成：新增$written条（零AI，拆解数据原样转条目）——续写模式可用');
+    _addLog('📖 直写世界书完成：新增$written条（零AI，拆解数据原样转条目）——续写模式可用'
+        '${orphan > 0 ? '\n⚠️ 跳过$orphan条脏数据（无弧线结构对应的孤立分析——历史残留或同步合并所致，不影响正常条目）' : ''}');
     if (mounted) setState(() {});
   }
 
