@@ -1919,22 +1919,13 @@ return true;
                     ],
                   ),
                   ),
-                  // ── 分镜续写层（v769预留：自由创作暂不推分镜，后续需要再启用）──
-                  ListView(
+                  // ── 分镜续写层（v957转正：分镜规划工作台从场景续写层迁入）──
+                  // 每弧线一卡：🧩AI分镜规划（下一新场景）→可手改→📝写入条目
+                  ListView.builder(
                     padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-                    children: const [
-                      Padding(
-                        padding: EdgeInsets.all(24),
-                        child: Center(
-                          child: Text(
-                            '分镜续写（预留）\n\n当前续写场景走自由创作，无分镜结构；\n后续若需要为续写场景补分镜维度，在此层实现。',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                fontSize: 12, color: Color(0xFF5B7A99)),
-                          ),
-                        ),
-                      ),
-                    ],
+                    itemCount: allArcs.length,
+                    itemBuilder: (ctx, i) =>
+                        _buildShotPlanCard(state, allArcs[i]),
                   ),
                 ],
               ),
@@ -2432,6 +2423,77 @@ return true;
 
   /// v824：arc可空——0弧线（开新书）时目标=弧线1（待添加），场景键仍走'1'与
   /// _addContinueArc生成的弧线1条目对齐
+  /// v957：分镜续写层卡片——该弧线下一新场景的分镜规划工作台
+  /// （🧩AI分镜规划→可手改→📝写入条目；从场景续写层迁入，职责归位）
+  Widget _buildShotPlanCard(AppState state, Arc arc) {
+    final arcKey = arc.number.toString();
+    final hasPlan = (_sceneShotPlanCtrl[arcKey]?.text.isNotEmpty ?? false) ||
+        (state.worldBook?.continuePlans['shot_plan_$arcKey']?.isNotEmpty ??
+            false);
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('🎭 弧线$arcKey：${_brief(arc.title, 18)}',
+                style: const TextStyle(
+                    fontSize: 12.5, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                MiniButton(
+                  label: '🧩AI分镜规划',
+                  primary: false,
+                  onTap:
+                      _isGenerating ? null : () => _planNewSceneShots(state, arc),
+                ),
+                const SizedBox(width: 6),
+                const Expanded(
+                  child: Text(
+                    '把该弧线最新场景拆成分镜序列（继承编排策略）',
+                    style: TextStyle(fontSize: 10, color: V469Style.textMuted),
+                  ),
+                ),
+              ],
+            ),
+            if (hasPlan) ...[
+              _CollapseReqField(
+                prefKey: 'scene_shot_plan_$arcKey',
+                controller: _sceneShotPlanCtrl.putIfAbsent(
+                    arcKey, () => TextEditingController()),
+                labelText: '🧩 分镜规划（可手改，写入条目后创作页走沿分镜模式）',
+                fontSize: 11.5,
+                onChanged: (v) =>
+                    state.worldBook?.continuePlans['shot_plan_$arcKey'] = v,
+              ),
+              Row(
+                children: [
+                  MiniButton(
+                    label: '📝写入条目',
+                    primary: true,
+                    onTap: _isGenerating
+                        ? null
+                        : () => _writeShotPlanToEntry(state, arc),
+                  ),
+                  const SizedBox(width: 6),
+                  const Expanded(
+                    child: Text(
+                      '写入后创作页该场景走沿分镜模式（逐镜有编排/trick指导）',
+                      style:
+                          TextStyle(fontSize: 10, color: V469Style.textMuted),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildNewScenePlanner(AppState state, Arc? arc) {
     final arcKey = arc?.number.toString() ?? '1';
     final plans = state.worldBook?.continuePlans ?? {};
@@ -2535,57 +2597,8 @@ return true;
             ),
           ),
           const SizedBox(height: 6),
-          // v922：分镜规划框+按键（场景写入条目后可用——新场景走沿分镜创作）
-          Row(
-            children: [
-              const SizedBox(width: 4),
-              MiniButton(
-                label: '🧩AI分镜规划',
-                primary: false,
-                onTap: _isGenerating ? null : () => _planNewSceneShots(state, arc),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  '把最新场景拆成分镜序列（继承编排策略），写入后走沿分镜创作',
-                  style: TextStyle(fontSize: 10, color: V469Style.textMuted),
-                ),
-              ),
-            ],
-          ),
-          if ((_sceneShotPlanCtrl[arcKey]?.text.isNotEmpty ?? false) ||
-              (state.worldBook?.continuePlans['shot_plan_${arcKey ?? "1"}']
-                      ?.isNotEmpty ??
-                  false))
-            _CollapseReqField(
-              prefKey: 'scene_shot_plan_$arcKey',
-              controller: _sceneShotPlanCtrl.putIfAbsent(
-                  arcKey, () => TextEditingController()),
-              labelText: '🧩 分镜规划（可手改，写入条目后创作页走沿分镜模式）',
-              fontSize: 11.5,
-              onChanged: (v) => state.worldBook
-                  ?.continuePlans['shot_plan_${arcKey ?? "1"}'] = v,
-            ),
-          Row(
-            children: [
-              const SizedBox(width: 4),
-              MiniButton(
-                label: '📝写入条目',
-                primary: true,
-                onTap: _isGenerating
-                    ? null
-                    : () => _writeShotPlanToEntry(state, arc),
-              ),
-              const SizedBox(width: 6),
-              const Expanded(
-                child: Text(
-                  '写入后创作页该场景走沿分镜模式（逐镜有编排/trick指导）',
-                  style: TextStyle(fontSize: 10, color: V469Style.textMuted),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
+          // v957：分镜规划（🧩AI分镜规划/📝写入条目）已迁往分镜续写层——
+          // 场景续写层只管场景规划+写入条目，职责单一
           // v826：写入前AI细化开关+写入按钮（细化结果回填优化框可手改，写入预览兜底）
           Row(
             children: [
