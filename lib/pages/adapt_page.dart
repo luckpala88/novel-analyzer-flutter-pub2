@@ -2426,13 +2426,66 @@ return true;
 
   /// v824：arc可空——0弧线（开新书）时目标=弧线1（待添加），场景键仍走'1'与
   /// _addContinueArc生成的弧线1条目对齐
-  /// v957：分镜续写层卡片——该弧线下一新场景的分镜规划工作台
-  /// （🧩AI分镜规划→可手改→📝写入条目；从场景续写层迁入，职责归位）
+  /// v957/v960：分镜续写层卡片——弧线(可展开)→场景列表→场景下分镜状态+规划工作台
+  /// v960用户裁决：弧线卡必须可展开看场景，分镜放场景下面
   Widget _buildShotPlanCard(AppState state, Arc arc) {
     final arcKey = arc.number.toString();
-    final hasPlan = (_sceneShotPlanCtrl[arcKey]?.text.isNotEmpty ?? false) ||
-        (state.worldBook?.continuePlans['shot_plan_$arcKey']?.isNotEmpty ??
-            false);
+    final expanded = _shotArcExpanded.contains(arcKey);
+    final entryKey = _arcEntryKey(state, arcKey);
+    final entry = entryKey == null ? null : state.worldBook?.entries[entryKey];
+    final planStored = (state.worldBook?.continuePlans['shot_plan_$arcKey'] ??
+            '').trim();
+    final hasPlan = planStored.isNotEmpty ||
+        (_sceneShotPlanCtrl[arcKey]?.text.isNotEmpty ?? false);
+    // 场景块解析（条目content）+每场景已写分镜计数
+    final spans = entry == null
+        ? <RegExpMatch>[]
+        : RegExp(r'^场景\d+：', multiLine: true)
+            .allMatches(entry.content)
+            .toList();
+    final sceneTiles = <Widget>[];
+    for (var i = 0; i < spans.length; i++) {
+      final m = spans[i];
+      final end = i + 1 < spans.length ? spans[i + 1].start : entry!.content.length;
+      final block = entry!.content.substring(m.start, end);
+      final sceneNum = RegExp(r'\d+').firstMatch(m.group(0)!)?.group(0) ?? '?';
+      final titleLine = block.split('\n').first;
+      final shotCount =
+          RegExp(r'^\s*分镜\d+[：.]', multiLine: true).allMatches(block).length;
+      final summaryLine = block.split('\n').skip(1)
+          .map((l) => l.trim())
+          .firstWhere((l) => l.isNotEmpty, orElse: () => '');
+      sceneTiles.add(Container(
+        margin: const EdgeInsets.only(left: 10, top: 4),
+        padding: const EdgeInsets.fromLTRB(8, 5, 8, 5),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF6F3EC),
+          borderRadius: BorderRadius.circular(5),
+          border: Border.all(color: const Color(0xFFD8CDBA)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('📍$titleLine',
+                style: const TextStyle(
+                    fontSize: 11.5, fontWeight: FontWeight.w600)),
+            if (summaryLine.isNotEmpty)
+              Text(_brief(summaryLine, 60),
+                  style: const TextStyle(
+                      fontSize: 10.5, color: V469Style.textMuted)),
+            Text(
+              shotCount > 0 ? '✅ 已写分镜$shotCount镜' : '◻ 分镜未规划',
+              style: TextStyle(
+                fontSize: 10,
+                color: shotCount > 0
+                    ? const Color(0xFF4A7B4A)
+                    : const Color(0xFF9B8570),
+              ),
+            ),
+          ],
+        ),
+      ));
+    }
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: Padding(
@@ -2440,56 +2493,93 @@ return true;
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('🎭 弧线$arcKey：${_brief(arc.title, 18)}',
-                style: const TextStyle(
-                    fontSize: 12.5, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                MiniButton(
-                  label: '🧩AI分镜规划',
-                  primary: false,
-                  onTap:
-                      _isGenerating ? null : () => _planNewSceneShots(state, arc),
-                ),
-                const SizedBox(width: 6),
-                const Expanded(
-                  child: Text(
-                    '把该弧线最新场景拆成分镜序列（继承编排策略）',
-                    style: TextStyle(fontSize: 10, color: V469Style.textMuted),
+            // 弧线头（点击展开/收起）
+            InkWell(
+              onTap: () => setState(() => expanded
+                  ? _shotArcExpanded.remove(arcKey)
+                  : _shotArcExpanded.add(arcKey)),
+              child: Row(
+                children: [
+                  Text(expanded ? '▾' : '▸',
+                      style: const TextStyle(
+                          fontSize: 13, color: V469Style.textMuted)),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                        '🎭 弧线$arcKey：${_brief(arc.title, 20)}'
+                        '${entry == null ? '（无条目——先在场景续写层规划）' : '（${spans.length}场景）'}',
+                        style: const TextStyle(
+                            fontSize: 12.5, fontWeight: FontWeight.bold)),
                   ),
-                ),
-              ],
-            ),
-            if (hasPlan) ...[
-              _CollapseReqField(
-                prefKey: 'scene_shot_plan_$arcKey',
-                controller: _sceneShotPlanCtrl.putIfAbsent(
-                    arcKey, () => TextEditingController()),
-                labelText: '🧩 分镜规划（可手改，写入条目后创作页走沿分镜模式）',
-                fontSize: 11.5,
-                onChanged: (v) =>
-                    state.worldBook?.continuePlans['shot_plan_$arcKey'] = v,
+                ],
               ),
+            ),
+            if (expanded) ...[
+              // 场景列表（分镜状态在场景下面）
+              ...sceneTiles,
+              if (spans.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(left: 10, top: 4),
+                  child: Text('（该弧线条目尚无场景块——先在场景续写层规划写入）',
+                      style:
+                          TextStyle(fontSize: 10.5, color: V469Style.textMuted)),
+                ),
+              const SizedBox(height: 8),
+              // 新场景分镜规划工作台（挂在场景列表下）
               Row(
                 children: [
                   MiniButton(
-                    label: '📝写入条目',
-                    primary: true,
+                    label: '🧩AI分镜规划',
+                    primary: false,
                     onTap: _isGenerating
                         ? null
-                        : () => _writeShotPlanToEntry(state, arc),
+                        : () => _planNewSceneShots(state, arc),
                   ),
                   const SizedBox(width: 6),
                   const Expanded(
                     child: Text(
-                      '写入后创作页该场景走沿分镜模式（逐镜有编排/trick指导）',
+                      '把该弧线最新场景拆成分镜序列（继承编排策略）',
                       style:
                           TextStyle(fontSize: 10, color: V469Style.textMuted),
                     ),
                   ),
                 ],
               ),
+              if (hasPlan) ...[
+                _CollapseReqField(
+                  prefKey: 'scene_shot_plan_$arcKey',
+                  controller: _sceneShotPlanCtrl.putIfAbsent(
+                      arcKey, () => TextEditingController()),
+                  labelText: '🧩 分镜规划（暂存，可手改——写入条目才落世界书）',
+                  fontSize: 11.5,
+                  onChanged: (v) =>
+                      state.worldBook?.continuePlans['shot_plan_$arcKey'] = v,
+                ),
+                Row(
+                  children: [
+                    MiniButton(
+                      label: '📝写入条目',
+                      primary: true,
+                      onTap: _isGenerating
+                          ? null
+                          : () => _writeShotPlanToEntry(state, arc),
+                    ),
+                    const SizedBox(width: 6),
+                    const Expanded(
+                      child: Text(
+                        '写入后创作页该场景走沿分镜模式（逐镜有编排/trick指导）',
+                        style: TextStyle(
+                            fontSize: 10, color: V469Style.textMuted),
+                      ),
+                    ),
+                  ],
+                ),
+              ] else
+                const Padding(
+                  padding: EdgeInsets.only(left: 2, top: 2),
+                  child: Text('（暂存区无规划——点🧩生成，结果先存暂存框，写入才落世界书）',
+                      style: TextStyle(fontSize: 10, color: V469Style.textMuted)),
+                ),
             ],
           ],
         ),
@@ -3596,6 +3686,7 @@ return true;
   double _continueFontScale = 1.0; // v769：续写页字号独立
   // v780：新增场景规划工作台（勾选状态，输入文本持久化在continuePlans专用key）
   bool _newSceneRawChecked = false; // 用户原始规划勾选（写入世界书时的备选源）
+  final Set<String> _shotArcExpanded = {}; // v960：分镜续写层弧线卡展开状态
   bool _newSceneOptChecked = true; // AI优化规划勾选（默认写入源）
   bool _preWriteRefine = true; // v826：写入前AI细化开关（完善补充/剔除毒点，默认开）
   bool _matExpanded = false; // v827：素材折叠区展开状态
