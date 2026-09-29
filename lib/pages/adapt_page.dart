@@ -2446,6 +2446,13 @@ return true;
             '').trim();
     final hasPlan = planStored.isNotEmpty ||
         (_sceneShotPlanCtrl[arcKey]?.text.isNotEmpty ?? false);
+    // v964：AI规划直写continuePlans后同步控制器（v957迁入漏带v921同步块——
+    // 规划框显示但内容空白，用户找不到规划结果）
+    final shotPlanCtrl =
+        _sceneShotPlanCtrl.putIfAbsent(arcKey, () => TextEditingController());
+    if (shotPlanCtrl.text.isEmpty && planStored.isNotEmpty) {
+      shotPlanCtrl.text = planStored;
+    }
     // 场景块解析（条目content）+每场景已写分镜计数
     final spans = entry == null
         ? <RegExpMatch>[]
