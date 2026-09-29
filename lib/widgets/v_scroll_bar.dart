@@ -143,8 +143,32 @@ class _VScrollBarState extends State<VScrollBar> {
           width: widget.hitWidth,
           child: Stack(
             children: [
-              // v949：轨道点按跳转已删（误触源）——保留透明轨道仅作拇指背景定位
-              const Positioned.fill(child: SizedBox.shrink()),
+              // v950：轨道恢复点击跳转（用户裁决：长列表刚需）——轨道收窄成
+              // 4px宽贴右缘（视觉+命中都4px），误触面趋零；滑块28宽覆盖其上
+              Positioned(
+                top: 0,
+                right: 0,
+                width: 4,
+                height: trackH,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapUp: (d) {
+                    _reshow();
+                    final ratio = (d.localPosition.dy / trackH).clamp(0.0, 1.0);
+                    ctl.jumpTo(
+                      ((ratio * trackH - thumbH / 2) / (trackH - thumbH) *
+                              maxScroll)
+                          .clamp(0.0, maxScroll),
+                    );
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: cs.primary.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+              ),
               // 拇指拖拽（按下即赢）——v949贴最右(right:2)
               Positioned(
                 top: top,
