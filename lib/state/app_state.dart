@@ -2330,18 +2330,31 @@ class AppState extends ChangeNotifier {
     final myNum = int.tryParse(arcKey) ?? 0;
     final sb = StringBuffer();
     if (includeAnchor) {
-      final tail = _latestWritingTail(300);
-      if (tail.isNotEmpty) {
-        sb.writeln('【衔接锚点·最新已创作正文结尾】');
-        sb.writeln(tail);
-      } else {
-        final slice = _latestSlice(myNum);
-        if (slice.isNotEmpty) {
-          sb.writeln('【衔接锚点·最近场景原著切片（完整，尚未动笔时按此承接）】');
-          sb.writeln(slice);
+      // v958用户裁决：续写衔接前文唯一来源=条目规划链+拆解链，禁止读writings
+      // 创作正文（含改编模式残留——数据混装不可信，读谁都是乱取）
+      final cur = _continueEntryOf(myNum);
+      var anchored = false;
+      if (cur != null && cur.isNotEmpty) {
+        final spans = RegExp(r'^场景\d+：', multiLine: true).allMatches(cur).toList();
+        if (spans.isNotEmpty) {
+          final last = spans.last;
+          final block = cur.substring(last.start).trim();
+          final b = block.length > 400 ? block.substring(0, 400) : block;
+          sb.writeln('【衔接锚点·本弧线最后已规划场景（${RegExp(r'\d+').firstMatch(last.group(0)!)?.group(0)}）】');
+          sb.writeln(b);
+          anchored = true;
         }
       }
-      sb.writeln();
+      if (!anchored) {
+        final sc = (arcAnalyses[arcKey]?.scenes ?? arcScenes[arcKey] ?? const []);
+        if (sc.isNotEmpty) {
+          final last = sc.last;
+          sb.writeln('【衔接锚点·本弧线最后拆解场景（${last.name}）】');
+          sb.writeln(last.summary.isEmpty ? last.name : last.summary);
+          anchored = true;
+        }
+      }
+      if (anchored) sb.writeln();
     }
     final core = continueArcCoreBlock(arcKey);
     if (core.isNotEmpty) {

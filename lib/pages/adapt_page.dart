@@ -1729,12 +1729,15 @@ return true;
   static const _continueBg = Color(0xFFE8F1FA); // 浅蓝底
 
   String _arcProgressShort(AppState state, String arcKey) {
+    // v958用户裁决：进度=世界书条目已规划场景数（条目规划链）——
+    // 不数writings创作正文（含改编模式残留，数据混装不可信）
     var done = 0;
-    for (var si = 0; si < 200; si++) {
-      final w = state.writings['${arcKey}_$si'];
-      if (w != null && w.content.trim().isNotEmpty) done++;
+    final ek = _arcEntryKey(state, arcKey);
+    if (ek != null) {
+      final c = state.worldBook?.entries[ek]?.content ?? '';
+      done = RegExp(r'^场景\d+：', multiLine: true).allMatches(c).length;
     }
-    return '已完成$done个场景正文';
+    return '已规划$done个场景';
   }
 
   String _continueProgressAll(AppState state, List<Arc> allArcs) {
@@ -2701,6 +2704,15 @@ return true;
     }
     final entry = state.worldBook!.entries[entryKey]!;
     final nextNum = _maxSceneNumInEntry(state, entryKey) + 1;
+    // v958用户裁决：锚点序号核对——拆解链场景数必须已全部写入条目
+    // （条目场景数≥拆解场景数合法：续写新场景是增量；条目<拆解=漏写=错位终止）
+    final decompScenes =
+        state.arcAnalyses[arcKey]?.scenes.length ?? state.arcScenes[arcKey]?.length ?? 0;
+    if (decompScenes > 0 && nextNum - 1 < decompScenes) {
+      _addLog('❌ 序号错位：弧线$arcKey拆解有$decompScenes个场景，条目只写入${nextNum - 1}个'
+          '——先把拆解场景全部写入条目再规划新场景，已终止');
+      return;
+    }
     // 本场景概述=条目内最后一个场景块
     final sceneSpans = RegExp(r'^场景\d+：', multiLine: true)
         .allMatches(entry.content)
@@ -2765,6 +2777,15 @@ return true;
     if (arc != null && !_closedArcGuard(state, arc)) return; // v781：闭合守卫（v824：0弧线开新书跳过）
     final entry = state.worldBook!.entries[entryKey]!;
     final nextNum = _maxSceneNumInEntry(state, entryKey) + 1;
+    // v958用户裁决：锚点序号核对——拆解链场景数必须已全部写入条目
+    // （条目场景数≥拆解场景数合法：续写新场景是增量；条目<拆解=漏写=错位终止）
+    final decompScenes =
+        state.arcAnalyses[arcKey]?.scenes.length ?? state.arcScenes[arcKey]?.length ?? 0;
+    if (decompScenes > 0 && nextNum - 1 < decompScenes) {
+      _addLog('❌ 序号错位：弧线$arcKey拆解有$decompScenes个场景，条目只写入${nextNum - 1}个'
+          '——先把拆解场景全部写入条目再规划新场景，已终止');
+      return;
+    }
     final config = state.getApiConfig('wb');
     state.api.clearAbort();
     state.userAborted = false;
