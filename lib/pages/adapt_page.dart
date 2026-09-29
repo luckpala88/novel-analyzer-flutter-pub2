@@ -201,15 +201,35 @@ class _AdaptPageState extends State<AdaptPage>
     return out.join('\n');
   }
 
-  /// v936：场景框架编排段代码级兜底——v934在system prompt规定了"编排："段
-  /// 且user侧v931已喂sc['choreo']，但AI实测仍漏写（用户实测条目无编排段）；
-  /// 机器能查的走代码：块内无"编排："且原著choreo非空时代码原样拼进块尾
-  /// （弧线级v935同法——原著讲法照搬，改编适配留给分镜阶段执行）
-  String _ensureSceneChoreo(
-      String frameContent, String sceneChoreo, int sceneIdx) {
-    final c = sceneChoreo.trim();
-    if (c.isEmpty || frameContent.contains('编排：')) return frameContent;
-    _addLog('↩ 场景${sceneIdx + 1}：AI漏写编排段，代码级补入（${c.length}字）');
+  /// v937：从scene_choreos整串提取"场景N:"段落（v900概念：扫描阶段逐场景
+  /// 落点存metadata整串、不写Scene.choreo——Scene.choreo专属拆分镜详版）
+  String _choreoFromAll(String all, int sceneIdx) {
+    if (all.trim().isEmpty) return '';
+    final m = RegExp('场景\\s*${sceneIdx + 1}\\s*[:：]([\\s\\S]*?)(?=场景\\s*\\d+\\s*[:：]|\$)')
+        .firstMatch(all);
+    return m?.group(1)?.trim() ?? '';
+  }
+
+  /// v936/v937：场景框架编排段代码级兜底——数据源两级：Scene.choreo
+  /// （拆分镜详版，改编场景阶段通常为空）→ scene_choreos整串按场景号提取段；
+  /// 终端自检日志全链可见（v937用户要求）：两个来源字数+提取结果字数，
+  /// 兜底触发/不触发都有据可查
+  String _ensureSceneChoreo(String frameContent, String sceneChoreo,
+      int sceneIdx, String sceneChoreosAll) {
+    final fromScene = sceneChoreo.trim();
+    final fromAll = _choreoFromAll(sceneChoreosAll, sceneIdx);
+    _addLog(
+        '🔍 编排自检｜场景${sceneIdx + 1}｜Scene.choreo=${fromScene.length}字｜scene_choreos串=${sceneChoreosAll.trim().length}字｜本场景段提取=${fromAll.length}字');
+    final c = fromScene.isNotEmpty ? fromScene : fromAll;
+    if (frameContent.contains('编排：')) {
+      _addLog('🔍 编排自检｜AI已写编排段，无需兜底');
+      return frameContent;
+    }
+    if (c.isEmpty) {
+      _addLog('⛔ 编排自检｜两个来源皆空——该弧线无编排数据（先跑"分析编排"或重新扫描）');
+      return frameContent;
+    }
+    _addLog('↩ 场景${sceneIdx + 1}：AI漏写编排段，代码级补入（${c.length}字，来源：${fromScene.isNotEmpty ? "Scene.choreo" : "scene_choreos串"}）');
     return '${frameContent.trimRight()}\n编排：$c';
   }
 
@@ -5954,7 +5974,11 @@ return true;
             state,
             arcKey,
             _ensureSceneChoreo(
-                frameContent, (scene.choreo ?? '').toString(), si),
+                frameContent,
+                (scene.choreo ?? '').toString(),
+                si,
+                (arcItem['analysis']?['arc']?['scene_choreos'] ?? '')
+                    .toString()),
           );
           if (!mergedFrame) {
             _addLog('❌ 场景${si + 1}框架追加失败（弧线条目未找到）——停机');
@@ -6375,7 +6399,9 @@ return true;
             _ensureSceneChoreo(
                 frameContent,
                 (scenes[sceneIdx].choreo ?? '').toString(),
-                sceneIdx));
+                sceneIdx,
+                (arcItem['analysis']?['arc']?['scene_choreos'] ?? '')
+                    .toString()));
         if (!mergedFrame) {
           _addLog('❌ 场景${sceneIdx + 1}框架追加失败，终止');
           return;
