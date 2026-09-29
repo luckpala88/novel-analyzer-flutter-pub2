@@ -64,6 +64,12 @@ class _ChatPageState extends State<ChatPage>
 
   // v866：楼层跳转——当前楼层按滚动比例实时估算（手动滚动后仍准确，
   // 修复此前_curFloor与实际视口错位导致按键要按两次）
+  // v941：比例估算法在楼层高度不均时严重错位（用户实测v939：↓按两次
+  // 不动/有时往上动/⏬要按两次）——根因=pixels/max×(n-1)假设等高楼层。
+  // 修：①跳转后锚定_curFloor，连按从此逐层走（不再依赖失真估算）
+  // ②用户手动拖动→NotificationListener清锚回估算 ③向下保底+1（估
+  // 算卡住时不再"不动"）
+  int? _curFloorAnchor; // v941：上次跳转目标楼层（null=无锚，用估算）
   Future<void> _jumpFloor(int delta) async {
     final n = state_msgCount;
     if (n == 0 || !_listCtl.hasClients) return;
@@ -71,11 +77,25 @@ class _ChatPageState extends State<ChatPage>
     if (pos.maxScrollExtent <= 0) return;
     final curEst =
         ((pos.pixels / pos.maxScrollExtent) * (n - 1)).round().clamp(0, n - 1);
-    final target = (curEst + delta).clamp(0, n - 1);
-    if (target == curEst) return;
+    // v941：有锚优先用锚（跳转序列内逐层准确）；无锚才用比例估算
+    final cur = _curFloorAnchor != null
+        ? _curFloorAnchor!.clamp(0, n - 1)
+        : curEst;
+    var target = cur + delta;
+    // v941：向下卡住保底+1（估算偏小连按不动的兜底）；锚定模式天然+1不受影响
+    if (target == curEst &&
+        target == cur &&
+        delta > 0 &&
+        _curFloorAnchor == null &&
+        cur < n - 1) {
+      target = cur + 1;
+    }
+    target = target.clamp(0, n - 1);
+    if (target == cur) return;
     await _listCtl.scrollToIndex(target,
         preferPosition: AutoScrollPosition.begin,
         duration: const Duration(milliseconds: 180));
+    _curFloorAnchor = target;
   }
 
   int get state_msgCount =>
@@ -619,7 +639,17 @@ class _ChatPageState extends State<ChatPage>
                         style: TextStyle(color: Color(0xFF9B8F7A))),
                   )
                 else
-                  ListView.builder(
+                  // v941：用户手动拖动清楼层锚（回估算模式——锚只在连按跳转序列内有效）
+                  NotificationListener<ScrollNotification>(
+                    onNotification: (notif) {
+                      // 用户手指拖动（dragDetails非空）→清锚回估算模式
+                      if (notif is ScrollUpdateNotification &&
+                          notif.dragDetails != null) {
+                        _curFloorAnchor = null;
+                      }
+                      return false;
+                    },
+                    child: ListView.builder(
                     controller: _listCtl,
                     padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
                     itemCount: sess.messages.length,
@@ -715,6 +745,7 @@ class _ChatPageState extends State<ChatPage>
                       );
                     },
                   ),
+                ),
                 // v861：右侧竖排半透明楼层快捷键
                 if (sess != null && sess.messages.isNotEmpty)
                   Positioned(
@@ -730,12 +761,14 @@ class _ChatPageState extends State<ChatPage>
                         _navBtn('↓', () => _jumpFloor(1)),
                         _navBtn('⏬', () {
                           // v866：直达底部+下一帧补跳一次（列表刚变化时maxExtent可能未刷新）
+                          // v941：补跳改延时300ms——异步布局（图片/富文本）未完成时
+                          // maxExtent仍偏小，一帧补跳不够（用户实测要按两次）
                           if (!_listCtl.hasClients) return;
                           _listCtl.jumpTo(_listCtl.position.maxScrollExtent);
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                          Future.delayed(const Duration(milliseconds: 300), () {
                             if (_listCtl.hasClients) {
-                              _listCtl
-                                  .jumpTo(_listCtl.position.maxScrollExtent);
+                              _listCtl.jumpTo(
+                                  _listCtl.position.maxScrollExtent);
                             }
                           });
                         }),
