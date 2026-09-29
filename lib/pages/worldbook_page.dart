@@ -482,112 +482,125 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
                     .hasMatch(l.trim()),
           )
           .length;
-      // 场景头（红字+折叠箭头+分镜数徽章，点击切换）
+      // v946：场景头纯标题展示——折叠键拆出去（放分镜区上方独立行，
+      // 用户实测：折叠键跟着场景标题挤在一行=标题长时键和计数显示乱）
       widgets.add(
-        GestureDetector(
-          onTap: () => setState(() {
-            collapsed
-                ? _expandedScenes.add(sKey)
-                : _expandedScenes.remove(sKey);
-            _saveUiState();
-          }),
-          child: Container(
-            margin: const EdgeInsets.only(top: 4),
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-            decoration: BoxDecoration(
-              color: V469Style.incompleteBg.withOpacity(0.4),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Row(
-              children: [
-                Text(
-                  collapsed ? '▶' : '▾',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: V469Style.incomplete,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    (sc['header'] as String)
-                        .replaceFirst('【', '')
-                        .replaceFirst(RegExp(r'】$'), ''),
-                    style: const TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF991B1B),
-                    ),
-                  ),
-                ),
-                Text(
-                  '$shotCount分镜',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: V469Style.textMuted,
-                  ),
-                ),
-              ],
+        Container(
+          margin: const EdgeInsets.only(top: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          decoration: BoxDecoration(
+            color: V469Style.incompleteBg.withOpacity(0.4),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            (sc['header'] as String)
+                .replaceFirst('【', '')
+                .replaceFirst(RegExp(r'】$'), ''),
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF991B1B),
             ),
           ),
         ),
       );
       // 场景概述（常显，不折叠——对齐分析页：场景头下紧跟概述）
+      // v946：标签独立一行+内容换行跟（用户要求：概述改为场景概述）
       final overview = (sc['overview'] as String?) ?? '';
       if (overview.isNotEmpty) {
         widgets.add(
           Padding(
             padding: const EdgeInsets.only(left: 8, top: 2),
-            child: Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: '📝 概述/Summary：',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF475569),
-                      backgroundColor: const Color(0xFFDBEAFE).withOpacity(0.5),
-                    ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '📝 场景概述：',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF475569),
+                    backgroundColor: Color(0xFFDBEAFE),
                   ),
-                  TextSpan(
-                    text: overview.replaceFirst(RegExp(r'^概[述说][：:]\s*'), ''),
-                    style: const TextStyle(
-                      fontSize: 11,
-                      height: 1.4,
-                      color: V469Style.textMain,
-                    ),
+                ),
+                Text(
+                  overview.replaceFirst(RegExp(r'^概[述说][：:]\s*'), ''),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    height: 1.4,
+                    color: V469Style.textMain,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         );
       }
-      // v938：编排段常显（概述下方——场景级表述层核心数据，对齐概述不折叠）
+      // v938/v946：编排段常显+标签独立行内容换行（与概述同格式）
       final choreoTxt = (sc['choreo'] as String?) ?? '';
       if (choreoTxt.isNotEmpty) {
         widgets.add(
           Padding(
             padding: const EdgeInsets.only(left: 8, top: 2),
-            child: Text.rich(
-              TextSpan(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '🎬 编排：',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF475569),
+                    backgroundColor: Color(0xFFFEF3C7),
+                  ),
+                ),
+                Text(
+                  choreoTxt,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    height: 1.4,
+                    color: V469Style.textMain,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+      // v946：分镜折叠键独立行（分镜1上方——▶/▾+“分镜 N条”标签，点击切换）
+      if ((sc['lines'] as List<String>).isNotEmpty) {
+        widgets.add(
+          GestureDetector(
+            onTap: () => setState(() {
+              collapsed
+                  ? _expandedScenes.add(sKey)
+                  : _expandedScenes.remove(sKey);
+              _saveUiState();
+            }),
+            child: Container(
+              margin: const EdgeInsets.only(top: 3, bottom: 1),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: V469Style.incompleteBg.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  TextSpan(
-                    text: '🎬 编排：',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF475569),
-                      backgroundColor: const Color(0xFFFEF3C7).withOpacity(0.6),
+                  Text(
+                    collapsed ? '▶' : '▾',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: V469Style.incomplete,
                     ),
                   ),
-                  TextSpan(
-                    text: choreoTxt,
+                  const SizedBox(width: 4),
+                  Text(
+                    '分镜 $shotCount 条',
                     style: const TextStyle(
-                      fontSize: 11,
-                      height: 1.4,
-                      color: V469Style.textMain,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      color: V469Style.textSec,
                     ),
                   ),
                 ],
