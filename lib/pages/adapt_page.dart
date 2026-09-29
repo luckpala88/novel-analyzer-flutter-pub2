@@ -442,6 +442,13 @@ class _AdaptPageState extends State<AdaptPage>
         newContent = '$newContent$chapterSuffix';
       }
     }
+    // v940：编排行同概述一样保留——v936/v937编排已落库进场景块，但本函数
+    // 重写块时只搬概述行+场景头，"编排："行被丢弃（用户实测：改编分镜后
+    // 场景块编排段消失）。编排行从旧块搬进新块（概述行后）
+    final oldChoreo = RegExp(
+      r'^编排[：:].*$',
+      multiLine: true,
+    ).firstMatch(oldBlock)?.group(0);
     final hasSummary = RegExp(
       r'^概[述说][：:]',
       multiLine: true,
@@ -461,6 +468,26 @@ class _AdaptPageState extends State<AdaptPage>
             : '${newContent.substring(0, firstNl + 1)}'
                   '$sumLine\n'
                   '${newContent.substring(firstNl + 1)}';
+      }
+    }
+    // v940续：编排行写回——新块无"编排："且旧块有时，插到概述行后
+    // （世界书页v938渲染编排行常显，分镜层后续重读它执行）
+    if (oldChoreo != null &&
+        oldChoreo.trim().isNotEmpty &&
+        !RegExp(r'^编排[：:]', multiLine: true).hasMatch(newContent)) {
+      final firstNl = newContent.indexOf('\n');
+      if (firstNl > 0) {
+        final firstLineEnd = newContent.indexOf('\n', firstNl + 1);
+        // 插到场景头+概述行之后（概述行存在则在其后，否则在头行后）
+        final insertAt = (firstLineEnd > 0 &&
+                RegExp(r'^概[述说][：:]', multiLine: true)
+                    .hasMatch(newContent.substring(firstNl + 1)))
+            ? firstLineEnd + 1
+            : firstNl + 1;
+        newContent =
+            '${newContent.substring(0, insertAt)}${oldChoreo.trim()}\n${newContent.substring(insertAt)}';
+      } else {
+        newContent = '$newContent\n${oldChoreo.trim()}';
       }
     }
     entry.content = TextCleaner.stripDecorativeEmoji('$head$newContent\n$tail');
