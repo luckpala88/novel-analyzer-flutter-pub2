@@ -2236,30 +2236,36 @@ return true;
         : (an.metadata?['arc_summary_detailed']?.toString() ?? an.arcSummary)
             .trim();
     final sliceText = an?.arc?.text ?? arc.text;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFFB8CFE5)),
-      ),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 8),
-          childrenPadding:
-              const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          backgroundColor: Colors.white,
-          collapsedBackgroundColor: Colors.white,
-          title: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '弧线${arc.number}：${arc.title}',
-                  style: TextStyle(
-                      fontSize: _cf(12.5), fontWeight: FontWeight.w600),
-                ),
-              ),
+    // v963：ExpansionTile在TabBarView里冻死打不开（v586已知问题）→分镜卡同款手动折叠
+    final expanded = _contArcExpanded.contains(arcKey);
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            InkWell(
+              onTap: () => setState(() {
+                if (expanded) {
+                  _contArcExpanded.remove(arcKey);
+                } else {
+                  _contArcExpanded.add(arcKey);
+                }
+              }),
+              child: Row(
+                children: [
+                  Text(expanded ? '▾' : '▸',
+                      style: TextStyle(
+                          fontSize: _cf(13), color: V469Style.textMuted)),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      '🎭 弧线${arc.number}：${_brief(arc.title, 18)}',
+                      style: TextStyle(
+                          fontSize: _cf(12.5), fontWeight: FontWeight.bold),
+                    ),
+                  ),
               if (an == null && arc.status == 'generated')
                 Text(' 🧩AI规划',
                     style: TextStyle(
@@ -2274,8 +2280,10 @@ return true;
                       '弧线${arc.number}：${arc.title}（切片）', sliceText),
                 ),
             ],
-          ),
-          children: [
+              ),
+            ),
+            // v963：原ExpansionTile children→条件渲染（手动折叠）
+            if (expanded) ...[
             if (an == null && arc.status == 'generated') ...[
               // v783：AI规划弧线——概述+规划场景清单直接从条目解析（场景对号）
               if (arc.summary.isNotEmpty)
@@ -2377,6 +2385,7 @@ return true;
                   );
                 },
               ),
+            ],
             ],
           ],
         ),
@@ -3693,6 +3702,7 @@ return true;
   // v780：新增场景规划工作台（勾选状态，输入文本持久化在continuePlans专用key）
   bool _newSceneRawChecked = false; // 用户原始规划勾选（写入世界书时的备选源）
   final Set<String> _shotArcExpanded = {}; // v960：分镜续写层弧线卡展开状态
+  final Set<String> _contArcExpanded = {}; // v963：场景续写层弧线卡展开状态（手动折叠——ExpansionTile在TabBarView冻死打不开v586已知）
   bool _newSceneOptChecked = true; // AI优化规划勾选（默认写入源）
   bool _preWriteRefine = true; // v826：写入前AI细化开关（完善补充/剔除毒点，默认开）
   bool _matExpanded = false; // v827：素材折叠区展开状态
