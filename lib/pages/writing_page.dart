@@ -4561,6 +4561,7 @@ class _WritingPageState extends State<WritingPage>
           '投放信息' || '投放' => '投放信息/Info',
           '作者意图' || '意图' => '作者意图/Intent',
           '转场手法' || '转场' => '转场手法/Transition',
+          '手法' => '手法/Trick', // v945：trick维度行渲染（v878加维度时漏了映射）
           '篇幅' => '篇幅/Length',
           '文笔节奏' => '文笔节奏/Prose Style',
           '文风' => '文风/Style', // v680：量化标尺维度行进分镜卡
@@ -4576,6 +4577,7 @@ class _WritingPageState extends State<WritingPage>
           '投放信息' || '投放' => ('📋', const Color(0xFF475569)),
           '作者意图' || '意图' => ('💡', const Color(0xFF92400E)),
           '转场手法' || '转场' => ('✂️', const Color(0xFF0F766E)),
+          '手法' => ('🎭', const Color(0xFF9D174D)), // v945：trick渲染映射
           '篇幅' => ('📏', const Color(0xFF7C3AED)),
           '文笔节奏' => ('✍', const Color(0xFFDB2777)),
           '文风' => ('📊', const Color(0xFF6D28D9)), // v680
