@@ -2504,7 +2504,11 @@ return true;
     final opt = plans[_plannerOptKey(arcKey)] ?? '';
     final mat = plans[_plannerMatKey(arcKey)] ?? ''; // v827
     // v921：控制器与持久化值同步（仅空时填，防覆盖用户输入）
+    // v959：三个控制器全部注册（原只注册Raw——AI优化直写plans且工作台未被
+    // 滚动到时Opt/Mat控制器为null，[arcKey]!空指针崩溃，v921潜伏雷）
     _scenePlanRawCtrl.putIfAbsent(arcKey, () => TextEditingController());
+    _scenePlanOptCtrl.putIfAbsent(arcKey, () => TextEditingController());
+    _scenePlanMatCtrl.putIfAbsent(arcKey, () => TextEditingController());
     if ((_scenePlanRawCtrl[arcKey]?.text.isEmpty ?? true) && raw.isNotEmpty) {
       _scenePlanRawCtrl[arcKey]!.text = raw;
     }
