@@ -196,8 +196,69 @@ class AppState extends ChangeNotifier {
     await loadAllData();
     await loadSettings();
     await cloudSync.init();
+    loadStyleProfiles(); // v944：全局风格档案（跨书，聊天迭代+创作/改编选用）
     storage.errorLog = apiLog; // v857：写盘异常透传终端
     _setupApiCallbacks();
+  }
+
+  // ===== v944：个人风格档案（全局多"作家"——聊天页迭代，创作/改编页选用）=====
+  // 存全局根 styles.json（不带bookPath——个人风格跨书复用）；JSON壳+markdown
+  // 内容体；AI不直接写文件——聊天页协议块由upsertStyleProfile代码落盘
+  List<Map<String, String>> styleProfiles = []; // {name, content, updatedAt}
+  String selectedWriterStyle = ''; // 创作页/改编页选中的作家名（''=不启用）
+
+  void loadStyleProfiles() {
+    final j = storage.readFile('styles.json');
+    if (j != null && j.isNotEmpty) {
+      try {
+        final list = (jsonDecode(j) as List)
+            .map((e) => Map<String, String>.from(e as Map))
+            .toList();
+        styleProfiles
+          ..clear()
+          ..addAll(list);
+      } catch (_) {}
+    }
+  }
+
+  void saveStyleProfiles() {
+    storage.writeFile('styles.json', jsonEncode(styleProfiles));
+    notifyListeners();
+  }
+
+  /// 聊天页协议落盘：同名更新（AI增量条目追加到content尾部）/新建
+  bool upsertStyleProfile(String name, String content) {
+    final n = name.trim();
+    final c = content.trim();
+    if (n.isEmpty || c.isEmpty) return false;
+    final ts =
+        DateTime.now().toIso8601String().substring(0, 16).replaceAll('T', ' ');
+    final i = styleProfiles.indexWhere((s) => s['name'] == n);
+    if (i >= 0) {
+      styleProfiles[i]['content'] =
+          '${styleProfiles[i]['content']!.trimRight()}\n\n$c';
+      styleProfiles[i]['updatedAt'] = ts;
+    } else {
+      styleProfiles.add({'name': n, 'content': c, 'updatedAt': ts});
+    }
+    saveStyleProfiles();
+    return true;
+  }
+
+  void deleteStyleProfile(String name) {
+    styleProfiles.removeWhere((s) => s['name'] == name);
+    if (selectedWriterStyle == name) selectedWriterStyle = '';
+    saveStyleProfiles();
+  }
+
+  /// 选中作家档案的markdown全文（供prompt注入；未选/不存在返回空串）
+  String get writerStylePrompt {
+    if (selectedWriterStyle.isEmpty) return '';
+    final s = styleProfiles
+        .firstWhere((e) => e['name'] == selectedWriterStyle,
+            orElse: () => {})
+        ;
+    return s['content'] ?? '';
   }
 
   /// 全局单例引用（页面_addLog不经过build也能写全局日志）
