@@ -25,6 +25,9 @@ const String agentToolDoc = '''
 6. {"tool":"start_batch_shots"} —— 启动批量拆分镜（全部已划分未拆场景；需用户确认；长任务，去分镜页盯终端进度）
 7. {"tool":"write_scene","args":{"arc":1,"scene":1}} —— 创作指定弧线第N个场景的续写正文（需用户确认；前提：世界书已有该场景条目；长任务，正文写到创作页）
 8. {"tool":"verify_data","args":{"target":"choreo","arc":210}} —— 数据诊断（只读）：target=choreo查编排字段落库情况（弧线总纲+逐场景统计，可带arc过滤单条弧线）；target=trick查手法维度（已拆分镜中trick非空的镜数统计，可带arc过滤）——用于验证新版本功能是否落库。注意：choreo/trick分别是"生成弧线(分组)"和"拆分镜"步骤的产物，重扫场景不会产生它们；choreo缺失应重新分组，trick缺失应重拆分镜
+9. {"tool":"get_styles","args":{"name":"作家名"}} —— 个人风格档案（只读）：无name=列全部档案清单；有name=返回该档案全文。档案=某位"作家"的写作风格记忆（文风/句式/trick偏好/讲法习惯），创作/改编/二创页可选用来注入
+10. {"tool":"collect_style"} —— 汇总当前书表述层语料（只读）：弧线编排总纲样本+场景编排落点+trick维度样本+文风DNA+用户全局要求——供你总结/完善风格档案的素材
+11. {"tool":"update_style","args":{"name":"作家名","content":"档案markdown全文（增量时=旧档案+新条目拼接后的完整版）"}} —— 写入风格档案（需用户确认；同名=追加合并，新名=新建）。用户说"记住这个风格/把X沉淀到作家档案"时使用：先get_styles读旧档，再拼好全文调本工具
 规则：一次只发一个指令，发出后停止等待结果；任务完成后用自然语言汇报结果；用户闲聊/问功能时不要发指令。
 ''';
 
@@ -47,7 +50,7 @@ const String agentToolDoc = '''
 }
 
 /// 是否写类工具（需确认）
-const List<String> writeTools = ['switch_book', 'start_batch_shots'];
+const List<String> writeTools = ['switch_book', 'start_batch_shots', 'update_style'];
 
 /// 执行工具（已过确认环节）
 Future<AgentToolResult> runTool(AppState state, String tool,
@@ -186,6 +189,92 @@ Future<AgentToolResult> runTool(AppState state, String tool,
       final ok = await state.continueWriteStarter!('$arc', sc);
       return AgentToolResult(tool, ok,
           ok ? '弧线$arc场景${sc + 1}续写正文已完成（结果在创作页）' : '创作失败（场景不存在或生成报错，详情见终端）');
+    case 'get_styles': // v951：个人风格档案（只读）
+      final name = (args['name'] ?? '').toString().trim();
+      if (state.styleProfiles.isEmpty) {
+        return AgentToolResult(tool, true,
+            '风格档案为空（可用collect_style取语料后，update_style新建第一个档案）');
+      }
+      if (name.isEmpty) {
+        final lines = state.styleProfiles
+            .map((s) =>
+                '「${s['name']}」（${s['updatedAt']}更新，${s['content']?.length ?? 0}字）')
+            .join('\n');
+        return AgentToolResult(
+            tool, true, '共${state.styleProfiles.length}个风格档案：\n$lines\n（带name参数可看全文）');
+      }
+      final hit = state.styleProfiles.firstWhere(
+        (s) => s['name'] == name,
+        orElse: () => {},
+      );
+      if (hit.isEmpty) {
+        return AgentToolResult(
+            tool, false, '无「$name」档案（get_styles无参列清单核对）');
+      }
+      return AgentToolResult(tool, true, '【${hit['name']}】\n${hit['content']}');
+    case 'collect_style': // v951：表述层语料汇总（总结风格档案的素材）
+      final buf = <String>[];
+      // 弧线编排总纲（取前3条样本）
+      var choreoN = 0;
+      for (final a in state.allArcs) {
+        if (choreoN >= 3) break;
+        final ch = state.arcAnalyses[a.number.toString()]
+                ?.metadata?['arc_choreo']
+                ?.toString() ??
+            '';
+        if (ch.isNotEmpty) {
+          buf.add('【弧线${a.number}编排总纲】${ch.length > 300 ? ch.substring(0, 300) : ch}');
+          choreoN++;
+        }
+      }
+      // 场景编排+trick样本（取前4条）
+      var sampleN = 0;
+      for (final a in state.allArcs) {
+        if (sampleN >= 4) break;
+        final an = state.arcAnalyses[a.number.toString()];
+        for (final sc in an?.scenes ?? const <Scene>[]) {
+          if (sampleN >= 4) break;
+          if (sc.choreo.isNotEmpty) {
+            buf.add('【场景编排样本】弧线${a.number}${sc.name}：${sc.choreo.length > 200 ? sc.choreo.substring(0, 200) : sc.choreo}');
+            sampleN++;
+          }
+          for (final sh in sc.shots) {
+            if (sampleN >= 4) break;
+            if (sh.trick.isNotEmpty) {
+              buf.add('【trick样本】弧线${a.number}${sc.name}分镜：${sh.trick}');
+              sampleN++;
+            }
+          }
+        }
+      }
+      // 文风DNA
+      final styleDna = state.arcAnalyses.values
+          .map((a) => a.metadata?['style_dna']?.toString() ?? '')
+          .where((s) => s.isNotEmpty)
+          .take(2)
+          .join('\n');
+      if (styleDna.isNotEmpty) buf.add('【文风DNA】$styleDna');
+      // 用户全局要求
+      final req = state.worldBook?.requirements.trim() ?? '';
+      if (req.isNotEmpty) {
+        buf.add('【用户全局要求】${req.length > 400 ? req.substring(0, 400) : req}');
+      }
+      if (buf.isEmpty) {
+        return AgentToolResult(tool, true,
+            '当前书暂无表述层语料（编排/trick/文风DNA均空）——先拆分镜或跑分析编排');
+      }
+      return AgentToolResult(tool, true,
+          '语料汇总（${buf.length}段，供总结风格档案）：\n${buf.join('\n\n')}');
+    case 'update_style': // v951：写风格档案（写类，已过确认）
+      final name = (args['name'] ?? '').toString().trim();
+      final content = (args['content'] ?? '').toString().trim();
+      if (name.isEmpty || content.isEmpty) {
+        return AgentToolResult(tool, false, '缺少name或content参数');
+      }
+      final existed = state.styleProfiles.any((s) => s['name'] == name);
+      state.upsertStyleProfile(name, content);
+      return AgentToolResult(tool, true,
+          '${existed ? "已合并进" : "已新建"}风格档案「$name」（现${state.styleProfiles.firstWhere((s) => s['name'] == name)['content']?.length ?? 0}字）');
     case 'start_batch_shots':
       if (state.batchShotStarter == null) {
         return AgentToolResult(tool, false,
