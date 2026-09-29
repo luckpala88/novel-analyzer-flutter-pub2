@@ -201,6 +201,18 @@ class _AdaptPageState extends State<AdaptPage>
     return out.join('\n');
   }
 
+  /// v936：场景框架编排段代码级兜底——v934在system prompt规定了"编排："段
+  /// 且user侧v931已喂sc['choreo']，但AI实测仍漏写（用户实测条目无编排段）；
+  /// 机器能查的走代码：块内无"编排："且原著choreo非空时代码原样拼进块尾
+  /// （弧线级v935同法——原著讲法照搬，改编适配留给分镜阶段执行）
+  String _ensureSceneChoreo(
+      String frameContent, String sceneChoreo, int sceneIdx) {
+    final c = sceneChoreo.trim();
+    if (c.isEmpty || frameContent.contains('编排：')) return frameContent;
+    _addLog('↩ 场景${sceneIdx + 1}：AI漏写编排段，代码级补入（${c.length}字）');
+    return '${frameContent.trimRight()}\n编排：$c';
+  }
+
   /// 弧线条目content追加场景框架（插到九件套【世界观设定】前）
   bool _appendSceneToArcEntry(
     AppState state,
@@ -5941,7 +5953,8 @@ return true;
           final mergedFrame = _appendSceneToArcEntry(
             state,
             arcKey,
-            frameContent,
+            _ensureSceneChoreo(
+                frameContent, (scene.choreo ?? '').toString(), si),
           );
           if (!mergedFrame) {
             _addLog('❌ 场景${si + 1}框架追加失败（弧线条目未找到）——停机');
@@ -6356,7 +6369,13 @@ return true;
           _addLog('❌ 场景${sceneIdx + 1}框架解析失败');
           return;
         }
-        final mergedFrame = _appendSceneToArcEntry(state, arcKey, frameContent);
+        final mergedFrame = _appendSceneToArcEntry(
+            state,
+            arcKey,
+            _ensureSceneChoreo(
+                frameContent,
+                (scenes[sceneIdx].choreo ?? '').toString(),
+                sceneIdx));
         if (!mergedFrame) {
           _addLog('❌ 场景${sceneIdx + 1}框架追加失败，终止');
           return;
