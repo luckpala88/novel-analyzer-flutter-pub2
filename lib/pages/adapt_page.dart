@@ -2709,7 +2709,8 @@ return true;
       _addLog('🧩 分镜规划中（场景$nextNum，弧线$arcKey）…');
       final result = await state.api.callApi(
         task: '续写分镜规划',
-        systemPrompt: PromptBuilder.buildContinueShotPlanSystemPrompt(),
+        systemPrompt: PromptBuilder.buildContinueShotPlanSystemPrompt() +
+            state.writerStyleBlock, // v954：作家风格卡注入（新场景结构规划也学讲法）
         userPrompt: PromptBuilder.buildContinueShotPlanUserPrompt(
           entryBrief: entryBrief,
           corpus: state.continueCorpus(arcKey),
@@ -3786,6 +3787,7 @@ return true;
                     onTap: () =>
                         state.setWbPromptPreview(!state.wbPromptPreview),
                   ),
+                  writerStyleButton(context, state), // v954：作家风格选择（改编模式补齐）
                   MiniButton(
                     label: (state.worldBook?.nameMapping.isNotEmpty ?? false)
                         ? '映射表✓'
@@ -5750,10 +5752,13 @@ return true;
       } else if (incremental && _arcEntryKey(state, arcKey) != null) {
         _addLog('弧线${arc.number}条目已存在（增量模式跳过弧线总结）');
       } else {
-        final summarySys = PromptBuilder.buildArcSummaryEntrySystemPrompt(
+        var summarySys = PromptBuilder.buildArcSummaryEntrySystemPrompt(
           deduce,
           hasRequirements: hasReq,
         );
+        if (hasReq) {
+          summarySys += state.writerStyleBlock; // v954：改编模式注入风格卡（原样整理模式不注）
+        }
         final bibleAtA = state.worldBook?.adaptBible.trim() ?? ''; // v621
         final summaryUser = PromptBuilder.buildArcSummaryEntryUserPrompt(
           arcItem,
