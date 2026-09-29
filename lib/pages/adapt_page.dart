@@ -1840,9 +1840,9 @@ return true;
                 Tab(text: '分镜续写'),
               ],
               labelStyle: const TextStyle(fontSize: 12),
-              labelColor: const Color(0xFF8B6914),
-              unselectedLabelColor: const Color(0xFF9A8B80),
-              indicatorColor: const Color(0xFF8B6914),
+              labelColor: const Color(0xFF2C5E8E),
+              unselectedLabelColor: const Color(0xFF5B7A99),
+              indicatorColor: const Color(0xFF2C5E8E),
             ),
             Expanded(
               child: TabBarView(
@@ -2075,7 +2075,7 @@ return true;
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFFD8CDBA)),
+        border: Border.all(color: const Color(0xFFB8CFE5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2152,7 +2152,7 @@ return true;
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFFD8CDBA)),
+        border: Border.all(color: const Color(0xFFB8CFE5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2170,7 +2170,7 @@ return true;
                 Text(' 🧩AI规划',
                     style: TextStyle(
                         fontSize: _cf(10),
-                        color: const Color(0xFF8B6914),
+                        color: const Color(0xFF2C5E8E),
                         fontWeight: FontWeight.w600)), // v783：非正文生成标志
               if (an == null && arc.status == 'generated')
                 Padding(
@@ -2207,7 +2207,7 @@ return true;
             SelectableText(
               _brief(arc.summary, 250),
               style: TextStyle(
-                  fontSize: _cf(11.5), color: const Color(0xFF9A8B80), height: 1.4),
+                  fontSize: _cf(11.5), color: const Color(0xFF5B7A99), height: 1.4),
             )
           else if (an == null)
             Text(
@@ -2218,7 +2218,7 @@ return true;
             SelectableText(
               overview.isEmpty ? '（无概述）' : overview,
               style: TextStyle(
-                  fontSize: _cf(11.5), color: const Color(0xFF9A8B80), height: 1.4),
+                  fontSize: _cf(11.5), color: const Color(0xFF5B7A99), height: 1.4),
             ),
         ],
       ),
@@ -2241,7 +2241,7 @@ return true;
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFFD8CDBA)),
+        border: Border.all(color: const Color(0xFFB8CFE5)),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -2249,8 +2249,8 @@ return true;
           tilePadding: const EdgeInsets.symmetric(horizontal: 8),
           childrenPadding:
               const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          backgroundColor: const Color(0xFFF6F3EC),
-          collapsedBackgroundColor: const Color(0xFFF6F3EC),
+          backgroundColor: Colors.white,
+          collapsedBackgroundColor: Colors.white,
           title: Row(
             children: [
               Expanded(
@@ -2264,7 +2264,7 @@ return true;
                 Text(' 🧩AI规划',
                     style: TextStyle(
                         fontSize: _cf(10),
-                        color: const Color(0xFF8B6914),
+                        color: const Color(0xFF2C5E8E),
                         fontWeight: FontWeight.w600)), // v783：非正文生成标志
               if (sliceText.isNotEmpty)
                 MiniButton(
@@ -2286,7 +2286,7 @@ return true;
                     child: SelectableText(arc.summary,
                         style: TextStyle(
                             fontSize: _cf(11),
-                            color: const Color(0xFF9A8B80),
+                            color: const Color(0xFF5B7A99),
                             height: 1.4)),
                   ),
                 ),
@@ -2333,7 +2333,7 @@ return true;
                       overview.isEmpty ? '（无概述）' : overview,
                       style: TextStyle(
                           fontSize: _cf(11),
-                          color: const Color(0xFF9A8B80),
+                          color: const Color(0xFF5B7A99),
                           height: 1.4),
                     ),
                   ),
@@ -2486,8 +2486,14 @@ return true;
         ),
       ));
     }
-    return Card(
+    // v962：结构统一分镜续写页卡片样式（颜色照旧=续写浅蓝系）
+    return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFB8CFE5)),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(8),
         child: Column(
@@ -2614,7 +2620,7 @@ return true;
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFFD8CDBA)),
+        border: Border.all(color: const Color(0xFFB8CFE5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -4145,8 +4151,15 @@ return true;
     // 该弧线的场景列表
     final scenes = _arcScenesOf(state, arcKey); // v904b
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    // v962：结构统一分镜续写页卡片样式（白底+细边框+圆角6无阴影），
+    // 颜色照旧=改编页金棕系
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFE0CB8C)),
+      ),
       child: Column(
         children: [
           // 弧线头部（点击折叠/展开）
