@@ -3002,7 +3002,24 @@ return true;
     setState(() => _isGenerating = true);
     try {
       _addLog('➕ 生成世界书新弧线条目（弧线$newNum，依据设定与前文推演）…');
-      final prevCtx = _continueCtx(state, arc?.number.toString() ?? '$newNum');
+      // v955用户裁决：衔接前文唯一来源=前一弧线（newNum-1）分镜页场景数据（拆解链）；
+      // 禁止从已创作正文/原著切片乱取——取不到直接终止提示（数据流纯粹性零容忍）
+      final prevNum = newNum - 1;
+      final prevScenes =
+          state.arcAnalyses['$prevNum']?.scenes ?? state.arcScenes['$prevNum'] ?? const [];
+      if (prevScenes.isEmpty) {
+        _addLog('❌ 取不到弧线$prevNum前文（分镜页无场景数据）——请先完成该弧线的扫描/场景拆解，已终止');
+        setState(() => _isGenerating = false);
+        return;
+      }
+      final lastSc = prevScenes.last;
+      final shotPts = lastSc.shots
+          .map((s) => s.focus)
+          .where((f) => f.trim().isNotEmpty)
+          .take(5)
+          .join('｜');
+      final prevCtx =
+          '【衔接锚点·弧线$prevNum最后场景（${lastSc.name}）】\n${lastSc.summary.isEmpty ? '' : '概述：${lastSc.summary}\n'}${shotPts.isEmpty ? '' : '分镜要点：$shotPts\n'}该弧线共${prevScenes.length}场景，新弧线从此处剧情自然承接。';
       // v805：弧线条目不再生成场景清单（用户定稿：场景规划唯一入口=场景续写页工作台，
       // 避免条目清单与工作台规划两套数据乱套）
       final sys = '你是原著续写作家。世界书=原样原著（全原名）。任务：为长篇规划一条全新的续写弧线，'
@@ -3018,7 +3035,8 @@ return true;
           '⚠️ 禁止输出任何场景清单（场景规划在场景续写页单独进行）\n'
           '人名一律沿用原著原名；必须从当前进度自然衔接；禁止输出解释性文字。';
       final usr = '【续写方向】\n${_continueReqSource(state).isEmpty ? '（未填写，按故事逻辑自然推进）' : _continueReqSource(state)}\n\n'
-          '【续写语料（锚点/本弧线零件/已规划场景/前情概述/未回收伏笔/人物基准——人物与设定以此为准，禁止另起炉灶）】\n${state.continueCorpus('$newNum')}\n\n'
+          '$prevCtx\n\n'
+          '【续写语料（本弧线零件/前情概述/未回收伏笔/人物基准——人物与设定以此为准，禁止另起炉灶）】\n${state.continueCorpus('$newNum', includeAnchor: false)}\n\n'
           '【新弧线编号】N=$newNum';
       // v783：词链检查（wbPromptPreview开启时弹预览确认）
       final okSend = await PromptPreview.maybePreview(
