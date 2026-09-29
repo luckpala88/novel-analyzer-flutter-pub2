@@ -383,11 +383,20 @@ class _ChatPageState extends State<ChatPage>
     final sess = state.chatActive;
     if (sess == null || _sending) return;
 
+    // v953：聚焦作家——选中后注入该档案全文+完善训练令（聊天即训练场）
+    final focusStyle = state.selectedWriterStyle.isEmpty
+        ? ''
+        : '\n\n${state.writerStyleBlock}'
+            '【当前任务：完善作家「${state.selectedWriterStyle}」的风格档案】'
+            '讨论写作技巧时结合该档案已有的条目展开；发现值得沉淀的新心得'
+            '（用户认可的写法/有效的trick用法）主动建议"要不要记进档案"；'
+            '用户要求记录/修订时，先get_styles读旧档，再update_style提交合并版。\n';
+
     final sys = '你是网文创作搭子，与作者自由聊天：可以讨论剧情/人物/设定/写作技巧，'
         '也可以闲聊；同时你是本APP「网文拆解器」的功能助手，作者问APP功能/选项/流程时按下助手手册解答，'
         '手册没写的不要编。回答直接自然，不需要客套。当前书目：${state.currentBook}'
         '${state.chapters.isNotEmpty ? '（共${state.chapters.length}章）' : ''}。\n\n'
-        '${PromptBuilderHelp.appHelpDoc}\n\n$agentToolDoc';
+        '${PromptBuilderHelp.appHelpDoc}\n\n$agentToolDoc$focusStyle';
 
     // v838：文本类附件注入prompt（图片走vision）；文本上限60KB防prompt爆炸
     String textAll = text;
@@ -581,6 +590,7 @@ class _ChatPageState extends State<ChatPage>
           ),
         ]),
         actions: [
+          writerStyleButton(context, state), // v953：聚焦作家（聊天即训练场）
           MiniButton(label: '⇅', onTap: () => _exportImportMenu(state)),
           MiniButton(
               label: '新建',
