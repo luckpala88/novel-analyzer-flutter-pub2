@@ -1380,28 +1380,7 @@ const SizedBox(width: 8),
                 ),
               ),
               const SizedBox(width: 6),
-              if (hasShots)
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      if (isExpanded) {
-                        _expandedShots.remove(foldKey);
-                      } else {
-                        _expandedShots.add(foldKey);
-                      }
-                    });
-                    _saveUiState();
-                  },
-                  child: Text(
-                    '${isExpanded ? '▼' : '▶'} ${shots.length}分镜',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: V469Style.accent,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                )
-              else
+              if (!hasShots)
                 V469Style.badge(
                   '未拆分镜',
                   V469Style.textMuted,
@@ -1473,6 +1452,49 @@ const SizedBox(width: 8),
           if (analyzedScene?.choreo.isNotEmpty == true) ...[
             ..._buildSceneChoreoBlock(analyzedScene!),
           ],
+          // v947b：折叠键独立行（分镜1上方——不跟场景标题挤按钮行，对齐世界书页v946）
+          if (hasShots)
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  if (isExpanded) {
+                    _expandedShots.remove(foldKey);
+                  } else {
+                    _expandedShots.add(foldKey);
+                  }
+                });
+                _saveUiState();
+              },
+              child: Container(
+                margin: const EdgeInsets.only(top: 3, bottom: 1),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: V469Style.surfaceAlt,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      isExpanded ? '▼' : '▶',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: V469Style.accent,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '分镜/Shots ${shots.length} 条',
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        color: V469Style.textSec,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           if (hasShots && isExpanded)
             ...shots.asMap().entries.map((entry) {
               final shi = entry.key;

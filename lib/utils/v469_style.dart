@@ -71,6 +71,8 @@ class V469Style {
     if (_m(l, ['投放', 'info'])) return ('📋', const Color(0xFF475569));
     if (_m(l, ['意图', 'intent'])) return ('💡', const Color(0xFF92400E));
     if (_m(l, ['转场', 'transition'])) return ('✂️', const Color(0xFF0F766E));
+    // v947：手法(Trick)维度——与分镜页统一(🃏+琥珀色)，中文名显示为镜内表述策略
+    if (_m(l, ['镜内表述策略', '手法', 'trick'])) return ('🃏', const Color(0xFFB45309));
     if (_m(l, ['篇幅', 'length'])) return ('📏', const Color(0xFF7C3AED));
     if (_m(l, ['文笔节奏', 'prose_style', '文笔']))
       return ('✍', const Color(0xFFDB2777));
@@ -123,7 +125,11 @@ class V469Style {
     final l = raw.trim();
     final pm = RegExp(r'^(.{1,20}?)\s*[(（]([A-Za-z][A-Za-z /]{1,24})[)）]$')
         .firstMatch(l);
-    if (pm == null) return l;
+    if (pm == null) {
+      // v947：中文名统一——手法/Trick显示为镜内表述策略/Trick（与分镜页一致）
+      if (l == '手法/Trick') return '镜内表述策略/Trick';
+      return l;
+    }
     return '${pm.group(1)}/${pm.group(2)}';
   }
 
