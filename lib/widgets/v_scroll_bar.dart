@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
@@ -20,16 +22,21 @@ class _ImmediateDrag extends VerticalDragGestureRecognizer {
 ///   补一帧重建
 /// - build全程try/catch：任何首帧布局怪癖(约束未定/极端尺寸)一律降级
 ///   为无滚动条,绝不喷红字(用户实测"重启满屏红字,点API设置重排后消失")
+///
+/// v949：交互重构（用户实测：宽命中区+点轨道跳转+常显=三重误触源）
+/// - 贴最右侧（right:2），命中区收窄=视觉宽28
+/// - 点轨道不再跳转——只拖滑块（删onTapUp轨道层）
+/// - 无滚动动作2秒后自动淡出；隐藏时IgnorePointer防幽灵命中，滚动即现
 class VScrollBar extends StatefulWidget {
   final ScrollController ctl;
   final double thickness; // 视觉宽度
-  final double hitWidth; // 命中区宽度(大于视觉宽度,手指友好)
+  final double hitWidth; // 命中区宽度
 
   const VScrollBar(
     this.ctl, {
     super.key,
-    this.thickness = 28, // v668：宽度翻倍(14→28),手指好按
-    this.hitWidth = 40,
+    this.thickness = 28,
+    this.hitWidth = 28, // v949：命中区=视觉宽（旧40易误触）
   });
 
   @override
@@ -37,10 +44,14 @@ class VScrollBar extends StatefulWidget {
 }
 
 class _VScrollBarState extends State<VScrollBar> {
+  bool _visible = true; // v949：自动隐藏态
+  Timer? _hideTimer;
+
   @override
   void initState() {
     super.initState();
     widget.ctl.addListener(_onScroll);
+    _reshow(); // 初始显示2秒后淡出
     _scheduleRebuild();
   }
 
@@ -50,12 +61,25 @@ class _VScrollBarState extends State<VScrollBar> {
     if (old.ctl != widget.ctl) {
       old.ctl.removeListener(_onScroll);
       widget.ctl.addListener(_onScroll);
+      _reshow();
       _scheduleRebuild();
     }
   }
 
+  /// v949：显示+重置2秒隐藏计时（可取消Timer——滚动高频回调不堆叠delay）
+  void _reshow() {
+    _hideTimer?.cancel();
+    if (!mounted) return;
+    if (!_visible) setState(() => _visible = true);
+    _hideTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _visible = false);
+    });
+  }
+
   void _onScroll() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    _reshow();
+    setState(() {});
   }
 
   void _scheduleRebuild() {
@@ -66,6 +90,7 @@ class _VScrollBarState extends State<VScrollBar> {
 
   @override
   void dispose() {
+    _hideTimer?.cancel();
     widget.ctl.removeListener(_onScroll);
     super.dispose();
   }
@@ -108,52 +133,52 @@ class _VScrollBarState extends State<VScrollBar> {
     var top = (pos.pixels / maxScroll) * (trackH - thumbH);
     top = top.isFinite ? top.clamp(0.0, trackH - thumbH) : 0.0;
     final cs = Theme.of(context).colorScheme;
-    return SizedBox(
-      width: widget.hitWidth,
-      child: Stack(
-        children: [
-          // 轨道点按跳转
-          Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTapUp: (d) {
-                final ratio =
-                    (d.localPosition.dy / trackH).clamp(0.0, 1.0);
-                ctl.jumpTo(ratio * maxScroll);
-              },
-            ),
-          ),
-          // 拇指拖拽（按下即赢）
-          // v669：右移出系统边缘手势区——贴右缘会误触成系统右滑返回
-          Positioned(
-            top: top,
-            right: 10,
-            child: RawGestureDetector(
-              behavior: HitTestBehavior.opaque,
-              gestures: {
-                _ImmediateDrag:
-                    GestureRecognizerFactoryWithHandlers<_ImmediateDrag>(
-                  () => _ImmediateDrag(),
-                  (instance) {
-                    instance.onUpdate = (d) {
-                      final scale = maxScroll / (trackH - thumbH);
-                      ctl.jumpTo((ctl.offset + d.delta.dy * scale)
-                          .clamp(0.0, maxScroll));
-                    };
+    return IgnorePointer(
+      // v949：隐藏态零命中（幽灵误触根除）
+      ignoring: !_visible,
+      child: AnimatedOpacity(
+        opacity: _visible ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 250),
+        child: SizedBox(
+          width: widget.hitWidth,
+          child: Stack(
+            children: [
+              // v949：轨道点按跳转已删（误触源）——保留透明轨道仅作拇指背景定位
+              const Positioned.fill(child: SizedBox.shrink()),
+              // 拇指拖拽（按下即赢）——v949贴最右(right:2)
+              Positioned(
+                top: top,
+                right: 2,
+                child: RawGestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  gestures: {
+                    _ImmediateDrag:
+                        GestureRecognizerFactoryWithHandlers<_ImmediateDrag>(
+                      () => _ImmediateDrag(),
+                      (instance) {
+                        instance.onUpdate = (d) {
+                          _reshow(); // 拖拽中保持显示
+                          final scale = maxScroll / (trackH - thumbH);
+                          ctl.jumpTo((ctl.offset + d.delta.dy * scale)
+                              .clamp(0.0, maxScroll));
+                        };
+                        instance.onEnd = (_) => _reshow();
+                      },
+                    ),
                   },
-                ),
-              },
-              child: Container(
-                width: widget.thickness,
-                height: thumbH,
-                decoration: BoxDecoration(
-                  color: cs.primary.withOpacity(0.28), // v668：更透更浅,不抢内容视线
-                  borderRadius: BorderRadius.circular(7),
+                  child: Container(
+                    width: widget.thickness,
+                    height: thumbH,
+                    decoration: BoxDecoration(
+                      color: cs.primary.withOpacity(0.28),
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
