@@ -1840,9 +1840,9 @@ return true;
                 Tab(text: '分镜续写'),
               ],
               labelStyle: const TextStyle(fontSize: 12),
-              labelColor: const Color(0xFF2C5E8E),
-              unselectedLabelColor: const Color(0xFF5B7A99),
-              indicatorColor: const Color(0xFF2C5E8E),
+              labelColor: const Color(0xFF8B6914),
+              unselectedLabelColor: const Color(0xFF9A8B80),
+              indicatorColor: const Color(0xFF8B6914),
             ),
             Expanded(
               child: TabBarView(
@@ -2075,7 +2075,7 @@ return true;
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFFB8CFE5)),
+        border: Border.all(color: const Color(0xFFD8CDBA)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2152,7 +2152,7 @@ return true;
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFFB8CFE5)),
+        border: Border.all(color: const Color(0xFFD8CDBA)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2170,7 +2170,7 @@ return true;
                 Text(' 🧩AI规划',
                     style: TextStyle(
                         fontSize: _cf(10),
-                        color: const Color(0xFF2C5E8E),
+                        color: const Color(0xFF8B6914),
                         fontWeight: FontWeight.w600)), // v783：非正文生成标志
               if (an == null && arc.status == 'generated')
                 Padding(
@@ -2207,7 +2207,7 @@ return true;
             SelectableText(
               _brief(arc.summary, 250),
               style: TextStyle(
-                  fontSize: _cf(11.5), color: const Color(0xFF5B7A99), height: 1.4),
+                  fontSize: _cf(11.5), color: const Color(0xFF9A8B80), height: 1.4),
             )
           else if (an == null)
             Text(
@@ -2218,7 +2218,7 @@ return true;
             SelectableText(
               overview.isEmpty ? '（无概述）' : overview,
               style: TextStyle(
-                  fontSize: _cf(11.5), color: const Color(0xFF5B7A99), height: 1.4),
+                  fontSize: _cf(11.5), color: const Color(0xFF9A8B80), height: 1.4),
             ),
         ],
       ),
@@ -2241,7 +2241,7 @@ return true;
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFFB8CFE5)),
+        border: Border.all(color: const Color(0xFFD8CDBA)),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -2249,8 +2249,8 @@ return true;
           tilePadding: const EdgeInsets.symmetric(horizontal: 8),
           childrenPadding:
               const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          backgroundColor: Colors.white,
-          collapsedBackgroundColor: Colors.white,
+          backgroundColor: const Color(0xFFF6F3EC),
+          collapsedBackgroundColor: const Color(0xFFF6F3EC),
           title: Row(
             children: [
               Expanded(
@@ -2264,7 +2264,7 @@ return true;
                 Text(' 🧩AI规划',
                     style: TextStyle(
                         fontSize: _cf(10),
-                        color: const Color(0xFF2C5E8E),
+                        color: const Color(0xFF8B6914),
                         fontWeight: FontWeight.w600)), // v783：非正文生成标志
               if (sliceText.isNotEmpty)
                 MiniButton(
@@ -2286,7 +2286,7 @@ return true;
                     child: SelectableText(arc.summary,
                         style: TextStyle(
                             fontSize: _cf(11),
-                            color: const Color(0xFF5B7A99),
+                            color: const Color(0xFF9A8B80),
                             height: 1.4)),
                   ),
                 ),
@@ -2333,7 +2333,7 @@ return true;
                       overview.isEmpty ? '（无概述）' : overview,
                       style: TextStyle(
                           fontSize: _cf(11),
-                          color: const Color(0xFF5B7A99),
+                          color: const Color(0xFF9A8B80),
                           height: 1.4),
                     ),
                   ),
@@ -2614,7 +2614,7 @@ return true;
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFFB8CFE5)),
+        border: Border.all(color: const Color(0xFFD8CDBA)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
