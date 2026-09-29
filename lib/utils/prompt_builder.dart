@@ -2465,6 +2465,9 @@ class PromptBuilder {
     sb.writeln('## 已生成的改编后场景条目（新场景内容以它为准）');
     sb.writeln(entryContent);
     sb.writeln();
+    sb.writeln('## ⚠️ 三层编排学习令（v939，最高优先级执行令）');
+    sb.writeln('上面的场景条目含"编排："段=本场景分镜的入口/节奏链/详略取舍/落点硬约束；弧线总结（下方有则参照）含【弧线内场景编排策略】段=整条弧线的张力曲线与功能链——两段都是表述层核心学习对象，本场景全部分镜必须逐条学习执行：分镜的讲法对齐编排设计，事件骨架冲突时调骨架保讲法。禁止无视编排段自由发挥');
+    sb.writeln();
     if (cast.isNotEmpty) {
       sb.writeln('## 已改编的弧线总结（⚠️既成事实，分镜必须在其上生长——');
       sb.writeln('新世界观/新人设卡（含映射表）/新冲突/新伏笔一律沿用此处内容）');
@@ -2681,6 +2684,8 @@ class PromptBuilder {
     final sb = StringBuffer();
     sb.writeln('## 已生成的改编后条目（第一步成果——新场景内容以它为准）');
     sb.writeln(entryContent);
+    sb.writeln();
+    sb.writeln('## ⚠️ 三层编排学习令（v939）：条目含"编排："段=本场景分镜的入口/节奏链/详略取舍/落点硬约束，全部分镜必须逐条学习执行（讲法对齐编排，冲突时调骨架保讲法），禁止无视编排段自由发挥');
     sb.writeln();
     if (declaration.isNotEmpty) {
       sb.writeln('## 弧线改编声明（必须严格遵守——禁令和行为模式）');
