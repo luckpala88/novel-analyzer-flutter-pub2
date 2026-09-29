@@ -430,10 +430,13 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
     final tail = <String>[];
     final sceneRe = RegExp(r'^[^\u4e00-\u9fa5\n]*场[景面]?\s*(\d+)\s*[：:】\]]');
     final overviewRe = RegExp(r'^[^\u4e00-\u9fa5\n]*概[述说][：:]');
+    // v938：编排段提取常显——v936/v937编排已落库但解析器不认"编排："行，
+    // 落进lines分镜明细折叠区=场景块常显区看不见（用户实测截图实锤）
+    final choreoRe = RegExp(r'^[^\u4e00-\u9fa5\n]*编排[：:]');
     for (final raw in lines) {
       final t = raw.trim();
       if (sceneRe.hasMatch(t)) {
-        scenes.add({'header': t, 'overview': '', 'lines': <String>[]});
+        scenes.add({'header': t, 'overview': '', 'choreo': '', 'lines': <String>[]});
       } else if (scenes.isEmpty) {
         // 场景前的概述/改编说明进head（条目头部常显）
         head.add(raw);
@@ -441,6 +444,9 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
         // 概述行单独提取常显（不折进分镜明细）
         if (overviewRe.hasMatch(t) && scenes.last['inTail'] != true) {
           scenes.last['overview'] = t.replaceFirst(overviewRe, '').trim();
+        } else if (choreoRe.hasMatch(t) && scenes.last['inTail'] != true) {
+          // v938：编排行单独提取常显（场景级表述层核心数据，不折叠）
+          scenes.last['choreo'] = t.replaceFirst(choreoRe, '').trim();
         } else if (_isTailSection(t)) {
           tail.add(raw);
           scenes.last['inTail'] = true;
@@ -546,6 +552,38 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
                   ),
                   TextSpan(
                     text: overview.replaceFirst(RegExp(r'^概[述说][：:]\s*'), ''),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      height: 1.4,
+                      color: V469Style.textMain,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+      // v938：编排段常显（概述下方——场景级表述层核心数据，对齐概述不折叠）
+      final choreoTxt = (sc['choreo'] as String?) ?? '';
+      if (choreoTxt.isNotEmpty) {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(left: 8, top: 2),
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: '🎬 编排：',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF475569),
+                      backgroundColor: const Color(0xFFFEF3C7).withOpacity(0.6),
+                    ),
+                  ),
+                  TextSpan(
+                    text: choreoTxt,
                     style: const TextStyle(
                       fontSize: 11,
                       height: 1.4,
