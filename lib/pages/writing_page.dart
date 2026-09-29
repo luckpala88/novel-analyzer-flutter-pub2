@@ -17,6 +17,7 @@ import '../state/app_state.dart';
 import '../models/writing.dart';
 import '../models/arc.dart'; // v792
 import '../models/api_config.dart';
+import '../services/api_service.dart' show ApiResult;
 import '../utils/prompt_builder.dart';
 import '../widgets/v_scroll_bar.dart'; // v792
 import '../utils/prompt_preview.dart';
@@ -578,7 +579,9 @@ class _WritingPageState extends State<WritingPage>
       }
       final sys = PromptBuilder.buildSingleShotWriteSystemPrompt(
         strategyBlock: _buildStrategyBlock(state, w.arcKey, w.sceneIdx),
-      ); // v879：策略库注入
+      ) +
+          state.writerStyleBlock +
+          PromptBuilder.styleNoteAsk; // v879：策略库注入+v952风格卡+搭便车沉淀
       final user = PromptBuilder.buildSingleShotWriteUserPrompt(
         sceneHeader: sceneHeader,
         shotInfo: structText,
@@ -974,6 +977,8 @@ class _WritingPageState extends State<WritingPage>
                       !state.writingShotByShot,
                     ),
                   ),
+                  const SizedBox(width: 5),
+                  writerStyleButton(context, state), // v952：作家风格选择
                   const SizedBox(width: 5),
                   MiniButton(
                     label: '原范文',
@@ -2598,7 +2603,9 @@ class _WritingPageState extends State<WritingPage>
       }
       final sys = PromptBuilder.buildSingleShotWriteSystemPrompt(
         strategyBlock: _buildStrategyBlock(state, arcKey, si),
-      ); // v879：策略库注入
+      ) +
+          state.writerStyleBlock +
+          PromptBuilder.styleNoteAsk; // v879：策略库+v952风格卡+搭便车沉淀
       final user = PromptBuilder.buildSingleShotWriteUserPrompt(
         sceneHeader: sceneHead,
         shotInfo: shotBlock, // 整镜结构块（分镜头行+维度行）作生成依据
@@ -2950,7 +2957,9 @@ class _WritingPageState extends State<WritingPage>
           state.writingFreeMode && state.writingFreeContinue;
       final String systemPrompt;
       if (isContinue) {
-        systemPrompt = PromptBuilder.buildContinueWritingSystemPrompt();
+        systemPrompt = PromptBuilder.buildContinueWritingSystemPrompt() +
+            state.writerStyleBlock +
+            PromptBuilder.styleNoteAsk; // v952：续写链+风格卡+搭便车沉淀
         _addLog('🟦 续写创作链：独立续写system prompt（无分镜逻辑）');
       } else {
         var sp = PromptBuilder.buildWritingSystemPrompt(
@@ -2958,7 +2967,9 @@ class _WritingPageState extends State<WritingPage>
         );
         // v545：自由改编——系统prompt末尾追加覆盖令（v816：仅改编链）
         if (effectiveFree) sp += PromptBuilder.freeModeOverride();
-        systemPrompt = sp;
+        systemPrompt = sp +
+            state.writerStyleBlock +
+            PromptBuilder.styleNoteAsk; // v952：风格卡+搭便车沉淀
         _addLog('🟧 改编创作链：改编system prompt${effectiveFree ? '（自由改编覆盖令）' : '（沿分镜）'}');
       }
       // v469对齐：前一场景正文结尾300字（衔接用）
@@ -3189,8 +3200,10 @@ class _WritingPageState extends State<WritingPage>
         if (shotByShotContent != null) {
         // v503c：内存content保留结构态（穿插渲染靠分镜头/场景头行）——
         // v415误剥回归修正：磁盘txt在下方txtContent单独剥，结构不进磁盘
+        final (noteBody, styleNote) = state.stripStyleNote(shotByShotContent);
+        if (styleNote.isNotEmpty) state.depositStyleNote(styleNote);
         final cleanContent = TextCleaner.decodeLiteralNewlines(
-          TextCleaner.stripDecorativeEmoji(shotByShotContent),
+          TextCleaner.stripDecorativeEmoji(noteBody),
         );
           _addLog('逐镜生成完成：${cleanContent.length}字');
           // v548：逐镜草稿复用——实时保存已建draft时就地finalize
@@ -3305,6 +3318,14 @@ class _WritingPageState extends State<WritingPage>
         );
       }
       if (result.isSuccess) {
+        // v952：搭便车剥离——AI尾部<style-note>心得剥出落作家档案（不进正文）
+        final (styleBody, styleNote) = state.stripStyleNote(result.content);
+        if (styleNote.isNotEmpty) {
+          result = ApiResult(
+            content: styleBody,
+          );
+          state.depositStyleNote(styleNote);
+        }
         // 入库清洗：v254先归一化（json/兼容混合输出：字面\n、JSON包装、
         // pair链、游离引号——23735字混合输出直接进正文的实测修复）再剥emoji
         var normalized = TextCleaner.normalizeAiOutput(

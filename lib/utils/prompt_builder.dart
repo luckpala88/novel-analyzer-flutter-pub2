@@ -6,6 +6,14 @@ import 'chinese_number.dart';
 import 'text_cleaner.dart';
 
 class PromptBuilder {
+  /// v952：搭便车收集令——创作/续写正文尾部可选附带风格沉淀（代码剥离，
+  /// 不进正文；无发现则整块省略，零负担）。注入由页面级拼接（风格卡块在
+  /// AppState.writerStyleBlock——prompt_builder不反依赖state防循环import）
+  static const String styleNoteAsk =
+      '\n## 📝 风格沉淀（可选）\n'
+      '若本次写作中发现了值得沉淀的表述心得（某个trick用出了效果/某种句式节奏特别好），'
+      '在正文全部输出完之后，另起一行输出：`<style-note>一句话心得</style-note>`。'
+      '没有值得沉淀的就什么都不加——这块不占篇幅、不影响正文，系统会自动剥离。\n';
   /// v219：笔墨配额维度说明（分镜级注意力量化）
   static const String inkDesc =
       '- ink（笔墨配额）：该分镜原文的**篇幅内部分配**（字数），格式"内容A约N字·内容B约N字"。'

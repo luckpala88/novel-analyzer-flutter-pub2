@@ -1783,6 +1783,7 @@ return true;
                       _addLog('🎭 已切换到改编模式');
                     },
                   ),
+                  writerStyleButton(context, state), // v952：作家风格选择
                   MiniButton(
                     label: '↻ 刷新',
                     onTap: () {
@@ -5942,7 +5943,8 @@ return true;
             deduce,
             hasRequirements: hasReq || sceneReqAll.trim().isNotEmpty,
             jsonMode: config.formatMode == 'json',
-          );
+          ) +
+              state.writerStyleBlock; // v952：风格卡
           final frameUser = PromptBuilder.buildSceneFrameUserPrompt(
             arcItem,
             si,
@@ -6077,7 +6079,8 @@ return true;
               deduce,
               hasRequirements: hasReq || sceneReqAll.trim().isNotEmpty,
               jsonMode: config.formatMode == 'json',
-            );
+            ) +
+                state.writerStyleBlock; // v952：风格卡
             var shotResult = await state.api.callApi(
               systemPrompt: shotSys,
               userPrompt: shotUser,
@@ -6140,7 +6143,8 @@ return true;
             deduce,
             hasRequirements: hasReq || sceneReqAll.trim().isNotEmpty,
             jsonMode: config.formatMode == 'json',
-          );
+          ) +
+              state.writerStyleBlock; // v952：风格卡
           final fillUser = PromptBuilder.buildSceneShotFillUserPrompt(
             entryContent: _sceneBlockFromArcEntry(state, arcKey, si),
             scene: scene.toJson(),
@@ -6377,7 +6381,8 @@ return true;
           deduce,
           hasRequirements: true, // 点了单独改编=明确要改编（v229语义）
           jsonMode: config.formatMode == 'json',
-        );
+        ) +
+            state.writerStyleBlock; // v952：风格卡
         final frameUser = PromptBuilder.buildSceneFrameUserPrompt(
           arcItem,
           sceneIdx,
@@ -6444,7 +6449,8 @@ return true;
         deduce,
         hasRequirements: true,
         jsonMode: config.formatMode == 'json',
-      );
+      ) +
+          state.writerStyleBlock; // v952：风格卡
       final fillUser = PromptBuilder.buildSceneShotFillUserPrompt(
         entryContent: _sceneBlockFromArcEntry(state, arcKey, sceneIdx),
         scene: scene.toJson(),

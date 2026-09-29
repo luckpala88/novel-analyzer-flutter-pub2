@@ -299,3 +299,52 @@ class _AutoExpansionTileState extends State<AutoExpansionTile> {
   }
 }
 
+
+/// v952：作家风格选择按钮（三页复用：创作/改编/二创）——MiniButton显示当前
+/// 作家名（未选="🎭作家"），点击弹底部档案清单（含"不启用"），选定即全局
+/// 生效（state.setWriterStyle持久化，四链sys注入writerStyleBlock）
+Widget writerStyleButton(BuildContext context, dynamic state) {
+  final sel = state.selectedWriterStyle as String;
+  return MiniButton(
+    label: sel.isEmpty ? '🎭作家' : '🎭$sel',
+    primary: sel.isNotEmpty,
+    onTap: () async {
+      final styles = state.styleProfiles as List<Map<String, String>>;
+      final picked = await showModalBottomSheet<String>(
+        context: context,
+        builder: (ctx) => SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(12),
+                child: Text('选择作家风格（全局生效：创作/改编/二创）',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              ),
+              for (final s in styles)
+                ListTile(
+                  dense: true,
+                  title: Text('🎭 ${s['name']}'),
+                  subtitle: Text(
+                      '${s['content']?.length ?? 0}字 · ${s['updatedAt']}',
+                      style: const TextStyle(fontSize: 11)),
+                  trailing: sel == s['name']
+                      ? const Icon(Icons.check, size: 18)
+                      : null,
+                  onTap: () => Navigator.pop(ctx, s['name']),
+                ),
+              const Divider(height: 1),
+              ListTile(
+                dense: true,
+                leading: const Icon(Icons.block, size: 18),
+                title: const Text('不启用', style: TextStyle(fontSize: 13)),
+                onTap: () => Navigator.pop(ctx, ''),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (picked != null) state.setWriterStyle(picked);
+    },
+  );
+}

@@ -261,6 +261,39 @@ class AppState extends ChangeNotifier {
     return s['content'] ?? '';
   }
 
+  /// v952：作家风格卡块（页面级拼进各创作sys——创作/续写/改编框架/分镜填充/
+  /// 二创；未选作家返回空串零开销。维度行硬约束优先于风格卡）
+  String get writerStyleBlock {
+    final s = writerStylePrompt;
+    if (s.isEmpty) return '';
+    return '\n## 🎭 作家风格卡（当前作家：$selectedWriterStyle）\n'
+        '以下是这位作家的风格记忆（文风/句式/trick偏好/讲法习惯），写作时参照执行：\n'
+        '$s\n'
+        '（注：世界书条目的分镜维度行是硬约束，风格卡与之冲突时维度优先）\n';
+  }
+
+  /// v952：剥离AI输出尾部的搭便车风格沉淀块——返回(正文, 心得或空)。
+  /// 心得非空且已选作家→追加进该档案（静默零成本收集）
+  (String, String) stripStyleNote(String text) {
+    final m =
+        RegExp(r'<style-note>([\s\S]*?)</style-note>').firstMatch(text);
+    if (m == null) return (text, '');
+    final note = m.group(1)!.trim();
+    final body = text.replaceFirst(m.group(0)!, '').trimRight();
+    return (body, note);
+  }
+
+  /// v952：搭便车心得落档（选中作家时追加一条记忆条目）
+  void depositStyleNote(String note) {
+    final n = note.trim();
+    if (n.isEmpty || selectedWriterStyle.isEmpty) return;
+    final ts = DateTime.now();
+    final stamp =
+        '${ts.month}/${ts.day} ${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}';
+    upsertStyleProfile(selectedWriterStyle, '- [$stamp] $n');
+    apiLog('🎭 风格沉淀→「$selectedWriterStyle」+1条：$n');
+  }
+
   /// 全局单例引用（页面_addLog不经过build也能写全局日志）
   static AppState instance = AppState();
 
@@ -846,6 +879,8 @@ class AppState extends ChangeNotifier {
     // v313：模仿原文作者开关
     writingImitateAuthor =
         storage.readFile('${p}writing_imitate_author.flag') == 'true';
+    // v952：选中作家风格持久化（全局styles.json里的档案名；''=不启用）
+    selectedWriterStyle = storage.readFile('writer_style.selected') ?? '';
     // v755：防抄袭检测开关（默认开——旧装无flag文件时保持开启）
     writingPlagiarismCheck =
         storage.readFile('${p}writing_plagiarism_check.flag') != 'false';
@@ -1524,6 +1559,13 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// v952：选中作家风格持久化（跨页共享——创作/改编/二创同一位作家）
+  void setWriterStyle(String name) {
+    selectedWriterStyle = name;
+    storage.writeFile('writer_style.selected', name);
+    notifyListeners();
+  }
+
   /// v266：逐镜生成开关持久化
   void setWritingShotByShot(bool v) {
     writingShotByShot = v;
@@ -2167,6 +2209,8 @@ class AppState extends ChangeNotifier {
     'arc_scenes.json', 'narrative_lines.json',
     'report.md', 'report_meta.json', 'worldbook.json',
     'writings.json',
+    'styles.json', // v952：全局作家风格档案（跨书）
+    'writer_style.selected', // v952：选中作家名
     'writing_prompt.txt',
     'writing_scene_prompts.json',
     'writing_attachments.json',

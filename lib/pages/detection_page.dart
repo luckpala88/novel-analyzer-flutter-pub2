@@ -909,6 +909,7 @@ class _DetectionPageState extends State<DetectionPage>
     try {
       final systemPrompt =
           '你是一位网文创作助手。你的任务是根据一创正文、修改意见和素材，进行二次创作（二创），产出一个改进后的版本。\n\n' +
+          state.writerStyleBlock + // v952：作家风格卡注入
           '## 二创原则\n' +
           '1. 以一创正文为基础，不推翻重写，而是改进润色\n' +
           '2. 修改意见优先级最高——逐条落实修改意见中的要求\n' +
@@ -1159,6 +1160,7 @@ class _DetectionPageState extends State<DetectionPage>
                         !state.detectPromptPreview,
                       ),
                     ),
+                    writerStyleButton(context, state), // v952：作家风格选择
                     const Spacer(),
                     // v638：刷新按钮移除（initState+_stateListener签名防抖已自动刷新）
                     MiniButton(label: '选文件', onTap: () => _pickFile(state)),
