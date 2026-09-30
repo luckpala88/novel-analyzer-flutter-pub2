@@ -2663,6 +2663,23 @@ return true;
               ),
             ),
             if (expanded) ...[
+              // v979：弧线概述块（与场景续写层对齐——分镜层也能看到弧线规划内容）
+              if (arc.summary.isNotEmpty) ...[
+                Text('📋 弧线概述',
+                    style: TextStyle(
+                        fontSize: _cf(10.5),
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF2C5E8E))),
+                const SizedBox(height: 2),
+                SelectableText(
+                  _brief(arc.summary, 400),
+                  style: TextStyle(
+                      fontSize: _cf(11),
+                      color: const Color(0xFF5B7A99),
+                      height: 1.4),
+                ),
+                const SizedBox(height: 6),
+              ],
               // 场景列表（分镜状态在场景下面）
               ...sceneTiles,
               if (spans.isEmpty)
