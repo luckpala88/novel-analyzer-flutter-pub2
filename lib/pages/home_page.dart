@@ -532,15 +532,6 @@ class _HomePageState extends State<HomePage>
                         ),
                       ),
                     const Divider(height: 32),
-                    // 📖使用说明（v965：内置手册，源码提取，供用户与AI答疑引用）
-                    Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.menu_book),
-                        title: const Text('📖 使用说明'),
-                        subtitle: const Text('全页面功能按键/原理/AI沟通方式'),
-                        onTap: () => _showManual(),
-                      ),
-                    ),
                     // 数据备份
                     Text(
                       '数据备份',
@@ -693,27 +684,6 @@ class _HomePageState extends State<HomePage>
   // ===== 备份 =====
   // v386：备份统一走异步——先确保存储权限（老手机公共目录必须运行时授权），
   // writeFile结果如实反馈（此前失败也打"已备份"=用户看到"没反应"）
-  // v965：内置使用手册阅读页（assets/manual/app_manual.md，SelectableText滚动）
-  void _showManual() {
-    DefaultAssetBundle.of(context)
-        .loadString('assets/manual/app_manual.md')
-        .then((txt) {
-      if (!mounted) return;
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => Scaffold(
-          appBar: AppBar(title: const Text('📖 使用说明')),
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.all(12),
-            child: SelectableText(
-              txt,
-              style: const TextStyle(fontSize: 13.5, height: 1.55),
-            ),
-          ),
-        ),
-      ));
-    });
-  }
-
   Future<void> _backupBook(AppState state) async {
     final ok = await _doBackup(
       state,
@@ -912,7 +882,7 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 965;
+  static const int _appVersion = 966;
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';
