@@ -89,7 +89,6 @@ class _AdaptPageState extends State<AdaptPage>
     for (final c in _scenePlanRawCtrl.values) c.dispose();
     for (final c in _scenePlanOptCtrl.values) c.dispose();
     for (final c in _scenePlanMatCtrl.values) c.dispose();
-    for (final c in _sceneShotPlanCtrl.values) c.dispose();
     _layerTabCtrl.dispose();
     super.dispose();
   }
@@ -2461,15 +2460,6 @@ return true;
                 ?.continuePlans[
                     'shot_plan_${arcKey}_${_maxSceneNumInEntry(state, entryKey) + 1}'] ??
             '').trim();
-    final hasPlan = planStored.isNotEmpty ||
-        (_sceneShotPlanCtrl[arcKey]?.text.isNotEmpty ?? false);
-    // v964：AI规划直写continuePlans后同步控制器（v957迁入漏带v921同步块——
-    // 规划框显示但内容空白，用户找不到规划结果）
-    final shotPlanCtrl =
-        _sceneShotPlanCtrl.putIfAbsent(arcKey, () => TextEditingController());
-    if (shotPlanCtrl.text.isEmpty && planStored.isNotEmpty) {
-      shotPlanCtrl.text = planStored;
-    }
     // 场景块解析（条目content）+每场景已写分镜计数
     final spans = entry == null
         ? <RegExpMatch>[]
@@ -2506,14 +2496,122 @@ return true;
               Text(_brief(summaryLine, 60),
                   style: const TextStyle(
                       fontSize: 10.5, color: V469Style.textMuted)),
+            // v974：徽章三态（已写/已规划待写入/未规划）
             Text(
-              shotCount > 0 ? '✅ 已写分镜$shotCount镜' : '◻ 分镜未规划',
+              shotCount > 0
+                  ? '✅ 已写分镜$shotCount镜'
+                  : (state.worldBook?.continuePlans[
+                              'shot_plan_${arcKey}_$sceneNum'] ??
+                          '')
+                      .trim()
+                      .isNotEmpty
+                      ? '🧩 已规划待写入'
+                      : '◻ 分镜未规划',
               style: TextStyle(
                 fontSize: 10,
                 color: shotCount > 0
                     ? const Color(0xFF4A7B4A)
                     : const Color(0xFF9B8570),
               ),
+            ),
+            // v974：场景内分镜规划——该场景的规划预览卡（点开检查）
+            ...() {
+              final planRaw = (state.worldBook?.continuePlans[
+                          'shot_plan_${arcKey}_$sceneNum'] ??
+                      '')
+                  .trim();
+              final shots = planRaw.isEmpty
+                  ? null
+                  : _parseShotPlanPreview(planRaw);
+              if (shots == null) return <Widget>[];
+              return List<Widget>.generate(shots.length, (i) {
+                final sh = shots[i];
+                final open = _shotPlanPreviewOpen.contains('$arcKey-$sceneNum-$i');
+                const dims = ['镜头类型', '视角', '投放信息', '作者意图', '手法', '转场手法', '篇幅', '笔墨'];
+                return Container(
+                  margin: const EdgeInsets.only(top: 3),
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(5),
+                    border: Border.all(color: const Color(0xFFB8CFE5)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      InkWell(
+                        onTap: () => setState(() {
+                          open
+                              ? _shotPlanPreviewOpen.remove('$arcKey-$sceneNum-$i')
+                              : _shotPlanPreviewOpen.add('$arcKey-$sceneNum-$i');
+                        }),
+                        child: Row(
+                          children: [
+                            Text(open ? '▾' : '▸',
+                                style: const TextStyle(
+                                    fontSize: 11,
+                                    color: V469Style.textMuted)),
+                            const SizedBox(width: 3),
+                            Expanded(
+                              child: Text(
+                                '🎬分镜${i + 1}：${_brief(sh['焦点'] ?? '', 24)}'
+                                '${(sh['镜头类型'] ?? '').isEmpty ? '' : '｜${sh['镜头类型']}'}',
+                                style: const TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (open)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 9, top: 1),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              for (final d in dims)
+                                if ((sh[d] ?? '').isNotEmpty)
+                                  Text('$d：${sh[d]}',
+                                      style: const TextStyle(
+                                          fontSize: 10,
+                                          height: 1.4,
+                                          color: V469Style.textSec)),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              });
+            }(),
+            // v974：场景内规划按键（分行布局Wrap）
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                MiniButton(
+                  label: '🧩AI分镜规划',
+                  primary: false,
+                  onTap: _isGenerating
+                      ? null
+                      : () => _planNewSceneShots(state, arc,
+                          sceneNum: int.tryParse(sceneNum)),
+                ),
+                if ((state.worldBook?.continuePlans[
+                            'shot_plan_${arcKey}_$sceneNum'] ??
+                        '')
+                    .trim()
+                    .isNotEmpty)
+                  MiniButton(
+                    label: '📝写入条目',
+                    primary: true,
+                    onTap: _isGenerating
+                        ? null
+                        : () => _writeShotPlanToEntry(state, arc,
+                            sceneNum: int.tryParse(sceneNum)),
+                  ),
+              ],
             ),
           ],
         ),
@@ -2564,137 +2662,6 @@ return true;
                           TextStyle(fontSize: 10.5, color: V469Style.textMuted)),
                 ),
               const SizedBox(height: 8),
-              // v973：分镜规划预览卡（JSON解析→每镜一张，点开检查；无解析→跳过走文本框）
-              ...() {
-                final planText = shotPlanCtrl.text.trim().isNotEmpty
-                    ? shotPlanCtrl.text
-                    : planStored;
-                final shots = _parseShotPlanPreview(planText);
-                if (shots == null) return <Widget>[];
-                return List<Widget>.generate(shots.length, (i) {
-                  final sh = shots[i];
-                  final open = _shotPlanPreviewOpen.contains('$arcKey-$i');
-                  final dims = ['镜头类型', '视角', '投放信息', '作者意图', '手法', '转场手法', '篇幅', '笔墨'];
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 4),
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFFB8CFE5)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        InkWell(
-                          onTap: () => setState(() {
-                            open
-                                ? _shotPlanPreviewOpen.remove('$arcKey-$i')
-                                : _shotPlanPreviewOpen.add('$arcKey-$i');
-                          }),
-                          child: Row(
-                            children: [
-                              Text(open ? '▾' : '▸',
-                                  style: const TextStyle(
-                                      fontSize: 12,
-                                      color: V469Style.textMuted)),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  '🎬分镜${i + 1}：${_brief(sh['焦点'] ?? '', 30)}'
-                                  '${(sh['镜头类型'] ?? '').isEmpty ? '' : '｜${sh['镜头类型']}'}',
-                                  style: const TextStyle(
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (open)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 10, top: 2),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                for (final d in dims)
-                                  if ((sh[d] ?? '').isNotEmpty)
-                                    Padding(
-                                      padding:
-                                          const EdgeInsets.only(bottom: 1),
-                                      child: Text('$d：${sh[d]}',
-                                          style: const TextStyle(
-                                              fontSize: 10.5,
-                                              height: 1.45,
-                                              color: V469Style.textSec)),
-                                    ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-                  );
-                });
-              }(),
-              // 新场景分镜规划工作台（挂在场景列表下）
-              Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children: [
-                  MiniButton(
-                    label: '🧩AI分镜规划',
-                    primary: false,
-                    onTap: _isGenerating
-                        ? null
-                        : () => _planNewSceneShots(state, arc),
-                  ),
-                  ],
-                ),
-              const Padding(
-                padding: EdgeInsets.only(left: 2, top: 2),
-                child: Text(
-                  '把该弧线最新场景拆成分镜序列（继承编排策略）',
-                  style:
-                      TextStyle(fontSize: 10, color: V469Style.textMuted),
-                ),
-              ),
-              if (hasPlan) ...[
-                _CollapseReqField(
-                  prefKey: 'scene_shot_plan_$arcKey',
-                  controller: _sceneShotPlanCtrl.putIfAbsent(
-                      arcKey, () => TextEditingController()),
-                  labelText: '🧩 分镜规划（暂存，可手改——写入条目才落世界书）',
-                  fontSize: 11.5,
-                  onChanged: (v) => state.worldBook?.continuePlans[
-                        'shot_plan_${arcKey}_${entryKey == null ? 0 : _maxSceneNumInEntry(state, entryKey) + 1}'] = v,
-                ),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: [
-                    MiniButton(
-                      label: '📝写入条目',
-                      primary: true,
-                      onTap: _isGenerating
-                          ? null
-                          : () => _writeShotPlanToEntry(state, arc),
-                    ),
-                  ],
-                ),
-              const Padding(
-                padding: EdgeInsets.only(left: 2, top: 2),
-                child: Text(
-                  '写入后创作页该场景走沿分镜模式（逐镜有编排/trick指导）',
-                  style: TextStyle(
-                      fontSize: 10, color: V469Style.textMuted),
-                ),
-              ),
-              ] else
-                const Padding(
-                  padding: EdgeInsets.only(left: 2, top: 2),
-                  child: Text('（暂存区无规划——点🧩生成，结果先存暂存框，写入才落世界书）',
-                      style: TextStyle(fontSize: 10, color: V469Style.textMuted)),
-                ),
             ],
           ],
         ),
@@ -2879,17 +2846,15 @@ return true;
 
 
   /// v922：分镜规划写入条目（append到弧线条目尾部——创作页hasShots走沿分镜）
-  void _writeShotPlanToEntry(AppState state, Arc? arc) {
+  void _writeShotPlanToEntry(AppState state, Arc? arc, {int? sceneNum}) {
     final arcKey = arc?.number.toString() ?? '1';
     final entryKey = _arcEntryKey(state, arcKey);
     if (entryKey == null) {
       _addLog('❌ 弧线$arcKey还没有世界书条目');
       return;
     }
-    // v972：读场景级key（shot_plan_弧线_场景N）——v958生成已按场景级落库，
-    // 写入端还读弧线级旧key→恒读空报"规划为空"（日志实证：生成1414字
-    // 写shot_plan_1_4，写入读shot_plan_1为空）
-    final planNum = _maxSceneNumInEntry(state, entryKey) + 1;
+    // v972/v974：场景级key；sceneNum指定=写回该场景块（覆盖旧分镜）
+    final planNum = sceneNum ?? (_maxSceneNumInEntry(state, entryKey) + 1);
     final planRaw =
         (state.worldBook?.continuePlans['shot_plan_${arcKey}_$planNum'] ??
             '').trim();
@@ -2900,13 +2865,42 @@ return true;
     // v973：JSON规划→条目标准维度行（条目不落裸JSON，创作页才能正确渲染）
     final plan = _shotPlanJsonToText(planRaw);
     final entry = state.worldBook!.entries[entryKey]!;
-    if (RegExp(r'分镜\s*0*[1-9]').hasMatch(entry.content)) {
-      _addLog('⚠️ 条目已含分镜结构——如需重规划请先手动清理旧分镜');
-      return;
+    // v974：写入定位到该场景块内（覆盖旧分镜行，保留场景头+概述）；
+    // 块不存在=追加条目尾（兜底）
+    final sceneSpans = RegExp(r'^场景\d+：', multiLine: true)
+        .allMatches(entry.content)
+        .toList();
+    RegExpMatch? target;
+    for (final m in sceneSpans) {
+      if ((RegExp(r'\d+').firstMatch(m.group(0)!)?.group(0) ?? '') ==
+          planNum.toString()) {
+        target = m;
+        break;
+      }
     }
-    entry.content = '${entry.content.trimRight()}\n\n$plan\n';
-    state.saveWorldBook();
-    _addLog('✓ 分镜规划已写入条目（${plan.length}字）——创作页该场景将走沿分镜模式');
+    if (target != null) {
+      final i = sceneSpans.indexOf(target);
+      final end = i + 1 < sceneSpans.length
+          ? sceneSpans[i + 1].start
+          : entry.content.length;
+      final block = entry.content.substring(target.start, end);
+      final shotStart =
+          RegExp(r'^\s*分镜\d+[：.]', multiLine: true).firstMatch(block);
+      final head = shotStart == null
+          ? block.trimRight()
+          : block.substring(0, shotStart.start).trimRight();
+      final overwrite = shotStart != null;
+      entry.content =
+          '${entry.content.substring(0, target.start)}$head\n$plan\n${entry.content.substring(end)}';
+      state.saveWorldBook();
+      _addLog('✓ 场景$planNum分镜已${overwrite ? "覆盖重写" : "写入"}条目（${plan.length}字）'
+          '——创作页该场景走沿分镜模式');
+    } else {
+      entry.content = '${entry.content.trimRight()}\n\n$plan\n';
+      state.saveWorldBook();
+      _addLog('✓ 分镜规划已写入条目尾（${plan.length}字，场景$planNum块不存在——'
+          '建议在场景续写层先写入场景块）');
+    }
   }
 
   /// v973：分镜规划JSON→条目标准维度行文本（写入条目前转换，条目不落裸JSON）
@@ -2984,7 +2978,7 @@ return true;
 
   /// v922：🧩AI分镜规划——新场景拆分镜（有编排策略理论支持后，续写场景
   /// 可走沿分镜创作；输出写continuePlans+显示在分镜规划框可手改）
-  Future<void> _planNewSceneShots(AppState state, Arc? arc) async {
+  Future<void> _planNewSceneShots(AppState state, Arc? arc, {int? sceneNum}) async {
     final arcKey = arc?.number.toString() ?? '1';
     final entryKey = _arcEntryKey(state, arcKey);
     if (entryKey == null) {
@@ -2992,24 +2986,40 @@ return true;
       return;
     }
     final entry = state.worldBook!.entries[entryKey]!;
-    final nextNum = _maxSceneNumInEntry(state, entryKey) + 1;
-    // v958用户裁决：锚点序号核对——拆解链场景数必须已全部写入条目
-    // （条目场景数≥拆解场景数合法：续写新场景是增量；条目<拆解=漏写=错位终止）
+    // v974：场景内规划——sceneNum指定=重规划该场景；缺省=新场景(max+1)
+    final nextNum = sceneNum ?? (_maxSceneNumInEntry(state, entryKey) + 1);
+    // v958用户裁决：锚点序号核对（仅新场景路径）
     final decompScenes =
         state.arcAnalyses[arcKey]?.scenes.length ?? state.arcScenes[arcKey]?.length ?? 0;
-    if (decompScenes > 0 && nextNum - 1 < decompScenes) {
+    if (sceneNum == null &&
+        decompScenes > 0 &&
+        nextNum - 1 < decompScenes) {
       _addLog('❌ 序号错位：弧线$arcKey拆解有$decompScenes个场景，条目只写入${nextNum - 1}个'
           '——先把拆解场景全部写入条目再规划新场景，已终止');
       return;
     }
-    // 本场景概述=条目内最后一个场景块
+    // v974：本场景概述=该场景块（sceneNum给定）或最后场景块（新场景）
     final sceneSpans = RegExp(r'^场景\d+：', multiLine: true)
         .allMatches(entry.content)
         .toList();
     String entryBrief = entry.content.length > 500
         ? entry.content.substring(entry.content.length - 500)
         : entry.content;
-    if (sceneSpans.isNotEmpty) {
+    RegExpMatch? targetSpan;
+    for (final m in sceneSpans) {
+      if ((RegExp(r'\d+').firstMatch(m.group(0)!)?.group(0) ?? '') ==
+          nextNum.toString()) {
+        targetSpan = m;
+        break;
+      }
+    }
+    if (targetSpan != null) {
+      final i = sceneSpans.indexOf(targetSpan);
+      final end = i + 1 < sceneSpans.length
+          ? sceneSpans[i + 1].start
+          : entry.content.length;
+      entryBrief = entry.content.substring(targetSpan.start, end);
+    } else if (sceneSpans.isNotEmpty) {
       final last = sceneSpans.last;
       entryBrief = entry.content.substring(last.start);
     }
@@ -3039,8 +3049,7 @@ return true;
       final plan = TextCleaner.stripQuotedFragment(result.content);
       state.worldBook!.continuePlans[planKey] = plan;
       state.saveWorldBook();
-      _sceneShotPlanCtrl[arcKey]?.text = plan;
-      _addLog('✓ 分镜规划完成（${plan.length}字）——可在分镜规划框手改后点"写入条目"');
+      _addLog('✓ 分镜规划完成（${plan.length}字）——场景卡内点📝写入条目落世界书');
     } finally {
       if (mounted) {
         setState(() => _isGenerating = false);
@@ -3903,7 +3912,6 @@ return true;
   final _scenePlanRawCtrl = <String, TextEditingController>{}; // v921：per-arc规划框
   final _scenePlanOptCtrl = <String, TextEditingController>{}; // v921
   final _scenePlanMatCtrl = <String, TextEditingController>{}; // v921
-  final _sceneShotPlanCtrl = <String, TextEditingController>{}; // v922：分镜规划框
   final _contReqOptCtrl = TextEditingController(); // v920
   bool _reqRawChecked = true; // v781：原始续写方向勾选
   bool _reqOptChecked = true; // v781：优化方向勾选
