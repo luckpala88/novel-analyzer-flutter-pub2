@@ -2200,6 +2200,13 @@ return true;
           ),
           const SizedBox(height: 4),
           if (an == null && arc.status == 'generated')
+            // v972：概述正文前补标签行（用户裁决：方便浏览）
+            Text('📋 弧线概述',
+                style: TextStyle(
+                    fontSize: _cf(10.5),
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF2C5E8E))),
+          if (an == null && arc.status == 'generated')
             // v783：AI规划弧线——概述从arcScan.summary（条目同步时落库）显示
             SelectableText(
               _brief(arc.summary, 250),
@@ -2447,7 +2454,12 @@ return true;
     final expanded = _shotArcExpanded.contains(arcKey);
     final entryKey = _arcEntryKey(state, arcKey);
     final entry = entryKey == null ? null : state.worldBook?.entries[entryKey];
-    final planStored = (state.worldBook?.continuePlans['shot_plan_$arcKey'] ??
+    // v972：读场景级key（对齐生成端shot_plan_弧线_场景N）
+    final planStored = entryKey == null
+        ? ''
+        : (state.worldBook
+                ?.continuePlans[
+                    'shot_plan_${arcKey}_${_maxSceneNumInEntry(state, entryKey) + 1}'] ??
             '').trim();
     final hasPlan = planStored.isNotEmpty ||
         (_sceneShotPlanCtrl[arcKey]?.text.isNotEmpty ?? false);
@@ -2581,8 +2593,8 @@ return true;
                       arcKey, () => TextEditingController()),
                   labelText: '🧩 分镜规划（暂存，可手改——写入条目才落世界书）',
                   fontSize: 11.5,
-                  onChanged: (v) =>
-                      state.worldBook?.continuePlans['shot_plan_$arcKey'] = v,
+                  onChanged: (v) => state.worldBook?.continuePlans[
+                        'shot_plan_${arcKey}_${entryKey == null ? 0 : _maxSceneNumInEntry(state, entryKey) + 1}'] = v,
                 ),
                 Wrap(
                   spacing: 6,
@@ -2802,8 +2814,13 @@ return true;
       _addLog('❌ 弧线$arcKey还没有世界书条目');
       return;
     }
+    // v972：读场景级key（shot_plan_弧线_场景N）——v958生成已按场景级落库，
+    // 写入端还读弧线级旧key→恒读空报"规划为空"（日志实证：生成1414字
+    // 写shot_plan_1_4，写入读shot_plan_1为空）
+    final planNum = _maxSceneNumInEntry(state, entryKey) + 1;
     final plan =
-        (state.worldBook?.continuePlans['shot_plan_$arcKey'] ?? '').trim();
+        (state.worldBook?.continuePlans['shot_plan_${arcKey}_$planNum'] ??
+            '').trim();
     if (plan.isEmpty) {
       _addLog('❌ 分镜规划为空——先🧩AI分镜规划');
       return;
