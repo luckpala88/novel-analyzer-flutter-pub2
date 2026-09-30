@@ -3154,22 +3154,29 @@ return true;
       _addLog('➕ 生成世界书新弧线条目（弧线$newNum，依据设定与前文推演）…');
       // v955用户裁决：衔接前文唯一来源=前一弧线（newNum-1）分镜页场景数据（拆解链）；
       // 禁止从已创作正文/原著切片乱取——取不到直接终止提示（数据流纯粹性零容忍）
-      final prevNum = newNum - 1;
-      final prevScenes =
-          state.arcAnalyses['$prevNum']?.scenes ?? state.arcScenes['$prevNum'] ?? const [];
-      if (prevScenes.isEmpty) {
-        _addLog('❌ 取不到弧线$prevNum前文（分镜页无场景数据）——请先完成该弧线的扫描/场景拆解，已终止');
-        setState(() => _isGenerating = false);
-        return;
+      // v967：新书豁免——newNum==1（v824开新书从弧线1起步）无"弧线0"可言，
+      // 衔接依据=全局续写方向+世界书设定，不再报"取不到弧线0前文"（自相矛盾）
+      final String prevCtx;
+      if (newNum <= 1) {
+        prevCtx = '【新书开局】无前文，依据上方续写方向与世界书设定开篇（第一弧线）';
+      } else {
+        final prevNum = newNum - 1;
+        final prevScenes =
+            state.arcAnalyses['$prevNum']?.scenes ?? state.arcScenes['$prevNum'] ?? const [];
+        if (prevScenes.isEmpty) {
+          _addLog('❌ 取不到弧线$prevNum前文（分镜页无场景数据）——请先完成该弧线的扫描/场景拆解，已终止');
+          setState(() => _isGenerating = false);
+          return;
+        }
+        final lastSc = prevScenes.last;
+        final shotPts = lastSc.shots
+            .map((s) => s.focus)
+            .where((f) => f.trim().isNotEmpty)
+            .take(5)
+            .join('｜');
+        prevCtx =
+            '【衔接锚点·弧线$prevNum最后场景（${lastSc.name}）】\n${lastSc.summary.isEmpty ? '' : '概述：${lastSc.summary}\n'}${shotPts.isEmpty ? '' : '分镜要点：$shotPts\n'}该弧线共${prevScenes.length}场景，新弧线从此处剧情自然承接。';
       }
-      final lastSc = prevScenes.last;
-      final shotPts = lastSc.shots
-          .map((s) => s.focus)
-          .where((f) => f.trim().isNotEmpty)
-          .take(5)
-          .join('｜');
-      final prevCtx =
-          '【衔接锚点·弧线$prevNum最后场景（${lastSc.name}）】\n${lastSc.summary.isEmpty ? '' : '概述：${lastSc.summary}\n'}${shotPts.isEmpty ? '' : '分镜要点：$shotPts\n'}该弧线共${prevScenes.length}场景，新弧线从此处剧情自然承接。';
       // v805：弧线条目不再生成场景清单（用户定稿：场景规划唯一入口=场景续写页工作台，
       // 避免条目清单与工作台规划两套数据乱套）
       final sys = '你是原著续写作家。世界书=原样原著（全原名）。任务：为长篇规划一条全新的续写弧线，'
