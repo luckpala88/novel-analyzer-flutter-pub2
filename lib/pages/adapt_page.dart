@@ -2157,29 +2157,28 @@ return true;
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          // v969：分行布局——标题独占一行（A+大字号不再被按钮挤成窄列），按钮紧凑Wrap超宽自动换行
+          Text(
+            '弧线${arc.number}：${arc.title}',
+            style: TextStyle(fontSize: _cf(12.5), fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Expanded(
-                child: Text(
-                  '弧线${arc.number}：${arc.title}',
-                  style: TextStyle(
-                      fontSize: _cf(12.5), fontWeight: FontWeight.w600),
-                ),
-              ),
               if (an == null && arc.status == 'generated')
-                Text(' 🧩AI规划',
+                Text('🧩AI规划',
                     style: TextStyle(
                         fontSize: _cf(10),
                         color: const Color(0xFF2C5E8E),
                         fontWeight: FontWeight.w600)), // v783：非正文生成标志
               if (an == null && arc.status == 'generated')
-                Padding(
-                  padding: const EdgeInsets.only(right: 28), // v789：远离右侧滚动条防误触
-                  child: MiniButton(
-                    label: '🗑',
-                    primary: false,
-                    onTap: () => _deleteContinueArc(state, arc),
-                  ),
+                MiniButton(
+                  label: '🗑',
+                  primary: false,
+                  onTap: () => _deleteContinueArc(state, arc),
                 ),
               if (sliceText.isNotEmpty)
                 MiniButton(
@@ -2188,8 +2187,7 @@ return true;
                   onTap: () => _showSliceDialog(
                       '弧线${arc.number}：${arc.title}（切片）', sliceText),
                 ),
-              if (overview.isNotEmpty) ...[
-                const SizedBox(width: 4),
+              if (overview.isNotEmpty)
                 MiniButton(
                   label: '📋复制概述',
                   primary: false,
@@ -2198,7 +2196,6 @@ return true;
                     _addLog('📋 弧线${arc.number}概述已复制');
                   },
                 ),
-              ],
             ],
           ),
           const SizedBox(height: 4),
@@ -2266,8 +2263,17 @@ return true;
                           fontSize: _cf(12.5), fontWeight: FontWeight.bold),
                     ),
                   ),
+                ],
+              ),
+            ),
+            // v969：按钮紧凑Wrap行（分行布局——不挤标题）
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
               if (an == null && arc.status == 'generated')
-                Text(' 🧩AI规划',
+                Text('🧩AI规划',
                     style: TextStyle(
                         fontSize: _cf(10),
                         color: const Color(0xFF2C5E8E),
@@ -2279,8 +2285,7 @@ return true;
                   onTap: () => _showSliceDialog(
                       '弧线${arc.number}：${arc.title}（切片）', sliceText),
                 ),
-            ],
-              ),
+              ],
             ),
             // v963：原ExpansionTile children→条件渲染（手动折叠）
             if (expanded) ...[
@@ -2548,7 +2553,9 @@ return true;
                 ),
               const SizedBox(height: 8),
               // 新场景分镜规划工作台（挂在场景列表下）
-              Row(
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
                 children: [
                   MiniButton(
                     label: '🧩AI分镜规划',
@@ -2557,15 +2564,15 @@ return true;
                         ? null
                         : () => _planNewSceneShots(state, arc),
                   ),
-                  const SizedBox(width: 6),
-                  const Expanded(
-                    child: Text(
-                      '把该弧线最新场景拆成分镜序列（继承编排策略）',
-                      style:
-                          TextStyle(fontSize: 10, color: V469Style.textMuted),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
+              const Padding(
+                padding: EdgeInsets.only(left: 2, top: 2),
+                child: Text(
+                  '把该弧线最新场景拆成分镜序列（继承编排策略）',
+                  style:
+                      TextStyle(fontSize: 10, color: V469Style.textMuted),
+                ),
               ),
               if (hasPlan) ...[
                 _CollapseReqField(
@@ -2577,7 +2584,9 @@ return true;
                   onChanged: (v) =>
                       state.worldBook?.continuePlans['shot_plan_$arcKey'] = v,
                 ),
-                Row(
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
                   children: [
                     MiniButton(
                       label: '📝写入条目',
@@ -2586,16 +2595,16 @@ return true;
                           ? null
                           : () => _writeShotPlanToEntry(state, arc),
                     ),
-                    const SizedBox(width: 6),
-                    const Expanded(
-                      child: Text(
-                        '写入后创作页该场景走沿分镜模式（逐镜有编排/trick指导）',
-                        style: TextStyle(
-                            fontSize: 10, color: V469Style.textMuted),
-                      ),
-                    ),
                   ],
                 ),
+              const Padding(
+                padding: EdgeInsets.only(left: 2, top: 2),
+                child: Text(
+                  '写入后创作页该场景走沿分镜模式（逐镜有编排/trick指导）',
+                  style: TextStyle(
+                      fontSize: 10, color: V469Style.textMuted),
+                ),
+              ),
               ] else
                 const Padding(
                   padding: EdgeInsets.only(left: 2, top: 2),
