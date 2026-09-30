@@ -2585,10 +2585,11 @@ return true;
                 );
               });
             }(),
-            // v974：场景内规划按键（分行布局Wrap）
+            // v974：场景内规划按键（分行布局Wrap）；v975：写入前细化开关
             Wrap(
               spacing: 6,
               runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 MiniButton(
                   label: '🧩AI分镜规划',
@@ -2602,15 +2603,25 @@ return true;
                             'shot_plan_${arcKey}_$sceneNum'] ??
                         '')
                     .trim()
-                    .isNotEmpty)
+                    .isNotEmpty) ...[
+                  SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: Checkbox(
+                      value: _shotPreWriteRefine,
+                      onChanged: (v) =>
+                          setState(() => _shotPreWriteRefine = v ?? true),
+                    ),
+                  ),
                   MiniButton(
-                    label: '📝写入条目',
+                    label: '📝写入条目${_shotPreWriteRefine ? "（先AI细化）" : ""}',
                     primary: true,
                     onTap: _isGenerating
                         ? null
                         : () => _writeShotPlanToEntry(state, arc,
                             sceneNum: int.tryParse(sceneNum)),
                   ),
+                ],
               ],
             ),
           ],
@@ -2846,7 +2857,8 @@ return true;
 
 
   /// v922：分镜规划写入条目（append到弧线条目尾部——创作页hasShots走沿分镜）
-  void _writeShotPlanToEntry(AppState state, Arc? arc, {int? sceneNum}) {
+  Future<void> _writeShotPlanToEntry(AppState state, Arc? arc,
+      {int? sceneNum}) async {
     final arcKey = arc?.number.toString() ?? '1';
     final entryKey = _arcEntryKey(state, arcKey);
     if (entryKey == null) {
@@ -2855,12 +2867,66 @@ return true;
     }
     // v972/v974：场景级key；sceneNum指定=写回该场景块（覆盖旧分镜）
     final planNum = sceneNum ?? (_maxSceneNumInEntry(state, entryKey) + 1);
-    final planRaw =
+    var planRaw =
         (state.worldBook?.continuePlans['shot_plan_${arcKey}_$planNum'] ??
             '').trim();
     if (planRaw.isEmpty) {
       _addLog('❌ 分镜规划为空——先🧩AI分镜规划');
       return;
+    }
+    // v975：写入前AI细化（开关默认开）——剔除毒点/修正逻辑瑕疵，结果回填可手改
+    if (_shotPreWriteRefine) {
+      setState(() => _isGenerating = true);
+      try {
+        _addLog('🤖 分镜规划写入前细化中（场景$planNum）…');
+        final sys = '你是网文分镜规划审核师。任务：检查并优化用户提供的分镜规划，'
+            '严格保持输入的结构原样输出。规则：\n'
+            '1.剔除毒点：低俗/降智/崩人设/破坏原著基调的设定与描写直接修正\n'
+            '2.修正各维度值的逻辑瑕疵与前后矛盾，焦点/镜头类型/视角等骨架不变\n'
+            '3.手法(Trick)四问结构（特质→呈现｜多职/零直陈｜批次｜落点=）保持完整\n'
+            '4.人物全部沿用原著原名，禁止拟新名\n'
+            '5.若输入是JSON数组：保持JSON数组结构与中文键名不变直接输出；'
+            '若输入是文本：保持原文本格式输出\n'
+            '6.禁止解释性文字，只输出优化后的规划本体';
+        final usr = '【分镜规划（场景$planNum）】\n$planRaw';
+        final okSend = await PromptPreview.maybePreview(
+          context,
+          sysPrompt: sys,
+          userPrompt: usr,
+          title: '分镜规划细化词链预览（弧线$arcKey场景$planNum）',
+          enabled: state.wbPromptPreview,
+        );
+        if (!okSend) {
+          _addLog('已取消细化');
+          return;
+        }
+        final config = state.getApiConfig('wb');
+        final result = await state.api.callApi(
+          task: '分镜规划细化',
+          systemPrompt: sys,
+          userPrompt: usr,
+          apiConfig: config,
+        );
+        if (!result.isSuccess) {
+          _addLog('⚠️ 细化失败：${result.error}——按原规划写入');
+        } else {
+          final out = TextCleaner.decodeLiteralNewlines(
+            TextCleaner.stripDecorativeEmoji(
+              TextCleaner.normalizeAiOutput(result.content),
+            ),
+          ).trim();
+          if (out.isNotEmpty) {
+            planRaw = out;
+            state.worldBook!.continuePlans['shot_plan_${arcKey}_$planNum'] = out;
+            state.saveWorldBook();
+            _addLog('✓ 细化完成（${out.length}字）——已回填，写入前可手改');
+          } else {
+            _addLog('⚠️ 细化输出为空——按原规划写入');
+          }
+        }
+      } finally {
+        if (mounted) setState(() => _isGenerating = false);
+      }
     }
     // v973：JSON规划→条目标准维度行（条目不落裸JSON，创作页才能正确渲染）
     final plan = _shotPlanJsonToText(planRaw);
@@ -3907,6 +3973,7 @@ return true;
   final Set<String> _contArcExpanded = {}; // v963：场景续写层弧线卡展开状态（手动折叠——ExpansionTile在TabBarView冻死打不开v586已知）
   bool _newSceneOptChecked = true; // AI优化规划勾选（默认写入源）
   bool _preWriteRefine = true; // v826：写入前AI细化开关（完善补充/剔除毒点，默认开）
+  bool _shotPreWriteRefine = true; // v975：分镜规划写入前AI细化开关（去毒点/修逻辑，默认开）
   bool _matExpanded = false; // v827：素材折叠区展开状态
   final _contReqRawCtrl = TextEditingController(); // v920
   final _scenePlanRawCtrl = <String, TextEditingController>{}; // v921：per-arc规划框
