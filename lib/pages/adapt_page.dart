@@ -3403,30 +3403,41 @@ return true;
     setState(() => _isGenerating = true);
     try {
       _addLog('➕ 生成世界书新弧线条目（弧线$newNum，依据设定与前文推演）…');
-      // v955用户裁决：衔接前文唯一来源=前一弧线（newNum-1）分镜页场景数据（拆解链）；
-      // 禁止从已创作正文/原著切片乱取——取不到直接终止提示（数据流纯粹性零容忍）
-      // v967：新书豁免——newNum==1（v824开新书从弧线1起步）无"弧线0"可言，
-      // 衔接依据=全局续写方向+世界书设定，不再报"取不到弧线0前文"（自相矛盾）
+      // v955：衔接来源=前一弧线分镜页场景数据（拆解链），禁从已创作正文/原著切片乱取
+      // v977：降级不终止——分镜数据是加分项非硬性要求；取不到时退用上一弧线
+      // 条目内容（弧线概述/人设/矛盾/伏笔等）做衔接锚，同样保证数据流纯粹
       final String prevCtx;
       if (newNum <= 1) {
+        // v967：新书豁免——开新书从弧线1起步，衔接依据=全局续写方向+世界书设定
         prevCtx = '【新书开局】无前文，依据上方续写方向与世界书设定开篇（第一弧线）';
       } else {
         final prevNum = newNum - 1;
         final prevScenes =
             state.arcAnalyses['$prevNum']?.scenes ?? state.arcScenes['$prevNum'] ?? const [];
-        if (prevScenes.isEmpty) {
-          _addLog('❌ 取不到弧线$prevNum前文（分镜页无场景数据）——请先完成该弧线的扫描/场景拆解，已终止');
-          setState(() => _isGenerating = false);
-          return;
+        if (prevScenes.isNotEmpty) {
+          final lastSc = prevScenes.last;
+          final shotPts = lastSc.shots
+              .map((s) => s.focus)
+              .where((f) => f.trim().isNotEmpty)
+              .take(5)
+              .join('｜');
+          prevCtx =
+              '【衔接锚点·弧线$prevNum最后场景（${lastSc.name}）】\n${lastSc.summary.isEmpty ? '' : '概述：${lastSc.summary}\n'}${shotPts.isEmpty ? '' : '分镜要点：$shotPts\n'}该弧线共${prevScenes.length}场景，新弧线从此处剧情自然承接。';
+        } else {
+          final prevEntryKey = _arcEntryKey(state, '$prevNum');
+          final prevEntryContent = prevEntryKey == null
+              ? ''
+              : (state.worldBook?.entries[prevEntryKey]!.content ?? '').trim();
+          if (prevEntryContent.isEmpty) {
+            prevCtx = '【衔接锚点·弧线$prevNum】无场景数据与条目内容，'
+                '依据上方续写方向与世界书既有设定推演新弧线';
+            _addLog('⚠️ 弧线$prevNum无场景数据/条目——降级为仅依据设定推演');
+          } else {
+            prevCtx = '【衔接锚点·弧线$prevNum条目（概述/人设/矛盾/伏笔/情绪曲线/脑洞）】\n'
+                '$prevEntryContent\n新弧线从此弧线的收束状态与未回收伏笔自然承接。';
+            _addLog('ℹ️ 弧线$prevNum无场景数据——用其条目内容做衔接锚（更丰富可先扫描拆解）');
+          }
         }
-        final lastSc = prevScenes.last;
-        final shotPts = lastSc.shots
-            .map((s) => s.focus)
-            .where((f) => f.trim().isNotEmpty)
-            .take(5)
-            .join('｜');
-        prevCtx =
-            '【衔接锚点·弧线$prevNum最后场景（${lastSc.name}）】\n${lastSc.summary.isEmpty ? '' : '概述：${lastSc.summary}\n'}${shotPts.isEmpty ? '' : '分镜要点：$shotPts\n'}该弧线共${prevScenes.length}场景，新弧线从此处剧情自然承接。';
       }
       // v805：弧线条目不再生成场景清单（用户定稿：场景规划唯一入口=场景续写页工作台，
       // 避免条目清单与工作台规划两套数据乱套）
