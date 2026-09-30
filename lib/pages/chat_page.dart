@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:share_plus/share_plus.dart';
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
@@ -48,10 +49,24 @@ class _ChatPageState extends State<ChatPage>
 
   @override
   void dispose() {
+    _navHideTimer?.cancel();
     _listCtl.dispose();
     _inputCtl.dispose();
     _inputFocus.dispose();
     super.dispose();
+  }
+
+  // v967：快捷键滚动可见性——滚动/操作时出现，静止2秒后隐藏，平时隐藏
+  bool _navVisible = false;
+  Timer? _navHideTimer;
+
+  void _bumpNav() {
+    if (!mounted) return;
+    if (!_navVisible) setState(() => _navVisible = true);
+    _navHideTimer?.cancel();
+    _navHideTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _navVisible = false);
+    });
   }
 
   void _jumpBottom() {
@@ -192,14 +207,14 @@ class _ChatPageState extends State<ChatPage>
           height: 44,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: const Color(0x99C89137),
+            color: const Color(0x26C89137), // v967：更透更浅（原0x99）
             borderRadius: BorderRadius.circular(22),
           ),
           child: Text(label,
               style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white)),
+                  color: const Color(0x99806A2E))), // v967：浅棕字（原纯白）
         ),
       ),
     );
@@ -657,6 +672,12 @@ class _ChatPageState extends State<ChatPage>
                           notif.dragDetails != null) {
                         _curFloorAnchor = null;
                       }
+                      // v967：有滚动动作→快捷键现身，静止2秒后隐藏
+                      if (notif is ScrollUpdateNotification ||
+                          notif is UserScrollNotification ||
+                          notif is OverscrollNotification) {
+                        _bumpNav();
+                      }
                       return false;
                     },
                     child: ListView.builder(
@@ -756,8 +777,8 @@ class _ChatPageState extends State<ChatPage>
                     },
                   ),
                 ),
-                // v861：右侧竖排半透明楼层快捷键
-                if (sess != null && sess.messages.isNotEmpty)
+                // v861：右侧竖排半透明楼层快捷键（v967：滚动时现身，静止2秒隐藏）
+                if (_navVisible && sess != null && sess.messages.isNotEmpty)
                   Positioned(
                     right: 14,
                     bottom: 90,
@@ -765,11 +786,19 @@ class _ChatPageState extends State<ChatPage>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _navBtn('⏫', () {
+                          _bumpNav();
                           if (_listCtl.hasClients) _listCtl.jumpTo(0);
                         }),
-                        _navBtn('↑', () => _jumpFloor(-1)),
-                        _navBtn('↓', () => _jumpFloor(1)),
+                        _navBtn('↑', () {
+                          _bumpNav();
+                          _jumpFloor(-1);
+                        }),
+                        _navBtn('↓', () {
+                          _bumpNav();
+                          _jumpFloor(1);
+                        }),
                         _navBtn('⏬', () {
+                          _bumpNav();
                           // v942：模拟手指拖到底——animateTo(max)后复查高度，
                           // 异步布局追加了新高度就再跟一轮，直到稳定（jumpTo
                           // 一次性设值会错过异步追加的高度，v941延时法只是
