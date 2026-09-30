@@ -2564,6 +2564,78 @@ return true;
                           TextStyle(fontSize: 10.5, color: V469Style.textMuted)),
                 ),
               const SizedBox(height: 8),
+              // v973：分镜规划预览卡（JSON解析→每镜一张，点开检查；无解析→跳过走文本框）
+              ...() {
+                final planText = shotPlanCtrl.text.trim().isNotEmpty
+                    ? shotPlanCtrl.text
+                    : planStored;
+                final shots = _parseShotPlanPreview(planText);
+                if (shots == null) return <Widget>[];
+                return List<Widget>.generate(shots.length, (i) {
+                  final sh = shots[i];
+                  final open = _shotPlanPreviewOpen.contains('$arcKey-$i');
+                  final dims = ['镜头类型', '视角', '投放信息', '作者意图', '手法', '转场手法', '篇幅', '笔墨'];
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 4),
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFB8CFE5)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        InkWell(
+                          onTap: () => setState(() {
+                            open
+                                ? _shotPlanPreviewOpen.remove('$arcKey-$i')
+                                : _shotPlanPreviewOpen.add('$arcKey-$i');
+                          }),
+                          child: Row(
+                            children: [
+                              Text(open ? '▾' : '▸',
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      color: V469Style.textMuted)),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  '🎬分镜${i + 1}：${_brief(sh['焦点'] ?? '', 30)}'
+                                  '${(sh['镜头类型'] ?? '').isEmpty ? '' : '｜${sh['镜头类型']}'}',
+                                  style: const TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (open)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 10, top: 2),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                for (final d in dims)
+                                  if ((sh[d] ?? '').isNotEmpty)
+                                    Padding(
+                                      padding:
+                                          const EdgeInsets.only(bottom: 1),
+                                      child: Text('$d：${sh[d]}',
+                                          style: const TextStyle(
+                                              fontSize: 10.5,
+                                              height: 1.45,
+                                              color: V469Style.textSec)),
+                                    ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                });
+              }(),
               // 新场景分镜规划工作台（挂在场景列表下）
               Wrap(
                 spacing: 6,
@@ -2818,13 +2890,15 @@ return true;
     // 写入端还读弧线级旧key→恒读空报"规划为空"（日志实证：生成1414字
     // 写shot_plan_1_4，写入读shot_plan_1为空）
     final planNum = _maxSceneNumInEntry(state, entryKey) + 1;
-    final plan =
+    final planRaw =
         (state.worldBook?.continuePlans['shot_plan_${arcKey}_$planNum'] ??
             '').trim();
-    if (plan.isEmpty) {
+    if (planRaw.isEmpty) {
       _addLog('❌ 分镜规划为空——先🧩AI分镜规划');
       return;
     }
+    // v973：JSON规划→条目标准维度行（条目不落裸JSON，创作页才能正确渲染）
+    final plan = _shotPlanJsonToText(planRaw);
     final entry = state.worldBook!.entries[entryKey]!;
     if (RegExp(r'分镜\s*0*[1-9]').hasMatch(entry.content)) {
       _addLog('⚠️ 条目已含分镜结构——如需重规划请先手动清理旧分镜');
@@ -2833,6 +2907,79 @@ return true;
     entry.content = '${entry.content.trimRight()}\n\n$plan\n';
     state.saveWorldBook();
     _addLog('✓ 分镜规划已写入条目（${plan.length}字）——创作页该场景将走沿分镜模式');
+  }
+
+  /// v973：分镜规划JSON→条目标准维度行文本（写入条目前转换，条目不落裸JSON）
+  /// 形态：分镜N：\n  焦点(Focus)：…\n  镜头类型(Shot Type)：…（对齐buildWBSystemPrompt 9维度）
+  /// 非JSON输入原样返回（兼容手改纯文本）
+  String _shotPlanJsonToText(String plan) {
+    var t = plan.trim();
+    final fence = RegExp(r'^```[a-zA-Z]*\n?([\s\S]*?)\n?```\$').firstMatch(t);
+    if (fence != null) t = fence.group(1)!.trim();
+    if (!t.startsWith('[') && !t.startsWith('{')) return plan;
+    try {
+      final raw = t.startsWith('[')
+          ? jsonDecode(t) as List
+          : [(jsonDecode(t) as Map)];
+      const dims = [
+        ('焦点', '焦点(Focus)'),
+        ('镜头类型', '镜头类型(Shot Type)'),
+        ('视角', '视角(POV)'),
+        ('投放信息', '投放信息(Info)'),
+        ('作者意图', '作者意图(Intent)'),
+        ('手法', '手法(Trick)'),
+        ('转场手法', '转场手法(Transition)'),
+        ('篇幅', '篇幅(Length)'),
+        ('段落', '段落(Paras)'),
+        ('笔墨', '笔墨(Ink)'),
+        ('功能抽象', '功能抽象(Abstract)'),
+        ('文风', '文风(Style)'),
+      ];
+      String val(Object? v) => v is List ? v.join('｜') : v.toString().trim();
+      final out = StringBuffer();
+      var n = 0;
+      for (final item in raw) {
+        if (item is! Map) continue;
+        n++;
+        out.writeln('分镜$n：');
+        for (final (k, label) in dims) {
+          final v = item[k] ?? item[label.split('(').first];
+          if (v == null || val(v).isEmpty) continue;
+          out.writeln('  $label：${val(v)}');
+        }
+      }
+      if (n == 0) return plan;
+      return out.toString().trimRight();
+    } catch (_) {
+      return plan; // 非JSON/坏JSON原样走（手改纯文本兼容）
+    }
+  }
+
+  /// v973：解析JSON规划为分镜预览数据（失败返回null→回退文本框展示）
+  List<Map<String, String>>? _parseShotPlanPreview(String plan) {
+    var t = plan.trim();
+    final fence = RegExp(r'^```[a-zA-Z]*\n?([\s\S]*?)\n?```\$').firstMatch(t);
+    if (fence != null) t = fence.group(1)!.trim();
+    if (!t.startsWith('[') && !t.startsWith('{')) return null;
+    try {
+      final raw = t.startsWith('[')
+          ? jsonDecode(t) as List
+          : [(jsonDecode(t) as Map)];
+      const dims = ['焦点', '镜头类型', '视角', '投放信息', '作者意图', '手法', '转场手法', '篇幅', '笔墨'];
+      final shots = <Map<String, String>>[];
+      for (final item in raw) {
+        if (item is! Map) continue;
+        shots.add({
+          for (final k in dims)
+            k: (item[k] is List)
+                ? (item[k] as List).join('｜')
+                : (item[k]?.toString().trim() ?? ''),
+        });
+      }
+      return shots.isEmpty ? null : shots;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// v922：🧩AI分镜规划——新场景拆分镜（有编排策略理论支持后，续写场景
@@ -3747,6 +3894,7 @@ return true;
   // v780：新增场景规划工作台（勾选状态，输入文本持久化在continuePlans专用key）
   bool _newSceneRawChecked = false; // 用户原始规划勾选（写入世界书时的备选源）
   final Set<String> _shotArcExpanded = {}; // v960：分镜续写层弧线卡展开状态
+  final Set<String> _shotPlanPreviewOpen = {}; // v973：分镜规划预览卡展开状态
   final Set<String> _contArcExpanded = {}; // v963：场景续写层弧线卡展开状态（手动折叠——ExpansionTile在TabBarView冻死打不开v586已知）
   bool _newSceneOptChecked = true; // AI优化规划勾选（默认写入源）
   bool _preWriteRefine = true; // v826：写入前AI细化开关（完善补充/剔除毒点，默认开）
