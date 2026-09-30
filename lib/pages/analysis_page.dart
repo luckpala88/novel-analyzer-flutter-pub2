@@ -727,27 +727,16 @@ const SizedBox(width: 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        '📝 弧线概述（详细）',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF475569),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
+                      // v969：分行布局——复制按钮上移标题行，概述全文独占行
                       Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
+                          const Expanded(
                             child: Text(
-                              analysis.metadata?['arc_summary_detailed']
-                                      ?.toString() ??
-                                  analysis.arcSummary,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                height: 1.6,
-                                color: V469Style.textSec,
+                              '📝 弧线概述（详细）',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF475569),
                               ),
                             ),
                           ),
@@ -780,6 +769,17 @@ const SizedBox(width: 8),
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        analysis.metadata?['arc_summary_detailed']
+                                ?.toString() ??
+                            analysis.arcSummary,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          height: 1.6,
+                          color: V469Style.textSec,
+                        ),
                       ),
                     ],
                   ),
@@ -1396,34 +1396,25 @@ const SizedBox(width: 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    '📋 场景概述',
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF475569),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
+                  // v969：分行布局——复制按钮上移标题行，概述独占行
                   Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      analyzedScene!.summary,
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        height: 1.5,
-                        color: V469Style.textSec,
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          '📋 场景概述',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF475569),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () {
-                      Clipboard.setData(
-                        ClipboardData(text: analyzedScene!.summary),
-                      );
-                    },
+                      GestureDetector(
+                        onTap: () {
+                          Clipboard.setData(
+                            ClipboardData(text: analyzedScene!.summary),
+                          );
+                        },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -1442,10 +1433,19 @@ const SizedBox(width: 8),
                         ),
                       ),
                     ),
+                      ), // GestureDetector闭合（v970补）
+                      ],
+                    ),
+                  const SizedBox(height: 2),
+                  Text(
+                    analyzedScene!.summary,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      height: 1.5,
+                      color: V469Style.textSec,
+                    ),
                   ),
-                  ],
-                ),
-              ],
+                ],
               ),
             ),
           // v919：场景内分镜编排策略（🧠分析编排产出，标题+边框+四要素分行）

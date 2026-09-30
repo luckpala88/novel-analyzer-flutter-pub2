@@ -49,6 +49,7 @@ class _ChatPageState extends State<ChatPage>
 
   @override
   void dispose() {
+    _navVisible.dispose();
     _navHideTimer?.cancel();
     _listCtl.dispose();
     _inputCtl.dispose();
@@ -56,16 +57,18 @@ class _ChatPageState extends State<ChatPage>
     super.dispose();
   }
 
-  // v967：快捷键滚动可见性——滚动/操作时出现，静止2秒后隐藏，平时隐藏
-  bool _navVisible = false;
+  // v967：快捷键滚动可见性——滚动/操作时出现，静止2秒后隐藏
+  // v970：改ValueNotifier+常驻树透明度切换——原setState整页rebuild会
+  // 打断惯性滚动+闪烁（浏览位置乱跑），现在完全不触碰列表
+  final ValueNotifier<bool> _navVisible = ValueNotifier(false);
   Timer? _navHideTimer;
 
   void _bumpNav() {
     if (!mounted) return;
-    if (!_navVisible) setState(() => _navVisible = true);
+    _navVisible.value = true;
     _navHideTimer?.cancel();
     _navHideTimer = Timer(const Duration(seconds: 2), () {
-      if (mounted) setState(() => _navVisible = false);
+      _navVisible.value = false;
     });
   }
 
@@ -777,12 +780,20 @@ class _ChatPageState extends State<ChatPage>
                     },
                   ),
                 ),
-                // v861：右侧竖排半透明楼层快捷键（v967：滚动时现身，静止2秒隐藏）
-                if (_navVisible && sess != null && sess.messages.isNotEmpty)
+                // v861：右侧竖排半透明楼层快捷键（v967滚动现身/v970常驻树只切透明度——
+                // 移除/插入节点会闪+挤列表，现在零布局变化不乱跑）
+                if (sess != null && sess.messages.isNotEmpty)
                   Positioned(
                     right: 14,
                     bottom: 90,
-                    child: Column(
+                    child: ValueListenableBuilder<bool>(
+                      valueListenable: _navVisible,
+                      builder: (_, navVisible, __) => IgnorePointer(
+                        ignoring: !navVisible,
+                        child: AnimatedOpacity(
+                          opacity: navVisible ? 1 : 0,
+                          duration: const Duration(milliseconds: 150),
+                          child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _navBtn('⏫', () {
@@ -822,7 +833,10 @@ class _ChatPageState extends State<ChatPage>
                         }),
                       ],
                     ),
+                      ),
+                    ),
                   ),
+                ),
               ],
             ),
           ),

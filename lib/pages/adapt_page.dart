@@ -4264,44 +4264,45 @@ return true;
                   if (layer == 0 && _arcSummary.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 6),
-                      child: Row(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Text(
-                              _arcSummary,
-                              // v193：概述完整显示（旧2行截断显示不完整）
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey,
-                                height: 1.4,
+                          // v970：复制按钮独立小行（分行布局——不挤概述正文）
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: GestureDetector(
+                              onTap: () {
+                                Clipboard.setData(
+                                  ClipboardData(text: _arcSummary),
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: V469Style.accent,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  '复制',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                          // v195：弧线概述复制按钮
-                          GestureDetector(
-                            onTap: () {
-                              Clipboard.setData(
-                                ClipboardData(text: _arcSummary),
-                              );
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: V469Style.accent,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: const Text(
-                                '复制',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
+                          // v193：概述完整显示独占全宽
+                          Text(
+                            _arcSummary,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey,
+                              height: 1.4,
                             ),
                           ),
                         ],
@@ -4567,19 +4568,9 @@ return true;
                             if (scene.summary.isNotEmpty)
                               Padding(
                                 padding: const EdgeInsets.only(top: 2),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
-                                    Expanded(
-                                      child: Text(
-                                        scene.summary,
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          height: 1.4,
-                                          color: V469Style.textSec,
-                                        ),
-                                      ),
-                                    ),
                                     GestureDetector(
                                       onTap: () {
                                         Clipboard.setData(
@@ -4604,6 +4595,18 @@ return true;
                                             color: Colors.white,
                                             fontWeight: FontWeight.w500,
                                           ),
+                                        ),
+                                      ),
+                                    ),
+                                    // v970：概述独占全宽（分行布局）
+                                    Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        scene.summary,
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          height: 1.4,
+                                          color: V469Style.textSec,
                                         ),
                                       ),
                                     ),
