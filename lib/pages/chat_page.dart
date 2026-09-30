@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:scroll_to_index/scroll_to_index.dart'; // v861：楼层跳转
+import '../widgets/content_font.dart'; // v979：聊天页字号持久化
 import 'package:provider/provider.dart';
 import '../models/chat_session.dart';
 import '../services/api_service.dart';
@@ -42,6 +43,9 @@ class _ChatPageState extends State<ChatPage>
   @override
   void initState() {
     super.initState();
+    ContentFont.load('chat').then((v) {
+      if (mounted) setState(() => _chatFontScale = v);
+    });
     // 终端日志桥接（v824任务级反馈也进全局终端）
     _chatApi.onLog = (msg) =>
         context.read<AppState>().apiLog('[聊天] $msg');
@@ -56,6 +60,9 @@ class _ChatPageState extends State<ChatPage>
     _inputFocus.dispose();
     super.dispose();
   }
+
+  // v979：聊天页字号（ContentFont持久化，key='chat'）
+  double _chatFontScale = 1.0;
 
   // v967：快捷键滚动可见性——滚动/操作时出现，静止2秒后隐藏
   // v970：改ValueNotifier+常驻树透明度切换——原setState整页rebuild会
@@ -608,6 +615,14 @@ class _ChatPageState extends State<ChatPage>
           ),
         ]),
         actions: [
+          ContentFontButtons(
+            pageKey: 'chat',
+            scale: _chatFontScale,
+            onChanged: (v) {
+              setState(() => _chatFontScale = v);
+              ContentFont.save('chat', v);
+            },
+          ),
           writerStyleButton(context, state), // v953：聚焦作家（聊天即训练场）
           MiniButton(label: '⇅', onTap: () => _exportImportMenu(state)),
           MiniButton(
@@ -658,8 +673,11 @@ class _ChatPageState extends State<ChatPage>
       body: Column(
         children: [
           Expanded(
-            // v861：Stack包列表+右侧楼层快捷键（只锚bottom——v847教训：禁top+bottom双约束）
-            child: Stack(
+            // v979：聊天消息区字号缩放（ContentFont持久化key='chat'）
+            child: ContentFont.area(
+              context,
+              scale: _chatFontScale,
+              child: Builder(builder: (ctx) => Stack(
               children: [
                 if (sess == null || sess.messages.isEmpty)
                   const Center(
@@ -838,6 +856,8 @@ class _ChatPageState extends State<ChatPage>
                   ),
                 ),
               ],
+            ),
+            ),
             ),
           ),
           if (_sending)
