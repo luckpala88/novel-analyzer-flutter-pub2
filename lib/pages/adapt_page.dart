@@ -3242,10 +3242,15 @@ return true;
       final wb = state.worldBook!;
       final uid = 'continue_arc$newNum';
       final titleM = RegExp(r'弧线\d+：(.+)').firstMatch(content);
+      // v970：标题截断到【——AI可能把【弧线概述】连在标题行（截图实证：
+      // 标题含整段概述→卡片大字重复概述两遍），条目名/列表名都只要纯标题
+      String? _t = titleM?.group(1)?.trim();
+      final _cut = _t?.indexOf('【') ?? -1;
+      if (_t != null && _cut > 0) _t = _t.substring(0, _cut).trim();
       wb.entries[uid] = WBEntry(
         uid: uid,
         key: '续弧线$newNum',
-        comment: titleM?.group(1)?.trim() ?? '续写弧线$newNum',
+        comment: _t ?? '续写弧线$newNum',
         content: content,
         arcKey: '$newNum',
         disable: false,
@@ -3255,7 +3260,7 @@ return true;
       // v783：同步arcScan弧线列表——status='generated'（🧩AI规划标志），
       // 有正文回头重新扫描生成拆解数据后，各卡🧩标志自动消失
       state.arcScan ??= ArcScan(arcs: []);
-      final arcTitle = titleM?.group(1)?.trim() ?? '续写弧线$newNum';
+      final arcTitle = _t ?? '续写弧线$newNum';
       // v786：概述截到下一个【标记（AI可能把【人设】连在同一行）+硬上限250字——列表只留概述
       final ovM = RegExp(r'【弧线概述】[：:]?\s*([\s\S]*?)(?=【|\n场景\d|$)')
           .firstMatch(content);

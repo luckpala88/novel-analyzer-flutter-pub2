@@ -4543,7 +4543,11 @@ class _WritingPageState extends State<WritingPage>
       ).firstMatch(t);
       // v703：文风行豁免——三段式例句合法含句读，误判污染会剥标签把
       // 质感=…|标尺=…|例句=…整段漏进正文（用户截图实证，与txt导出同款）
-      final isStyleDim = (fld?.group(1) ?? '') == '文风';
+      // v970：'手法'豁免——trick四问值（特质隐忍→呈现：…｜多职：…｜批次：…）
+      // 天然含多个冒号引号且常超200字，被dimValuePolluted误判污染→剥标签
+      // 按正文渲染（截图实证：🎭手法/Trick标签消失无法识别）
+      final isStyleDim =
+          {'文风', '手法'}.contains(fld?.group(1) ?? '');
       if (fld != null &&
           !isStyleDim &&
           TextCleaner.dimValuePolluted(fld.group(3) ?? '')) {
