@@ -2508,7 +2508,12 @@ class AppState extends ChangeNotifier {
       final b = extractMarkedBlock(cur, m);
       if (b.isNotEmpty) sb.writeln(b);
     }
-    return sb.toString().trim();
+    final out = sb.toString().trim();
+    if (out.isNotEmpty) return out;
+    // v978：兜底——AI输出的条目标记格式漂移（如标记粘连/换行缺失）会导致
+    // 七块全提取失败→续写链路只拿到弧线标题。兜底返回条目全文（截2000字），
+    // 弧线九件套内容无论如何都要喂给AI
+    return cur.length > 2000 ? cur.substring(0, 2000) : cur;
   }
 
   /// v810：当前弧线第si场（0-based）的场景块（场景头+概述/正文规划）

@@ -2888,7 +2888,10 @@ return true;
             '5.若输入是JSON数组：保持JSON数组结构与中文键名不变直接输出；'
             '若输入是文本：保持原文本格式输出\n'
             '6.禁止解释性文字，只输出优化后的规划本体';
-        final usr = '【分镜规划（场景$planNum）】\n$planRaw';
+        final arcEntryContent =
+            state.worldBook!.entries[entryKey]!.content.trim();
+        final usr = '【本弧线规划（弧线$arcKey条目——细化时人设/矛盾/伏笔以此为准）】\n$arcEntryContent\n\n'
+            '【分镜规划（场景$planNum）】\n$planRaw';
         final okSend = await PromptPreview.maybePreview(
           context,
           sysPrompt: sys,
@@ -3090,6 +3093,10 @@ return true;
       entryBrief = entry.content.substring(last.start);
     }
     final planKey = 'shot_plan_${arcKey}_$nextNum';
+    // v978：显式注入本弧线条目（分镜规划需要弧线概述/人设/矛盾/伏笔/情绪曲线/脑洞——
+    // 不再单靠语料零件提取，提取漂移时弧线内容只剩标题）
+    final arcEntryBlock =
+        '【本弧线规划（弧线$arcKey条目——分镜必须承接此弧线的概述/人设/矛盾/伏笔/情绪曲线/脑洞）】\n${entry.content.trim()}';
     final sample = _continueShotPlanSample(state, arcKey);
     final config = state.getApiConfig('wb');
     state.api.clearAbort();
@@ -3101,11 +3108,12 @@ return true;
         task: '续写分镜规划',
         systemPrompt: PromptBuilder.buildContinueShotPlanSystemPrompt() +
             state.writerStyleBlock, // v954：作家风格卡注入（新场景结构规划也学讲法）
-        userPrompt: PromptBuilder.buildContinueShotPlanUserPrompt(
+        userPrompt: '$arcEntryBlock\n\n'
+            '${PromptBuilder.buildContinueShotPlanUserPrompt(
           entryBrief: entryBrief,
           corpus: state.continueCorpus(arcKey),
           sampleBlock: sample,
-        ),
+        )}',
         apiConfig: config,
       );
       if (!result.isSuccess) {
@@ -3344,7 +3352,12 @@ return true;
         '6.若提供【素材】块：素材内容必须有机融入场景剧情（自然带出，禁止生硬堆砌），同时照常剔除毒点\n'
         '7.只输出场景行，禁止解释性文字、小标题、markdown\n'
         '8.**编排说明（v878）**：每个场景的概述末尾追加一句"编排：本场景功能(钩子/建立/铺垫/升级/转折/爆点/余波)+给哪个场景蓄力或回收什么+本场景最出彩的爆点/落点在哪"——这是给创作AI的菜单设计逻辑，不是菜单本身';
-    final usr = '【续写语料（锚点/本弧线零件/已规划场景/前情概述/未回收伏笔/人物基准——人物与设定以此为准）】\n${state.continueCorpus(arcKey)}\n\n'
+    final _ek = _arcEntryKey(state, arcKey);
+    final arcEntry = _ek == null
+        ? ''
+        : (state.worldBook?.entries[_ek]?.content.trim() ?? '');
+    final usr = '【本弧线规划（弧线$arcKey条目——终审时概述/人设/矛盾/伏笔/情绪曲线/脑洞以此为准）】\n$arcEntry\n\n'
+        '【续写语料（锚点/本弧线零件/已规划场景/前情概述/未回收伏笔/人物基准——人物与设定以此为准）】\n${state.continueCorpus(arcKey)}\n\n'
         '${_matBlock(state, arcKey)}'
         '【待写入的场景规划（逐场景终审细化）】\n$source';
     final okSend = await PromptPreview.maybePreview(
