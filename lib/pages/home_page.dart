@@ -531,6 +531,23 @@ class _HomePageState extends State<HomePage>
                           ),
                         ),
                       ),
+                    // v982：预设JSON导出/导入
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.upload_file, size: 16),
+                          label: const Text('导出预设'),
+                          onPressed: () => _exportPresets(state),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.download, size: 16),
+                          label: const Text('导入预设'),
+                          onPressed: () => _importPresets(state),
+                        ),
+                      ],
+                    ),
                     const Divider(height: 32),
                     // 数据备份
                     Text(
@@ -679,6 +696,77 @@ class _HomePageState extends State<HomePage>
     final status = config.effectiveApiKey.isEmpty ? '未设置' : '已设置';
     final fallback = isFallback ? ' · 使用主页API' : '';
     return '$provider · ${config.effectiveModel} · $status$fallback';
+  }
+
+  // ===== v982：API预设JSON导出/导入 =====
+  Future<void> _exportPresets(AppState state) async {
+    if (state.presets.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('暂无预设可导出')),
+      );
+      return;
+    }
+    final json = const JsonEncoder.withIndent('  ').convert(
+      state.presets.map((p) => p.toJson()).toList(),
+    );
+    final filename =
+        'api_presets_${DateTime.now().toIso8601String().substring(0, 10)}.json';
+    final path = state.storage.getBackupPath(filename);
+    final ok = state.storage.writeFile(path, json);
+    AppState.instance.apiLog(ok ? '✓ 预设已导出到$path' : '❌ 预设导出失败：$path');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ok ? '✓ 已导出${state.presets.length}个预设（backups/目录）' : '❌ 导出失败：$path'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _importPresets(AppState state) async {
+    final result = await FilePickerService.pickTextFile();
+    if (result == null) return;
+    try {
+      final bytes = await result.readAsBytes();
+      var start = 0;
+      // v982：UTF-8 BOM剥离（0xEF,0xBB,0xBF，对齐备份恢复链路）
+      if (bytes.length >= 3 &&
+          bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) {
+        start = 3;
+      }
+      final json = utf8.decode(bytes.sublist(start));
+      final list = jsonDecode(json);
+      if (list is! List) throw const FormatException('不是预设数组');
+      var added = 0, merged = 0;
+      for (final e in list) {
+        if (e is! Map) continue;
+        final p = Preset.fromJson(Map<String, dynamic>.from(e));
+        if (p.name.isEmpty) continue;
+        final idx = state.presets.indexWhere((x) => x.name == p.name);
+        if (idx >= 0) {
+          state.presets[idx] = p; // 同名覆盖
+          merged++;
+        } else {
+          state.presets.add(p);
+          added++;
+        }
+      }
+      await state.savePresets();
+      setState(() {});
+      AppState.instance.apiLog('✓ 预设导入完成：新增$added，覆盖$merged');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('✓ 导入完成：新增$added，覆盖$merged')),
+        );
+      }
+    } catch (e) {
+      AppState.instance.apiLog('❌ 预设导入失败：$e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ 导入失败：$e'), duration: const Duration(seconds: 4)),
+        );
+      }
+    }
   }
 
   // ===== 备份 =====
@@ -882,7 +970,7 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 981;
+  static const int _appVersion = 982;
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';

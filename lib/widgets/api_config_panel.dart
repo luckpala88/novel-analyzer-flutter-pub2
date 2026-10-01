@@ -936,20 +936,46 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
     );
   }
 
+  // v982：存为预设——可输入新名，也可点已有预设名直接覆盖
   void _saveAsPreset() {
     final controller = TextEditingController();
+    final state = context.read<AppState>();
+    final existing = state.presets.map((p) => p.name).toList();
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('保存为预设'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            labelText: '预设名称',
-            hintText: '如：DeepSeek-V3',
-            border: OutlineInputBorder(),
-          ),
-          autofocus: true,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: '预设名称',
+                hintText: '如：DeepSeek-V3',
+                border: OutlineInputBorder(),
+              ),
+              autofocus: true,
+            ),
+            if (existing.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              const Text('或选择已有预设（点选覆盖）：',
+                  style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  for (final name in existing)
+                    ActionChip(
+                      label: Text(name, style: const TextStyle(fontSize: 12)),
+                      onPressed: () => controller.text = name,
+                    ),
+                ],
+              ),
+            ],
+          ],
         ),
         actions: [
           TextButton(
