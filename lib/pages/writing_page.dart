@@ -933,10 +933,16 @@ class _WritingPageState extends State<WritingPage>
                   ),
                   const SizedBox(width: 5),
                   SegmentedButton<int>(
+                    // v996：压缩到与MiniButton同高（此前默认高度大一圈=排版乱源）
                     style: const ButtonStyle(
                       visualDensity: VisualDensity.compact,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      minimumSize: WidgetStatePropertyAll(Size(0, 28)),
+                      padding: WidgetStatePropertyAll(
+                        EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                      ),
                       textStyle: WidgetStatePropertyAll(
-                        TextStyle(fontSize: 11),
+                        TextStyle(fontSize: 10),
                       ),
                     ),
                     segments: const [
