@@ -12,6 +12,7 @@ class MiniButton extends StatelessWidget {
   final VoidCallback? onTap;
   final bool primary;
   final bool danger;
+  final bool compact; // v990：更紧凑（聊天页气泡操作行用）
 
   const MiniButton({
     super.key,
@@ -19,6 +20,7 @@ class MiniButton extends StatelessWidget {
     this.onTap,
     this.primary = false,
     this.danger = false,
+    this.compact = false,
   });
 
   @override
@@ -32,11 +34,12 @@ class MiniButton extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            padding: EdgeInsets.symmetric(
+                horizontal: compact ? 6 : 10, vertical: compact ? 2 : 5),
             child: Text(
               label,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: compact ? 10 : 11,
                 fontWeight: FontWeight.w500,
                 color: onTap == null ? Colors.grey : cs.primary,
               ),
@@ -53,14 +56,16 @@ class MiniButton extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: EdgeInsets.symmetric(
+                horizontal: compact ? 6 : 10, vertical: compact ? 1.5 : 4),
             decoration: BoxDecoration(
               border: Border.all(color: Colors.red.withOpacity(0.6)),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
               label,
-              style: const TextStyle(fontSize: 11, color: Colors.red),
+              style: TextStyle(
+                  fontSize: compact ? 10 : 11, color: Colors.red),
             ),
           ),
         ),
@@ -73,7 +78,8 @@ class MiniButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          padding: EdgeInsets.symmetric(
+              horizontal: compact ? 6 : 10, vertical: compact ? 1.5 : 4),
           decoration: BoxDecoration(
             border: Border.all(
               color: onTap == null
@@ -85,7 +91,7 @@ class MiniButton extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: compact ? 10 : 11,
               color: onTap == null ? Colors.grey : cs.onSurface,
             ),
           ),

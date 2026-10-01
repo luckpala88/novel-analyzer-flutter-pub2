@@ -379,7 +379,31 @@ class _ChatPageState extends State<ChatPage>
     await _generate(state, text, hist, atts: atts);
   }
 
-  /// v836：重新回答——把该条AI回复对应的提问重新发送，新答案追加不覆盖旧答案
+  /// v989：重答——把当前这条AI回复删掉，重新生成新回答（对齐用户对"重新回答"的直觉）
+  Future<void> _redit(AppState state, int aiIdx) async {
+    if (_sending) return;
+    final sess = state.chatActive;
+    if (sess == null || aiIdx <= 0) return;
+    // 向前找最近的user消息
+    String text = '';
+    var userIdx = -1;
+    for (var i = aiIdx - 1; i >= 0; i--) {
+      if (sess.messages[i].role == 'user') {
+        text = sess.messages[i].content;
+        userIdx = i;
+        break;
+      }
+    }
+    if (text.isEmpty) return;
+    // 删除本条AI回复（含可能的历史=userIdx+1..aiIdx），再重新生成
+    sess.messages.removeRange(userIdx + 1, aiIdx + 1);
+    state.saveChatSessions();
+    setState(() {});
+    final hist = _histText(sess.messages, userIdx);
+    await _generate(state, text, hist);
+  }
+
+  /// v836/v989：再答——把该条AI回复对应的提问重新发送，新答案追加不覆盖旧答案
   Future<void> _regen(AppState state, int aiIdx) async {
     if (_sending) return;
     final sess = state.chatActive;
@@ -984,6 +1008,7 @@ class _ChatPageState extends State<ChatPage>
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   MiniButton(
+                    compact: true,
                     label: '📋 复制',
                     onTap: () {
                       Clipboard.setData(
@@ -995,6 +1020,7 @@ class _ChatPageState extends State<ChatPage>
                   ),
                   // v864：转发——调系统分享面板（微信/QQ等已安装应用）
                   MiniButton(
+                    compact: true,
                     label: '↗ 转发',
                     onTap: () {
                       final plain = _copyPlain(m.content);
@@ -1016,11 +1042,18 @@ class _ChatPageState extends State<ChatPage>
                       Share.share('$title\n$plain');
                     },
                   ),
-                  if (!isUser && idx > 0)
+                  if (!isUser && idx > 0) ...[
                     MiniButton(
-                      label: '↻ 重新回答',
+                      compact: true,
+                      label: '↻ 重答',
+                      onTap: () => _redit(state, idx),
+                    ),
+                    MiniButton(
+                      compact: true,
+                      label: '➕ 再答',
                       onTap: () => _regen(state, idx),
                     ),
+                  ],
                 ],
               ),
             ),
