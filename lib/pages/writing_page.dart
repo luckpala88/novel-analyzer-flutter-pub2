@@ -916,7 +916,7 @@ class _WritingPageState extends State<WritingPage>
                   runSpacing: 4,
                   children: [
                   MiniButton(
-                    label: '⚡ 批量',
+                    label: '批量',
                     primary: true,
                     onTap: _isGenerating || arcs.isEmpty
                         ? null
@@ -931,7 +931,6 @@ class _WritingPageState extends State<WritingPage>
                       ContentFont.save('writing_scene', v);
                     },
                   ),
-                  const SizedBox(width: 5),
                   SegmentedButton<int>(
                     // v996：压缩到与MiniButton同高（此前默认高度大一圈=排版乱源）
                     style: const ButtonStyle(
@@ -958,7 +957,6 @@ class _WritingPageState extends State<WritingPage>
                       _viewerOverride = null;
                     }),
                   ),
-                  const SizedBox(width: 5),
                   MiniButton(
                     label: '⚙ API',
                     onTap: () => showV119Sheet(
@@ -997,9 +995,7 @@ class _WritingPageState extends State<WritingPage>
                       !state.writingShotByShot,
                     ),
                   ),
-                  const SizedBox(width: 5),
                   writerStyleButton(context, state), // v952：作家风格选择
-                  const SizedBox(width: 5),
                   MiniButton(
                     label: '原范文',
                     primary: state.writingImitateAuthor,
@@ -1007,7 +1003,6 @@ class _WritingPageState extends State<WritingPage>
                       !state.writingImitateAuthor,
                     ),
                   ),
-                  const SizedBox(width: 5),
                   MiniButton(
                     label: '防抄',
                     primary: state.writingPlagiarismCheck,
@@ -1022,7 +1017,6 @@ class _WritingPageState extends State<WritingPage>
                       !state.writingPostCheck,
                     ),
                   ),
-                  const SizedBox(width: 5),
                   MiniButton(
                     label: '词链',
                     primary: state.writingPromptPreview,
@@ -1030,7 +1024,6 @@ class _WritingPageState extends State<WritingPage>
                       !state.writingPromptPreview,
                     ),
                   ),
-                  const SizedBox(width: 5),
                   MiniButton(
                     label: '备注模型',
                     primary: state.writingModelNote,
@@ -1038,10 +1031,9 @@ class _WritingPageState extends State<WritingPage>
                       !state.writingModelNote,
                     ),
                   ),
-                  const SizedBox(width: 5),
                   // v415：清残渣移到第二行（第一行API键被挤出）
                   MiniButton(
-                    label: '🧹 清残渣',
+                    label: '清残渣',
                     onTap: _isGenerating
                         ? null
                         : () => _cleanAllWritings(state),
@@ -1059,28 +1051,20 @@ class _WritingPageState extends State<WritingPage>
                   runSpacing: 4,
                   children: [
                   // v814：顶层模式二选一（用户定稿）——改编创作/续写创作，无第三态，默认改编创作
-                  MiniButton(
-                    label: '改编创作',
-                    primary: !(state.writingFreeMode &&
-                        state.writingFreeContinue),
-                    onTap: () {
+                  // v999：模式二选一粘连对（用户定稿：去"创作"字样+二选一粘连）
+                  _ModePair(
+                    isXu: state.writingFreeMode && state.writingFreeContinue,
+                    onSelectAdapt: () {
                       state.setWritingFreeMode(false);
                       state.setWritingFreeContinue(false);
-                      _addLog('🔀 创作模式→改编创作（条目链：语料不注入，原著切片只作文风参考）');
+                      _addLog('🔀 创作模式→改编（条目链：语料不注入，原著切片只作文风参考）');
                     },
-                  ),
-                  const SizedBox(width: 5),
-                  MiniButton(
-                    label: '续写创作',
-                    primary: state.writingFreeMode &&
-                        state.writingFreeContinue,
-                    onTap: () {
+                    onSelectXu: () {
                       state.setWritingFreeMode(true);
                       state.setWritingFreeContinue(true);
-                      _addLog('🔀 创作模式→续写创作（独立续写链：续写语料+衔接锚点+原著切片）');
+                      _addLog('🔀 创作模式→续写（独立续写链：续写语料+衔接锚点+原著切片）');
                     },
                   ),
-                  const SizedBox(width: 5),
                   // v815：自由=改编创作下的子开关（v545原义）；续写模式天然自由，此键无效
                   MiniButton(
                     label: '自由',
@@ -4848,6 +4832,65 @@ class _AutoExpandFieldState extends State<_AutoExpandField> {
         contentPadding: widget.contentPadding ?? const EdgeInsets.all(8),
       ),
       onChanged: widget.onChanged,
+    );
+  }
+}
+
+
+/// v999：创作模式二选一粘连对（改编|续写）——选中侧primaryContainer高亮，
+/// 外侧圆角/内侧直角粘连，视觉一体（用户定稿）
+class _ModePair extends StatelessWidget {
+  final bool isXu;
+  final VoidCallback onSelectAdapt;
+  final VoidCallback onSelectXu;
+  const _ModePair({
+    required this.isXu,
+    required this.onSelectAdapt,
+    required this.onSelectXu,
+  });
+
+  Widget _side(BuildContext context, String label, bool selected, VoidCallback onTap,
+      {required bool left}) {
+    final cs = Theme.of(context).colorScheme;
+    final radius = BorderRadius.horizontal(
+      left: left ? const Radius.circular(12) : Radius.zero,
+      right: left ? Radius.zero : const Radius.circular(12),
+    );
+    return Material(
+      color: selected ? cs.primaryContainer : Colors.transparent,
+      borderRadius: radius,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: radius,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: selected ? cs.primaryContainer : cs.outline.withOpacity(0.5),
+            ),
+            borderRadius: radius,
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              color: selected ? cs.primary : cs.onSurface,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _side(context, '改编', !isXu, onSelectAdapt, left: true),
+        _side(context, '续写', isXu, onSelectXu, left: false),
+      ],
     );
   }
 }
