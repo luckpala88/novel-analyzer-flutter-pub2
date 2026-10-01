@@ -1067,9 +1067,6 @@ class _WritingPageState extends State<WritingPage>
                   ],
               ),
             ),
-                  ],
-              ),
-            ),
             // 进度条（细条，状态文字在终端里）
             if (_isGenerating)
               const Padding(
