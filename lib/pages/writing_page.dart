@@ -907,7 +907,11 @@ class _WritingPageState extends State<WritingPage>
             // v357：顶栏两行——第一行操作键，第二行四个开关（颜色表开关态）
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-              child: Wrap(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                Expanded(
+                  child: Wrap(
                   spacing: 5,
                   runSpacing: 4,
                   children: [
@@ -960,13 +964,17 @@ class _WritingPageState extends State<WritingPage>
                       ),
                     ),
                   ),
-                  const SizedBox(width: 5),
-                  // v992：整栏折叠开关——收起第二/三行
-                  MiniButton(
-                    label: _toolbarCollapsed ? '▼ 按键' : '▲ 按键',
-                    onTap: () => setState(() => _toolbarCollapsed = !_toolbarCollapsed),
-                  ),
                   ],
+                  ),
+                ),
+                const SizedBox(width: 4),
+                // v995：折叠键固定第一行最右（不参与Wrap换行）
+                MiniButton(
+                  compact: true,
+                  label: _toolbarCollapsed ? '▼' : '▲',
+                  onTap: () => setState(() => _toolbarCollapsed = !_toolbarCollapsed),
+                ),
+                ],
               ),
             ),
             // v357：第二行开关——颜色表开关态（亮=开/灰=关），紧凑单行（v992可折叠）

@@ -269,7 +269,11 @@ class _AnalysisPageState extends State<AnalysisPage>
                   // 拆解菜单（v290：一步拆解已删——必须先划分场景才能拆分镜，
                   // 只保留两步；弧线页仍保留扫描+一步拆解）
                   PopupMenuButton<String>(
-                    enabled: !_isAnalyzing && state.completedArcs.isNotEmpty,
+                    // v994：改为有可拆弧线即亮——completedArcs漏掉pseudo闭合弧
+                    // （伪闭合宽容策略产出大量pseudo），有数据却灰键；内部循环
+                    // 本来就只拦incomplete，pseudo可正常拆分镜
+                    enabled: !_isAnalyzing &&
+                        state.allArcs.any((a) => a.status != 'incomplete'),
                     position: PopupMenuPosition.under,
                     onSelected: (v) {
                       if (v == 'increment') _batchAnalyzeShots(state, false);
