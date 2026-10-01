@@ -973,7 +973,7 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 986;
+  static const int _appVersion = 987;
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';
@@ -1442,16 +1442,63 @@ del /q update.bat
   }
 
   // ===== 预设管理 =====
+  // v987：应用预设先选目标页面——各功能页⚙独立配置，用户决定应用到哪（可多选）
+  static const Map<String, String> _presetTargets = {
+    'main': '主页',
+    'writing': '创作',
+    'detect': '二创/检测',
+    'wb': '世界书',
+    'scene': '场景',
+    'arc': '弧线',
+    'analysis': '分析',
+    'chat': '聊天',
+  };
+
   void _applyPreset(AppState state, Preset preset) {
-    final config = preset.toApiConfig();
-    state.saveApiConfig('main', config);
-    AppState.instance.apiLog('已应用预设「${preset.name}」到主页API');
-    // v986：加可见反馈（此前只写日志无UI反馈，用户以为按键失灵）
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('✓ 已应用预设「${preset.name}」到主页API')),
-      );
-    }
+    final selected = <String>{};
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: Text('应用预设「${preset.name}」到'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final e in _presetTargets.entries)
+                CheckboxListTile(
+                  dense: true,
+                  title: Text(e.value, style: const TextStyle(fontSize: 14)),
+                  value: selected.contains(e.key),
+                  onChanged: (v) => setD(() =>
+                      v == true ? selected.add(e.key) : selected.remove(e.key)),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+            FilledButton(
+              onPressed: selected.isEmpty
+                  ? null
+                  : () {
+                      Navigator.pop(ctx);
+                      final config = preset.toApiConfig();
+                      for (final sec in selected) {
+                        state.saveApiConfig(sec, config);
+                      }
+                      final names = selected.map((k) => _presetTargets[k]).join('、');
+                      AppState.instance.apiLog('✓ 已应用预设「${preset.name}」到$names');
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('✓ 已应用到$names')),
+                        );
+                      }
+                    },
+              child: const Text('应用'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _deletePreset(AppState state, Preset preset, {VoidCallback? refresh}) {
