@@ -7,6 +7,7 @@ plugins {
 android {
     namespace = "com.luckpala.novel_analyzer"
     compileSdk = 36
+    ndkVersion = "27.1.12297006" // v1003b: pin NDK (GitHub cache 27.0.12077973 corrupted causing build hangs)
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
