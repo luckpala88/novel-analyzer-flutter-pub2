@@ -262,10 +262,15 @@ class _AnalysisPageState extends State<AnalysisPage>
             // 顶行：拆解+芯片+导出+⚙（v235两行Wrap紧凑排列不超宽）
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
-              child: Wrap(
-                spacing: 5,
-                runSpacing: 4,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // v1005：Wrap放Expanded内+⚙API固定第一行右端（用户裁决：省一行）
+                  Expanded(
+                    child: Wrap(
+                      spacing: 5,
+                      runSpacing: 4,
+                      children: [
                   // 拆解菜单（v290：一步拆解已删——必须先划分场景才能拆分镜，
                   // 只保留两步；弧线页仍保留扫描+一步拆解）
                   PopupMenuButton<String>(
@@ -299,7 +304,6 @@ class _AnalysisPageState extends State<AnalysisPage>
                     ],
                     child: const MiniButton(label: '批量 ▾', primary: true, enabled: true), // v1000：PopupMenu包裹onTap=null渲染灰字=误禁用，强制可用外观（v993同款）
                   ),
-                  const SizedBox(width: 5),
                   // v377：统一词链开关（MiniButton背景色=开，与创作页一致）
                   MiniButton(
                     label: '词链',
@@ -311,27 +315,23 @@ class _AnalysisPageState extends State<AnalysisPage>
 
                   if (state.arcAnalyses.isNotEmpty) ...[
                     MiniButton(
-                      label: '📖直写世界书',
+                      label: '直写世界书',
                       primary: true,
                       onTap: () => _writeOriginalToWB(state),
                     ),
-                    const SizedBox(width: 5),
                     // v782：故事圣经——按弧线分步迭代世界书故事圣经条目（v787移到分镜页）
                     MiniButton(
-                      label: '📖圣经',
+                      label: '圣经',
                       onTap: () => _showBibleDialog(state),
                     ),
-                    const SizedBox(width: 5),
                     MiniButton(
-                      label: '导出原书酒馆世界书',
+                      label: '导出ST',
                       onTap: () => _exportOriginalST(state),
                     ),
-                    const SizedBox(width: 5),
                     MiniButton(
                       label: '导出JSON',
                       onTap: () => _export(state, 'json'),
                     ),
-                    const SizedBox(width: 5),
                     MiniButton(
                       label: '导出MD',
                       onTap: () => _export(state, 'md'),
@@ -346,8 +346,9 @@ class _AnalysisPageState extends State<AnalysisPage>
                       ContentFont.save('shot', v);
                     },
                   ),
-                  const SizedBox(width: 5),
-const SizedBox(width: 8),
+                  ],
+                    ),
+                  ),
                   MiniButton(
                     label: '⚙ API',
                     onTap: () => showV119Sheet(
