@@ -983,10 +983,10 @@ class _WritingPageState extends State<WritingPage>
             // v357：第二行开关——颜色表开关态（亮=开/灰=关），紧凑单行（v992可折叠）
             if (!_toolbarCollapsed)
             Padding(
-              padding: const EdgeInsets.fromLTRB(8, 0, 8, 2),
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
               child: Wrap(
                   spacing: 5,
-                  runSpacing: 4,
+                  runSpacing: 6,
                   children: [
                   MiniButton(
                     label: '逐镜',
@@ -1010,7 +1010,7 @@ class _WritingPageState extends State<WritingPage>
                       !state.writingPlagiarismCheck,
                     ),
                   ),
-                  const SizedBox(width: 5),                  MiniButton(
+                  MiniButton(
                     label: '校验',
                     primary: state.writingPostCheck,
                     onTap: () => state.setWritingPostCheck(
@@ -1038,18 +1038,6 @@ class _WritingPageState extends State<WritingPage>
                         ? null
                         : () => _cleanAllWritings(state),
                   ),
-
-                  ],
-              ),
-            ),
-            // v992：第三行——创作模式二选一+自由子开关（按键多拆行）
-            if (!_toolbarCollapsed)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 0, 8, 2),
-              child: Wrap(
-                  spacing: 5,
-                  runSpacing: 4,
-                  children: [
                   // v814：顶层模式二选一（用户定稿）——改编创作/续写创作，无第三态，默认改编创作
                   // v999：模式二选一粘连对（用户定稿：去"创作"字样+二选一粘连）
                   _ModePair(
@@ -1076,6 +1064,9 @@ class _WritingPageState extends State<WritingPage>
                       _addLog('🔀 改编链自由子开关→${!state.writingFreeMode ? '开（不注入分镜结构）' : '关（沿分镜）'}');
                     },
                   ),
+                  ],
+              ),
+            ),
                   ],
               ),
             ),
