@@ -2597,6 +2597,9 @@ const SizedBox(width: 8),
       }
       _addLog('批量拆分镜完成');
       state.saveArcScenes();
+      // v998：补齐global_scenes落盘——分镜写在globalScenes共享实例上，
+      // 不落盘=重启重绑用旧global_scenes.json覆盖=分镜全丢（用户实测）
+      state.saveGlobalScenes();
       // v903：编排分析自动化——批量拆完后对全部已拆场景统一跑场景内分镜编排策略
       if (!state.api.isAborted && !state.userAborted) {
         _addLog('━━ 【场景内分镜编排策略】分析开始（批量拆解后自动）…');

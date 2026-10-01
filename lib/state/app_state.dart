@@ -773,6 +773,7 @@ class AppState extends ChangeNotifier {
     // 场景页/弧线页/分镜页三份数据脱钩（v893/v898/v915三次撞墙），重绑后
     // 运行期所有容器指向同一Scene实例：任何页面修改，所有页面即时一致
     if (arcScan != null && globalScenes.isNotEmpty) {
+      var shotsMigrated = false;
       for (final an in arcAnalyses.values) {
         final arc = arcScan!.arcs.firstWhere(
           (a) => a.number == an.arcNumber,
@@ -781,9 +782,20 @@ class AppState extends ChangeNotifier {
         if (arc.sceneFrom >= 1 &&
             arc.sceneTo >= arc.sceneFrom &&
             globalScenes.length >= arc.sceneTo) {
-          an.scenes = globalScenes.sublist(arc.sceneFrom - 1, arc.sceneTo);
+          final slice = globalScenes.sublist(arc.sceneFrom - 1, arc.sceneTo);
+          // v997：分镜迁移——一步拆解的shots只写进了arcAnalyses实例，重绑用
+          // globalScenes切片覆盖=分镜全丢（升级后"分镜数据没了"的根因）。
+          // 迁移：切片场景无shots而analysis场景有→搬过去，随后落盘
+          for (var i = 0; i < slice.length && i < an.scenes.length; i++) {
+            if (slice[i].shots.isEmpty && an.scenes[i].shots.isNotEmpty) {
+              slice[i].shots = an.scenes[i].shots;
+              shotsMigrated = true;
+            }
+          }
+          an.scenes = slice;
         }
       }
+      if (shotsMigrated) saveGlobalScenes();
       // arcScenes容器同样重绑（批量拆解等历史消费点）
       arcScenes.updateAll((k, v) {
         final arc = arcScan!.arcs.firstWhere(
@@ -793,7 +805,14 @@ class AppState extends ChangeNotifier {
         if (arc.sceneFrom >= 1 &&
             arc.sceneTo >= arc.sceneFrom &&
             globalScenes.length >= arc.sceneTo) {
-          return globalScenes.sublist(arc.sceneFrom - 1, arc.sceneTo);
+          final slice = globalScenes.sublist(arc.sceneFrom - 1, arc.sceneTo);
+          // v997：同上——v场景容器里残留的shots也迁移到切片实例
+          for (var i = 0; i < slice.length && i < v.length; i++) {
+            if (slice[i].shots.isEmpty && v[i].shots.isNotEmpty) {
+              slice[i].shots = v[i].shots;
+            }
+          }
+          return slice;
         }
         return v;
       });
@@ -1980,6 +1999,20 @@ class AppState extends ChangeNotifier {
     // 覆盖写入统一存储（一步拆解结果与两步拆解相互覆盖对应内容）
     arcAnalyses[arcKey] = analysis;
     arcScenes[arcKey] = analysis.scenes;
+    // v997：shots同步进globalScenes实例——重绑以globalScenes切片为准，
+    // 不同步=重启后分镜全丢（v916单一事实源的写侧缺口）
+    if (arc.sceneFrom >= 1 &&
+        arc.sceneTo >= arc.sceneFrom &&
+        globalScenes.length >= arc.sceneTo) {
+      final slice = globalScenes.sublist(arc.sceneFrom - 1, arc.sceneTo);
+      for (var i = 0; i < slice.length && i < analysis.scenes.length; i++) {
+        if (analysis.scenes[i].shots.isNotEmpty) {
+          slice[i].shots = analysis.scenes[i].shots;
+          slice[i].text = analysis.scenes[i].text;
+        }
+      }
+      saveGlobalScenes();
+    }
     saveArcAnalyses();
     saveArcScenes();
     // v201方案A：优质概述回写弧线页（只覆盖不清除）
