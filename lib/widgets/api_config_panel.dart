@@ -77,6 +77,12 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
 
   /// 模型名不预填写死（官方模型迭代快），填Key后自动从/models拉取真实列表
 
+  /// v991：key掩码——显示前4位+••••+后4位（短key全掩）
+  static String _maskKey(String k) {
+    if (k.length <= 8) return '•' * k.length;
+    return '${k.substring(0, 4)}••••${k.substring(k.length - 4)}';
+  }
+
   /// 切换内置提供商：per-provider独立保存key/model，切换不清key（v469 provider_key_xxx对齐）
   /// 旧provider的key/model入stash，新provider从stash恢复；stash没有→空（待自动获取）
   void _switchBuiltin(String k) {
@@ -394,6 +400,10 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
                   hintText: '输入${_providerLabel}API Key',
                   border: const OutlineInputBorder(),
                   prefixIcon: const Icon(Icons.key),
+                  // v991：显示前4后4掩码，方便确认当前用的哪把key
+                  helperText: _config.apiKey.isEmpty
+                      ? null
+                      : '当前key：${_maskKey(_config.apiKey)}',
                 ),
                 obscureText: true,
                 controller: _apiKeyCtrl,
@@ -494,10 +504,13 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
               ),
               const SizedBox(height: 12),
               TextField(
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'API Key（自定义2）',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.key),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.key),
+                  helperText: _config.custom2ApiKey.isEmpty
+                      ? null
+                      : '当前key：${_maskKey(_config.custom2ApiKey)}',
                 ),
                 obscureText: true,
                 controller: _custom2KeyCtrl,
@@ -587,10 +600,13 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
               ),
               const SizedBox(height: 12),
               TextField(
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'API Key',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.key),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.key),
+                  helperText: _config.customApiKey.isEmpty
+                      ? null
+                      : '当前key：${_maskKey(_config.customApiKey)}',
                 ),
                 obscureText: true,
                 controller: _customKeyCtrl,
