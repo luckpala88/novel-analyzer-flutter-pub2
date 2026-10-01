@@ -970,7 +970,6 @@ class _WritingPageState extends State<WritingPage>
                 const SizedBox(width: 4),
                 // v995：折叠键固定第一行最右（不参与Wrap换行）
                 MiniButton(
-                  compact: true,
                   label: _toolbarCollapsed ? '▼' : '▲',
                   onTap: () => setState(() => _toolbarCollapsed = !_toolbarCollapsed),
                 ),

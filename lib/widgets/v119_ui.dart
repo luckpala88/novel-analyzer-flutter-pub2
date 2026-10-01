@@ -39,12 +39,11 @@ class MiniButton extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
           child: Padding(
-            padding: EdgeInsets.symmetric(
-                horizontal: compact ? 6 : 10, vertical: compact ? 2 : 5),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             child: Text(
               label,
               style: TextStyle(
-                fontSize: compact ? 10 : 11,
+                fontSize: 10,
                 fontWeight: FontWeight.w500,
                 color: _looksEnabled ? cs.primary : Colors.grey,
               ),
@@ -61,16 +60,14 @@ class MiniButton extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
           child: Container(
-            padding: EdgeInsets.symmetric(
-                horizontal: compact ? 6 : 10, vertical: compact ? 1.5 : 4),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
               border: Border.all(color: Colors.red.withOpacity(0.6)),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
               label,
-              style: TextStyle(
-                  fontSize: compact ? 10 : 11, color: Colors.red),
+              style: const TextStyle(fontSize: 10, color: Colors.red),
             ),
           ),
         ),
@@ -83,8 +80,7 @@ class MiniButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: EdgeInsets.symmetric(
-              horizontal: compact ? 6 : 10, vertical: compact ? 1.5 : 4),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
             border: Border.all(
               color: _looksEnabled
@@ -96,7 +92,7 @@ class MiniButton extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              fontSize: compact ? 10 : 11,
+              fontSize: 10,
               color: _looksEnabled ? cs.onSurface : Colors.grey,
             ),
           ),
