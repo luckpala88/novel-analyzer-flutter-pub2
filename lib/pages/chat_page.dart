@@ -1009,7 +1009,7 @@ class _ChatPageState extends State<ChatPage>
                 children: [
                   MiniButton(
                     compact: true,
-                    label: '📋 复制',
+                    label: '复制',
                     onTap: () {
                       Clipboard.setData(
                           ClipboardData(text: _copyPlain(m.content)));
@@ -1021,7 +1021,7 @@ class _ChatPageState extends State<ChatPage>
                   // v864：转发——调系统分享面板（微信/QQ等已安装应用）
                   MiniButton(
                     compact: true,
-                    label: '↗ 转发',
+                    label: '转发',
                     onTap: () {
                       final plain = _copyPlain(m.content);
                       final title = '【${m.role == 'user' ? '我' : 'AI'}】';
@@ -1050,7 +1050,7 @@ class _ChatPageState extends State<ChatPage>
                     ),
                     MiniButton(
                       compact: true,
-                      label: '➕ 再答',
+                      label: '再答',
                       onTap: () => _regen(state, idx),
                     ),
                   ],

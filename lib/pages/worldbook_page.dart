@@ -169,7 +169,7 @@ class _WorldBookPageState extends State<WorldBookPage>
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
               child: Wrap(
                 spacing: 4,
-                runSpacing: 2,
+                runSpacing: 6,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   MiniButton(
@@ -212,12 +212,10 @@ class _WorldBookPageState extends State<WorldBookPage>
                       );
                     },
                   ),
-                  const SizedBox(width: 5),
                   MiniButton(
                     label: '添加条目',
                     onTap: () => _addCustomEntry(state),
                   ),
-                  const SizedBox(width: 5),
                   MiniButton(
                     label: '导出',
                     onTap: () => _exportSillyTavern(state),
@@ -231,7 +229,6 @@ class _WorldBookPageState extends State<WorldBookPage>
                       ContentFont.save('wb', v);
                     },
                   ),
-                  const SizedBox(width: 5),
 const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
                 ],
               ),

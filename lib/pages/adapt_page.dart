@@ -1760,7 +1760,7 @@ return true;
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
               child: Wrap(
                 spacing: 8,
-                runSpacing: 4,
+                runSpacing: 6,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   SegmentedButton<String>(
@@ -1818,12 +1818,12 @@ return true;
                   ),
                   // v791：续写映射表两键移顶栏（原弧线Tab列表末尾）
                   MiniButton(
-                    label: '🗺映射表',
+                    label: '映射表',
                     primary: state.worldBook?.nameMapping.isNotEmpty ?? false,
                     onTap: _isGenerating ? null : () => _batchGenNameMap(state),
                   ),
                   MiniButton(
-                    label: '📄查看',
+                    label: '查看',
                     primary: false,
                     onTap: () => _showMasterOutlineDialog(state),
                   ),
@@ -1863,7 +1863,7 @@ return true;
                                   const EdgeInsets.symmetric(vertical: 8),
                               child: Center(
                                 child: MiniButton(
-                                  label: '⚙生成世界书新弧线条目',
+                                  label: '生成世界书新弧线条目',
                                   primary: true,
                                   // v824：0弧线也可添加——开新书从弧线1起步
                                   onTap: _isGenerating
@@ -4181,7 +4181,7 @@ return true;
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
               child: Wrap(
                 spacing: 8,
-                runSpacing: 4,
+                runSpacing: 6,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   // v765：改编/续写模式切换（二选一互斥，书级持久化）
