@@ -526,7 +526,9 @@ class _HomePageState extends State<HomePage>
                                     color: Colors.red,
                                   ),
                                   tooltip: '删除预设',
-                                  onPressed: () { _deletePreset(state, p); setD(() {}); },
+                                  onPressed: () async {
+                    if (await _deletePreset(state, p)) setD(() {});
+                  },
                                 ),
                               ],
                             ),
@@ -546,7 +548,10 @@ class _HomePageState extends State<HomePage>
                         OutlinedButton.icon(
                           icon: const Icon(Icons.download, size: 16),
                           label: const Text('导入预设'),
-                          onPressed: () => _importPresets(state),
+                          onPressed: () async {
+                          await _importPresets(state);
+                          setD(() {}); // v988：导入完成立即刷新列表
+                        },
                         ),
                       ],
                     ),
@@ -973,7 +978,7 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 987;
+  static const int _appVersion = 988;
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';
@@ -1501,29 +1506,30 @@ del /q update.bat
     );
   }
 
-  void _deletePreset(AppState state, Preset preset, {VoidCallback? refresh}) {
-    showDialog(
+  // v988：返回是否真删了——调用方await后setD刷新列表（v986的setD在点击瞬间
+  // 就跑了，真正删除完成后反而没刷新=用户看到的"删除不消失"）
+  Future<bool> _deletePreset(AppState state, Preset preset) async {
+    final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('删除预设'),
         content: Text('确定删除预设「${preset.name}」？'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('取消'),
           ),
           TextButton(
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            onPressed: () {
-              state.presets.removeWhere((p) => p.name == preset.name);
-              state.savePresets();
-              refresh?.call();
-              Navigator.pop(ctx);
-            },
+            onPressed: () => Navigator.pop(ctx, true),
             child: const Text('删除'),
           ),
         ],
       ),
     );
+    if (ok != true) return false;
+    state.presets.removeWhere((p) => p.name == preset.name);
+    await state.savePresets();
+    return true;
   }
 }
