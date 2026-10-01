@@ -293,7 +293,7 @@ class _AnalysisPageState extends State<AnalysisPage>
                         ),
                       ),
                     ],
-                    child: const MiniButton(label: '拆解 ▾'),
+                    child: const MiniButton(label: '批量 ▾', primary: true), // v992：改名批量（实为批量拆分镜菜单）+primary配色
                   ),
                   const SizedBox(width: 5),
                   // v377：统一词链开关（MiniButton背景色=开，与创作页一致）

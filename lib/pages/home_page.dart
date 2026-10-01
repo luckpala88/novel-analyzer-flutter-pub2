@@ -131,7 +131,7 @@ class _HomePageState extends State<HomePage>
                       if (v == 'file') _uploadFile(state);
                       if (v == 'paste') _pasteText(state);
                     },
-                    child: const MiniButton(label: '加载 ▾'),
+                    child: const MiniButton(label: '加载 ▾', primary: true), // v992：primary配色——此前灰边框像无效键
                     itemBuilder: (ctx) => [
                       const PopupMenuItem(
                         value: 'file',
@@ -978,7 +978,7 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 991;
+  static const int _appVersion = 992;
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';

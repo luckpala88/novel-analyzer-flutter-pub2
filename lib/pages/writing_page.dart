@@ -813,6 +813,7 @@ class _WritingPageState extends State<WritingPage>
   String _statusText = '';
   final List<String> _logs = [];
   int _viewMode = 0; // 0=场景创作 1=草稿（原已创作，v644改名）
+  bool _toolbarCollapsed = false; // v992：顶栏按键折叠——收起第二/三行
   // 正在创作的场景key（arcKey_si），显示行内进度
   final Set<String> _activeKeys = {};
   // 展开的弧线
@@ -959,11 +960,18 @@ class _WritingPageState extends State<WritingPage>
                       ),
                     ),
                   ),
+                  const SizedBox(width: 5),
+                  // v992：整栏折叠开关——收起第二/三行
+                  MiniButton(
+                    label: _toolbarCollapsed ? '▼ 按键' : '▲ 按键',
+                    onTap: () => setState(() => _toolbarCollapsed = !_toolbarCollapsed),
+                  ),
                   ],
                 ),
                 ),
             ),
-            // v357：第二行开关——颜色表开关态（亮=开/灰=关），紧凑单行
+            // v357：第二行开关——颜色表开关态（亮=开/灰=关），紧凑单行（v992可折叠）
+            if (!_toolbarCollapsed)
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 0, 8, 2),
               child: SingleChildScrollView(
@@ -1003,41 +1011,6 @@ class _WritingPageState extends State<WritingPage>
                     ),
                   ),
                   const SizedBox(width: 5),
-                  // v814：顶层模式二选一（用户定稿）——改编创作/续写创作，无第三态，默认改编创作
-                  // 改编创作=沿分镜/自由改编按条目结构自动判定（v582）；续写创作=自由+续写链
-                  MiniButton(
-                    label: '改编创作',
-                    primary: !(state.writingFreeMode &&
-                        state.writingFreeContinue),
-                    onTap: () {
-                      state.setWritingFreeMode(false);
-                      state.setWritingFreeContinue(false);
-                      _addLog('🔀 创作模式→改编创作（条目链：语料不注入，原著切片只作文风参考）');
-                    },
-                  ),
-                  MiniButton(
-                    label: '续写创作',
-                    primary: state.writingFreeMode &&
-                        state.writingFreeContinue,
-                    onTap: () {
-                      state.setWritingFreeMode(true);
-                      state.setWritingFreeContinue(true);
-                      _addLog('🔀 创作模式→续写创作（独立续写链：续写语料+衔接锚点+原著切片）');
-                    },
-                  ),
-                  const SizedBox(width: 5),
-                  // v815：自由=改编创作下的子开关（v545原义）；续写模式天然自由，此键无效
-                  MiniButton(
-                    label: '自由',
-                    primary: state.writingFreeMode &&
-                        !state.writingFreeContinue,
-                    onTap: () {
-                      if (state.writingFreeContinue) return;
-                      state.setWritingFreeMode(!state.writingFreeMode);
-                      _addLog('🔀 改编链自由子开关→${!state.writingFreeMode ? '开（不注入分镜结构）' : '关（沿分镜）'}');
-                    },
-                  ),
-                  const SizedBox(width: 5),
                   MiniButton(
                     label: '词链',
                     primary: state.writingPromptPreview,
@@ -1062,6 +1035,52 @@ class _WritingPageState extends State<WritingPage>
                         : () => _cleanAllWritings(state),
                   ),
 
+                  ],
+                ),
+              ),
+            ),
+            // v992：第三行——创作模式二选一+自由子开关（按键多拆行）
+            if (!_toolbarCollapsed)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 2),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                  // v814：顶层模式二选一（用户定稿）——改编创作/续写创作，无第三态，默认改编创作
+                  MiniButton(
+                    label: '改编创作',
+                    primary: !(state.writingFreeMode &&
+                        state.writingFreeContinue),
+                    onTap: () {
+                      state.setWritingFreeMode(false);
+                      state.setWritingFreeContinue(false);
+                      _addLog('🔀 创作模式→改编创作（条目链：语料不注入，原著切片只作文风参考）');
+                    },
+                  ),
+                  const SizedBox(width: 5),
+                  MiniButton(
+                    label: '续写创作',
+                    primary: state.writingFreeMode &&
+                        state.writingFreeContinue,
+                    onTap: () {
+                      state.setWritingFreeMode(true);
+                      state.setWritingFreeContinue(true);
+                      _addLog('🔀 创作模式→续写创作（独立续写链：续写语料+衔接锚点+原著切片）');
+                    },
+                  ),
+                  const SizedBox(width: 5),
+                  // v815：自由=改编创作下的子开关（v545原义）；续写模式天然自由，此键无效
+                  MiniButton(
+                    label: '自由',
+                    primary: state.writingFreeMode &&
+                        !state.writingFreeContinue,
+                    onTap: () {
+                      if (state.writingFreeContinue) return;
+                      state.setWritingFreeMode(!state.writingFreeMode);
+                      _addLog('🔀 改编链自由子开关→${!state.writingFreeMode ? '开（不注入分镜结构）' : '关（沿分镜）'}');
+                    },
+                  ),
                   ],
                 ),
               ),
