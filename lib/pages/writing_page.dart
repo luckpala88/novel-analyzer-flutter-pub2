@@ -907,9 +907,9 @@ class _WritingPageState extends State<WritingPage>
             // v357：顶栏两行——第一行操作键，第二行四个开关（颜色表开关态）
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
+              child: Wrap(
+                  spacing: 5,
+                  runSpacing: 4,
                   children: [
                   MiniButton(
                     label: '⚡ 批量',
@@ -967,16 +967,15 @@ class _WritingPageState extends State<WritingPage>
                     onTap: () => setState(() => _toolbarCollapsed = !_toolbarCollapsed),
                   ),
                   ],
-                ),
-                ),
+              ),
             ),
             // v357：第二行开关——颜色表开关态（亮=开/灰=关），紧凑单行（v992可折叠）
             if (!_toolbarCollapsed)
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 0, 8, 2),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
+              child: Wrap(
+                  spacing: 5,
+                  runSpacing: 4,
                   children: [
                   MiniButton(
                     label: '逐镜',
@@ -1036,16 +1035,15 @@ class _WritingPageState extends State<WritingPage>
                   ),
 
                   ],
-                ),
               ),
             ),
             // v992：第三行——创作模式二选一+自由子开关（按键多拆行）
             if (!_toolbarCollapsed)
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 0, 8, 2),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
+              child: Wrap(
+                  spacing: 5,
+                  runSpacing: 4,
                   children: [
                   // v814：顶层模式二选一（用户定稿）——改编创作/续写创作，无第三态，默认改编创作
                   MiniButton(
@@ -1082,7 +1080,6 @@ class _WritingPageState extends State<WritingPage>
                     },
                   ),
                   ],
-                ),
               ),
             ),
             // 进度条（细条，状态文字在终端里）

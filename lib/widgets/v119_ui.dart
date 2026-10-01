@@ -13,6 +13,7 @@ class MiniButton extends StatelessWidget {
   final bool primary;
   final bool danger;
   final bool compact; // v990：更紧凑（聊天页气泡操作行用）
+  final bool? enabled; // v993：强制可用外观（PopupMenu包裹的键onTap=null但可用）
 
   const MiniButton({
     super.key,
@@ -21,14 +22,18 @@ class MiniButton extends StatelessWidget {
     this.primary = false,
     this.danger = false,
     this.compact = false,
+    this.enabled,
   });
+
+  /// v993：可用外观判断——enabled显式指定优先，否则由onTap推断
+  bool get _looksEnabled => enabled ?? (onTap != null);
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     if (primary) {
       return Material(
-        color: onTap == null ? cs.surfaceContainerHighest : cs.primaryContainer,
+        color: _looksEnabled ? cs.primaryContainer : cs.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,
@@ -41,7 +46,7 @@ class MiniButton extends StatelessWidget {
               style: TextStyle(
                 fontSize: compact ? 10 : 11,
                 fontWeight: FontWeight.w500,
-                color: onTap == null ? Colors.grey : cs.primary,
+                color: _looksEnabled ? cs.primary : Colors.grey,
               ),
             ),
           ),
@@ -82,9 +87,9 @@ class MiniButton extends StatelessWidget {
               horizontal: compact ? 6 : 10, vertical: compact ? 1.5 : 4),
           decoration: BoxDecoration(
             border: Border.all(
-              color: onTap == null
-                  ? Colors.grey.withOpacity(0.3)
-                  : cs.outline.withOpacity(0.5),
+              color: _looksEnabled
+                  ? cs.outline.withOpacity(0.5)
+                  : Colors.grey.withOpacity(0.3),
             ),
             borderRadius: BorderRadius.circular(12),
           ),
@@ -92,7 +97,7 @@ class MiniButton extends StatelessWidget {
             label,
             style: TextStyle(
               fontSize: compact ? 10 : 11,
-              color: onTap == null ? Colors.grey : cs.onSurface,
+              color: _looksEnabled ? cs.onSurface : Colors.grey,
             ),
           ),
         ),
