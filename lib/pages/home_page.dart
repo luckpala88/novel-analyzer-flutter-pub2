@@ -446,7 +446,9 @@ class _HomePageState extends State<HomePage>
   void _showSettingsDialog(AppState state) {
     showDialog(
       context: context,
-      builder: (ctx) => Dialog(
+      // v986：StatefulBuilder——删除/应用预设后setD立即刷新（此前改state.presets
+      // 不触发弹窗rebuild：删除不消失、应用无反馈像失灵）
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setD) => Dialog(
         // v204：宽度占满（原默认inset 40水平边距太窄，对齐API设置面板的宽度感）
         insetPadding: const EdgeInsets.symmetric(
           horizontal: 8,
@@ -515,7 +517,7 @@ class _HomePageState extends State<HomePage>
                                     size: 18,
                                   ),
                                   tooltip: '应用到主页API',
-                                  onPressed: () => _applyPreset(state, p),
+                                  onPressed: () { _applyPreset(state, p); setD(() {}); },
                                 ),
                                 IconButton(
                                   icon: const Icon(
@@ -524,7 +526,7 @@ class _HomePageState extends State<HomePage>
                                     color: Colors.red,
                                   ),
                                   tooltip: '删除预设',
-                                  onPressed: () => _deletePreset(state, p),
+                                  onPressed: () { _deletePreset(state, p); setD(() {}); },
                                 ),
                               ],
                             ),
@@ -683,6 +685,7 @@ class _HomePageState extends State<HomePage>
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -970,7 +973,7 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 985;
+  static const int _appVersion = 986;
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';
@@ -1442,10 +1445,16 @@ del /q update.bat
   void _applyPreset(AppState state, Preset preset) {
     final config = preset.toApiConfig();
     state.saveApiConfig('main', config);
-    AppState.instance.apiLog('已应用预设「${preset.name}」到主页API');;
+    AppState.instance.apiLog('已应用预设「${preset.name}」到主页API');
+    // v986：加可见反馈（此前只写日志无UI反馈，用户以为按键失灵）
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('✓ 已应用预设「${preset.name}」到主页API')),
+      );
+    }
   }
 
-  void _deletePreset(AppState state, Preset preset) {
+  void _deletePreset(AppState state, Preset preset, {VoidCallback? refresh}) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1461,6 +1470,7 @@ del /q update.bat
             onPressed: () {
               state.presets.removeWhere((p) => p.name == preset.name);
               state.savePresets();
+              refresh?.call();
               Navigator.pop(ctx);
             },
             child: const Text('删除'),
