@@ -12,6 +12,7 @@ class SceneCardItem extends StatelessWidget {
   final VoidCallback? onCutResume; // v462：从此场景剪断重扫
   final VoidCallback? onRegenSummary; // v819：单场景概述重生成（切片重喂，边界/弧线不动）
   final VoidCallback? onAnalyzeChoreo; // v901：场景内分镜编排策略分析（拆分镜后可用）
+  final VoidCallback? onShots; // v981：点分镜徽章查看该场景全部分镜完整内容
   final Widget? trailing; // 行1右侧自定义区（默认分镜状态徽章）
 
   const SceneCardItem({
@@ -22,6 +23,7 @@ class SceneCardItem extends StatelessWidget {
     this.onCutResume,
     this.onRegenSummary,
     this.onAnalyzeChoreo,
+    this.onShots,
     this.trailing,
   });
 
@@ -93,20 +95,23 @@ class SceneCardItem extends StatelessWidget {
                 ),
                 const SizedBox(width: 2),
               ],
-              // 分镜状态徽章
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: hasShots
-                      ? Colors.green.withOpacity(0.12)
-                      : Colors.grey.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  hasShots ? '✓ ${scene.shots.length}分镜' : '未拆',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: hasShots ? Colors.green.shade700 : Colors.grey,
+              // 分镜状态徽章（v981：已拆→可点开看全部分镜完整内容）
+              GestureDetector(
+                onTap: hasShots ? onShots : null,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: hasShots
+                        ? Colors.green.withOpacity(0.12)
+                        : Colors.grey.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    hasShots ? '✓ ${scene.shots.length}分镜 ›' : '未拆',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: hasShots ? Colors.green.shade700 : Colors.grey,
+                    ),
                   ),
                 ),
               ),

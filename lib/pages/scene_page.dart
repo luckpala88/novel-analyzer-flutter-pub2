@@ -456,6 +456,8 @@ const Spacer(), // ⚙API推到最右
                                     _confirmCutResume(state, i),
                                 onRegenSummary: () =>
                                     _regenSceneSummary(state, i),
+                                onShots: () => _showSceneShots(
+                                    context, state.globalScenes[i], i + 1),
                                 onAnalyzeChoreo: () => analyzeSceneChoreo(
                                   state: state,
                                   scene: state.globalScenes[i],
@@ -480,6 +482,34 @@ const Spacer(), // ⚙API推到最右
           ],
         ),
       ),
+    );
+  }
+
+  /// v981：点场景卡分镜徽章→弹层看该场景全部分镜完整内容（不依赖世界书）
+  void _showSceneShots(BuildContext context, dynamic scene, int idx) {
+    final buf = StringBuffer();
+    for (var i = 0; i < scene.shots.length; i++) {
+      final sh = scene.shots[i];
+      buf.writeln('━━━ 分镜${i + 1} ━━━');
+      final tags = <String>[
+        if (sh.shotType.isNotEmpty) sh.shotType,
+        if (sh.pov.isNotEmpty) '视角:${sh.pov}',
+        if (sh.info.isNotEmpty) sh.info,
+        if (sh.intent.isNotEmpty) sh.intent,
+        if (sh.transition.isNotEmpty) sh.transition,
+        if (sh.length.isNotEmpty) sh.length,
+      ].join(' · ');
+      if (tags.isNotEmpty) buf.writeln('[$tags]');
+      if (sh.focus.isNotEmpty) buf.writeln('聚焦：${sh.focus}');
+      if (sh.content.isNotEmpty) buf.writeln(sh.content);
+      if (sh.text.isNotEmpty) buf.writeln('【切片】${sh.text}');
+      if (sh.endText.isNotEmpty) buf.writeln('（界句：${sh.endText}）');
+      buf.writeln();
+    }
+    showSliceViewerSheet(
+      context,
+      title: '场景$idx：${scene.name} · ${scene.shots.length}分镜',
+      text: buf.toString(),
     );
   }
 
