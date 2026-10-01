@@ -313,7 +313,7 @@ class _AutoExpansionTileState extends State<AutoExpansionTile> {
 Widget writerStyleButton(BuildContext context, dynamic state) {
   final sel = state.selectedWriterStyle as String;
   return MiniButton(
-    label: sel.isEmpty ? '🎭作家' : '🎭$sel',
+    label: sel.isEmpty ? '作家' : sel,
     primary: sel.isNotEmpty,
     onTap: () async {
       final styles = state.styleProfiles as List<Map<String, String>>;

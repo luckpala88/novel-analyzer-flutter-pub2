@@ -1787,7 +1787,7 @@ return true;
                   ),
                   writerStyleButton(context, state), // v952：作家风格选择
                   MiniButton(
-                    label: '↻ 刷新',
+                    label: '刷新',
                     onTap: () {
                       setState(() {});
                       state.refresh();
@@ -4225,7 +4225,7 @@ return true;
                         : () => _showGenDialog(state, allArcs, generatedCount),
                   ),
                   MiniButton(
-                    label: '↻ 刷新',
+                    label: '刷新',
                     onTap: () {
                       // 手动刷新保险丝：重建本页并重新计算弧线/条目列表
                       setState(() {});

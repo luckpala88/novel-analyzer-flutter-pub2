@@ -648,7 +648,7 @@ class _ChatPageState extends State<ChatPage>
             },
           ),
           writerStyleButton(context, state), // v953：聚焦作家（聊天即训练场）
-          MiniButton(label: '⇅', onTap: () => _exportImportMenu(state)),
+          MiniButton(label: '导出/导入', onTap: () => _exportImportMenu(state)),
           MiniButton(
               label: '新建',
               onTap: () {
@@ -1045,7 +1045,7 @@ class _ChatPageState extends State<ChatPage>
                   if (!isUser && idx > 0) ...[
                     MiniButton(
                       compact: true,
-                      label: '↻ 重答',
+                      label: '重答',
                       onTap: () => _redit(state, idx),
                     ),
                     MiniButton(
