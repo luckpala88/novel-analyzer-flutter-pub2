@@ -663,18 +663,68 @@ class _ScanPageState extends State<ScanPage>
                                         if (scenes.isEmpty) {
                                           return const SizedBox.shrink();
                                         }
+                                        final listKey = 'list${arc.number}';
+                                        final listOpen =
+                                            _arcChoreoOpen.contains(listKey);
+                                        // v1023：场景列表默认折叠——点标题展开（用户裁决）
                                         return Column(
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-                                            Text(
-                                              '🎬 场景（${scenes.length}）',
-                                              style: const TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w700,
-                                                color: Color(0xFF0E7490),
+                                            GestureDetector(
+                                              behavior: HitTestBehavior.opaque,
+                                              key: _choreoKey('${listKey}_h'),
+                                              onTap: () {
+                                                setState(() {
+                                                  if (listOpen) {
+                                                    _arcChoreoOpen
+                                                        .remove(listKey);
+                                                  } else {
+                                                    _arcChoreoOpen.add(listKey);
+                                                  }
+                                                });
+                                                // v1023：视线锚回标题行
+                                                WidgetsBinding.instance
+                                                    .addPostFrameCallback((_) {
+                                                  final hctx = _choreoKey(
+                                                          '${listKey}_h')
+                                                      .currentContext;
+                                                  if (hctx != null) {
+                                                    Scrollable.ensureVisible(
+                                                        hctx,
+                                                        alignment: 0.0,
+                                                        duration: const Duration(
+                                                            milliseconds: 150));
+                                                  }
+                                                });
+                                              },
+                                              child: Row(
+                                                children: [
+                                                  Text(listOpen ? '▾' : '▸',
+                                                      style: const TextStyle(
+                                                        fontSize: 11,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        color:
+                                                            Color(0xFF0E7490),
+                                                      )),
+                                                  const SizedBox(width: 4),
+                                                  Expanded(
+                                                    child: Text(
+                                                      '🎬 场景（${scenes.length}）',
+                                                      style: const TextStyle(
+                                                        fontSize: 11,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        color:
+                                                            Color(0xFF0E7490),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                             ),
+                                            if (listOpen) ...[
                                             const SizedBox(height: 4),
                                             ...scenes.map(
                                                   (sc) => SceneCardItem(
@@ -690,6 +740,7 @@ class _ScanPageState extends State<ScanPage>
                                                     ),
                                                   ),
                                                 ),
+                                            ],
                                             const SizedBox(height: 8),
                                           ],
                                         );

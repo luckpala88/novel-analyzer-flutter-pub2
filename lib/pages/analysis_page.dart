@@ -1599,6 +1599,7 @@ class _AnalysisPageState extends State<AnalysisPage>
           // v947b：折叠键独立行（分镜1上方——不跟场景标题挤按钮行，对齐世界书页v946）
           if (hasShots)
             GestureDetector(
+              key: _choreoKey('${foldKey}_shots_h'),
               onTap: () {
                 setState(() {
                   if (isExpanded) {
@@ -1608,6 +1609,16 @@ class _AnalysisPageState extends State<AnalysisPage>
                   }
                 });
                 _saveUiState();
+                // v1023：视线锚回折叠键行（统一规范）
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  final hctx =
+                      _choreoKey('${foldKey}_shots_h').currentContext;
+                  if (hctx != null) {
+                    Scrollable.ensureVisible(hctx,
+                        alignment: 0.0,
+                        duration: const Duration(milliseconds: 150));
+                  }
+                });
               },
               child: Container(
                 margin: const EdgeInsets.only(top: 3, bottom: 1),
@@ -1653,6 +1664,45 @@ class _AnalysisPageState extends State<AnalysisPage>
                 scene?.text ?? '',
               );
             }),
+            // v1023b：分镜列表展开底部收起键——看到尾直接收，不用滚回顶部
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              key: _choreoKey('${foldKey}_shots_h'),
+              onTap: () {
+                setState(() => _expandedShots.remove(foldKey));
+                _saveUiState();
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  final hctx =
+                      _choreoKey('${foldKey}_shots_h').currentContext;
+                  if (hctx != null) {
+                    Scrollable.ensureVisible(hctx,
+                        alignment: 0.0,
+                        duration: const Duration(milliseconds: 150));
+                  }
+                });
+              },
+              child: Container(
+                margin: const EdgeInsets.only(top: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: V469Style.surfaceAlt,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('▲',
+                        style: TextStyle(
+                            fontSize: 10, color: V469Style.accent)),
+                    SizedBox(width: 4),
+                    Text('收起分镜',
+                        style: TextStyle(
+                            fontSize: 10, color: V469Style.accent)),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );

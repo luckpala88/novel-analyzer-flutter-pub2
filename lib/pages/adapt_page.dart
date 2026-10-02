@@ -2249,14 +2249,28 @@ return true;
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             InkWell(
-              onTap: () => setState(() {
-                if (expanded) {
-                  _contArcExpanded.remove(arcKey);
-                } else {
-                  _contArcExpanded.add(arcKey);
-                }
-              }),
-              child: Row(
+              key: _foldHeaderKeys('cont$arcKey'),
+              onTap: () {
+                setState(() {
+                  if (expanded) {
+                    _contArcExpanded.remove(arcKey);
+                  } else {
+                    _contArcExpanded.add(arcKey);
+                  }
+                });
+                // v1023：视线锚回弧线标题行（统一规范）
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  final hctx = _foldHeaderKeys('cont$arcKey').currentContext;
+                  if (hctx != null) {
+                    Scrollable.ensureVisible(hctx,
+                        alignment: 0.0,
+                        duration: const Duration(milliseconds: 150));
+                  }
+                });
+              },
+              child: KeyedSubtree(
+                key: _foldHeaderKeys('cont${arcKey}_w'),
+                child: Row(
                 children: [
                   Text(expanded ? '▾' : '▸',
                       style: TextStyle(
@@ -2270,6 +2284,7 @@ return true;
                     ),
                   ),
                 ],
+              ),
               ),
             ),
             // v969：按钮紧凑Wrap行（分行布局——不挤标题）
@@ -4014,7 +4029,11 @@ return true;
   bool _newSceneRawChecked = false; // 用户原始规划勾选（写入世界书时的备选源）
   final Set<String> _shotArcExpanded = {}; // v960：分镜续写层弧线卡展开状态
   final Set<String> _shotPlanPreviewOpen = {}; // v973：分镜规划预览卡展开状态
-  final Set<String> _contArcExpanded = {}; // v963：场景续写层弧线卡展开状态（手动折叠——ExpansionTile在TabBarView冻死打不开v586已知）
+  final Set<String> _contArcExpanded = {};
+  // v1023：折叠头Key表——展开/收起后视线锚定
+  final Map<String, GlobalKey> _foldHeaderKeyMap = {};
+  GlobalKey _foldHeaderKeys(String k) =>
+      _foldHeaderKeyMap.putIfAbsent(k, () => GlobalKey()); // v963：场景续写层弧线卡展开状态（手动折叠——ExpansionTile在TabBarView冻死打不开v586已知）
   bool _newSceneOptChecked = true; // AI优化规划勾选（默认写入源）
   bool _preWriteRefine = true; // v826：写入前AI细化开关（完善补充/剔除毒点，默认开）
   bool _shotPreWriteRefine = true; // v975：分镜规划写入前AI细化开关（去毒点/修逻辑，默认开）
