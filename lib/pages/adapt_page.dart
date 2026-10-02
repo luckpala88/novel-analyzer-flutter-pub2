@@ -1854,8 +1854,13 @@ return true;
                       ListView.builder(
                         controller: _contArcCtl,
                         padding: const EdgeInsets.fromLTRB(8, 4, 12, 8),
-                        itemCount: allArcs.length + 2, // v791：映射表两键移顶栏，末尾=方向规划块→生成条目键
+                        // v1038：+3=方向规划块→生成条目键→弧线草稿审阅框（修复v1035草稿UI错位吃掉方向规划框）
+                        itemCount: allArcs.length + 3,
                         itemBuilder: (ctx, i) {
+                          if (i == allArcs.length) {
+                            // v1038：方向规划块归位（v1035草稿UI错位吃掉了它）
+                            return _buildContinueReqPlanner(state);
+                          }
                           if (i == allArcs.length + 1) {
                             // v783：生成条目键移到最下面，改名"生成世界书新弧线条目"
                             return Padding(
@@ -1877,8 +1882,8 @@ return true;
                               ),
                             );
                           }
-                          // v1035：弧线条目草稿审阅框+手动写入（三步确认规范）
-                          if (i >= allArcs.length) {
+                          // v1035/v1038：弧线条目草稿审阅框（精确slot+控制器内容同步）
+                          if (i == allArcs.length + 2) {
                             final draftNum =
                                 (allArcs.isEmpty ? 0 : allArcs.last.number) +
                                     1;
@@ -1889,6 +1894,15 @@ return true;
                                     .trim();
                             if (draft.isEmpty) {
                               return const SizedBox.shrink();
+                            }
+                            // v1038：重新生成后同步控制器内容（putIfAbsent只建一次
+                            // =旧内容滞留不刷新，用户实测；未聚焦才覆盖防打断输入）
+                            final ctl = _arcEntryDraftCtl.putIfAbsent(
+                                '$draftNum',
+                                () => TextEditingController(text: draft));
+                            // hasFocus不在controller上——用value比较+跳过空差即可
+                            if (ctl.text != draft) {
+                              ctl.text = draft;
                             }
                             return Padding(
                               padding:
@@ -1918,11 +1932,7 @@ return true;
                                     const SizedBox(height: 6),
                                     _CollapseReqField(
                                       prefKey: 'arc_entry_draft_$draftNum',
-                                      controller: _arcEntryDraftCtl
-                                          .putIfAbsent(
-                                              '$draftNum',
-                                              () => TextEditingController(
-                                                  text: draft)),
+                                      controller: ctl,
                                       labelText: '条目内容（可手改）',
                                       hintText: '',
                                       fontSize: 11,
