@@ -2753,30 +2753,28 @@ class _AnalysisPageState extends State<AnalysisPage>
       state.saveGlobalScenes();
       // v903：编排分析自动化——批量拆完后对已拆场景跑场景内分镜编排策略
       // v1015：增量——有分镜但还没编排分析的场景才跑（已有choreo跳过不重复烧API）
+      // v1022：扫描范围扩到全书全部弧线——增量拆分镜只含未拆场景，
+      // "已拆但没编排分析"的存量场景（旧版本拆的/中断的）也要被批量补跑
       if (!state.api.isAborted && !state.userAborted) {
-        _addLog('━━ 【场景内分镜编排策略】增量分析开始（只跑没编排过的场景）…');
+        _addLog('━━ 【场景内分镜编排策略】增量分析开始（全书扫描：只跑有分镜没编排的场景）…');
         var choreoDone = 0;
         var skipped = 0;
-        for (final entry in toAnalyze.entries) {
-          final arc = state.allArcs.firstWhere(
-            (a) => a.number.toString() == entry.key,
-            orElse: () => state.allArcs.first,
-          );
+        for (final arc in state.allArcs) {
+          if (state.api.isAborted || state.userAborted) break;
           final scenes = _arcScenesOf(state, arc);
-          for (final si in entry.value) {
+          for (final scene in scenes) {
             if (state.api.isAborted || state.userAborted) break;
-            if (si < scenes.length && scenes[si].shots.isNotEmpty) {
-              if (scenes[si].choreo.isNotEmpty) {
-                skipped++;
-                continue; // 已有编排分析→增量跳过
-              }
-              await analyzeSceneChoreo(
-                state: state,
-                scene: scenes[si],
-                log: _addLog,
-              );
-              choreoDone++;
+            if (scene.shots.isEmpty) continue;
+            if (scene.choreo.isNotEmpty) {
+              skipped++;
+              continue; // 已有编排分析→增量跳过
             }
+            await analyzeSceneChoreo(
+              state: state,
+              scene: scene,
+              log: _addLog,
+            );
+            choreoDone++;
           }
         }
         _addLog('✅ 【场景内分镜编排策略】增量分析完成：新分析$choreoDone个，已有跳过$skipped个');
