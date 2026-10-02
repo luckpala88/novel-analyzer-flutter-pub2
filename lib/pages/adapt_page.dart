@@ -1877,6 +1877,75 @@ return true;
                               ),
                             );
                           }
+                          // v1035：弧线条目草稿审阅框+手动写入（三步确认规范）
+                          if (i >= allArcs.length) {
+                            final draftNum =
+                                (allArcs.isEmpty ? 0 : allArcs.last.number) +
+                                    1;
+                            final draft =
+                                (state.worldBook?.continuePlans[
+                                        'arc_entry_$draftNum'] ??
+                                        '')
+                                    .trim();
+                            if (draft.isEmpty) {
+                              return const SizedBox.shrink();
+                            }
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 6),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFF8E7),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: const Color(0xFFB45309)
+                                        .withOpacity(0.35),
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '📄 弧线$draftNum条目草稿（审阅确认后再写入）',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFFB45309),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    _CollapseReqField(
+                                      prefKey: 'arc_entry_draft_$draftNum',
+                                      controller: _arcEntryDraftCtl
+                                          .putIfAbsent(
+                                              '$draftNum',
+                                              () => TextEditingController(
+                                                  text: draft)),
+                                      labelText: '条目内容（可手改）',
+                                      hintText: '',
+                                      fontSize: 11,
+                                      onChanged: (v) => state
+                                          .worldBook
+                                          ?.continuePlans['arc_entry_$draftNum'] = v,
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Center(
+                                      child: MiniButton(
+                                        label: '📝 弧线条目写入世界书',
+                                        primary: true,
+                                        onTap: _isGenerating
+                                            ? null
+                                            : () => _writeArcEntryDraft(
+                                                state, draftNum),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }
                           if (i >= allArcs.length) {
                             return _buildContinueReqPlanner(state);
                           }
@@ -2538,7 +2607,26 @@ return true;
               final shots = planRaw.isEmpty
                   ? null
                   : _parseShotPlanPreview(planRaw);
-              if (shots == null) return <Widget>[];
+              // v1035：解析失败也必须显示完整内容——此前直接return []=
+              // "看不到生成的分镜"（纯文本规划被吞，用户实测）
+              if (shots == null) {
+                if (planRaw.isEmpty) return <Widget>[];
+                return [
+                  Container(
+                    margin: const EdgeInsets.only(top: 3),
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(5),
+                      border: Border.all(
+                          color: const Color(0xFF9B8570).withOpacity(0.4)),
+                    ),
+                    child: SelectableText(planRaw,
+                        style: const TextStyle(
+                            fontSize: 10.5, height: 1.45)),
+                  ),
+                ];
+              }
               return List<Widget>.generate(shots.length, (i) {
                 final sh = shots[i];
                 final open = _shotPlanPreviewOpen.contains('$arcKey-$sceneNum-$i');
@@ -3561,9 +3649,32 @@ return true;
         _addLog('⚠️ 新弧线输出为空');
         return;
       }
-      final wb = state.worldBook!;
-      final uid = 'continue_arc$newNum';
-      final titleM = RegExp(r'弧线\d+：(.+)').firstMatch(content);
+      // v1035：生成内容存草稿（continuePlans['arc_entry_$newNum']）——
+      // 用户裁决三步确认规范：生成→审阅（可手改）→📝手动写入世界书，
+      // 不再生成即落条目（否则内容没确认就进世界书=乱源）
+      state.worldBook!.continuePlans['arc_entry_$newNum'] = content;
+      state.saveWorldBook();
+      _addLog('✓ 弧线$newNum条目草稿已生成（${content.length}字）——'
+          '下方审阅框可手改，确认后点📝写入世界书落条目');
+      if (mounted) setState(() {});
+    } finally {
+      if (mounted) {
+        setState(() => _isGenerating = false);
+      }
+    }
+  }
+
+  /// v1035：弧线条目草稿→落世界书条目（审阅确认后的手动写入动作）
+  Future<void> _writeArcEntryDraft(AppState state, int newNum) async {
+    final content =
+        (state.worldBook?.continuePlans['arc_entry_$newNum'] ?? '').trim();
+    if (content.isEmpty) {
+      _addLog('❌ 弧线$newNum没有草稿——先➕生成世界书新弧线条目');
+      return;
+    }
+    final wb = state.worldBook!;
+    final uid = 'continue_arc$newNum';
+    final titleM = RegExp(r'弧线\d+：(.+)').firstMatch(content);
       // v970：标题截断到【——AI可能把【弧线概述】连在标题行（截图实证：
       // 标题含整段概述→卡片大字重复概述两遍），条目名/列表名都只要纯标题
       String? _t = titleM?.group(1)?.trim();
@@ -3598,10 +3709,7 @@ return true;
       ));
       state.saveArcScan();
       if (mounted) setState(() {}); // 刷新各处弧线列表
-      _addLog('✓ 弧线$newNum已添加（${content.length}字，🧩AI规划）——弧线/场景续写列表已同步，待正文+重扫后转正');
-    } finally {
-      if (mounted) setState(() => _isGenerating = false);
-    }
+      _addLog('✓ 弧线$newNum已写入世界书（${content.length}字，审阅后手动写入）——弧线/场景续写列表已同步');
   }
 
 
@@ -4066,6 +4174,8 @@ return true;
   final Set<String> _shotArcExpanded = {}; // v960：分镜续写层弧线卡展开状态
   final Set<String> _shotPlanPreviewOpen = {}; // v973：分镜规划预览卡展开状态
   final Set<String> _contArcExpanded = {};
+  // v1035：弧线条目草稿手改控制器（per-弧线号）
+  final Map<String, TextEditingController> _arcEntryDraftCtl = {};
   // v1023：折叠头Key表——展开/收起后视线锚定
   final Map<String, GlobalKey> _foldHeaderKeyMap = {};
   GlobalKey _foldHeaderKeys(String k) =>
