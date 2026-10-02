@@ -242,7 +242,7 @@ class _ChoreoFoldSectionState extends State<_ChoreoFoldSection> {
                   )),
               const SizedBox(width: 4),
               const Expanded(
-                child: Text('🎬 分镜编排（场景内分镜编排策略）',
+                child: Text('🎞 分镜编排（场景内分镜编排策略）',
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
