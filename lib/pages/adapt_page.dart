@@ -2989,7 +2989,21 @@ return true;
     final planNum = sceneNum ?? (_maxSceneNumInEntry(state, entryKey) + 1);
     var planRaw =
         (state.worldBook?.continuePlans['shot_plan_${arcKey}_$planNum'] ??
-            '').trim();
+            '')
+                .trim();
+    // v1036：写入净化——剥掉plan里混入的"场景N：…"头行与条目内容（AI偶发
+    // 重述条目=用户实测条目被复制5个场景+分镜挂尾乱套），只留分镜行写入
+    {
+      final cleaned = planRaw
+          .split('\n')
+          .where((l) => !RegExp(r'^\s*场景\d+：').hasMatch(l))
+          .join('\n')
+          .trim();
+      if (cleaned != planRaw) {
+        _addLog('⚠️ 分镜规划含场景头行/条目内容——已剥离，只写入分镜行');
+        planRaw = cleaned;
+      }
+    }
     if (planRaw.isEmpty) {
       _addLog('❌ 分镜规划为空——先🧩AI分镜规划');
       return;
