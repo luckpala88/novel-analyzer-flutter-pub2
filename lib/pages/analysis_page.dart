@@ -2603,6 +2603,34 @@ class _AnalysisPageState extends State<AnalysisPage>
     }
   }
 
+  /// v1023c：编排增量清扫——全书扫描'有分镜没choreo'的场景补跑编排分析。
+  /// 批量拆完后调用；无未拆场景时批量早退也调用（否则'已拆未编排'存量永远碰不到）
+  Future<void> _runChoreoSweep(AppState state) async {
+    _addLog('━━ 【场景内分镜编排策略】增量分析开始（全书扫描：只跑有分镜没编排的场景）…');
+    var choreoDone = 0;
+    var skipped = 0;
+    for (final arc in state.allArcs) {
+      if (state.api.isAborted || state.userAborted) break;
+      final scenes = _arcScenesOf(state, arc);
+      for (final scene in scenes) {
+        if (state.api.isAborted || state.userAborted) break;
+        if (scene.shots.isEmpty) continue;
+        if (scene.choreo.isNotEmpty) {
+          skipped++;
+          continue; // 已有编排分析→增量跳过
+        }
+        await analyzeSceneChoreo(
+          state: state,
+          scene: scene,
+          log: _addLog,
+        );
+        choreoDone++;
+      }
+    }
+    state.saveArcScenes();
+    _addLog('✅ 【场景内分镜编排策略】增量分析完成：新分析$choreoDone个，已有跳过$skipped个');
+  }
+
   /// 智能分发拆解（v469 analyzeSingleArc语义）：
   /// · 弧线已划分场景 → 弹三选对话框（增量拆未拆场景/全部重拆/取消），走批量逐场景拆分镜
   /// · 弧线未划分场景 → 直接一体拆解（AI自己划场景+分镜）
@@ -2719,7 +2747,22 @@ class _AnalysisPageState extends State<AnalysisPage>
     if (toAnalyze.isEmpty) {
       _addLog(stoppedByIncomplete
           ? '⛔ 未闭合弧线之后的分镜未拆（先闭合该弧线）'
-          : '没有需要拆解的场景（请先划分场景）');
+          : '没有需要拆解的场景——转入编排增量清扫');
+      // v1023c：没有未拆场景≠没事干——'已拆但没编排分析'的存量场景
+      // 在这里补跑编排增量（此前直接return=批量永远碰不到它们，用户实测）
+      if (!stoppedByIncomplete) {
+        setState(() => _isAnalyzing = true);
+        try {
+          await _runChoreoSweep(state);
+        } finally {
+          if (mounted) {
+            setState(() {
+              _isAnalyzing = false;
+              _statusText = '';
+            });
+          }
+        }
+      }
       return;
     }
     // v520b：全部重拆前先清空旧分镜——中途断开时"有分镜=新拆的，无=还没拆"，
@@ -2801,33 +2844,9 @@ class _AnalysisPageState extends State<AnalysisPage>
       // v998：补齐global_scenes落盘——分镜写在globalScenes共享实例上，
       // 不落盘=重启重绑用旧global_scenes.json覆盖=分镜全丢（用户实测）
       state.saveGlobalScenes();
-      // v903：编排分析自动化——批量拆完后对已拆场景跑场景内分镜编排策略
-      // v1015：增量——有分镜但还没编排分析的场景才跑（已有choreo跳过不重复烧API）
-      // v1022：扫描范围扩到全书全部弧线——增量拆分镜只含未拆场景，
-      // "已拆但没编排分析"的存量场景（旧版本拆的/中断的）也要被批量补跑
+      // v903/v1015/v1022/v1023c：批量拆完后全书编排增量清扫（抽方法复用）
       if (!state.api.isAborted && !state.userAborted) {
-        _addLog('━━ 【场景内分镜编排策略】增量分析开始（全书扫描：只跑有分镜没编排的场景）…');
-        var choreoDone = 0;
-        var skipped = 0;
-        for (final arc in state.allArcs) {
-          if (state.api.isAborted || state.userAborted) break;
-          final scenes = _arcScenesOf(state, arc);
-          for (final scene in scenes) {
-            if (state.api.isAborted || state.userAborted) break;
-            if (scene.shots.isEmpty) continue;
-            if (scene.choreo.isNotEmpty) {
-              skipped++;
-              continue; // 已有编排分析→增量跳过
-            }
-            await analyzeSceneChoreo(
-              state: state,
-              scene: scene,
-              log: _addLog,
-            );
-            choreoDone++;
-          }
-        }
-        _addLog('✅ 【场景内分镜编排策略】增量分析完成：新分析$choreoDone个，已有跳过$skipped个');
+        await _runChoreoSweep(state);
       }
     } finally {
       if (mounted) {
