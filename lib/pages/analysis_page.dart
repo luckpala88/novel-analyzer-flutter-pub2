@@ -2392,6 +2392,9 @@ class _AnalysisPageState extends State<AnalysisPage>
         scene.shots = shotsJson
             .map((e) => Shot.fromJson(e as Map<String, dynamic>))
             .toList();
+        // v1015：重拆分镜=旧编排策略作废，清空choreo——增量编排分析据此
+        // 识别"有分镜没编排"的场景重新分析（不清空=旧编排残留且被增量跳过）
+        scene.choreo = '';
         // v901：choreo已拆到独立按键（拆分镜纯骨架+镜级维度，编排策略
         // 单独分析保质量）——Scene.choreo由analyzeSceneChoreo写入，此处不再赋值
           // v363：镜级切片物化（尽力而为）——从scene.text链式定位每镜end_text。
@@ -2427,6 +2430,7 @@ class _AnalysisPageState extends State<AnalysisPage>
           if (analysis.scenes.isEmpty) analysis.scenes = scenes;
           if (sceneIdx < analysis.scenes.length) {
             analysis.scenes[sceneIdx].shots = scene.shots; // 覆盖对应场景分镜（统一格式相互覆盖）
+            analysis.scenes[sceneIdx].choreo = scene.choreo; // v1015：同步清空旧编排
           }
           state.saveArcAnalyses();
           // v210：两步拆解补已拆解标记——此前只有一步拆解markArcAnalyzed，
@@ -2666,10 +2670,12 @@ class _AnalysisPageState extends State<AnalysisPage>
       // v998：补齐global_scenes落盘——分镜写在globalScenes共享实例上，
       // 不落盘=重启重绑用旧global_scenes.json覆盖=分镜全丢（用户实测）
       state.saveGlobalScenes();
-      // v903：编排分析自动化——批量拆完后对全部已拆场景统一跑场景内分镜编排策略
+      // v903：编排分析自动化——批量拆完后对已拆场景跑场景内分镜编排策略
+      // v1015：增量——有分镜但还没编排分析的场景才跑（已有choreo跳过不重复烧API）
       if (!state.api.isAborted && !state.userAborted) {
-        _addLog('━━ 【场景内分镜编排策略】分析开始（批量拆解后自动）…');
+        _addLog('━━ 【场景内分镜编排策略】增量分析开始（只跑没编排过的场景）…');
         var choreoDone = 0;
+        var skipped = 0;
         for (final entry in toAnalyze.entries) {
           final arc = state.allArcs.firstWhere(
             (a) => a.number.toString() == entry.key,
@@ -2679,6 +2685,10 @@ class _AnalysisPageState extends State<AnalysisPage>
           for (final si in entry.value) {
             if (state.api.isAborted || state.userAborted) break;
             if (si < scenes.length && scenes[si].shots.isNotEmpty) {
+              if (scenes[si].choreo.isNotEmpty) {
+                skipped++;
+                continue; // 已有编排分析→增量跳过
+              }
               await analyzeSceneChoreo(
                 state: state,
                 scene: scenes[si],
@@ -2688,7 +2698,7 @@ class _AnalysisPageState extends State<AnalysisPage>
             }
           }
         }
-        _addLog('✅ 【场景内分镜编排策略】分析完成：$choreoDone个场景');
+        _addLog('✅ 【场景内分镜编排策略】增量分析完成：新分析$choreoDone个，已有跳过$skipped个');
       }
     } finally {
       if (mounted) {
