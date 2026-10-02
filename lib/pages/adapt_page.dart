@@ -2991,19 +2991,8 @@ return true;
         (state.worldBook?.continuePlans['shot_plan_${arcKey}_$planNum'] ??
             '')
                 .trim();
-    // v1036：写入净化——剥掉plan里混入的"场景N：…"头行与条目内容（AI偶发
-    // 重述条目=用户实测条目被复制5个场景+分镜挂尾乱套），只留分镜行写入
-    {
-      final cleaned = planRaw
-          .split('\n')
-          .where((l) => !RegExp(r'^\s*场景\d+：').hasMatch(l))
-          .join('\n')
-          .trim();
-      if (cleaned != planRaw) {
-        _addLog('⚠️ 分镜规划含场景头行/条目内容——已剥离，只写入分镜行');
-        planRaw = cleaned;
-      }
-    }
+    // v1036/v1037：写入净化——剥掉plan里混入的场景头行/复述的条目上下文
+    planRaw = _stripToShotPlan(planRaw);
     if (planRaw.isEmpty) {
       _addLog('❌ 分镜规划为空——先🧩AI分镜规划');
       return;
@@ -3021,7 +3010,8 @@ return true;
             '4.人物全部沿用原著原名，禁止拟新名\n'
             '5.若输入是JSON数组：保持JSON数组结构与中文键名不变直接输出；'
             '若输入是文本：保持原文本格式输出\n'
-            '6.禁止解释性文字，只输出优化后的规划本体';
+            '6.禁止解释性文字，只输出优化后的规划本体'
+            '\n7.输出从"分镜1："开始——输入里的【本弧线规划】是参考信息，禁止复述进输出';
         final arcEntryContent =
             state.worldBook!.entries[entryKey]!.content.trim();
         final usr = '【本弧线规划（弧线$arcKey条目——细化时人设/矛盾/伏笔以此为准）】\n$arcEntryContent\n\n'
@@ -3053,10 +3043,10 @@ return true;
             ),
           ).trim();
           if (out.isNotEmpty) {
-            planRaw = out;
-            state.worldBook!.continuePlans['shot_plan_${arcKey}_$planNum'] = out;
+            planRaw = _stripToShotPlan(out); // v1037：剥复述上下文
+            state.worldBook!.continuePlans['shot_plan_${arcKey}_$planNum'] = planRaw;
             state.saveWorldBook();
-            _addLog('✓ 细化完成（${out.length}字）——已回填，写入前可手改');
+            _addLog('✓ 细化完成（${planRaw.length}字）——已回填，写入前可手改');
           } else {
             _addLog('⚠️ 细化输出为空——按原规划写入');
           }
@@ -3104,6 +3094,20 @@ return true;
       _addLog('✓ 分镜规划已写入条目尾（${plan.length}字，场景$planNum块不存在——'
           '建议在场景续写层先写入场景块）');
     }
+  }
+
+  /// v1037：分镜规划净化——AI偶发把注入的【本弧线规划】上下文整段复述进输出
+  /// （细化/生成两处实测），分镜本体永远从"分镜1："开始——截取首个分镜标记
+  /// 之后的内容；找不到分镜标记=原样返回（不误杀）
+  String _stripToShotPlan(String plan) {
+    final t = plan.trim();
+    final m = RegExp(r'^\s*分镜\d+[：.]', multiLine: true).firstMatch(t);
+    if (m == null) return t;
+    final cut = t.substring(m.start).trim();
+    if (cut.length < t.length) {
+      _addLog('⚠️ 分镜规划含复述的条目/上下文内容——已截取，只保留分镜本体（${cut.length}字）');
+    }
+    return cut;
   }
 
   /// v973：分镜规划JSON→条目标准维度行文本（写入条目前转换，条目不落裸JSON）
@@ -3254,10 +3258,12 @@ return true;
         _addLog('❌ 分镜规划失败：${result.error}');
         return;
       }
-      final plan = TextCleaner.stripQuotedFragment(result.content);
+      // v1037：生成端同样净化——剥复述的条目上下文，只留分镜本体
+      final plan = _stripToShotPlan(
+          TextCleaner.stripQuotedFragment(result.content));
       state.worldBook!.continuePlans[planKey] = plan;
       state.saveWorldBook();
-      _addLog('✓ 分镜规划完成（${plan.length}字）——场景卡内点📝写入条目落世界书');
+      _addLog('✓ 分镜规划完成（${plan.length}字）——场景卡内确认后点📝写入条目落世界书');
     } finally {
       if (mounted) {
         setState(() => _isGenerating = false);
