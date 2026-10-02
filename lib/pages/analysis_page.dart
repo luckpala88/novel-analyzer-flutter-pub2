@@ -1359,8 +1359,15 @@ class _AnalysisPageState extends State<AnalysisPage>
     final foldKey = '${arcKey}_$sceneIdx';
     final isExpanded = _expandedShots.contains(foldKey);
 
+    // v1019：场景卡细边框+加大卡间距——场景边界一眼可辨（用户裁决）
     return Container(
-      margin: const EdgeInsets.only(left: 16, right: 8, bottom: 4),
+      margin: const EdgeInsets.only(left: 12, right: 8, bottom: 12),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: V469Style.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: V469Style.border),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
