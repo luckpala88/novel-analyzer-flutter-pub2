@@ -259,7 +259,16 @@ class _AnalysisPageState extends State<AnalysisPage>
         shotCount += s.shots.length;
       }
     });
-    return '$arcCount弧线 · $sceneCount场景 · $shotCount分镜';
+    // v1032：补编排/拆解进度——分镜数场景数+已拆X/Y+已编排X/Y（A方案流水线对账用）
+    var broken = 0, choreoed = 0;
+    state.arcAnalyses.forEach((_, a) {
+      for (final s in a.scenes) {
+        if (s.shots.isNotEmpty) broken++;
+        if (s.choreo.isNotEmpty) choreoed++;
+      }
+    });
+    return '$arcCount弧线 · $sceneCount场景 · $shotCount分镜 · '
+        '已拆$broken/$sceneCount · 已编排$choreoed/$sceneCount';
   }
 
   @override
