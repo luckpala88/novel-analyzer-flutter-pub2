@@ -715,6 +715,7 @@ class _ChatPageState extends State<ChatPage>
               reverse: true,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
+                spacing: 4, // v1013：按键间距（此前紧贴）
                 children: [
           // v1011：会话切换键（替代原Expanded下拉，点开弹层看全标题）
           MiniButton(
