@@ -218,6 +218,8 @@ class _ChoreoFoldSection extends StatefulWidget {
 
 class _ChoreoFoldSectionState extends State<_ChoreoFoldSection> {
   bool _open = false;
+  // v1020：标题Key——折叠/展开后锚定视线
+  final GlobalKey _headerKey = GlobalKey();
   @override
   Widget build(BuildContext context) {
     final paras = widget.choreo
@@ -231,8 +233,20 @@ class _ChoreoFoldSectionState extends State<_ChoreoFoldSection> {
         const SizedBox(height: 5),
         GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () => setState(() => _open = !_open),
-          child: Row(
+          onTap: () {
+            setState(() => _open = !_open);
+            // v1020：视线锚回标题行
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (_headerKey.currentContext != null) {
+                Scrollable.ensureVisible(_headerKey.currentContext!,
+                    alignment: 0.0,
+                    duration: const Duration(milliseconds: 150));
+              }
+            });
+          },
+          child: KeyedSubtree(
+              key: _headerKey,
+              child: Row(
             children: [
               Text(_open ? '▾' : '▸',
                   style: TextStyle(
@@ -250,6 +264,7 @@ class _ChoreoFoldSectionState extends State<_ChoreoFoldSection> {
                     )),
               ),
             ],
+          ),
           ),
         ),
         if (_open) ...[

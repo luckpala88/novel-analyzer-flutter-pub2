@@ -37,6 +37,10 @@ class _ScanPageState extends State<ScanPage>
     with AutomaticKeepAliveClientMixin {
   // v1007：弧线内场景编排策略（总纲）折叠态——默认折叠，per-arc key=弧线号（内存态）
   final Set<String> _arcChoreoOpen = {};
+  // v1020：编排块标题Key表——折叠/展开后锚定视线
+  final Map<String, GlobalKey> _choreoHeaderKeys = {};
+  GlobalKey _choreoKey(String k) =>
+      _choreoHeaderKeys.putIfAbsent(k, () => GlobalKey());
   @override
   bool get wantKeepAlive => true; // 页面滑出PageView时保持State：生成任务不中断/表单不清空
 
@@ -699,15 +703,33 @@ class _ScanPageState extends State<ScanPage>
                                       .isNotEmpty) ...[
                                         GestureDetector(
                                           behavior: HitTestBehavior.opaque,
-                                          onTap: () => setState(() {
-                                            final k = 'arc${arc.number}';
-                                            if (_arcChoreoOpen.contains(k)) {
-                                              _arcChoreoOpen.remove(k);
-                                            } else {
-                                              _arcChoreoOpen.add(k);
-                                            }
-                                          }),
-                                          child: Row(
+                                          onTap: () {
+                                            setState(() {
+                                              final k = 'arc${arc.number}';
+                                              if (_arcChoreoOpen.contains(k)) {
+                                                _arcChoreoOpen.remove(k);
+                                              } else {
+                                                _arcChoreoOpen.add(k);
+                                              }
+                                            });
+                                            // v1020：视线锚回标题行
+                                            WidgetsBinding.instance
+                                                .addPostFrameCallback((_) {
+                                              final hctx = _choreoKey(
+                                                      'arc${arc.number}_h')
+                                                  .currentContext;
+                                              if (hctx != null) {
+                                                Scrollable.ensureVisible(hctx,
+                                                    alignment: 0.0,
+                                                    duration: const Duration(
+                                                        milliseconds: 150));
+                                              }
+                                            });
+                                          },
+                                          child: KeyedSubtree(
+                                              key: _choreoKey(
+                                                  'arc${arc.number}_h'),
+                                              child: Row(
                                             children: [
                                               Text(
                                                 _arcChoreoOpen.contains('arc${arc.number}') ? '▾' : '▸',
@@ -730,7 +752,7 @@ class _ScanPageState extends State<ScanPage>
                                               ),
                                             ],
                                           ),
-                                        ),
+                                        )),
                                         if (_arcChoreoOpen.contains('arc${arc.number}'))
                                         Container(
                                           width: double.infinity,
@@ -786,15 +808,33 @@ class _ScanPageState extends State<ScanPage>
                                       .isNotEmpty) ...[
                                         GestureDetector(
                                           behavior: HitTestBehavior.opaque,
-                                          onTap: () => setState(() {
-                                            final k = 'scenes${arc.number}';
-                                            if (_arcChoreoOpen.contains(k)) {
-                                              _arcChoreoOpen.remove(k);
-                                            } else {
-                                              _arcChoreoOpen.add(k);
-                                            }
-                                          }),
-                                          child: Row(
+                                          onTap: () {
+                                            setState(() {
+                                              final k = 'scenes${arc.number}';
+                                              if (_arcChoreoOpen.contains(k)) {
+                                                _arcChoreoOpen.remove(k);
+                                              } else {
+                                                _arcChoreoOpen.add(k);
+                                              }
+                                            });
+                                            // v1020：视线锚回标题行
+                                            WidgetsBinding.instance
+                                                .addPostFrameCallback((_) {
+                                              final hctx = _choreoKey(
+                                                      'scenes${arc.number}_h')
+                                                  .currentContext;
+                                              if (hctx != null) {
+                                                Scrollable.ensureVisible(hctx,
+                                                    alignment: 0.0,
+                                                    duration: const Duration(
+                                                        milliseconds: 150));
+                                              }
+                                            });
+                                          },
+                                          child: KeyedSubtree(
+                                              key: _choreoKey(
+                                                  'scenes${arc.number}_h'),
+                                              child: Row(
                                             children: [
                                               Text(
                                                 _arcChoreoOpen.contains('scenes${arc.number}') ? '▾' : '▸',
@@ -817,7 +857,7 @@ class _ScanPageState extends State<ScanPage>
                                               ),
                                             ],
                                           ),
-                                        ),
+                                        )),
                                         if (_arcChoreoOpen.contains('scenes${arc.number}'))
                                         Container(
                                           width: double.infinity,

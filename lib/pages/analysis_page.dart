@@ -68,6 +68,10 @@ class _AnalysisPageState extends State<AnalysisPage>
   Set<String> _expandedShots = {};
   // v1006：场景内分镜编排策略折叠态（默认折叠，持久化到ui_state）
   Set<String> _choreoExpanded = {};
+  // v1020：编排块标题行Key表——折叠/展开后锚定视线用
+  final Map<String, GlobalKey> _choreoHeaderKeys = {};
+  GlobalKey _choreoKey(String k) =>
+      _choreoHeaderKeys.putIfAbsent(k, () => GlobalKey());
   bool _restoredUi = false;
 
   @override
@@ -495,8 +499,18 @@ class _AnalysisPageState extends State<AnalysisPage>
                     }
                   });
                   _saveUiState();
+                    // v1020：折叠/展开后视线锚回标题行（防跳到内容底部）
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      final hctx = _choreoKey(foldKey).currentContext;
+                      if (hctx != null) {
+                        Scrollable.ensureVisible(hctx,
+                            alignment: 0.0,
+                            duration: const Duration(milliseconds: 150));
+                      }
+                    });
+
                 },
-                child: Row(
+                child: KeyedSubtree(key: _choreoKey(foldKey), child: Row(
                   children: [
                     Text(isExpanded ? '▾' : '▸',
                         style: const TextStyle(
@@ -514,8 +528,7 @@ class _AnalysisPageState extends State<AnalysisPage>
                           )),
                     ),
                   ],
-                ),
-              ),
+                ),),              ),
               if (isExpanded) ...[
                 const SizedBox(height: 6),
                 for (var i = 0; i < paras.length; i++) ...[
@@ -592,8 +605,18 @@ class _AnalysisPageState extends State<AnalysisPage>
                       }
                     });
                     _saveUiState();
+                    // v1020：折叠/展开后视线锚回标题行（防跳到内容底部）
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      final hctx = _choreoKey(foldKey).currentContext;
+                      if (hctx != null) {
+                        Scrollable.ensureVisible(hctx,
+                            alignment: 0.0,
+                            duration: const Duration(milliseconds: 150));
+                      }
+                    });
+
                   },
-                  child: Row(
+                  child: KeyedSubtree(key: _choreoKey(foldKey), child: Row(
                     children: [
                       Text(isExpanded ? '▾' : '▸',
                           style: const TextStyle(
@@ -611,8 +634,7 @@ class _AnalysisPageState extends State<AnalysisPage>
                             )),
                       ),
                     ],
-                  ),
-                ),
+                  ),),                ),
                 if (isExpanded) ...[
                   const SizedBox(height: 6),
                   // v918：四要素分行渲染（模板输出按\n分段），段间距4
