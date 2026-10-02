@@ -3299,9 +3299,10 @@ return true;
       }
     }
     final entry = state.worldBook!.entries[entryKey]!;
-    final sb = StringBuffer();
-    var added = 0;
-    var replaced = 0; // v792：同号修订计数
+    // v1034：先收集去重——AI细化稿偶发把同一场景写两遍（用户实测：
+    // 条目里出现两个场景1块=两套卡+排序乱），同号只保留最后一个
+    final parsed = <int, (String, String)>{}; // sceneNum -> (name, brief)
+    final order = <int>[];
     for (final m in RegExp(
       r'^场景(\d+)：(.+?)｜(.+)$',
       multiLine: true,
@@ -3309,26 +3310,37 @@ return true;
       final sceneNum = int.tryParse(m.group(1)!) ?? 0;
       final name = m.group(2)!.trim();
       final brief = m.group(3)!.trim();
-      final block = '场景$sceneNum：$name\n概述：$brief';
-      final span = _sceneBlockSpan(entry.content, sceneNum);
-      if (span != null) {
-        // v792：同号=修订替换原场景块（融合两套规划）
-        entry.content = entry.content.replaceRange(span.$1, span.$2, block);
-        replaced++;
-        _addLog('✓ 场景$sceneNum（$name）已修订替换原规划');
-      } else {
-        sb.writeln();
-        sb.writeln(block);
-        added++;
-        _addLog('✓ 场景$sceneNum（$name）规划已写入世界书');
+      if (parsed.containsKey(sceneNum)) {
+        _addLog('⚠️ 细化稿里场景$sceneNum重复——保留最后一个');
+        order.remove(sceneNum);
       }
+      parsed[sceneNum] = (name, brief);
+      order.add(sceneNum);
     }
-    if (added == 0 && replaced == 0) {
+    // v1034：按场景号升序写入——AI细化稿顺序不可信（用户实测2排到5后面），
+    // 有序插入保证条目里场景块永远按号排列（分镜续写卡按content顺序渲染）
+    order.sort();
+    if (parsed.isEmpty) {
       _addLog('ℹ️ 没有新增/修订场景（规划行需格式：场景N：名称｜概述）');
       return;
     }
-    // v783：写入预览确认（本步纯代码零AI，预览即检查）
-    final preview = sb.toString().trim();
+    // v783：写入预览确认（本步纯代码零AI，预览即检查；确认后才动条目）
+    final previewSb = StringBuffer();
+    var added = 0;
+    var replaced = 0;
+    for (final sceneNum in order) {
+      final (name, brief) = parsed[sceneNum]!;
+      final span = _sceneBlockSpan(entry.content, sceneNum);
+      if (span != null) {
+        replaced++;
+        previewSb.writeln('【修订】场景$sceneNum：$name（替换原规划）');
+      } else {
+        added++;
+        previewSb.writeln('【新增】场景$sceneNum：$name（按号排序插入）');
+      }
+      previewSb.writeln('概述：$brief');
+      previewSb.writeln();
+    }
     final okWrite = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -3336,7 +3348,8 @@ return true;
         content: SizedBox(
           width: double.maxFinite,
           child: SingleChildScrollView(
-            child: SelectableText('将追加到弧线${arc?.number ?? 1}条目：\n\n$preview',
+            child: SelectableText(
+                '将写入弧线${arc?.number ?? 1}条目（新增$added/修订$replaced）：\n\n${previewSb.toString().trim()}',
                 style: const TextStyle(fontSize: 12, height: 1.5)),
           ),
         ),
@@ -3356,9 +3369,20 @@ return true;
       _addLog('已取消写入');
       return;
     }
-    if (added > 0) {
-      entry.content =
-          entry.content.trimRight() + '\n' + sb.toString().trimRight();
+    // 确认后统一落条目：修订=原位替换；新增=按号有序插入
+    for (final sceneNum in order) {
+      final (name, brief) = parsed[sceneNum]!;
+      final block = '场景$sceneNum：$name\n概述：$brief';
+      final span = _sceneBlockSpan(entry.content, sceneNum);
+      if (span != null) {
+        entry.content = entry.content.replaceRange(span.$1, span.$2, block);
+        _addLog('✓ 场景$sceneNum（$name）已修订替换原规划');
+      } else {
+        final insertAt = _orderedInsertOffset(entry.content, sceneNum);
+        entry.content = entry.content.replaceRange(
+            insertAt, insertAt, '\n\n$block\n');
+        _addLog('✓ 场景$sceneNum（$name）规划已写入世界书（按号排序插入）');
+      }
     }
     state.saveWorldBook();
     _addLog('📖 写入完成：新增$added/修订$replaced个场景条目（无正文）——创作页出现待创作场景，正文在创作页完成');
@@ -3639,6 +3663,18 @@ return true;
 
 
   /// v792：定位条目中场景N块（start=场景N行首，end=下一场景行首或文末）
+  /// v1034：有序插入定位——返回新场景块应插入的offset。
+  /// 规则：插到第一个号>sceneNum的场景块起始前（保留场景间其它内容在其后）；
+  /// 没有更大号=条目尾。保证条目内场景块始终按号升序（分镜续写卡按序渲染）
+  int _orderedInsertOffset(String content, int sceneNum) {
+    final spans = RegExp(r'^场景\d+：', multiLine: true).allMatches(content).toList();
+    for (final m in spans) {
+      final n = int.tryParse(RegExp(r'\d+').firstMatch(m.group(0)!)!.group(0)!) ?? 0;
+      if (n > sceneNum) return m.start;
+    }
+    return content.length;
+  }
+
   (int, int)? _sceneBlockSpan(String content, int sceneNum) {
     final spans = RegExp(r'^场景\d+：', multiLine: true).allMatches(content).toList();
     for (var i = 0; i < spans.length; i++) {
