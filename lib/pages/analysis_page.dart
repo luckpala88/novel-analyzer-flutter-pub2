@@ -506,7 +506,7 @@ class _AnalysisPageState extends State<AnalysisPage>
                         )),
                     const SizedBox(width: 4),
                     const Expanded(
-                      child: Text('🎬 场景内分镜编排策略',
+                      child: Text('🎞 场景内分镜编排策略',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
