@@ -2420,6 +2420,13 @@ class _AnalysisPageState extends State<AnalysisPage>
             _addLog('分镜字段：${scene.shots.first.toJson().keys.join(', ')}');
           }
           state.refresh();
+          // v1007：编排策略自动分析（用户裁决：单场景拆完分镜后自动跑，
+          // 批量路径在批量完成后统一自动跑，此处!batch防双重）
+          if (!batch) {
+            _addLog('━━ 【场景内分镜编排策略】自动分析开始…');
+            await analyzeSceneChoreo(state: state, scene: scene, log: _addLog);
+            _addLog('✅ 场景内分镜编排策略完成');
+          }
           return true;
       } else {
         scene.shots = oldShots;

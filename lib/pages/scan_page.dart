@@ -35,6 +35,8 @@ class ScanPage extends StatefulWidget {
 
 class _ScanPageState extends State<ScanPage>
     with AutomaticKeepAliveClientMixin {
+  // v1007：弧线内场景编排策略（总纲）折叠态——默认折叠，per-arc key=弧线号（内存态）
+  final Set<String> _arcChoreoOpen = {};
   @override
   bool get wantKeepAlive => true; // 页面滑出PageView时保持State：生成任务不中断/表单不清空
 
@@ -695,14 +697,41 @@ class _ScanPageState extends State<ScanPage>
                                               as String? ??
                                           '')
                                       .isNotEmpty) ...[
-                                        Text(
-                                          '🎬 弧线内场景编排策略（总纲）',
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w700,
-                                            color: Color(0xFFB45309),
+                                        GestureDetector(
+                                          behavior: HitTestBehavior.opaque,
+                                          onTap: () => setState(() {
+                                            final k = 'arc\${arc.number}';
+                                            if (_arcChoreoOpen.contains(k)) {
+                                              _arcChoreoOpen.remove(k);
+                                            } else {
+                                              _arcChoreoOpen.add(k);
+                                            }
+                                          }),
+                                          child: Row(
+                                            children: [
+                                              Text(
+                                                _arcChoreoOpen.contains('arc\${arc.number}') ? '▾' : '▸',
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Color(0xFFB45309),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              const Expanded(
+                                                child: Text(
+                                                  '🎬 弧线内场景编排策略（总纲）',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: Color(0xFFB45309),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
+                                        if (_arcChoreoOpen.contains('arc\${arc.number}'))
                                         Container(
                                           width: double.infinity,
                                           padding: const EdgeInsets.all(8),
