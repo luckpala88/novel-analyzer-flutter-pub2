@@ -4180,26 +4180,35 @@ return true;
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
               child: Wrap(
-                spacing: 8,
-                runSpacing: 6,
+                spacing: 5,
+                runSpacing: 5,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   // v765：改编/续写模式切换（二选一互斥，书级持久化）
                   SegmentedButton<String>(
+                    // v1013：压到MiniButton同规格（此前默认尺寸偏大=排版松散）
                     segments: const [
                       ButtonSegment(
                         value: 'adapt',
-                        label: Text('改编', style: TextStyle(fontSize: 11)),
+                        label: Text('改编', style: TextStyle(fontSize: 10)),
                       ),
                       ButtonSegment(
                         value: 'continue',
-                        label: Text('续写', style: TextStyle(fontSize: 11)),
+                        label: Text('续写', style: TextStyle(fontSize: 10)),
                       ),
                     ],
                     selected: {state.worldBook?.pageMode ?? 'adapt'},
                     showSelectedIcon: false,
                     style: const ButtonStyle(
                       visualDensity: VisualDensity.compact,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      minimumSize: WidgetStatePropertyAll(Size(0, 28)),
+                      padding: WidgetStatePropertyAll(
+                        EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                      ),
+                      textStyle: WidgetStatePropertyAll(
+                        TextStyle(fontSize: 10),
+                      ),
                     ),
                     onSelectionChanged: (sel) {
                       setState(() {
@@ -4264,9 +4273,8 @@ return true;
                   ),
                   writerStyleButton(context, state), // v954：作家风格选择（改编模式补齐）
                   MiniButton(
-                    label: (state.worldBook?.nameMapping.isNotEmpty ?? false)
-                        ? '映射表✓'
-                        : '映射表',
+                    // v1013：✓去掉——选中态用金底表达，省宽
+                    label: '映射表',
                     primary: state.worldBook?.nameMapping.isNotEmpty ?? false,
                     onTap: () => _showMasterOutlineDialog(state),
                   ),
@@ -7284,10 +7292,11 @@ return true;
         }
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        // v1013：压到MiniButton同规格（28高/字号10/内边距8）
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
         decoration: BoxDecoration(
           color: selected ? V469Style.accent : Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: selected ? V469Style.accent : Colors.grey.shade300,
           ),
@@ -7295,7 +7304,7 @@ return true;
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 11,
+            fontSize: 10,
             color: selected ? Colors.white : V469Style.textSec,
             fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
           ),
