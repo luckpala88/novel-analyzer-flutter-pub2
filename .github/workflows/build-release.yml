@@ -76,7 +76,15 @@ jobs:
           sed -i "s/static const int _appVersion = [0-9]*/static const int _appVersion = ${GITHUB_REF_NAME#v}/" lib/pages/home_page.dart
           grep -o "static const int _appVersion = [0-9]*" lib/pages/home_page.dart
           flutter pub get
-          flutter build apk --release
+          # v1008b：runner偶发挂死（NDK/gradle下载卡死，v1004-v1008多版实证）
+          # ——首次构建25分钟超时则杀掉重试一次，防整体卡死90分钟
+          if timeout -k 5m 25m flutter build apk --release; then
+            echo BUILD_OK
+          else
+            echo "⚠ 首次构建超时/失败，自动重试一次"
+            sleep 20
+            flutter build apk --release
+          fi
           # 版本自检：pubspec版本必须与tag一致（v380事故：sed静默失灵，
           # v374-v379六版全显示v373）
           echo "BUILD_VERSION=$(grep '^version:' pubspec.yaml)" 
