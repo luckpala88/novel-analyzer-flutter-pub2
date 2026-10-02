@@ -995,7 +995,9 @@ Future<void> analyzeSceneChoreo({
     for (var i = 0; i < scene.shots.length; i++)
       '分镜${i + 1}：焦点=${scene.shots[i].focus}｜意图=${scene.shots[i].intent}',
   ].join('\n');
-  final config = state.getApiConfig('shot');
+  // v1030：改读'analysis'——编排分析在分镜页触发，用户在分镜页⚙API设的就是它；
+  // 原读'shot'（历史遗留旧section）=用户设gemini拆解却用deepseek跑编排的根因
+  final config = state.getApiConfig('analysis');
   state.api.clearAbort();
   final result = await state.api.callApi(
     task: '场景内分镜编排策略分析',
