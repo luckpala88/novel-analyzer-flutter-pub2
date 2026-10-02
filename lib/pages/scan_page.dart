@@ -700,7 +700,7 @@ class _ScanPageState extends State<ScanPage>
                                         GestureDetector(
                                           behavior: HitTestBehavior.opaque,
                                           onTap: () => setState(() {
-                                            final k = 'arc\${arc.number}';
+                                            final k = 'arc${arc.number}';
                                             if (_arcChoreoOpen.contains(k)) {
                                               _arcChoreoOpen.remove(k);
                                             } else {
@@ -710,7 +710,7 @@ class _ScanPageState extends State<ScanPage>
                                           child: Row(
                                             children: [
                                               Text(
-                                                _arcChoreoOpen.contains('arc\${arc.number}') ? '▾' : '▸',
+                                                _arcChoreoOpen.contains('arc${arc.number}') ? '▾' : '▸',
                                                 style: const TextStyle(
                                                   fontSize: 11,
                                                   fontWeight: FontWeight.w700,
@@ -731,7 +731,7 @@ class _ScanPageState extends State<ScanPage>
                                             ],
                                           ),
                                         ),
-                                        if (_arcChoreoOpen.contains('arc\${arc.number}'))
+                                        if (_arcChoreoOpen.contains('arc${arc.number}'))
                                         Container(
                                           width: double.infinity,
                                           padding: const EdgeInsets.all(8),
@@ -741,16 +741,39 @@ class _ScanPageState extends State<ScanPage>
                                             borderRadius:
                                                 BorderRadius.circular(6),
                                           ),
-                                          child: Text(
-                                            state.arcAnalyses[arc.number
-                                                    .toString()]!
-                                                .metadata?['arc_choreo']
-                                                as String,
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              height: 1.5,
-                                              color: V469Style.textSec,
-                                            ),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                state.arcAnalyses[arc.number
+                                                        .toString()]!
+                                                    .metadata?['arc_choreo']
+                                                    as String,
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  height: 1.5,
+                                                  color: V469Style.textSec,
+                                                ),
+                                              ),
+                                              // v1008：长内容底部收起键——浏览到尾不用滚回顶部
+                                              GestureDetector(
+                                                behavior: HitTestBehavior.opaque,
+                                                onTap: () => setState(() => _arcChoreoOpen
+                                                    .remove('arc${arc.number}')),
+                                                child: const Padding(
+                                                  padding: EdgeInsets.only(top: 6),
+                                                  child: Text(
+                                                    '▲ 收起',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight: FontWeight.w700,
+                                                      color: Color(0xFFB45309),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
                                         const SizedBox(height: 6),
@@ -761,14 +784,41 @@ class _ScanPageState extends State<ScanPage>
                                               as String? ??
                                           '')
                                       .isNotEmpty) ...[
-                                        Text(
-                                          '📋 逐场景编排落点（各场景功能与蓄力方向——详版在拆分镜后见各场景卡）',
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w700,
-                                            color: Color(0xFF64748B),
+                                        GestureDetector(
+                                          behavior: HitTestBehavior.opaque,
+                                          onTap: () => setState(() {
+                                            final k = 'scenes${arc.number}';
+                                            if (_arcChoreoOpen.contains(k)) {
+                                              _arcChoreoOpen.remove(k);
+                                            } else {
+                                              _arcChoreoOpen.add(k);
+                                            }
+                                          }),
+                                          child: Row(
+                                            children: [
+                                              Text(
+                                                _arcChoreoOpen.contains('scenes${arc.number}') ? '▾' : '▸',
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Color(0xFF64748B),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              const Expanded(
+                                                child: Text(
+                                                  '📋 逐场景编排落点（各场景功能与蓄力方向——详版在拆分镜后见各场景卡）',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: Color(0xFF64748B),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
+                                        if (_arcChoreoOpen.contains('scenes${arc.number}'))
                                         Container(
                                           width: double.infinity,
                                           padding: const EdgeInsets.all(8),

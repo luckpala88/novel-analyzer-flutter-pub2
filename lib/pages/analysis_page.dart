@@ -527,6 +527,23 @@ class _AnalysisPageState extends State<AnalysisPage>
                         color: V469Style.textSec,
                       )),
                 ],
+                // v1008：长内容底部收起键——浏览到尾不用滚回顶部
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    setState(() => _choreoExpanded.remove(foldKey));
+                    _saveUiState();
+                  },
+                  child: const Padding(
+                    padding: EdgeInsets.only(top: 6),
+                    child: Text('▲ 收起',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFB45309),
+                        )),
+                  ),
+                ),
               ],
             ],
           ),
