@@ -602,6 +602,45 @@ class _ChatPageState extends State<ChatPage>
     }
   }
 
+  /// v1011：会话切换弹层——全宽列会话标题（完整可读），点选切换
+  void _showSessionPicker(AppState state) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Text('切换会话',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 14)),
+            ),
+            if (state.chatSessions.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('暂无会话',
+                    style: TextStyle(fontSize: 13, color: Colors.grey)),
+              ),
+            for (final s0 in state.chatSessions)
+              ListTile(
+                dense: true,
+                title: Text(s0.title, style: const TextStyle(fontSize: 13.5)),
+                trailing: s0.id == state.chatActiveId
+                    ? const Icon(Icons.check, size: 18)
+                    : null,
+                onTap: () {
+                  _didOpenJump = false;
+                  setState(() => state.chatActiveId = s0.id);
+                  Navigator.pop(ctx);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -612,43 +651,27 @@ class _ChatPageState extends State<ChatPage>
       backgroundColor: const Color(0xFFFAF6EE),
       appBar: AppBar(
         backgroundColor: const Color(0xFFF3E9D4),
-        titleSpacing: 8,
-        title: Row(children: [
-          // v833：会话下拉切换
-          Expanded(
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: sess?.id,
-                isDense: true,
-                isExpanded: true,
-                items: state.chatSessions
-                    .map((s) => DropdownMenuItem(
-                        value: s.id,
-                        child: Text(s.title,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 14))))
-                    .toList(),
-                onChanged: (id) {
-                  // v860：切会话重新定位末尾
-                  _didOpenJump = false;
-                  setState(() => state.chatActiveId = id ?? '');
-                },
-                hint: const Text('暂无会话', style: TextStyle(fontSize: 14)),
-              ),
-            ),
-          ),
-        ]),
+        titleSpacing: 0,
+        // v1011：会话标题不占工具栏（用户裁决：标题挤瘪右侧按键）——
+        // 会话切换收进首个'会话▾'键，点开底部弹层看全标题
+        title: const SizedBox.shrink(),
         // v1010：动作键横向滚动区（占屏55%且reverse=右缘对齐）——会话下拉
         // 恢复可见宽度（此前动作键过宽把标题挤成一条缝，用户截图实锤）
         actions: [
           SizedBox(
-            width: MediaQuery.of(context).size.width * 0.55,
+            width: MediaQuery.of(context).size.width - 16,
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               reverse: true,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+          // v1011：会话切换键（替代原Expanded下拉，点开弹层看全标题）
+          MiniButton(
+            label: '会话 ▾',
+            primary: sess != null,
+            onTap: () => _showSessionPicker(state),
+          ),
           ContentFontButtons(
             pageKey: 'chat',
             scale: _chatFontScale,
