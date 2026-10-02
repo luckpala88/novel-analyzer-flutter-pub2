@@ -1382,13 +1382,16 @@ class _AnalysisPageState extends State<AnalysisPage>
     final isExpanded = _expandedShots.contains(foldKey);
 
     // v1019：场景卡细边框+加大卡间距——场景边界一眼可辨（用户裁决）
+    // v1021：边框换金棕（浅灰在米底上看不清）+顶部间距（与上方编排块贴死）
     return Container(
-      margin: const EdgeInsets.only(left: 12, right: 8, bottom: 12),
+      margin: const EdgeInsets.only(left: 12, right: 8, bottom: 12, top: 12),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: V469Style.surface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: V469Style.border),
+        border: Border.all(
+          color: const Color(0xFFB45309).withOpacity(0.35),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
