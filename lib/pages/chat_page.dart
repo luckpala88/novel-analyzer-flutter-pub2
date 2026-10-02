@@ -635,6 +635,56 @@ class _ChatPageState extends State<ChatPage>
                   Navigator.pop(ctx);
                 },
               ),
+            // v1012：当前会话操作行——改名/删除收进弹层（用户裁决：外面按键栏单行放完不溢出）
+            if (state.chatActive != null)
+              Builder(builder: (ctx2) {
+                final cur = state.chatActive!;
+                return Padding(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
+                child: Wrap(
+                  spacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    MiniButton(
+                      label: '✏ 改名',
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _renameSession(state, cur);
+                      },
+                    ),
+                    MiniButton(
+                      label: '🗑 删除',
+                      danger: true,
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        final ok = await showDialog<bool>(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            title: const Text('删除会话'),
+                            content: Text(
+                                '删除「${cur.title}」？聊天记录不可恢复。'),
+                            actions: [
+                              TextButton(
+                                  onPressed: () =>
+                                      Navigator.pop(context, false),
+                                  child: const Text('取消')),
+                              TextButton(
+                                  onPressed: () =>
+                                      Navigator.pop(context, true),
+                                  child: const Text('删除')),
+                            ],
+                          ),
+                        );
+                        if (ok == true) {
+                          state.deleteChatSession(cur.id);
+                          setState(() {});
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              );
+              }),
           ],
         ),
       ),
@@ -688,32 +738,6 @@ class _ChatPageState extends State<ChatPage>
                 state.newChatSession();
                 setState(() {});
               }),
-          if (sess != null) ...[
-            MiniButton(label: '改名', onTap: () => _renameSession(state, sess)),
-            MiniButton(
-                label: '删除',
-                onTap: () async {
-                  final ok = await showDialog<bool>(
-                    context: context,
-                    builder: (_) => AlertDialog(
-                      title: const Text('删除会话'),
-                      content: Text('删除「${sess.title}」？聊天记录不可恢复。'),
-                      actions: [
-                        TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text('取消')),
-                        TextButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: const Text('删除')),
-                      ],
-                    ),
-                  );
-                  if (ok == true) {
-                    state.deleteChatSession(sess.id);
-                    setState(() {});
-                  }
-                }),
-          ],
           MiniButton(
             label: '⚙ API',
             onTap: () => showV119Sheet(
