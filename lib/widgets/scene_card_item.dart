@@ -138,16 +138,9 @@ class SceneCardItem extends StatelessWidget {
               ),
             ),
           // v882：编排标注（分组产出，逐场景功能+蓄力）
+          // v1017：默认折叠——点标题展开+底部收起键（对齐分镜页v1006）
           if (scene.choreo.isNotEmpty) ...[
-            const SizedBox(height: 5),
-            Text(
-              '🎬 分镜编排：${scene.choreo}',
-              style: TextStyle(
-                fontSize: 11,
-                height: 1.4,
-                color: Colors.brown.shade600,
-              ),
-            ),
+            _ChoreoFoldSection(choreo: scene.choreo),
           ],
           ],
           // 行3：章节范围+剪断重扫键
@@ -209,6 +202,83 @@ class SceneCardItem extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+
+/// v1017：场景卡编排折叠区——默认折叠，点标题行展开，底部'▲收起'
+/// （场景页+弧线页共用，本地内存态；卡多时默认收起=浏览清爽）
+class _ChoreoFoldSection extends StatefulWidget {
+  final String choreo;
+  const _ChoreoFoldSection({required this.choreo});
+  @override
+  State<_ChoreoFoldSection> createState() => _ChoreoFoldSectionState();
+}
+
+class _ChoreoFoldSectionState extends State<_ChoreoFoldSection> {
+  bool _open = false;
+  @override
+  Widget build(BuildContext context) {
+    final paras = widget.choreo
+        .split('\n')
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
+        .toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 5),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => setState(() => _open = !_open),
+          child: Row(
+            children: [
+              Text(_open ? '▾' : '▸',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.brown.shade600,
+                  )),
+              const SizedBox(width: 4),
+              const Expanded(
+                child: Text('🎬 分镜编排（场景内分镜编排策略）',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFB45309),
+                    )),
+              ),
+            ],
+          ),
+        ),
+        if (_open) ...[
+          const SizedBox(height: 3),
+          for (var i = 0; i < paras.length; i++) ...[
+            if (i > 0) const SizedBox(height: 3),
+            Text(paras[i],
+                style: TextStyle(
+                  fontSize: 11,
+                  height: 1.4,
+                  color: Colors.brown.shade600,
+                )),
+          ],
+          // v1008同款：长内容底部收起键——浏览到尾不用滚回顶部
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => setState(() => _open = false),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 5),
+              child: Text('▲ 收起',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.brown.shade600,
+                  )),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
