@@ -703,6 +703,10 @@ class _AnalysisPageState extends State<AnalysisPage>
     final totalShots = hasAnalysis
         ? analysis.scenes.fold<int>(0, (n, s) => n + s.shots.length)
         : 0;
+    // v1033：本弧线编排进度徽章——choreo非空场景数/总场景数（A方案流水线对账）
+    final choreoedScenes = hasAnalysis
+        ? analysis.scenes.where((s) => s.choreo.isNotEmpty).length
+        : 0;
 
     // v469：已拆解=complete绿左边条，未拆解=incomplete红左边条
     final cardColor = hasAnalysis ? V469Style.complete : V469Style.incomplete;
@@ -783,6 +787,13 @@ class _AnalysisPageState extends State<AnalysisPage>
                         '✅ 已拆解($analyzedScenes/$totalScenes)',
                         V469Style.complete,
                         V469Style.completeBg,
+                      ),
+                    // v1033：编排进度徽章（金色——与弧线内编排策略块同色系）
+                    if (hasAnalysis && totalScenes > 0)
+                      V469Style.badge(
+                        '🧠 已编排($choreoedScenes/$totalScenes)',
+                        const Color(0xFFB45309),
+                        const Color(0x14B45309),
                       ),
                   ],
                 ),
