@@ -408,6 +408,7 @@ class _AnalysisPageState extends State<AnalysisPage>
                     child: Stack(
                       children: [
                         ListView.builder(
+                          cacheExtent: 2000, // v1028：扩大预渲染缓存——折叠长内容后标题element不回收，收起锚定才能生效
                         controller: _listCtl,
                         itemCount: arcs.length,
                         itemBuilder: (ctx, i) =>

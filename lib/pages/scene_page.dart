@@ -441,6 +441,7 @@ const Spacer(), // ⚙API推到最右
                         child: Stack(
                           children: [
                             ListView.builder(
+                          cacheExtent: 2000, // v1028：扩大预渲染缓存——折叠长内容后标题element不回收，收起锚定才能生效
                               controller: _listCtl,
                               itemCount: state.globalScenes.length,
                               itemBuilder: (ctx, i) => SceneCardItem(

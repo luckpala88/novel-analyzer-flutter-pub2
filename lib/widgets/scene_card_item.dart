@@ -218,8 +218,13 @@ class _ChoreoFoldSection extends StatefulWidget {
 
 class _ChoreoFoldSectionState extends State<_ChoreoFoldSection> {
   bool _open = false;
-  // v1020：标题Key——折叠/展开后锚定视线
+  // v1020：标题Key——展开后锚定视线
   final GlobalKey _headerKey = GlobalKey();
+  // v1028：内容Key+实测高度——收起时用"滚动位置-内容高度"精确回位
+  // （ensureVisible方案在长内容下会失效：收起后标题被惰性列表回收，
+  //   currentContext==null锚定静默失效——v1020实测没修好的根因）
+  final GlobalKey _contentKey = GlobalKey();
+  double _contentHeight = 0;
   @override
   Widget build(BuildContext context) {
     final paras = widget.choreo
@@ -227,6 +232,16 @@ class _ChoreoFoldSectionState extends State<_ChoreoFoldSection> {
         .map((p) => p.trim())
         .where((p) => p.isNotEmpty)
         .toList();
+    // v1028：展开期间逐帧实测内容高度（收起时按此精确回退滚动位置）
+    if (_open) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_open) return;
+        final ctx = _contentKey.currentContext;
+        if (ctx != null) {
+          _contentHeight = ctx.size?.height ?? 0;
+        }
+      });
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -234,8 +249,12 @@ class _ChoreoFoldSectionState extends State<_ChoreoFoldSection> {
         GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () {
-            setState(() => _open = !_open);
-            // v1020：视线锚回标题行
+            if (_open) {
+              _collapse(); // 收起走精确回位（v1028）
+              return;
+            }
+            setState(() => _open = true);
+            // v1020：展开——标题就在屏上，直接锚回标题行
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (_headerKey.currentContext != null) {
                 Scrollable.ensureVisible(_headerKey.currentContext!,
@@ -268,6 +287,11 @@ class _ChoreoFoldSectionState extends State<_ChoreoFoldSection> {
           ),
         ),
         if (_open) ...[
+          KeyedSubtree(
+            key: _contentKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
           const SizedBox(height: 3),
           for (var i = 0; i < paras.length; i++) ...[
             if (i > 0) const SizedBox(height: 3),
@@ -281,7 +305,7 @@ class _ChoreoFoldSectionState extends State<_ChoreoFoldSection> {
           // v1008同款：长内容底部收起键——浏览到尾不用滚回顶部
           GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: () => setState(() => _open = false),
+            onTap: () => _collapse(),
             child: Padding(
               padding: const EdgeInsets.only(top: 5),
               child: Text('▲ 收起',
@@ -292,8 +316,26 @@ class _ChoreoFoldSectionState extends State<_ChoreoFoldSection> {
                   )),
             ),
           ),
+              ],
+            ),
+          ),
         ],
       ],
     );
+  }
+
+  /// v1028：收起——滚动位置精确回退"内容实测高度"，
+  /// 视线落回顾本被展开内容占据的起点（不依赖标题context存活）
+  void _collapse() {
+    final scrollable = Scrollable.maybeOf(context);
+    final pos = scrollable?.position;
+    final before = pos?.pixels;
+    final removed = _contentHeight;
+    setState(() => _open = false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (pos == null || before == null) return;
+      if (!pos.hasPixels || !pos.hasContentDimensions) return;
+      pos.jumpTo((before - removed).clamp(0.0, pos.maxScrollExtent));
+    });
   }
 }
