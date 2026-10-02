@@ -1668,13 +1668,15 @@ class _AnalysisPageState extends State<AnalysisPage>
             // v1023b：分镜列表展开底部收起键——看到尾直接收，不用滚回顶部
             GestureDetector(
               behavior: HitTestBehavior.opaque,
-              key: _choreoKey('${foldKey}_shots_h'),
+              key: _choreoKey('${foldKey}_shots_f'),
               onTap: () {
                 setState(() => _expandedShots.remove(foldKey));
                 _saveUiState();
+                // v1029：锚定自身（收起后本行就在标题行下方，等效回位；
+                // 原引用标题key与本键重复=Duplicate GlobalKey=帧异常拖动失效）
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   final hctx =
-                      _choreoKey('${foldKey}_shots_h').currentContext;
+                      _choreoKey('${foldKey}_shots_f').currentContext;
                   if (hctx != null) {
                     Scrollable.ensureVisible(hctx,
                         alignment: 0.0,
