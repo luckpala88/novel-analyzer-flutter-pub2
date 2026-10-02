@@ -638,7 +638,17 @@ class _ChatPageState extends State<ChatPage>
             ),
           ),
         ]),
+        // v1010：动作键横向滚动区（占屏55%且reverse=右缘对齐）——会话下拉
+        // 恢复可见宽度（此前动作键过宽把标题挤成一条缝，用户截图实锤）
         actions: [
+          SizedBox(
+            width: MediaQuery.of(context).size.width * 0.55,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              reverse: true,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
           ContentFontButtons(
             pageKey: 'chat',
             scale: _chatFontScale,
@@ -689,6 +699,10 @@ class _ChatPageState extends State<ChatPage>
               child: ApiConfigPanel(
                 config: state.getApiConfig('chat'),
                 section: 'chat',
+              ),
+            ),
+          ),
+                ],
               ),
             ),
           ),
