@@ -66,6 +66,8 @@ class _AnalysisPageState extends State<AnalysisPage>
   bool _previewPrompt = false;
   // 展开的场景分镜 key: "arcKey_sceneIdx"（持久化到ui_state，重启恢复）
   Set<String> _expandedShots = {};
+  // v1006：场景内分镜编排策略折叠态（默认折叠，持久化到ui_state）
+  Set<String> _choreoExpanded = {};
   bool _restoredUi = false;
 
   @override
@@ -92,6 +94,10 @@ class _AnalysisPageState extends State<AnalysisPage>
       if (saved is List) {
         _expandedShots = saved.map((e) => e.toString()).toSet();
       }
+      final saved2 = AppState.instance.uiGet('analysis', 'choreoExpanded');
+      if (saved2 is List) {
+        _choreoExpanded = saved2.map((e) => e.toString()).toSet();
+      }
       _restoredUi = true;
     } catch (_) {
       _restoredUi = true;
@@ -104,6 +110,11 @@ class _AnalysisPageState extends State<AnalysisPage>
       'analysis',
       'expandedShots',
       _expandedShots.toList(),
+    );
+    AppState.instance.uiSet(
+      'analysis',
+      'choreoExpanded',
+      _choreoExpanded.toList(),
     );
   }
 
@@ -448,13 +459,15 @@ class _AnalysisPageState extends State<AnalysisPage>
 
 
   /// v919：场景内分镜编排策略显示块（标题+边框+四要素分行）
-  List<Widget> _buildSceneChoreoBlock(Scene scene) {
+  /// v1006：默认折叠——点标题行展开/收起，状态持久化（对齐分镜折叠v947b）
+  List<Widget> _buildSceneChoreoBlock(Scene scene, String foldKey) {
     final paras = scene.choreo
         .split('\n')
         .map((p) => p.trim())
         .where((p) => p.isNotEmpty)
         .toList();
     if (paras.isEmpty) return [];
+    final isExpanded = _choreoExpanded.contains(foldKey);
     return [
       Padding(
         padding: const EdgeInsets.only(top: 6, right: 4),
@@ -471,21 +484,49 @@ class _AnalysisPageState extends State<AnalysisPage>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('🎬 场景内分镜编排策略',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFFB45309),
-                  )),
-              const SizedBox(height: 6),
-              for (var i = 0; i < paras.length; i++) ...[
-                if (i > 0) const SizedBox(height: 4),
-                Text(paras[i],
-                    style: const TextStyle(
-                      fontSize: 11.5,
-                      height: 1.5,
-                      color: V469Style.textSec,
-                    )),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  setState(() {
+                    if (isExpanded) {
+                      _choreoExpanded.remove(foldKey);
+                    } else {
+                      _choreoExpanded.add(foldKey);
+                    }
+                  });
+                  _saveUiState();
+                },
+                child: Row(
+                  children: [
+                    Text(isExpanded ? '▾' : '▸',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFB45309),
+                        )),
+                    const SizedBox(width: 4),
+                    const Expanded(
+                      child: Text('🎬 场景内分镜编排策略',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFFB45309),
+                          )),
+                    ),
+                  ],
+                ),
+              ),
+              if (isExpanded) ...[
+                const SizedBox(height: 6),
+                for (var i = 0; i < paras.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 4),
+                  Text(paras[i],
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        height: 1.5,
+                        color: V469Style.textSec,
+                      )),
+                ],
               ],
             ],
           ),
@@ -1455,7 +1496,7 @@ class _AnalysisPageState extends State<AnalysisPage>
             ),
           // v919：场景内分镜编排策略（🧠分析编排产出，标题+边框+四要素分行）
           if (analyzedScene?.choreo.isNotEmpty == true) ...[
-            ..._buildSceneChoreoBlock(analyzedScene!),
+            ..._buildSceneChoreoBlock(analyzedScene!, '${foldKey}_choreo'),
           ],
           // v947b：折叠键独立行（分镜1上方——不跟场景标题挤按钮行，对齐世界书页v946）
           if (hasShots)
