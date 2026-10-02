@@ -1195,6 +1195,16 @@ class _ChatPageState extends State<ChatPage>
 
   /// 内容分发：JSON→美化卡片；markdown→富文本span；普通文本原样
   Widget _richContent(String content) {
+    // v1009：LaTeX箭头宏转符号——AI偶发输出$\rightarrow$等未渲染的宏，显示成源码
+    content = content
+        .replaceAll(r'$\rightarrow$', '→')
+        .replaceAll(r'\rightarrow', '→')
+        .replaceAll(r'$\to$', '→')
+        .replaceAll(r'\to', '→')
+        .replaceAll(r'$\Rightarrow$', '⇒')
+        .replaceAll(r'\Rightarrow', '⇒')
+        .replaceAll(r'$\leftarrow$', '←')
+        .replaceAll(r'\leftarrow', '←');
     final trimmed = content.trim();
     final isJson = (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
         (trimmed.startsWith('[') && trimmed.endsWith(']'));
