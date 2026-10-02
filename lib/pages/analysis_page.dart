@@ -2812,6 +2812,7 @@ class _AnalysisPageState extends State<AnalysisPage>
       _statusText = '批量拆分镜：0/$totalArcs弧线';
     });
     _addLog('批量拆分镜开始：$totalArcs条弧线');
+    final failedScenes = <String>[]; // v1025：失败场景清单（跳过继续）
     // 清除上次abort残留（v186修复：同_batchDivide，终止残留致下次批量秒退）
     state.api.clearAbort(); state.userAborted = false;
     // v368：全程try/finally——异常逃逸进度条永久卡死（v285同款病）
@@ -2834,12 +2835,17 @@ class _AnalysisPageState extends State<AnalysisPage>
           final ok = await _analyzeSceneShots(state, arcKey, si, batch: true);
           if (state.api.isAborted || state.userAborted) break; // 终止优先
           if (!ok) {
-            _addLog('❌ 弧线$arcKey场景${si + 1}拆解失败，终止批量');
-            break;
+            // v1025：失败跳过继续——429限流/网络抖动不该让整批报废，
+            // 失败场景记入清单，重跑批量（增量只拆未拆的）即可补齐
+            failedScenes.add('$arcKey-${si + 1}');
+            _addLog('⚠️ 弧线$arcKey场景${si + 1}拆解失败，跳过继续（失败累计${failedScenes.length}个）');
+            await Future.delayed(const Duration(seconds: 5)); // 失败后缓冲，防连续429
+            continue;
           }
         }
       }
-      _addLog('批量拆分镜完成');
+      _addLog('批量拆分镜完成'
+          '${failedScenes.isEmpty ? '' : '（失败${failedScenes.length}个：${failedScenes.join('、')}——重跑批量增量补齐）'}');
       state.saveArcScenes();
       // v998：补齐global_scenes落盘——分镜写在globalScenes共享实例上，
       // 不落盘=重启重绑用旧global_scenes.json覆盖=分镜全丢（用户实测）
