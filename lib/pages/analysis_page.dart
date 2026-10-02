@@ -2606,13 +2606,16 @@ class _AnalysisPageState extends State<AnalysisPage>
     }
   }
 
-  /// v1023c：编排增量清扫——全书扫描'有分镜没choreo'的场景补跑编排分析。
-  /// 批量拆完后调用；无未拆场景时批量早退也调用（否则'已拆未编排'存量永远碰不到）
-  Future<void> _runChoreoSweep(AppState state) async {
-    _addLog('━━ 【场景内分镜编排策略】增量分析开始（全书扫描：只跑有分镜没编排的场景）…');
+  /// v1023c：编排增量清扫——扫描'有分镜没choreo'的场景补跑编排分析。
+  /// v1028：A方案流水线——onlyArcNumber非空=弧线级清扫（该弧线拆完分镜立刻
+  /// 清扫本弧线，中断时弧线内自洽）；空=全书清扫（无未拆场景早退时的存量补齐）
+  Future<void> _runChoreoSweep(AppState state, {int? onlyArcNumber}) async {
+    final scope = onlyArcNumber != null ? '弧线$onlyArcNumber' : '全书';
+    _addLog('━━ 【场景内分镜编排策略】增量分析开始（$scope扫描：只跑有分镜没编排的场景）…');
     var choreoDone = 0;
     var skipped = 0;
     for (final arc in state.allArcs) {
+      if (onlyArcNumber != null && arc.number != onlyArcNumber) continue;
       if (state.api.isAborted || state.userAborted) break;
       final scenes = _arcScenesOf(state, arc);
       for (final scene in scenes) {
@@ -2631,7 +2634,7 @@ class _AnalysisPageState extends State<AnalysisPage>
       }
     }
     state.saveArcScenes();
-    _addLog('✅ 【场景内分镜编排策略】增量分析完成：新分析$choreoDone个，已有跳过$skipped个');
+    _addLog('✅ 【场景内分镜编排策略】增量分析完成（$scope）：新分析$choreoDone个，已有跳过$skipped个');
   }
 
   /// 智能分发拆解（v469 analyzeSingleArc语义）：
@@ -2829,6 +2832,8 @@ class _AnalysisPageState extends State<AnalysisPage>
         final pending = entry.value;
         setState(() => _statusText = '批量拆分镜：$done/$totalArcs弧线');
         _addLog('━━ 弧线$arcKey（$done/$totalArcs）：${pending.length}个场景待拆');
+        // v1028 A方案：弧线号预取——本弧线拆完立刻清扫本弧线的编排
+        final arcNumber = int.tryParse(arcKey);
         for (final si in pending) {
           if (state.api.isAborted || state.userAborted) {
             _addLog('⏹ 批量拆分镜被终止');
@@ -2843,6 +2848,13 @@ class _AnalysisPageState extends State<AnalysisPage>
             state.api.abort(); // void——同步置中断标记
             break;
           }
+        }
+        // v1028 A方案流水线：本弧线分镜全拆完→立刻清扫本弧线的编排
+        // （拆解abort/终止时清扫同样跳过——终止语义保持一致）
+        if (arcNumber != null &&
+            !state.api.isAborted &&
+            !state.userAborted) {
+          await _runChoreoSweep(state, onlyArcNumber: arcNumber);
         }
       }
       _addLog('批量拆分镜完成');
