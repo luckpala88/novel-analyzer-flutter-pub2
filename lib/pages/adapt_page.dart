@@ -2666,11 +2666,7 @@ return true;
                     : const Color(0xFF9B8570),
               ),
             ),
-            // v1039：分镜规划草稿审阅框（可手改，对齐弧线/场景草稿卡规范；
-            // 替换原只读预览卡——三步UI统一：草稿卡审阅手改→手动写入）
-            _buildShotPlanDraftBox(state, arc, arcKey, sceneNum),
-            // v974：场景内规划按键（分行布局Wrap）；v975：写入前细化开关
-            // v1043：三步竖排（规划→草稿→写入，对齐弧线/场景卡）
+            // v1046：三步竖排——两个规划键在草稿框上方（生成→细化→草稿→写入）
             Wrap(
               spacing: 6,
               runSpacing: 4,
@@ -2699,6 +2695,8 @@ return true;
                   ),
               ],
             ),
+            // v1039：分镜规划草稿审阅框（可手改，底部内嵌📝分镜写入条目）
+            _buildShotPlanDraftBox(state, arc, arcKey, sceneNum),
           ],
         ),
       ));
