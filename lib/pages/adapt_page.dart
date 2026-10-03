@@ -2770,19 +2770,6 @@ return true;
                       : () => _planNewSceneShots(state, arc,
                           sceneNum: int.tryParse(sceneNum)),
                 ),
-                if ((state.worldBook?.continuePlans[
-                            'shot_plan_${arcKey}_$sceneNum'] ??
-                        '')
-                    .trim()
-                    .isNotEmpty)
-                  MiniButton(
-                    label: '🤖AI细化规划',
-                    primary: false,
-                    onTap: _isGenerating
-                        ? null
-                        : () => _refineShotPlan(state, arc,
-                            sceneNum: int.tryParse(sceneNum)),
-                  ),
               ],
             ),
             // v1039：分镜规划草稿审阅框（可手改，底部内嵌📝分镜写入条目）
@@ -2982,24 +2969,6 @@ return true;
             ),
           ),
           const SizedBox(height: 6),
-          // v1040：细化开关留在规划卡内（生成键独立到卡外，对齐弧线层模板）
-          Row(
-            children: [
-              SizedBox(
-                width: 28,
-                height: 28,
-                child: Checkbox(
-                  value: _preWriteRefine,
-                  onChanged: (v) =>
-                      setState(() => _preWriteRefine = v ?? true),
-                ),
-              ),
-              Expanded(
-                child: Text('生成前AI细化（完善补充/剔除毒点，结果只进草稿框）',
-                    style: TextStyle(fontSize: _cf(11), color: const Color(0xFF5B7A99))),
-              ),
-            ],
-          ),
           // v1041：文言文概述开关
           _buildWenyanToggle(state),
           // v1048：编排自审开关
@@ -3101,83 +3070,6 @@ return true;
   }
 
 
-
-  /// v1039：🤖AI细化分镜规划（独立按键，从写入流程剥离——三步规范：
-  /// 规划→细化(可选)→手动写入纯代码）。结果回填continuePlans草稿框可手改
-  Future<void> _refineShotPlan(AppState state, Arc? arc, {int? sceneNum}) async {
-    final arcKey = arc?.number.toString() ?? '1';
-    final entryKey = _arcEntryKey(state, arcKey);
-    if (entryKey == null) {
-      _addLog('❌ 弧线$arcKey还没有世界书条目');
-      return;
-    }
-    final planNum = sceneNum ?? (_maxSceneNumInEntry(state, entryKey) + 1);
-    var planRaw =
-        (state.worldBook?.continuePlans['shot_plan_${arcKey}_$planNum'] ?? '')
-            .trim();
-    if (planRaw.isEmpty) {
-      _addLog('❌ 分镜规划为空——先🧩生成分镜规划草稿');
-      return;
-    }
-    setState(() => _isGenerating = true);
-    try {
-      _addLog('🤖 分镜规划细化中（弧线$arcKey场景$planNum）…');
-      final sys = '你是网文分镜规划审核师。任务：检查并优化用户提供的分镜规划，'
-          '严格保持输入的结构原样输出。规则：\n'
-          '1.剔除毒点：低俗/降智/崩人设/破坏原著基调的设定与描写直接修正\n'
-          '2.修正各维度值的逻辑瑕疵与前后矛盾，焦点/镜头类型/视角等骨架不变\n'
-          '3.手法(Trick)四问结构（特质→呈现｜多职/零直陈｜批次｜落点=）保持完整\n'
-          '4.人物全部沿用原著原名，禁止拟新名\n'
-          '5.若输入是JSON数组：保持JSON数组结构与中文键名不变直接输出；'
-          '若输入是文本：保持原文本格式输出\n'
-          '6.禁止解释性文字，只输出优化后的规划本体'
-          '\n7.输出从"分镜1："开始——输入里的【本弧线规划】是参考信息，禁止复述进输出'
-          '\n8.【作家编排要求】：镜序是节奏链——钩子(入口冲击)→铺垫→升级→爆点→落点余波，'
-          '每镜的投放信息/作者意图要服务这个链，相邻镜之间转场衔接自然'
-          '${PromptBuilder.eventDrivenRule}';
-      final arcEntryContent =
-          state.worldBook!.entries[entryKey]!.content.trim();
-      final usr = '【本弧线规划（弧线$arcKey条目——细化时人设/矛盾/伏笔以此为准）】\n$arcEntryContent\n\n'
-          '【分镜规划（场景$planNum）】\n$planRaw';
-      final okSend = await PromptPreview.maybePreview(
-        context,
-        sysPrompt: sys,
-        userPrompt: usr,
-        title: '分镜规划细化词链预览（弧线$arcKey场景$planNum）',
-        enabled: state.wbPromptPreview,
-      );
-      if (!okSend) {
-        _addLog('已取消细化');
-        return;
-      }
-      final config = state.getApiConfig('wb');
-      final result = await state.api.callApi(
-        task: '分镜规划细化',
-        systemPrompt: sys,
-        userPrompt: usr,
-        apiConfig: config,
-      );
-      if (!result.isSuccess) {
-        _addLog('❌ 细化失败：${result.error}');
-        return;
-      }
-      final out = TextCleaner.decodeLiteralNewlines(
-        TextCleaner.stripDecorativeEmoji(
-          TextCleaner.normalizeAiOutput(result.content),
-        ),
-      ).trim();
-      if (out.isEmpty) {
-        _addLog('⚠️ 细化输出为空——保留原规划');
-        return;
-      }
-      planRaw = _stripToShotPlan(out); // v1037：剥复述上下文
-      state.worldBook!.continuePlans['shot_plan_${arcKey}_$planNum'] = planRaw;
-      state.saveWorldBook();
-      _addLog('✓ 细化完成（${planRaw.length}字）——已回填草稿框，写入前可手改');
-    } finally {
-      if (mounted) setState(() => _isGenerating = false);
-    }
-  }
 
   /// v922：分镜规划写入条目（append到弧线条目尾部——创作页hasShots走沿分镜）
   Future<void> _writeShotPlanToEntry(AppState state, Arc? arc,
@@ -3643,9 +3535,10 @@ return true;
         state.saveWorldBook();
         setState(() => _newSceneOptChecked = true);
       }
-      // v1040：写入前AI细化（开关默认开）——细化结果只进草稿框，
-      // 不回填优化框（优化框=AI对用户输入/前文的初步设想；草稿=具体落地的场景设计，两框分离）
-      if (_preWriteRefine) {
+      // v1056：AI落地（原"细化"环节转正为生成草稿的必经步骤，开关已删——
+      // 设想要点/完整规划→落地为两行制场景条目+完善+剔毒点）——
+      // 落地结果只进草稿框，不回填优化框（两框分工不变）
+      {
         final refined = await _refineScenePlanBeforeWrite(state, arcKey, source);
         if (refined != null && refined.trim().isNotEmpty) {
           source = refined.trim();
@@ -3665,7 +3558,7 @@ return true;
             );
           }
         } else {
-          _addLog('⚠️ 写入前细化失败/为空——按原规划生成草稿');
+          _addLog('⚠️ AI落地失败/为空——按原规划生成草稿');
         }
       }
       state.worldBook!.continuePlans['scene_entry_$arcKey'] = source;
@@ -4615,7 +4508,6 @@ return true;
     setState(() {});
   } // v963：场景续写层弧线卡展开状态（手动折叠——ExpansionTile在TabBarView冻死打不开v586已知）
   bool _newSceneOptChecked = true; // AI优化规划勾选（默认写入源）
-  bool _preWriteRefine = true; // v826：写入前AI细化开关（完善补充/剔除毒点，默认开）
   bool _shotPreWriteRefine = true; // v975：分镜规划写入前AI细化开关（去毒点/修逻辑，默认开）
   bool _matExpanded = false; // v827：素材折叠区展开状态
   final _contReqRawCtrl = TextEditingController(); // v920
