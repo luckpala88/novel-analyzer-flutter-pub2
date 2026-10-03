@@ -705,6 +705,17 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
     );
   }
 
+  /// v1059：目录章节标签——标题已自带编号（第X章/中文数字章/数字.）就不加前缀，
+  /// 否则补列表序号（旧版书源标题带编号，新导入的书可能没有）
+  String _chapterLabel(int i, String title) {
+    final t = title.trim();
+    if (RegExp(r'^(第\s*\d+\s*章|第[零一二三四五六七八九十百千]+章|\d+[.、：:])')
+        .hasMatch(t)) {
+      return t;
+    }
+    return '${i + 1}. $t';
+  }
+
   void _showChapterList() {
     final state = context.read<AppState>();
     // v1059：目录打开即定位到当前阅读章节（电子书浏览到哪章，目录显示哪章）
@@ -743,7 +754,8 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
                         dense: true,
                         selected: i == _currentIndex,
                         title: Text(
-                          ch.title,
+                          // v1059：目录序号（标题已自带"第X章/数字."的不重复加）
+                          _chapterLabel(i, ch.title),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontSize: 14),
