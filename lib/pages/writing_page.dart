@@ -884,6 +884,13 @@ class _WritingPageState extends State<WritingPage>
 
   @override
   void dispose() {
+    // v1068：销毁前立即落盘（防抖窗口内切书/回收=丢最后位置）
+    if (_sceneListCtl.hasClients) {
+      AppState.instance.storage.writeFile(
+        '${AppState.instance.storage.bookPath}writing_scene_off.flag',
+        _sceneListCtl.offset.toStringAsFixed(0),
+      );
+    }
     _scrollSaveTimer?.cancel();
     _sceneListCtl.dispose();
     super.dispose();

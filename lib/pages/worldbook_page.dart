@@ -152,6 +152,13 @@ class _WorldBookPageState extends State<WorldBookPage>
 
   @override
   void dispose() {
+    // v1068：销毁前立即落盘（防抖窗口内切书/回收=丢最后位置）
+    if (_wbListCtl.hasClients) {
+      AppState.instance.storage.writeFile(
+        '${AppState.instance.storage.bookPath}wb_list_off.flag',
+        _wbListCtl.offset.toStringAsFixed(0),
+      );
+    }
     _wbScrollTimer?.cancel(); // v1045
     _wbListCtl.dispose();
     _editContentCtrl.dispose();
