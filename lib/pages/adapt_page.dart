@@ -1981,9 +1981,30 @@ return true;
                         itemBuilder: (ctx, i) {
                           if (i >= allArcs.length) {
                             // v824：0弧线也可新增场景规划——开新书场景1起步
-                            return _buildNewScenePlanner(
-                                state,
-                                allArcs.isEmpty ? null : allArcs.last);
+                            // v1040：三步对齐弧线层模板——①规划卡②独立生成键③草稿卡
+                            final plannerArc =
+                                allArcs.isEmpty ? null : allArcs.last;
+                            final plannerArcKey =
+                                plannerArc?.number.toString() ?? '1';
+                            return Column(
+                              children: [
+                                _buildNewScenePlanner(state, plannerArc),
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Center(
+                                    child: MiniButton(
+                                      label: '生成新场景条目草稿',
+                                      primary: true,
+                                      onTap: _isGenerating
+                                          ? null
+                                          : () => _genSceneEntryDraft(
+                                              state, plannerArc),
+                                    ),
+                                  ),
+                                ),
+                                _buildSceneEntryDraftBox(plannerArcKey, state),
+                              ],
+                            );
                           }
                           return _buildContinueSceneCard(
                               state, allArcs[i]);
@@ -2830,15 +2851,12 @@ return true;
             ),
           ),
           const SizedBox(height: 6),
-          // v957：分镜规划（🧩AI分镜规划/📝写入条目）已迁往分镜续写层——
-          // 场景续写层只管场景规划+写入条目，职责单一
-          // v1039：三步对齐弧线卡——①规划(上)②⚙生成草稿(审阅框可手改)③📝手动写入
-          // （废除弹窗确认写入；规划全空时AI根据前文信息自拟）
+          // v1040：细化开关留在规划卡内（生成键独立到卡外，对齐弧线层模板）
           Row(
             children: [
               SizedBox(
                 width: 28,
-                height: 32,
+                height: 28,
                 child: Checkbox(
                   value: _preWriteRefine,
                   onChanged: (v) =>
@@ -2846,18 +2864,11 @@ return true;
                 ),
               ),
               Expanded(
-                child: MiniButton(
-                  label: '⚙生成新场景条目草稿${_preWriteRefine ? "（先AI细化）" : "（规划空=AI按前文自拟）"}',
-                  primary: false,
-                  onTap: _isGenerating
-                      ? null
-                      : () => _genSceneEntryDraft(state, arc),
-                ),
+                child: Text('生成前AI细化（完善补充/剔除毒点，结果只进草稿框）',
+                    style: TextStyle(fontSize: _cf(11), color: const Color(0xFF5B7A99))),
               ),
             ],
           ),
-          // v1039：场景条目草稿审阅框（有草稿才显示，控制器内容差异同步防滞留）
-          _buildSceneEntryDraftBox(state, arcKey),
         ],
       ),
     );
@@ -2865,7 +2876,7 @@ return true;
 
   /// v1039：场景条目草稿审阅框——草稿在continuePlans['scene_entry_$arcKey']，
   /// 审阅手改后📝手动写入世界书（对齐弧线草稿卡规范）
-  Widget _buildSceneEntryDraftBox(AppState state, String arcKey) {
+  Widget _buildSceneEntryDraftBox(String arcKey, AppState state) {
     final draft =
         (state.worldBook?.continuePlans['scene_entry_$arcKey'] ?? '').trim();
     if (draft.isEmpty) return const SizedBox.shrink();
@@ -3433,19 +3444,19 @@ return true;
           _addLog('❌ AI自拟规划失败——可填规划后重试');
           return;
         }
+        // v1040：AI自拟=根据前文的初步设想——回填优化框（用户可看到设想来源并可改），
+        // 后续细化落地稿只进草稿框，两框分工明确
         source = generated.trim();
         state.worldBook?.continuePlans[_plannerOptKey(arcKey)] = source;
         state.saveWorldBook();
         setState(() => _newSceneOptChecked = true);
       }
-      // v826：写入前AI细化（开关默认开）——细化结果回填优化框+草稿框可手改
+      // v1040：写入前AI细化（开关默认开）——细化结果只进草稿框，
+      // 不回填优化框（优化框=AI对用户输入/前文的初步设想；草稿=具体落地的场景设计，两框分离）
       if (_preWriteRefine) {
         final refined = await _refineScenePlanBeforeWrite(state, arcKey, source);
         if (refined != null && refined.trim().isNotEmpty) {
           source = refined.trim();
-          state.worldBook?.continuePlans[_plannerOptKey(arcKey)] = source;
-          state.saveWorldBook();
-          setState(() => _newSceneOptChecked = true);
         } else {
           _addLog('⚠️ 写入前细化失败/为空——按原规划生成草稿');
         }
