@@ -2782,6 +2782,84 @@ class _WritingPageState extends State<WritingPage>
           _addLog('✓ 分镜${i + 1}维度校验通过');
         }
       }
+      // v1064：单镜自审——独立AI终审（事件驱动执行/对白纪律/作家风格），
+      // FAIL带意见重写一次（二稿直接采纳）；choreoSelfReview开关关=零成本。
+      // 用户裁决：逐镜每镜都审，不担心API调用过多
+      if (state.choreoSelfReview && body.trim().length > 100 && !state.api.isAborted) {
+        setState(() => _isGenerating = true);
+        try {
+          _addLog('🤖 分镜${i + 1}自审中…');
+          final rvSys = '你是资深网文主编，对刚创作的单镜正文做终审。逐条审核（任一不过=FAIL）：\n'
+              '1.事件驱动执行：剧情以角色行动/对话交锋/角色互动/心理活动/势力矛盾关系的演变推进——'
+              '出现手指动作/微表情/眼神闪动等细碎文艺特写或成段静态环境外貌描写=FAIL\n'
+              '2.对白纪律：对白用引号写具体台词，出现"他愤怒地指责"式概括转述=FAIL\n'
+              '3.维度落实：正文符合该镜的焦点/投放信息/作者意图，篇幅不跑出±50%\n'
+              '4.风格符合【作家风格卡】特征\n'
+              '输出格式：第一行只写PASS或FAIL；FAIL时从第二行写具体问题清单';
+          final rvUsr =
+              '${state.writerStyleBlock.isEmpty ? '' : '${state.writerStyleBlock}\n\n'}【分镜结构】\n$shotBlock\n\n【待审正文】\n$body';
+          final rvOk = await PromptPreview.maybePreview(
+            context,
+            sysPrompt: rvSys,
+            userPrompt: rvUsr,
+            title: '单镜自审词链预览 — 场景${si + 1} 分镜${i + 1}',
+            enabled: state.writingPromptPreview,
+          );
+          if (rvOk) {
+            final rvResult = await state.api.callApi(
+              task: '单镜自审',
+              systemPrompt: rvSys,
+              userPrompt: rvUsr,
+              apiConfig: config,
+            );
+            if (rvResult.isSuccess) {
+              final rvOut =
+                  TextCleaner.normalizeAiOutput(rvResult.content).trim();
+              if (rvOut.toUpperCase().startsWith('PASS')) {
+                _addLog('✅ 分镜${i + 1}自审通过');
+              } else if (rvOut.toUpperCase().startsWith('FAIL')) {
+                final reason = rvOut.substring(4).trim();
+                _addLog('⛔ 分镜${i + 1}自审不合格——带意见重写一次');
+                if (reason.isNotEmpty) _addLog('自审意见：$reason');
+                final rwUser =
+                    '$user\n\n## ⚠️ 上一稿被主编自审否决，必须针对以下问题重写本镜正文：\n$reason';
+                final rwResult = await state.api.callApi(
+                  task: '单镜重写',
+                  systemPrompt: sys,
+                  userPrompt: rwUser,
+                  apiConfig: config,
+                );
+                if (rwResult.isSuccess) {
+                  final nb = TextCleaner.stripParagraphWrapQuotes(
+                    TextCleaner.stripWrapQuotes(
+                      TextCleaner.stripShotHeaders(
+                        TextCleaner.stripDecorativeEmoji(
+                          TextCleaner.normalizeAiOutput(
+                            rwResult.content,
+                            jsonMode: config.formatMode == 'json',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ).trim();
+                  if (nb.length > 100) {
+                    body = nb;
+                    _addLog('✅ 分镜${i + 1}已按自审意见重写（${nb.length}字，第二稿直接采纳）');
+                  } else {
+                    _addLog('⚠️ 重写稿异常——保留首稿');
+                  }
+                } else {
+                  _addLog('⚠️ 重写请求失败——保留首稿');
+                }
+              }
+            } else {
+              _addLog('ℹ️ 分镜${i + 1}自审请求失败——跳过');
+            }
+          }
+        } finally {
+          if (mounted) setState(() => _isGenerating = false);
+        }
+      }
       // 组装：结构照抄（世界书原样）+空行+正文+空行
       sb.writeln(shotBlock);
       sb.writeln();
