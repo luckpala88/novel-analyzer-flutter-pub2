@@ -4012,7 +4012,11 @@ return true;
       // v1035：生成内容存草稿（continuePlans['arc_entry_$newNum']）——
       // 用户裁决三步确认规范：生成→审阅（可手改）→📝手动写入世界书，
       // 不再生成即落条目（否则内容没确认就进世界书=乱源）
-      // v1048：编排自审——不合格推翻重做（failReason非空=重做的第二稿，不再审防循环）
+      // v1035：生成内容存草稿——v1052先落库再自审（原v1048删了直接赋值行，
+      // FAIL路径首稿从未写入+??不防空串=推翻重做后草稿0字，日志实测）
+      state.worldBook!.continuePlans['arc_entry_$newNum'] = content;
+      state.saveWorldBook();
+      // v1048/v1052：编排自审——不合格推翻重做（failReason非空=第二稿不再审防循环）
       if (state.choreoSelfReview && failReason == null) {
         final v2 = await _choreoSelfReview(
           state,
@@ -4021,18 +4025,24 @@ return true;
           state.writerStyleBlock,
           regenerate: (reason) async {
             await _addContinueArc(state, arc, failReason: reason);
-            return (state.worldBook?.continuePlans['arc_entry_$newNum'] ?? '')
+            final r = (state.worldBook?.continuePlans['arc_entry_$newNum'] ?? '')
                 .trim();
+            // v1052：二稿被清洗剥空/未落库=回退首稿，不再让空串污染草稿框
+            return r.isEmpty ? content : r;
           },
         );
-        if (v2.isNotEmpty && v2 != content) {
+        if (v2.isNotEmpty && v2.trim() != content.trim()) {
           state.worldBook!.continuePlans['arc_entry_$newNum'] = v2;
           state.saveWorldBook();
         }
       }
-      state.worldBook!.continuePlans['arc_entry_$newNum'] =
-          state.worldBook!.continuePlans['arc_entry_$newNum'] ?? content;
-      state.saveWorldBook();
+      // v1052：空串感知兜底——草稿值被污染为空时回退本稿
+      if ((state.worldBook!.continuePlans['arc_entry_$newNum'] ?? '')
+          .trim()
+          .isEmpty) {
+        state.worldBook!.continuePlans['arc_entry_$newNum'] = content;
+        state.saveWorldBook();
+      }
       _addLog('✓ 弧线$newNum条目草稿已生成（${(state.worldBook!.continuePlans['arc_entry_$newNum'] ?? '').length}字）——'
           '下方审阅框可手改，确认后点📝写入世界书落条目');
       if (mounted) setState(() {});
