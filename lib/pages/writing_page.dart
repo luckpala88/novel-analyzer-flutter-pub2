@@ -3492,6 +3492,86 @@ class _WritingPageState extends State<WritingPage>
           );
           version = old.version + 1;
         }
+        // v1057：正文自审——独立AI终审（事件驱动执行/对白纪律/概述分镜对齐/作家风格），
+        // FAIL带意见重写一次（二稿直接采纳）；choreoSelfReview开关关=零成本跳过
+        if (state.choreoSelfReview && cleanContent.trim().length > 300) {
+          setState(() => _isGenerating = true);
+          try {
+            _addLog('🤖 正文自审中…');
+            final rvSys = '你是资深网文主编，对刚创作的场景正文做终审。逐条审核（任一不过=FAIL）：\n'
+                '1.事件驱动执行：剧情以角色行动/对话交锋/角色互动/心理活动/势力矛盾关系的演变推进——'
+                '出现成段的手指动作/微表情/眼神闪动/静态环境外貌描写=FAIL\n'
+                '2.对白纪律：对白用引号写具体台词，出现"他愤怒地指责"式概括转述=FAIL\n'
+                '3.对齐：正文符合场景概述与分镜序列，未跳镜未烂尾\n'
+                '4.风格符合【作家风格卡】特征\n'
+                '输出格式：第一行只写PASS或FAIL；FAIL时从第二行写具体问题清单';
+            final rvUsr =
+                '${state.writerStyleBlock.isEmpty ? '' : '${state.writerStyleBlock}\n\n'}【待审正文】\n$cleanContent';
+            final rvOk = await PromptPreview.maybePreview(
+              context,
+              sysPrompt: rvSys,
+              userPrompt: rvUsr,
+              title: '正文自审词链预览',
+              enabled: state.wbPromptPreview,
+            );
+            if (rvOk) {
+              final rvResult = await state.api.callApi(
+                task: '正文自审',
+                systemPrompt: rvSys,
+                userPrompt: rvUsr,
+                apiConfig: config,
+              );
+              if (rvResult.isSuccess) {
+                final rvOut =
+                    TextCleaner.normalizeAiOutput(rvResult.content).trim();
+                if (rvOut.toUpperCase().startsWith('PASS')) {
+                  _addLog('✅ 正文自审通过');
+                } else if (rvOut.toUpperCase().startsWith('FAIL')) {
+                  final reason = rvOut.substring(4).trim();
+                  _addLog('⛔ 正文自审不合格——带意见重写一次');
+                  if (reason.isNotEmpty) _addLog('自审意见：$reason');
+                  final rwUser =
+                      '$userPrompt\n\n## ⚠️ 上一稿被主编自审否决，必须针对以下问题重写：\n$reason';
+                  final rwResult = await state.api.callApi(
+                    task: '正文重写',
+                    systemPrompt: systemPrompt,
+                    userPrompt: rwUser,
+                    apiConfig: config,
+                  );
+                  if (rwResult.isSuccess) {
+                    final (rwBody, rwNote) =
+                        state.stripStyleNote(rwResult.content);
+                    if (rwNote.isNotEmpty) state.depositStyleNote(rwNote);
+                    final n2 = TextCleaner.stripParagraphWrapQuotes(
+                      TextCleaner.decodeLiteralNewlines(
+                        TextCleaner.stripDecorativeEmoji(
+                          TextCleaner.dedupeShotBlocks(
+                            TextCleaner.normalizeAiOutput(
+                              rwBody,
+                              jsonMode: config.formatMode == 'json',
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                    if (n2.trim().length > 200) {
+                      cleanContent = n2;
+                      _addLog('✅ 已按自审意见重写（${n2.length}字，第二稿直接采纳）');
+                    } else {
+                      _addLog('⚠️ 重写稿异常——保留首稿');
+                    }
+                  } else {
+                    _addLog('⚠️ 重写请求失败——保留首稿');
+                  }
+                }
+              } else {
+                _addLog('⚠️ 自审调用失败——按首稿采纳');
+              }
+            }
+          } finally {
+            if (mounted) setState(() => _isGenerating = false);
+          }
+        }
         final writing = WritingItem(
           key: wkey,
           arcKey: arcKey,

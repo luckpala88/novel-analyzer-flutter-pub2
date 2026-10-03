@@ -4501,6 +4501,95 @@ return true;
   GlobalKey _foldHeaderKeys(String k) =>
       _foldHeaderKeyMap.putIfAbsent(k, () => GlobalKey());
 
+  /// v1057：改编产出自审+AI修订——FAIL→带意见修订一次（修订稿直接采纳，
+  /// 不重跑流水线防备份恢复/循环副作用）；开关关=零成本
+  Future<String> _selfReviewRevise(
+    AppState state,
+    String kind,
+    String draft,
+    String contextBlock,
+  ) async {
+    if (!state.choreoSelfReview || draft.trim().isEmpty) return draft;
+    final config = state.getApiConfig('wb');
+    setState(() => _isGenerating = true);
+    try {
+      _addLog('🤖 编排自审中（改编$kind）…');
+      final sys = '你是资深网文主编，对刚生成的改编$kind做终审。逐条审核（任一不过=FAIL）：\n'
+          '1.事件驱动：内容以角色行动/对话交锋/角色互动/势力矛盾关系的演变推进——'
+          '把笔墨放在微表情/手指动作/静态环境外貌上=FAIL\n'
+          '2.具体情节：概述/编排/分镜维度落到"谁做了什么、引发什么后果"——纯功能标签堆砌=FAIL\n'
+          '3.符合作家风格卡特征\n'
+          '${kind.contains('分镜') ? '4.分镜维度行齐整，镜序是节奏链（钩子→铺垫→升级→爆点→余波）' : '4.弧线概述末尾闭合点明确（主角从什么状态不可逆变化到什么状态）'}\n'
+          '输出格式：第一行只写PASS或FAIL；FAIL时从第二行写具体问题清单';
+      final usr =
+          '${state.writerStyleBlock.isEmpty ? '' : '${state.writerStyleBlock}\n\n'}【待审$kind】\n$draft';
+      final okSend = await PromptPreview.maybePreview(
+        context,
+        sysPrompt: sys,
+        userPrompt: usr,
+        title: '改编自审词链预览（$kind）',
+        enabled: state.wbPromptPreview,
+      );
+      if (!okSend) return draft;
+      final result = await state.api.callApi(
+        task: '改编自审',
+        systemPrompt: sys,
+        userPrompt: usr,
+        apiConfig: config,
+      );
+      if (!result.isSuccess) {
+        _addLog('⚠️ 自审调用失败——按首稿采纳');
+        return draft;
+      }
+      final out = TextCleaner.normalizeAiOutput(result.content).trim();
+      if (out.toUpperCase().startsWith('PASS')) {
+        _addLog('✅ 编排自审通过（$kind）');
+        return draft;
+      }
+      if (!out.toUpperCase().startsWith('FAIL')) {
+        _addLog('ℹ️ 自审输出不规范——按首稿采纳');
+        return draft;
+      }
+      final reason = out.substring(4).trim();
+      _addLog('⛔ 编排自审不合格（$kind）——带意见修订一次');
+      if (reason.isNotEmpty) _addLog('自审意见：$reason');
+      final reviseSys = '你是网文主编。根据审核意见修订以下$kind内容：'
+          '保持原有结构与格式不变（条目块/维度行原样保留），只修正意见指出的问题；'
+          '事件驱动（角色行动/互动/势力矛盾演变，禁微表情文艺碎笔）；人物沿用原名；'
+          '只输出修订后的完整内容，禁止解释性文字';
+      final reviseUsr = '$contextBlock\n\n【待修订$kind】\n$draft\n\n'
+          '【审核意见（必须逐条修正）】\n$reason';
+      final revised = await state.api.callApi(
+        task: '改编修订',
+        systemPrompt: reviseSys,
+        userPrompt: reviseUsr,
+        apiConfig: config,
+      );
+      if (!revised.isSuccess) {
+        _addLog('⚠️ 修订请求失败——按首稿采纳');
+        return draft;
+      }
+      final body = TextCleaner.stripQuotedFragment(
+        TextCleaner.decodeLiteralNewlines(
+          TextCleaner.stripDecorativeEmoji(
+            TextCleaner.normalizeAiOutput(
+              revised.content,
+              jsonMode: config.formatMode == 'json',
+            ),
+          ),
+        ),
+      ).trim();
+      if (body.length < draft.length ~/ 3) {
+        _addLog('⚠️ 修订稿异常偏短——按首稿采纳');
+        return draft;
+      }
+      _addLog('✅ 已按自审意见修订（${body.length}字，修订稿直接采纳）');
+      return body;
+    } finally {
+      if (mounted) setState(() => _isGenerating = false);
+    }
+  }
+
   /// v1046：内容框手动清空——控制器+持久化值同步清（onChanged('')落库）
   void _clearField(TextEditingController? ctl, void Function(String) onChanged) {
     ctl?.clear();
@@ -6919,6 +7008,24 @@ return true;
           state.refresh();
           return;
         }
+        // v1057：弧线总结自审+AI修订（FAIL带意见修订替换条目内容）
+        final sumEntry = state.worldBook!.entries.values
+            .where((e) =>
+                e.arcKey == arcKey &&
+                (e.sceneTag == null || e.sceneTag!.isEmpty))
+            .firstOrNull;
+        if (sumEntry != null) {
+          final revised = await _selfReviewRevise(
+            state,
+            '弧线总结',
+            sumEntry.content,
+            '【改编要求】\n${hasReq ? state.worldBook!.requirements.trim() : '（无）'}',
+          );
+          if (revised.trim() != sumEntry.content.trim()) {
+            sumEntry.content = revised;
+            state.saveWorldBook();
+          }
+        }
         _addLog('✓ 弧线${arc.number}总结条目已生成（${sumResult.content.length}字）');
         // 世界观10体系校验补齐（AI砍尾部兜底）
         _ensureWorldbuildingSystems(state, arcKey);
@@ -7322,7 +7429,24 @@ return true;
               fallbackSummary: scene.summary,
             );
             if (merged) {
-              _addLog('✓ 场景${si + 1}分镜已填充（${fillResult.content.length}字）');
+              // v1057：分镜填充自审+AI修订（FAIL带意见修订，替换场景块）
+              final revisedFill = await _selfReviewRevise(
+                state,
+                '分镜填充',
+                fillContent,
+                '【改编要求】\n${hasReq ? state.worldBook!.requirements.trim() : '（无）'}'
+                    '\n【场景框架】\n${_sceneBlockFromArcEntry(state, arcKey, si)}',
+              );
+              if (revisedFill.trim() != fillContent.trim()) {
+                _replaceSceneBlockInArcEntry(
+                  state,
+                  arcKey,
+                  si,
+                  revisedFill,
+                  fallbackSummary: scene.summary,
+                );
+              }
+              _addLog('✓ 场景${si + 1}分镜已填充（${fillContent.length}字）');
             } else {
               _addLog('⚠️ 场景${si + 1}分镜合并失败（场景块未找到）');
             }
