@@ -1094,12 +1094,15 @@ class _WritingPageState extends State<WritingPage>
                         ? state.writingXuFree
                         : state.writingFreeMode,
                     onTap: () {
+                      // v1086：先算新值再set再打日志（原写法set后取反打印的是旧值=日志反了）
                       if (state.writingFreeContinue) {
-                        state.setWritingXuFree(!state.writingXuFree);
-                        _addLog('🔀 续写链自由子开关→${!state.writingXuFree ? '开（自由续写）' : '关（沿分镜）'}');
+                        final nv = !state.writingXuFree;
+                        state.setWritingXuFree(nv);
+                        _addLog('🔀 续写链自由子开关→${nv ? '开（自由续写）' : '关（沿分镜）'}');
                       } else {
-                        state.setWritingFreeMode(!state.writingFreeMode);
-                        _addLog('🔀 改编链自由子开关→${!state.writingFreeMode ? '开（不注入分镜结构）' : '关（沿分镜）'}');
+                        final nv = !state.writingFreeMode;
+                        state.setWritingFreeMode(nv);
+                        _addLog('🔀 改编链自由子开关→${nv ? '开（不注入分镜结构）' : '关（沿分镜）'}');
                       }
                     },
                   ),
