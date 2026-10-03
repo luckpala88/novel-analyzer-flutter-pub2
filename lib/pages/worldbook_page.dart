@@ -719,28 +719,63 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
                   .map((e) => e.value)
                   .firstOrNull ??
               '📌';
+          // v1085：标题样式对齐分镜页_metaTitle（accent色）
           tailWidgets.add(
             Padding(
-              padding: const EdgeInsets.only(top: 6),
+              padding: const EdgeInsets.only(top: 10, bottom: 4),
               child: Text(
                 '$icon $currentTitle',
                 style: const TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w700,
-                  color: V469Style.textMain,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: V469Style.accent,
+                  letterSpacing: 0.3,
                 ),
               ),
             ),
           );
         }
+        // v1085：零件项对齐分镜页_metaItem——"- "行显示"▸ "前缀+textSec，
+        // 世界观facts行[系统]标签紫色加粗+功能行缩进灰字（同_buildArcParts）
+        final spans = <InlineSpan>[];
+        for (final raw in buf) {
+          final t = raw.trim();
+          if (t.isEmpty) continue;
+          final isItem = t.startsWith('- ') || t.startsWith('-');
+          final body = isItem ? t.replaceFirst(RegExp(r'^-\s*'), '') : t;
+          if (isItem) spans.add(const TextSpan(text: '\n'));
+          final fm = RegExp(r'^\[([^\]]+)\]\s*(.*)$').firstMatch(body);
+          if (fm != null) {
+            spans.add(
+              TextSpan(
+                text: '[${fm.group(1)}] ',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF8B5CF6),
+                ),
+              ),
+            );
+            spans.add(
+              TextSpan(
+                text: fm.group(2),
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  color: V469Style.textSec,
+                  height: 1.5,
+                ),
+              ),
+            );
+          } else {
+            spans.addAll(
+              V469Style.contentSpans(isItem ? '▸ $body' : body, fontSize: 11),
+            );
+          }
+        }
         tailWidgets.add(
           Padding(
             padding: const EdgeInsets.only(left: 4, top: 2),
-            child: SelectableText.rich(
-              TextSpan(
-                children: V469Style.contentSpans(buf.join('\n'), fontSize: 11),
-              ),
-            ),
+            child: SelectableText.rich(TextSpan(children: spans)),
           ),
         );
         buf.clear();
