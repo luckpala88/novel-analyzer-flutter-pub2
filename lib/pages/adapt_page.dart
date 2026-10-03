@@ -3133,7 +3133,8 @@ return true;
           '6.禁止解释性文字，只输出优化后的规划本体'
           '\n7.输出从"分镜1："开始——输入里的【本弧线规划】是参考信息，禁止复述进输出'
           '\n8.【作家编排要求】：镜序是节奏链——钩子(入口冲击)→铺垫→升级→爆点→落点余波，'
-          '每镜的投放信息/作者意图要服务这个链，相邻镜之间转场衔接自然';
+          '每镜的投放信息/作者意图要服务这个链，相邻镜之间转场衔接自然'
+          '${PromptBuilder.eventDrivenRule}';
       final arcEntryContent =
           state.worldBook!.entries[entryKey]!.content.trim();
       final usr = '【本弧线规划（弧线$arcKey条目——细化时人设/矛盾/伏笔以此为准）】\n$arcEntryContent\n\n'
@@ -3386,7 +3387,8 @@ return true;
 
   /// v922：🧩AI分镜规划——新场景拆分镜（有编排策略理论支持后，续写场景
   /// 可走沿分镜创作；输出写continuePlans+显示在分镜规划框可手改）
-  Future<void> _planNewSceneShots(AppState state, Arc? arc, {int? sceneNum}) async {
+  Future<void> _planNewSceneShots(AppState state, Arc? arc,
+      {int? sceneNum, String? failReason}) async {
     final arcKey = arc?.number.toString() ?? '1';
     final entryKey = _arcEntryKey(state, arcKey);
     if (entryKey == null) {
@@ -3448,6 +3450,7 @@ return true;
         systemPrompt: PromptBuilder.buildContinueShotPlanSystemPrompt() +
             state.writerStyleBlock, // v954：作家风格卡注入（新场景结构规划也学讲法）
         userPrompt: '$arcEntryBlock\n\n'
+            '${failReason == null ? '' : '【⚠️ 上一稿被编排自审否决——必须针对以下问题推翻重做】\n$failReason\n\n'}'
             '${PromptBuilder.buildContinueShotPlanUserPrompt(
           entryBrief: entryBrief,
           corpus: state.continueCorpus(arcKey),
@@ -3464,7 +3467,25 @@ return true;
           TextCleaner.stripQuotedFragment(result.content));
       state.worldBook!.continuePlans[planKey] = plan;
       state.saveWorldBook();
-      _addLog('✓ 分镜规划完成（${plan.length}字）——场景卡内确认后点📝写入条目落世界书');
+      // v1055：编排自审——不合格推翻重做（failReason非空=第二稿不再审防循环）
+      if (state.choreoSelfReview && failReason == null) {
+        final v2 = await _choreoSelfReview(
+          state,
+          '分镜',
+          plan,
+          state.writerStyleBlock,
+          regenerate: (reason) async {
+            await _planNewSceneShots(state, arc,
+                sceneNum: sceneNum, failReason: reason);
+            return (state.worldBook?.continuePlans[planKey] ?? '').trim();
+          },
+        );
+        if (v2.isNotEmpty && v2.trim() != plan.trim()) {
+          state.worldBook!.continuePlans[planKey] = v2;
+          state.saveWorldBook();
+        }
+      }
+      _addLog('✓ 分镜规划完成（${(state.worldBook!.continuePlans[planKey] ?? '').length}字）——场景卡内确认后点📝写入条目落世界书');
     } finally {
       if (mounted) {
         setState(() => _isGenerating = false);
