@@ -487,7 +487,11 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
     final overviewRe = RegExp(r'^[^\u4e00-\u9fa5\n]*概[述说][：:]');
     // v938：编排段提取常显——v936/v937编排已落库但解析器不认"编排："行，
     // 落进lines分镜明细折叠区=场景块常显区看不见（用户实测截图实锤）
-    final choreoRe = RegExp(r'^[^\u4e00-\u9fa5\n]*编排[：:]');
+    // v1077：编排行识别放宽——原只认"编排："（改编链格式），直写条目的
+    // "编排策略——本场景："不匹配→掉进分镜折叠区（用户截图实锤）；同时
+    // 兼容存量条目的"场景内分镜编排策略(Choreo)："
+    final choreoRe = RegExp(
+        r'^[^\u4e00-\u9fa5\n]*(场景内分镜)?编排(策略)?(——本场景)?(\(Choreo\))?[：:]');
     for (final raw in lines) {
       final t = raw.trim();
       if (sceneRe.hasMatch(t)) {
