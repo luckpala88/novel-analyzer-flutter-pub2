@@ -4395,6 +4395,20 @@ return true;
     _contSceneCtl.addListener(
         () => _scheduleScrollSave('scene', _contSceneCtl));
     _shotCtl.addListener(() => _scheduleScrollSave('shot', _shotCtl));
+    // v1042：TabBarView懒构建——启动恢复时非当前tab的controller没有clients，
+    // 重试耗尽即永久跳过（分镜层滚动位置丢失根因）。切到哪个tab就补恢复哪个
+    _continueTabCtrl.addListener(() {
+      if (_continueTabCtrl.indexIsChanging) return;
+      final i = _continueTabCtrl.index;
+      if (i < 0 || i > 2) return;
+      final keys = ['arc', 'scene', 'shot'];
+      final ctls = [_contArcCtl, _contSceneCtl, _shotCtl];
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          _restoreOneScroll(keys[i], ctls[i], retries: 4);
+        }
+      });
+    });
     // v1039：默认展开最新弧线卡（弧线续写层场景层分镜层——首次进入视线即最新进度）
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final arcs = _getAllArcs(AppState.instance);
@@ -4432,6 +4446,31 @@ return true;
   }
 
   /// v783：恢复浏览位置（列表未挂载时重试，offset夹取到范围内）
+  /// v1042：单controller恢复（tab切换补恢复用）——有记录恢复记录位置，
+  /// 无记录默认跳最新（列表底部）
+  void _restoreOneScroll(String key, ScrollController ctl,
+      {required int retries}) {
+    final st = AppState.instance;
+    final p = st.storage.bookPath;
+    if (!ctl.hasClients) {
+      if (retries > 0) {
+        Future.delayed(const Duration(milliseconds: 400),
+            () => _restoreOneScroll(key, ctl, retries: retries - 1));
+      }
+      return;
+    }
+    final v = double.tryParse(
+        st.storage.readFile('${p}continue_${key}_off.flag') ?? '');
+    if (v == null) {
+      if (ctl.position.maxScrollExtent > 1) {
+        ctl.jumpTo(ctl.position.maxScrollExtent);
+      }
+      return;
+    }
+    final target = v.clamp(0.0, ctl.position.maxScrollExtent);
+    if ((ctl.offset - target).abs() > 1) ctl.jumpTo(target);
+  }
+
   void _restoreScroll({required int retries}) {
     final st = AppState.instance;
     final p = st.storage.bookPath;
