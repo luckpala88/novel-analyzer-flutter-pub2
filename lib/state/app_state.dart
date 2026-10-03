@@ -155,6 +155,18 @@ class AppState extends ChangeNotifier {
   bool detectPromptPreview = false;
   // v1041：概述/规划文言文开关（用户实测文言阅读困难，关=通俗白话）
   bool promptWenyan = true;
+  // v1048：编排自审开关——生成草稿后独立AI审核编排是否落实为符合作家风格的
+  // 具体情节，不合格推翻重来（默认开，关=零API成本）
+  bool choreoSelfReview = true;
+
+  void setChoreoSelfReview(bool v) {
+    choreoSelfReview = v;
+    storage.writeFile(
+      '${storage.bookPath}choreo_self_review.flag',
+      v ? 'true' : 'false',
+    );
+    notifyListeners();
+  }
 
   /// v1041：叙述风格子句（注入各续写规划/细化prompt）
   String get wenyanNarrate => promptWenyan
@@ -946,6 +958,9 @@ class AppState extends ChangeNotifier {
     // v1041：文言开关（默认true保持原行为，用户可关）
     promptWenyan =
         storage.readFile('${p}prompt_wenyan.flag') != 'false';
+    // v1048：编排自审开关（默认开）
+    choreoSelfReview =
+        storage.readFile('${p}choreo_self_review.flag') != 'false';
     detectPromptPreview =
         storage.readFile('${p}detect_prompt_preview.flag') == 'true';
     final wsp = storage.readFile('${p}writing_scene_prompts.json');

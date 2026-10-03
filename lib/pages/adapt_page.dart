@@ -2161,6 +2161,93 @@ return true;
   }
 
   /// v781：全局方向规划块（弧线续写层末尾，样式对齐新增场景工作台）
+  /// v1048：编排自审开关行（弧线规划卡+场景规划卡复用）
+  Widget _buildSelfReviewToggle(AppState state) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 28,
+          height: 28,
+          child: Checkbox(
+            value: state.choreoSelfReview,
+            onChanged: (v) =>
+                setState(() => state.setChoreoSelfReview(v ?? true)),
+          ),
+        ),
+        Expanded(
+          child: Text('编排自审（生成后AI审核编排是否落实为符合作家风格的具体情节，不合格推翻重来）',
+              style: TextStyle(
+                  fontSize: _cf(11), color: const Color(0xFF5B7A99))),
+        ),
+      ],
+    );
+  }
+
+  /// v1048：编排自审——独立AI审核，FAIL自动推翻重生成（第二稿直接采纳）。
+  /// 关=零API成本直接采纳首稿；审核调用失败=按首稿（不误杀）
+  Future<String> _choreoSelfReview(
+    AppState state,
+    String kind,
+    String draft,
+    String styleBlock, {
+    required Future<String> Function(String failReason) regenerate,
+  }) async {
+    if (!state.choreoSelfReview) return draft;
+    final config = state.getApiConfig('wb');
+    setState(() => _isGenerating = true);
+    try {
+      _addLog('🤖 编排自审中（$kind）…');
+      final sys = '你是资深网文主编，对刚生成的$kind编排草稿做终审。逐条审核（任一条不过=FAIL）：\n'
+          '1.编排落实到具体情节：编排内容必须是"谁做了什么、引发什么后果、谁被卷入"的具体事件推进——'
+          '抽象标签堆砌（只写功能+蓄力+爆点，没有具体情节）=FAIL\n'
+          '2.符合作家风格：对照【作家风格卡】的讲法/节奏/笔墨特征，明显不符=FAIL\n'
+          '3.事件驱动：编排以角色行动/角色互动/势力矛盾关系的演变推进——'
+          '把笔墨放在微表情/手指动作/静态环境外貌上=FAIL\n'
+          '4.节奏链成立：钩子→铺垫→升级→爆点→余波${kind == '弧线' ? '，弧线闭合点（主角从什么状态不可逆变化到什么状态）明确' : ''}\n'
+          '输出格式：第一行只写PASS或FAIL；FAIL时从第二行写具体问题清单（供推翻重做时修正）';
+      final usr =
+          '${styleBlock.isEmpty ? '' : '$styleBlock\n\n'}【待审$kind编排草稿】\n$draft';
+      final okSend = await PromptPreview.maybePreview(
+        context,
+        sysPrompt: sys,
+        userPrompt: usr,
+        title: '编排自审词链预览（$kind）',
+        enabled: state.wbPromptPreview,
+      );
+      if (!okSend) {
+        _addLog('已取消自审——按首稿采纳');
+        return draft;
+      }
+      final result = await state.api.callApi(
+        task: '编排自审',
+        systemPrompt: sys,
+        userPrompt: usr,
+        apiConfig: config,
+      );
+      if (!result.isSuccess) {
+        _addLog('⚠️ 自审调用失败——按首稿采纳');
+        return draft;
+      }
+      final out = TextCleaner.normalizeAiOutput(result.content).trim();
+      if (out.toUpperCase().startsWith('PASS')) {
+        _addLog('✅ 编排自审通过');
+        return draft;
+      }
+      if (out.toUpperCase().startsWith('FAIL')) {
+        final reason = out.substring(4).trim();
+        _addLog('⛔ 编排自审不合格——推翻重来');
+        if (reason.isNotEmpty) _addLog('自审意见：$reason');
+        final v2 = await regenerate(reason);
+        _addLog('✅ 已按自审意见推翻重做（第二稿直接采纳）');
+        return v2;
+      }
+      _addLog('ℹ️ 自审输出不规范——按首稿采纳');
+      return draft;
+    } finally {
+      if (mounted) setState(() => _isGenerating = false);
+    }
+  }
+
   /// v1041：文言文概述开关行（弧线规划卡+场景规划卡复用，全局同一状态）
   Widget _buildWenyanToggle(AppState state) {
     return Row(
@@ -2211,6 +2298,8 @@ return true;
           const SizedBox(height: 6),
           // v1041：文言文概述开关
           _buildWenyanToggle(state),
+          // v1048：编排自审开关
+          _buildSelfReviewToggle(state),
           // v920：规划输入框改_CollapseReqField样式（折叠展开+自适应高度，
           // 对齐改编要求输入框；控制器持久化修复一次性controller丢光标）
           CheckboxListTile(
@@ -2909,6 +2998,8 @@ return true;
           ),
           // v1041：文言文概述开关
           _buildWenyanToggle(state),
+          // v1048：编排自审开关
+          _buildSelfReviewToggle(state),
         ],
       ),
     );
@@ -3531,6 +3622,21 @@ return true;
         final refined = await _refineScenePlanBeforeWrite(state, arcKey, source);
         if (refined != null && refined.trim().isNotEmpty) {
           source = refined.trim();
+          // v1048：编排自审——不合格推翻重做（重做第二稿直接采纳）
+          if (state.choreoSelfReview) {
+            source = await _choreoSelfReview(
+              state,
+              '场景',
+              source,
+              state.writerStyleBlock,
+              regenerate: (reason) async {
+                final r2 = await _refineScenePlanBeforeWrite(state, arcKey,
+                    source,
+                    failReason: reason);
+                return (r2 != null && r2.trim().isNotEmpty) ? r2.trim() : source;
+              },
+            );
+          }
         } else {
           _addLog('⚠️ 写入前细化失败/为空——按原规划生成草稿');
         }
@@ -3701,7 +3807,8 @@ return true;
   /// v826：写入前AI细化——对勾选的场景规划做终审：完善补充+剔除毒点后再落世界书
   /// 返回null/空=细化失败（调用方回退原规划写入）；输出保持"场景N：名称｜概述"逐行格式
   Future<String?> _refineScenePlanBeforeWrite(
-      AppState state, String arcKey, String source) async {
+      AppState state, String arcKey, String source,
+      {String? failReason}) async {
     final config = state.getApiConfig('wb');
     state.api.clearAbort();
     state.userAborted = false;
@@ -3727,6 +3834,7 @@ return true;
     final usr = '【本弧线规划（弧线$arcKey条目——终审时概述/人设/矛盾/伏笔/情绪曲线/脑洞以此为准）】\n$arcEntry\n\n'
         '【续写语料（锚点/本弧线零件/已规划场景/前情概述/未回收伏笔/人物基准——人物与设定以此为准）】\n${state.continueCorpus(arcKey)}\n\n'
         '${_matBlock(state, arcKey)}'
+        '${failReason == null ? '' : '【⚠️ 上一稿被编排自审否决——必须针对以下问题推翻重做】\n$failReason\n\n'}'
         '【待落地的场景规划（初步设想或完整规划，落地为场景条目草稿）】\n$source';
     final okSend = await PromptPreview.maybePreview(
       context,
@@ -3772,7 +3880,8 @@ return true;
   /// v768：➕添加弧线——按续写方向+当前进度推演新弧线九件套条目
   /// （arcKey=最大弧线+1，弧线总结+场景清单，无分镜=自由创作）
   /// v824：arc可空——0弧线也能添加（开新书，从弧线1起步）
-  Future<void> _addContinueArc(AppState state, Arc? arc) async {
+  Future<void> _addContinueArc(AppState state, Arc? arc,
+      {String? failReason}) async {
     // v824：开新书worldBook可能为null——兜底建空世界书（对齐app_state.dart:1814先例）
     state.worldBook ??= WorldBook();
     final nums = _getAllArcs(state).map((a) => a.number).toList()
@@ -3859,6 +3968,7 @@ return true;
       final usr = '【续写方向】\n${_continueReqSource(state).isEmpty ? '（未填写，按故事逻辑自然推进）' : _continueReqSource(state)}\n\n'
           '$prevCtx\n\n'
           '【续写语料（本弧线零件/前情概述/未回收伏笔/人物基准——人物与设定以此为准，禁止另起炉灶）】\n${state.continueCorpus('$newNum', includeAnchor: false)}\n\n'
+          '${failReason == null ? '' : '【⚠️ 上一稿被编排自审否决——必须针对以下问题推翻重做】\n$failReason\n\n'}'
           '【新弧线编号】N=$newNum';
       // v783：词链检查（wbPromptPreview开启时弹预览确认）
       final okSend = await PromptPreview.maybePreview(
@@ -3898,9 +4008,28 @@ return true;
       // v1035：生成内容存草稿（continuePlans['arc_entry_$newNum']）——
       // 用户裁决三步确认规范：生成→审阅（可手改）→📝手动写入世界书，
       // 不再生成即落条目（否则内容没确认就进世界书=乱源）
-      state.worldBook!.continuePlans['arc_entry_$newNum'] = content;
+      // v1048：编排自审——不合格推翻重做（failReason非空=重做的第二稿，不再审防循环）
+      if (state.choreoSelfReview && failReason == null) {
+        final v2 = await _choreoSelfReview(
+          state,
+          '弧线',
+          content,
+          state.writerStyleBlock,
+          regenerate: (reason) async {
+            await _addContinueArc(state, arc, failReason: reason);
+            return (state.worldBook?.continuePlans['arc_entry_$newNum'] ?? '')
+                .trim();
+          },
+        );
+        if (v2.isNotEmpty && v2 != content) {
+          state.worldBook!.continuePlans['arc_entry_$newNum'] = v2;
+          state.saveWorldBook();
+        }
+      }
+      state.worldBook!.continuePlans['arc_entry_$newNum'] =
+          state.worldBook!.continuePlans['arc_entry_$newNum'] ?? content;
       state.saveWorldBook();
-      _addLog('✓ 弧线$newNum条目草稿已生成（${content.length}字）——'
+      _addLog('✓ 弧线$newNum条目草稿已生成（${(state.worldBook!.continuePlans['arc_entry_$newNum'] ?? '').length}字）——'
           '下方审阅框可手改，确认后点📝写入世界书落条目');
       if (mounted) setState(() {});
     } finally {
