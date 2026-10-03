@@ -2119,6 +2119,13 @@ class _AnalysisPageState extends State<AnalysisPage>
       // v956防御：分析数据必须在arcScan弧线结构里有对应——找不到=脏数据
       // （历史残留/云同步合并的孤立Analysis），跳过并告警，禁止fallback到
       // 弧线1标题（v955用户裁决同源：取不到就终止提示，不许乱取）
+      // v1075：键位一致性防御——map的key与an.arcNumber不一致=脏数据
+      // （同步合并/历史残留），写入会整体错位，跳过告警
+      if ((int.tryParse(k) ?? -1) != an.arcNumber) {
+        orphan++;
+        _addLog('⚠️ 弧线${an.arcNumber}分析数据键位错乱（map键$k≠弧线号${an.arcNumber}）——跳过（脏数据，建议重新拆解该弧线）');
+        continue;
+      }
       final arc = state.allArcs
           .where((a) => a.number == an.arcNumber)
           .firstOrNull;
