@@ -3219,14 +3219,30 @@ return true;
       '焦点', '镜头类型', '视角', '投放信息', '作者意图', '手法', '转场手法',
       '篇幅', '段落', '笔墨', '功能抽象', '文风', '语感', '文笔节奏',
     ];
-    return t.split('\n').map((line) {
-      final m = RegExp(r'^\s*"([^"]+?)"\s*:\s*"(.*)"\s*,?\s*$').firstMatch(line);
-      if (m == null) return line;
-      final k = m.group(1)!.trim();
-      final isDim = dimKeys.any((d) => k == d || k.startsWith('$d('));
-      if (!isDim) return line;
-      return '${k}：${m.group(2)!.trim()}';
-    }).join('\n');
+    return t
+        .split('\n')
+        .map((line) {
+          final m = RegExp(r'^\s*"([^"]+?)"\s*:\s*"(.*)"\s*,?\s*$')
+              .firstMatch(line);
+          if (m == null) return line;
+          final k = m.group(1)!.trim();
+          // v1087：分镜头键值行（"分镜": "分镜1",）→文本头"分镜1："
+          if (k == '分镜' || k.toLowerCase() == 'shot') {
+            final v = m.group(2)!.trim();
+            return v.startsWith('分镜') ? '$v：' : '分镜$v：';
+          }
+          final isDim = dimKeys.any((d) => k == d || k.startsWith('$d('));
+          if (!isDim) return line;
+          return '${k}：${m.group(2)!.trim()}';
+        })
+        .where((line) {
+          // v1087：JSON壳行剥除（[ ] { } },）——混合格式AI输出的壳残留
+          final t = line.trim();
+          if (t == '[' || t == ']' || t == '{' || t == '}') return false;
+          if (RegExp(r'^[\]},]+,?$').hasMatch(t)) return false;
+          return true;
+        })
+        .join('\n');
   }
 
   String _shotPlanJsonToText(String plan) {
@@ -3258,7 +3274,10 @@ return true;
       for (final item in raw) {
         if (item is! Map) continue;
         n++;
-        out.writeln('分镜$n：');
+        // v1087：条目自带"分镜"键时用其值作头行（AI输出的分镜编号）
+        final shotKey = (item['分镜'] ?? item['shot'] ?? '').toString().trim();
+        out.writeln(
+            shotKey.startsWith('分镜') ? shotKey : '分镜$n：');
         for (final (k, label) in dims) {
           final v = item[k] ?? item[label.split('(').first];
           if (v == null || val(v).isEmpty) continue;
