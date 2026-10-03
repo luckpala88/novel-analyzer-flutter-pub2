@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:share_plus/share_plus.dart';
@@ -50,6 +51,8 @@ class _WorldBookPageState extends State<WorldBookPage>
   // 条目内容按场景折叠分镜明细（默认折叠，点击展开；纯显示层，ST导出走content原文零影响）
   Set<String> _expandedScenes = {};
   bool _restoredUi = false;
+  // v1045：浏览位置持久化（防抖落盘+启动恢复，无记录默认跳最新=列表底部）
+  Timer? _wbScrollTimer;
 
   @override
   // v288：生成内容字号（本页独立，0.8~1.6）
@@ -61,6 +64,53 @@ class _WorldBookPageState extends State<WorldBookPage>
       if (mounted) setState(() => _fontScale = v);
     });
     _restoreUiState();
+    _wbListCtl.addListener(_scheduleWbScrollSave);
+    WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _restoreWbScroll(retries: 4));
+  }
+
+  /// v1045：滚动位置防抖落盘（书级flag文件）
+  void _scheduleWbScrollSave() {
+    _wbScrollTimer?.cancel();
+    _wbScrollTimer = Timer(const Duration(milliseconds: 600), () {
+      final st = AppState.instance;
+      if (!_wbListCtl.hasClients) return;
+      st.storage.writeFile('${st.storage.bookPath}wb_list_off.flag',
+          _wbListCtl.offset.toStringAsFixed(1));
+    });
+  }
+
+  /// v1045：启动恢复浏览位置+默认展开最新弧线
+  void _restoreWbScroll({required int retries}) {
+    final st = AppState.instance;
+    // 默认展开最新弧线：最新弧线组从折叠集移除（展开状态本就持久化，这里只保证最新弧线不折叠）
+    var maxAk = 0;
+    st.worldBook?.entries.forEach((k, e) {
+      final n = int.tryParse(e.arcKey ?? '') ?? 0;
+      if (n > maxAk) maxAk = n;
+    });
+    if (maxAk > 0 && _collapsedGroups.remove('arc_$maxAk')) {
+      _saveUiState();
+    }
+    if (!_wbListCtl.hasClients) {
+      if (retries > 0) {
+        Future.delayed(const Duration(milliseconds: 400),
+            () => _restoreWbScroll(retries: retries - 1));
+      }
+      return;
+    }
+    final v = double.tryParse(st.storage
+            .readFile('${st.storage.bookPath}wb_list_off.flag') ??
+        '');
+    if (v == null) {
+      // 无记录（从没滚过）——默认跳最新（列表底部）
+      if (_wbListCtl.position.maxScrollExtent > 1) {
+        _wbListCtl.jumpTo(_wbListCtl.position.maxScrollExtent);
+      }
+      return;
+    }
+    final target = v.clamp(0.0, _wbListCtl.position.maxScrollExtent);
+    if ((_wbListCtl.offset - target).abs() > 1) _wbListCtl.jumpTo(target);
   }
 
   void _restoreUiState() {
@@ -102,6 +152,7 @@ class _WorldBookPageState extends State<WorldBookPage>
 
   @override
   void dispose() {
+    _wbScrollTimer?.cancel(); // v1045
     _wbListCtl.dispose();
     _editContentCtrl.dispose();
     _editCommentCtrl.dispose();
