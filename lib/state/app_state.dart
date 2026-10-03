@@ -153,6 +153,22 @@ class AppState extends ChangeNotifier {
   bool shotPromptPreview = false;
   bool wbPromptPreview = false;
   bool detectPromptPreview = false;
+  // v1041：概述/规划文言文开关（用户实测文言阅读困难，关=通俗白话）
+  bool promptWenyan = true;
+
+  /// v1041：叙述风格子句（注入各续写规划/细化prompt）
+  String get wenyanNarrate => promptWenyan
+      ? '叙述用浅近文言（信息密度高省上下文，AI按义理解）'
+      : '叙述用通俗白话（不用文言腔）';
+
+  void setPromptWenyan(bool v) {
+    promptWenyan = v;
+    storage.writeFile(
+      '${storage.bookPath}prompt_wenyan.flag',
+      v ? 'true' : 'false',
+    );
+    notifyListeners();
+  }
 
   // ===== 审核文件 =====
   List<String> detectFiles = [];
@@ -927,6 +943,9 @@ class AppState extends ChangeNotifier {
     shotPromptPreview =
         storage.readFile('${p}shot_prompt_preview.flag') == 'true';
     wbPromptPreview = storage.readFile('${p}wb_prompt_preview.flag') == 'true';
+    // v1041：文言开关（默认true保持原行为，用户可关）
+    promptWenyan =
+        storage.readFile('${p}prompt_wenyan.flag') != 'false';
     detectPromptPreview =
         storage.readFile('${p}detect_prompt_preview.flag') == 'true';
     final wsp = storage.readFile('${p}writing_scene_prompts.json');
