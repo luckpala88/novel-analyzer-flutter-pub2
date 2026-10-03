@@ -1973,8 +1973,8 @@ class _AnalysisPageState extends State<AnalysisPage>
           '场景${an.scenes.indexOf(sc) + 1}：${sc.name}（${sc.chapterRange}）',
         );
         if (sc.summary.isNotEmpty) sb.writeln('概述：${sc.summary}');
-        // v1078：标签统一为"编排："（世界书页原生格式，内容与分镜页一致）
-        if (sc.choreo.isNotEmpty) sb.writeln('编排：${sc.choreo}');
+        // v1080：标签用分镜页的（场景内分镜编排策略），与世界书页/分镜页一致
+        if (sc.choreo.isNotEmpty) sb.writeln('场景内分镜编排策略：${sc.choreo}');
         for (var i = 0; i < sc.shots.length; i++) {
           final sh = sc.shots[i];
           if (i == 0 && sc.choreo.isNotEmpty)
@@ -2161,8 +2161,8 @@ class _AnalysisPageState extends State<AnalysisPage>
           '场景${an.scenes.indexOf(sc) + 1}：${sc.name}（${sc.chapterRange}）',
         );
         if (sc.summary.isNotEmpty) sb.writeln('概述：${sc.summary}');
-        // v1078：标签统一为"编排："（世界书页原生格式，内容与分镜页一致）
-        if (sc.choreo.isNotEmpty) sb.writeln('编排：${sc.choreo}');
+        // v1080：标签用分镜页的（场景内分镜编排策略），与世界书页/分镜页一致
+        if (sc.choreo.isNotEmpty) sb.writeln('场景内分镜编排策略：${sc.choreo}');
         for (var i = 0; i < sc.shots.length; i++) {
           final sh = sc.shots[i];
           if (i == 0 && sc.choreo.isNotEmpty)
