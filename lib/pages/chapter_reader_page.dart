@@ -748,6 +748,8 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
                       return ListTile(
                         dense: true,
                         selected: i == _currentIndex,
+                        selectedTileColor: const Color(0xFFB45309), // v1062：金棕深色底=高反差
+                        selectedColor: Colors.white, // v1062：选中文字反白
                         title: Text(
                           // v1059：目录序号（标题已自带"第X章/数字."的不重复加）
                           _chapterLabel(i, ch.title),
