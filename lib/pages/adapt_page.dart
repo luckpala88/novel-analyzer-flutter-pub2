@@ -80,6 +80,7 @@ class _AdaptPageState extends State<AdaptPage>
   final Set<String> _declOpen = {};
   @override
   void dispose() {
+    _flushScrolls(); // v1069：销毁前立即落盘三层视口（防抖窗口内切书/回收=丢位置）
     _arcListCtl.dispose();
     _contArcCtl.dispose();
     _contSceneCtl.dispose();
