@@ -2717,6 +2717,7 @@ class _WritingPageState extends State<WritingPage>
           userPrompt: PromptBuilder.buildShotCheckUserPrompt(
             shotBlock: shotBlock,
             body: body,
+            styleBlock: state.writerStyleBlock, // v1065：风格卡注入（作家标准）
           ),
           apiConfig: config,
         );

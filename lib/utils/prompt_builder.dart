@@ -353,15 +353,24 @@ class PromptBuilder {
         '2. 焦点跑题：正文主体不是焦点(Focus)指定的对象/事件\n'
         '3. 投放缺失：投放信息(Info)指定的信息在正文里完全没出现\n'
         '4. 镜头类型错型：对话镜全无对话、动作镜全无动作等明显错型\n'
-        '视角/笔墨/文风等软项不判。拿不准=pass。只输出纯JSON（禁止markdown和其他文字）：'
+        '5. 编排情节质量（v1065，侧重项）：情节必须由角色行动/对话交锋/角色互动/势力矛盾关系的演变推进——'
+        '出现手指动作/微表情/眼神闪动等细碎文艺特写或成段静态环境外貌描写=FAIL；'
+        '"他愤怒地指责"式对白概括转述（该有具体台词却转述）=FAIL\n'
+        '视角/文风细部等软项不判。拿不准=pass。user prompt附【作家风格卡】，正文明显违背风格卡特征也算FAIL。'
+        '只输出纯JSON（禁止markdown和其他文字）：'
         '{"pass": true, "reason": ""}——违规时pass=false并填reason（违规项+正文事实，40字内）';
   }
 
   static String buildShotCheckUserPrompt({
     required String shotBlock,
     required String body,
+    String styleBlock = '', // v1065：作家风格卡注入（维度校验补编排情节质量标准）
   }) {
     final sb = StringBuffer();
+    if (styleBlock.isNotEmpty) {
+      sb.writeln(styleBlock.trim());
+      sb.writeln();
+    }
     sb.writeln('【分镜结构块（改编定稿，校验基准）】');
     sb.writeln(shotBlock.trim());
     sb.writeln();
