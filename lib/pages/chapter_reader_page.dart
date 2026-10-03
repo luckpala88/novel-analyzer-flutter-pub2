@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../models/chapter.dart';
 import '../state/app_state.dart';
 import '../utils/v469_style.dart';
+import '../widgets/v_scroll_bar.dart'; // v1059：目录弹窗垂直滚动条
 
 /// 章节阅读器 — 支持上下滑动浏览 + 翻页模式切换 + TTS朗读
 class ChapterReaderPage extends StatefulWidget {
@@ -706,54 +707,79 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
 
   void _showChapterList() {
     final state = context.read<AppState>();
+    // v1059：目录打开即定位到当前阅读章节（电子书浏览到哪章，目录显示哪章）
+    final ctl = ScrollController();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!ctl.hasClients) return;
+      final target = (_currentIndex * 64.0)
+          .clamp(0.0, ctl.position.maxScrollExtent);
+      ctl.jumpTo(target);
+    });
     showModalBottomSheet(
       context: context,
-      builder: (ctx) => Column(
-        children: [
-          AppBar(
-            title: const Text('章节列表'),
-            leading: IconButton(
-              icon: const Icon(Icons.close),
-              onPressed: () => Navigator.pop(ctx),
+      isScrollControlled: true, // v1059：加高到85%屏（原默认半屏每次从头翻）
+      builder: (ctx) => SizedBox(
+        height: MediaQuery.of(ctx).size.height * 0.85,
+        child: Column(
+          children: [
+            AppBar(
+              title: const Text('章节列表'),
+              leading: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(ctx),
+              ),
             ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: state.chapters.length,
-              itemBuilder: (ctx, i) {
-                final ch = state.chapters[i];
-                return ListTile(
-                  dense: true,
-                  selected: i == _currentIndex,
-                  title: Text(
-                    ch.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 14),
+            Expanded(
+              // v1059：VScrollBar垂直滚动条（对齐其它页）+itemExtent固定行高=定位精确
+              child: Stack(
+                children: [
+                  ListView.builder(
+                    controller: ctl,
+                    itemCount: state.chapters.length,
+                    itemExtent: 64.0,
+                    itemBuilder: (ctx, i) {
+                      final ch = state.chapters[i];
+                      return ListTile(
+                        dense: true,
+                        selected: i == _currentIndex,
+                        title: Text(
+                          ch.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                        subtitle: Text(
+                          '${ch.wordCount}字',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        onTap: () {
+                          _goToChapter(i);
+                          Navigator.pop(ctx);
+                        },
+                        // v208：目录内直接删单章（追加txt后清理广告章/重复章）
+                        trailing: IconButton(
+                          icon: Icon(
+                            Icons.delete_outline,
+                            size: 20,
+                            color: Colors.red.shade400,
+                          ),
+                          tooltip: '删除本章',
+                          onPressed: () => _confirmDeleteChapter(ctx, state, i),
+                        ),
+                      );
+                    },
                   ),
-                  subtitle: Text(
-                    '${ch.wordCount}字',
-                    style: const TextStyle(fontSize: 12),
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    child: VScrollBar(ctl),
                   ),
-                  onTap: () {
-                    _goToChapter(i);
-                    Navigator.pop(ctx);
-                  },
-                  // v208：目录内直接删单章（追加txt后清理广告章/重复章）
-                  trailing: IconButton(
-                    icon: Icon(
-                      Icons.delete_outline,
-                      size: 20,
-                      color: Colors.red.shade400,
-                    ),
-                    tooltip: '删除本章',
-                    onPressed: () => _confirmDeleteChapter(ctx, state, i),
-                  ),
-                );
-              },
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
