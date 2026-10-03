@@ -1977,7 +1977,6 @@ class _AnalysisPageState extends State<AnalysisPage>
         for (var i = 0; i < sc.shots.length; i++) {
           final sh = sc.shots[i];
           if (i == 0 && sc.choreo.isNotEmpty)
-            sb.writeln('场景内分镜编排策略(Choreo)：${sc.choreo}'); // v878
           sb.writeln('分镜${i + 1}：');
           sb.writeln('焦点(Focus)：${sh.focus}');
           sb.writeln('镜头类型(Shot Type)：${sh.shotType}');
@@ -2161,7 +2160,6 @@ class _AnalysisPageState extends State<AnalysisPage>
         for (var i = 0; i < sc.shots.length; i++) {
           final sh = sc.shots[i];
           if (i == 0 && sc.choreo.isNotEmpty)
-            sb.writeln('场景内分镜编排策略(Choreo)：${sc.choreo}'); // v878
           sb.writeln('分镜${i + 1}：');
           sb.writeln('焦点(Focus)：${sh.focus}');
           sb.writeln('镜头类型(Shot Type)：${sh.shotType}');
