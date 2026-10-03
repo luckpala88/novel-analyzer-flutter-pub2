@@ -969,17 +969,33 @@ class _WritingPageState extends State<WritingPage>
                       ),
                     ),
                     segments: const [
-                      ButtonSegment(value: 0, label: Text('场景')),
+                      ButtonSegment(value: 0, label: Text('撰写')),
                       ButtonSegment(value: 1, label: Text('草稿')),
                     ],
                     selected: {_viewMode},
                     showSelectedIcon: false,
-                    onSelectionChanged: (s) => setState(() {
-                      _viewMode = s.first;
-                      _viewerKey = null; // 切视图收起viewer
-                      _viewerEditing = false;
-                      _viewerOverride = null;
-                    }),
+                    onSelectionChanged: (s) {
+                      // v1088：切走时场景列表整棵移出树（position detach=丢位置）
+                      // ——切走前立即落盘当前offset，切回撰写时postFrame恢复
+                      if (_viewMode == 0 && _sceneListCtl.hasClients) {
+                        final st = AppState.instance;
+                        st.storage.writeFile(
+                          '${st.storage.bookPath}writing_scene_off.flag',
+                          _sceneListCtl.offset.toStringAsFixed(0),
+                        );
+                      }
+                      _scrollSaveTimer?.cancel();
+                      setState(() {
+                        _viewMode = s.first;
+                        _viewerKey = null; // 切视图收起viewer
+                        _viewerEditing = false;
+                        _viewerOverride = null;
+                      });
+                      if (s.first == 0) {
+                        WidgetsBinding.instance.addPostFrameCallback(
+                            (_) => _restoreScroll(retries: 8));
+                      }
+                    },
                   ),
                   MiniButton(
                     label: '⚙ API',

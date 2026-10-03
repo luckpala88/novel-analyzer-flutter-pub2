@@ -1459,7 +1459,7 @@ del /q update.bat
   static const Map<String, String> _presetTargets = {
     'main': '主页',
     'writing': '创作',
-    'detect': '二创/检测',
+    'detect': '正文/检测',
     'wb': '世界书',
     'scene': '场景',
     'arc': '弧线',

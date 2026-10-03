@@ -160,7 +160,7 @@ class _AppShellState extends State<AppShell> {
     ('改续', Icons.auto_fix_high),
     ('世界', Icons.menu_book),
     ('创作', Icons.edit_note),
-    ('二创', Icons.fact_check),
+    ('正文', Icons.fact_check),
     ('聊天', Icons.chat_bubble_outline), // v833
   ];
 
