@@ -491,7 +491,7 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
     // "编排策略——本场景："不匹配→掉进分镜折叠区（用户截图实锤）；同时
     // 兼容存量条目的"场景内分镜编排策略(Choreo)："
     final choreoRe = RegExp(
-        r'^[^\u4e00-\u9fa5\n]*(场景内分镜)?编排(策略)?(——本场景)?(\(Choreo\))?(——本场景)?[：:]');
+        r'^[^\u4e00-\u9fa5\n]*(弧线内场景|场景内分镜)?编排(策略)?(——本场景)?(\(Choreo\))?[：:]');
     for (final raw in lines) {
       final t = raw.trim();
       if (sceneRe.hasMatch(t)) {
