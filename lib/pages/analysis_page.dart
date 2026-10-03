@@ -2143,7 +2143,8 @@ class _AnalysisPageState extends State<AnalysisPage>
           existing = ek;
         }
       });
-      if (existing != null && !existing.startsWith('orig_wb_')) {
+      final isOwn = existing != null && existing!.startsWith('orig_wb_');
+      if (existing != null && !isOwn) {
         // v1078：改编条目保护——直写不覆盖改编成果
         _addLog('ℹ️ 弧线${an.arcNumber}已有改编条目——跳过直写（保护改编成果，要直写请先删改编条目）');
         continue;
