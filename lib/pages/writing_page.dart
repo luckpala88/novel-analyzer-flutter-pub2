@@ -838,8 +838,25 @@ class _WritingPageState extends State<WritingPage>
     });
     // v792：创作页浏览位置持久化（书级，对齐续写页v784）
     _sceneListCtl.addListener(() => _scheduleScrollSave(_sceneListCtl));
+    // v1074：弧线展开状态持久化（重启记住展开的弧线；无存档保持全收起）
+    final savedFolds =
+        (AppState.instance.storage
+                    .readFile('${AppState.instance.storage.bookPath}writing_arc_folds.flag') ??
+                '')
+            .split(',')
+            .where((e) => e.isNotEmpty)
+            .toSet();
+    _expandedArcs.addAll(savedFolds);
     WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _restoreScroll(retries: 3));
+        (_) => _restoreScroll(retries: 8)); // v1074：1.2s不够大书挂载，放宽3.2s
+  }
+
+  /// v1074：弧线展开状态持久化
+  void _saveArcFolds() {
+    AppState.instance.storage.writeFile(
+      '${AppState.instance.storage.bookPath}writing_arc_folds.flag',
+      _expandedArcs.join(','),
+    );
   }
 
   void _scheduleScrollSave(ScrollController ctl) {
@@ -1608,6 +1625,7 @@ class _WritingPageState extends State<WritingPage>
                 expanded
                     ? _expandedArcs.remove(arcKey)
                     : _expandedArcs.add(arcKey);
+                _saveArcFolds(); // v1074：展开状态持久化
               }),
             ),
             if (expanded) ...[
