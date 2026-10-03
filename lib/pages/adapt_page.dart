@@ -2482,6 +2482,7 @@ return true;
                   } else {
                     _contArcExpanded.add(arcKey);
                   }
+                  _flushScrolls(); // v1051：展开/收起改变内容高度，立即落盘视口
                 });
                 // v1023：视线锚回弧线标题行（统一规范）
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -2805,9 +2806,12 @@ return true;
           children: [
             // 弧线头（点击展开/收起）
             InkWell(
-              onTap: () => setState(() => expanded
-                  ? _shotArcExpanded.remove(arcKey)
-                  : _shotArcExpanded.add(arcKey)),
+              onTap: () => setState(() {
+                expanded
+                    ? _shotArcExpanded.remove(arcKey)
+                    : _shotArcExpanded.add(arcKey);
+                _flushScrolls(); // v1051：展开/收起改变内容高度，立即落盘视口
+              }),
               child: Row(
                 children: [
                   Text(expanded ? '▾' : '▸',
@@ -4662,6 +4666,22 @@ return true;
     final st = AppState.instance;
     st.storage.writeFile('${st.storage.bookPath}continue_tab.flag',
         '${_continueTabCtrl.index}');
+    _flushScrolls(); // v1051：切tab瞬间同步落盘（防抖窗口内切走=丢记录）
+  }
+
+  /// v1051：三层视口立即落盘（不等防抖）——实测：离开前在弧线105，
+  /// 防抖窗口内切页面，恢复读了旧记录（94中部）=离开时位置没落盘
+  void _flushScrolls() {
+    final st = AppState.instance;
+    for (final e in [
+      ('arc', _contArcCtl),
+      ('scene', _contSceneCtl),
+      ('shot', _shotCtl),
+    ]) {
+      if (!e.$2.hasClients) continue;
+      st.storage.writeFile('${st.storage.bookPath}continue_${e.$1}_off.flag',
+          e.$2.offset.toStringAsFixed(0));
+    }
   }
 
   /// v783：恢复浏览位置（列表未挂载时重试，offset夹取到范围内）
