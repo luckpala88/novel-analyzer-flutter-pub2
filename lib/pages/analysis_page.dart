@@ -1973,7 +1973,8 @@ class _AnalysisPageState extends State<AnalysisPage>
           '场景${an.scenes.indexOf(sc) + 1}：${sc.name}（${sc.chapterRange}）',
         );
         if (sc.summary.isNotEmpty) sb.writeln('概述：${sc.summary}');
-        if (sc.choreo.isNotEmpty) sb.writeln('弧线内场景编排策略——本场景：${sc.choreo}'); // v878
+        // v1078：标签统一为"编排："（世界书页原生格式，内容与分镜页一致）
+        if (sc.choreo.isNotEmpty) sb.writeln('编排：${sc.choreo}');
         for (var i = 0; i < sc.shots.length; i++) {
           final sh = sc.shots[i];
           if (i == 0 && sc.choreo.isNotEmpty)
@@ -2142,10 +2143,13 @@ class _AnalysisPageState extends State<AnalysisPage>
           existing = ek;
         }
       });
-      if (existing != null) {
-        _addLog('ℹ️ 弧线${an.arcNumber}条目已存在——跳过（重拆后想刷新请先删旧条目）');
+      if (existing != null && !existing.startsWith('orig_wb_')) {
+        // v1078：改编条目保护——直写不覆盖改编成果
+        _addLog('ℹ️ 弧线${an.arcNumber}已有改编条目——跳过直写（保护改编成果，要直写请先删改编条目）');
         continue;
       }
+      // v1078：自家orig_wb条目=覆盖刷新（世界书内容与分镜页当前数据一致，
+      // 重拆后直接点直写即可刷新，不再要求先删旧条目）
       final sb = StringBuffer();
       sb.writeln(
         '弧线${an.arcNumber}概述：${an.arcSummary.isNotEmpty ? an.arcSummary : arc.summary}',
@@ -2156,7 +2160,8 @@ class _AnalysisPageState extends State<AnalysisPage>
           '场景${an.scenes.indexOf(sc) + 1}：${sc.name}（${sc.chapterRange}）',
         );
         if (sc.summary.isNotEmpty) sb.writeln('概述：${sc.summary}');
-        if (sc.choreo.isNotEmpty) sb.writeln('弧线内场景编排策略——本场景：${sc.choreo}'); // v878
+        // v1078：标签统一为"编排："（世界书页原生格式，内容与分镜页一致）
+        if (sc.choreo.isNotEmpty) sb.writeln('编排：${sc.choreo}');
         for (var i = 0; i < sc.shots.length; i++) {
           final sh = sc.shots[i];
           if (i == 0 && sc.choreo.isNotEmpty)
