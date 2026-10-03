@@ -3557,8 +3557,10 @@ return true;
           ),
         ),
       ).trim();
-      if (out.isEmpty || !RegExp(r'^场景\d+：', multiLine: true).hasMatch(out)) {
-        _addLog('⚠️ 优化结果为空或格式不对（缺场景N：行）');
+      // v1053：优化键=初步设想要点（v1048职责），不再要求场景N行落地格式——
+      // 落地格式由⚙生成草稿的细化负责
+      if (out.isEmpty) {
+        _addLog('⚠️ 优化结果为空');
         return;
       }
       state.worldBook?.continuePlans[_plannerOptKey(arcKey)] = out;
