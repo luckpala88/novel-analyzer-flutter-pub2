@@ -4688,6 +4688,29 @@ return true;
     }
     final target = v.clamp(0.0, ctl.position.maxScrollExtent);
     if ((ctl.offset - target).abs() > 1) ctl.jumpTo(target);
+    // v1050：跟随校正——恢复瞬间默认展开最新弧线卡/场景卡还没渲染完，
+    // 列表高度偏小会把记录offset夹到底部附近（截图实测：切回页面视口
+    // 从弧线94跳到弧线105）；内容长高后按记录值补跳，用户已手动滚动则放弃
+    _followRestoredScroll(key, ctl, 4, target);
+  }
+
+  /// v1050：跟随重跳——每次重读落盘记录（用户滚动会刷新记录值），
+  /// 与上次预期位置偏离超过阈值=用户手动滚动，停止跟随
+  void _followRestoredScroll(
+      String key, ScrollController ctl, int retries, double expected) {
+    if (retries <= 0) return;
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (!mounted || !ctl.hasClients) return;
+      if ((ctl.offset - expected).abs() > 2) return; // 用户已滚动——放弃
+      final st = AppState.instance;
+      final v = double.tryParse(st.storage
+              .readFile('${st.storage.bookPath}continue_${key}_off.flag') ??
+          '');
+      if (v == null) return;
+      final target = v.clamp(0.0, ctl.position.maxScrollExtent);
+      if ((ctl.offset - target).abs() > 1) ctl.jumpTo(target);
+      _followRestoredScroll(key, ctl, retries - 1, target);
+    });
   }
 
   void _restoreScroll({required int retries}) {
