@@ -83,6 +83,7 @@ class _AdaptPageState extends State<AdaptPage>
     _arcListCtl.dispose();
     _contArcCtl.dispose();
     _contSceneCtl.dispose();
+    _shotCtl.dispose();
     _reqController.dispose();
     _contReqRawCtrl.dispose();
     _contReqOptCtrl.dispose();
@@ -1862,13 +1863,13 @@ return true;
                             return _buildContinueReqPlanner(state);
                           }
                           if (i == allArcs.length + 1) {
-                            // v783：生成条目键移到最下面，改名"生成世界书新弧线条目"
+                            // v783/v1039：生成条目键移到最下面，v1039改名（三步规范：生成的是草稿）
                             return Padding(
                               padding:
                                   const EdgeInsets.symmetric(vertical: 8),
                               child: Center(
                                 child: MiniButton(
-                                  label: '生成世界书新弧线条目',
+                                  label: '生成新弧线条目草稿',
                                   primary: true,
                                   // v824：0弧线也可添加——开新书从弧线1起步
                                   onTap: _isGenerating
@@ -1956,9 +1957,6 @@ return true;
                               ),
                             );
                           }
-                          if (i >= allArcs.length) {
-                            return _buildContinueReqPlanner(state);
-                          }
                           return _buildContinueArcCard(
                               state, allArcs[i]); // v780：纯展示（分镜页详细概述）
                         },
@@ -2003,6 +2001,7 @@ return true;
                   // ── 分镜续写层（v957转正：分镜规划工作台从场景续写层迁入）──
                   // 每弧线一卡：🧩AI分镜规划（下一新场景）→可手改→📝写入条目
                   ListView.builder(
+                    controller: _shotCtl, // v1039：浏览位置持久化
                     padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
                     itemCount: allArcs.length,
                     itemBuilder: (ctx, i) =>
@@ -2587,7 +2586,8 @@ return true;
                 style: const TextStyle(
                     fontSize: 11.5, fontWeight: FontWeight.w600)),
             if (summaryLine.isNotEmpty)
-              Text(_brief(summaryLine, 60),
+              // v1039：完整场景概述（去60字截断）
+              Text(summaryLine,
                   style: const TextStyle(
                       fontSize: 10.5, color: V469Style.textMuted)),
             // v974：徽章三态（已写/已规划待写入/未规划）
@@ -2608,104 +2608,18 @@ return true;
                     : const Color(0xFF9B8570),
               ),
             ),
-            // v974：场景内分镜规划——该场景的规划预览卡（点开检查）
-            ...() {
-              final planRaw = (state.worldBook?.continuePlans[
-                          'shot_plan_${arcKey}_$sceneNum'] ??
-                      '')
-                  .trim();
-              final shots = planRaw.isEmpty
-                  ? null
-                  : _parseShotPlanPreview(planRaw);
-              // v1035：解析失败也必须显示完整内容——此前直接return []=
-              // "看不到生成的分镜"（纯文本规划被吞，用户实测）
-              if (shots == null) {
-                if (planRaw.isEmpty) return <Widget>[];
-                return [
-                  Container(
-                    margin: const EdgeInsets.only(top: 3),
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(5),
-                      border: Border.all(
-                          color: const Color(0xFF9B8570).withOpacity(0.4)),
-                    ),
-                    child: SelectableText(planRaw,
-                        style: const TextStyle(
-                            fontSize: 10.5, height: 1.45)),
-                  ),
-                ];
-              }
-              return List<Widget>.generate(shots.length, (i) {
-                final sh = shots[i];
-                final open = _shotPlanPreviewOpen.contains('$arcKey-$sceneNum-$i');
-                const dims = ['镜头类型', '视角', '投放信息', '作者意图', '手法', '转场手法', '篇幅', '笔墨'];
-                return Container(
-                  margin: const EdgeInsets.only(top: 3),
-                  padding: const EdgeInsets.all(5),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(5),
-                    border: Border.all(color: const Color(0xFFB8CFE5)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      InkWell(
-                        onTap: () => setState(() {
-                          open
-                              ? _shotPlanPreviewOpen.remove('$arcKey-$sceneNum-$i')
-                              : _shotPlanPreviewOpen.add('$arcKey-$sceneNum-$i');
-                        }),
-                        child: Row(
-                          children: [
-                            Text(open ? '▾' : '▸',
-                                style: const TextStyle(
-                                    fontSize: 11,
-                                    color: V469Style.textMuted)),
-                            const SizedBox(width: 3),
-                            Expanded(
-                              child: Text(
-                                '🎬分镜${i + 1}：${_brief(sh['焦点'] ?? '', 24)}'
-                                '${(sh['镜头类型'] ?? '').isEmpty ? '' : '｜${sh['镜头类型']}'}',
-                                style: const TextStyle(
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (open)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 9, top: 1),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              for (final d in dims)
-                                if ((sh[d] ?? '').isNotEmpty)
-                                  Text('$d：${sh[d]}',
-                                      style: const TextStyle(
-                                          fontSize: 10,
-                                          height: 1.4,
-                                          color: V469Style.textSec)),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                );
-              });
-            }(),
+            // v1039：分镜规划草稿审阅框（可手改，对齐弧线/场景草稿卡规范；
+            // 替换原只读预览卡——三步UI统一：草稿卡审阅手改→手动写入）
+            _buildShotPlanDraftBox(state, arcKey, sceneNum),
             // v974：场景内规划按键（分行布局Wrap）；v975：写入前细化开关
+            // v1039：三步对齐弧线/场景卡——①🧩生成草稿②🤖AI细化(可选)③📝手动写入（纯代码）
             Wrap(
               spacing: 6,
               runSpacing: 4,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 MiniButton(
-                  label: '🧩AI分镜规划',
+                  label: '🧩生成分镜规划草稿',
                   primary: false,
                   onTap: _isGenerating
                       ? null
@@ -2717,17 +2631,16 @@ return true;
                         '')
                     .trim()
                     .isNotEmpty) ...[
-                  SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: Checkbox(
-                      value: _shotPreWriteRefine,
-                      onChanged: (v) =>
-                          setState(() => _shotPreWriteRefine = v ?? true),
-                    ),
+                  MiniButton(
+                    label: '🤖AI细化规划',
+                    primary: false,
+                    onTap: _isGenerating
+                        ? null
+                        : () => _refineShotPlan(state, arc,
+                            sceneNum: int.tryParse(sceneNum)),
                   ),
                   MiniButton(
-                    label: '📝写入条目${_shotPreWriteRefine ? "（先AI细化）" : ""}',
+                    label: '📝分镜写入条目',
                     primary: true,
                     onTap: _isGenerating
                         ? null
@@ -2919,7 +2832,8 @@ return true;
           const SizedBox(height: 6),
           // v957：分镜规划（🧩AI分镜规划/📝写入条目）已迁往分镜续写层——
           // 场景续写层只管场景规划+写入条目，职责单一
-          // v826：写入前AI细化开关+写入按钮（细化结果回填优化框可手改，写入预览兜底）
+          // v1039：三步对齐弧线卡——①规划(上)②⚙生成草稿(审阅框可手改)③📝手动写入
+          // （废除弹窗确认写入；规划全空时AI根据前文信息自拟）
           Row(
             children: [
               SizedBox(
@@ -2933,14 +2847,66 @@ return true;
               ),
               Expanded(
                 child: MiniButton(
-                  label: '⚙生成世界书新场景条目${_preWriteRefine ? "（先AI细化再写入）" : ""}',
+                  label: '⚙生成新场景条目草稿${_preWriteRefine ? "（先AI细化）" : "（规划空=AI按前文自拟）"}',
                   primary: false,
                   onTap: _isGenerating
                       ? null
-                      : () => _writePlannedSceneToWb(state, arc),
+                      : () => _genSceneEntryDraft(state, arc),
                 ),
               ),
             ],
+          ),
+          // v1039：场景条目草稿审阅框（有草稿才显示，控制器内容差异同步防滞留）
+          _buildSceneEntryDraftBox(state, arcKey),
+        ],
+      ),
+    );
+  }
+
+  /// v1039：场景条目草稿审阅框——草稿在continuePlans['scene_entry_$arcKey']，
+  /// 审阅手改后📝手动写入世界书（对齐弧线草稿卡规范）
+  Widget _buildSceneEntryDraftBox(AppState state, String arcKey) {
+    final draft =
+        (state.worldBook?.continuePlans['scene_entry_$arcKey'] ?? '').trim();
+    if (draft.isEmpty) return const SizedBox.shrink();
+    final ctl = _sceneEntryDraftCtl.putIfAbsent(
+        arcKey, () => TextEditingController(text: draft));
+    if (ctl.text != draft) ctl.text = draft; // v1038同款：差异同步防滞留
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF8E7),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFB45309).withOpacity(0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('📄 场景条目草稿（审阅确认后再写入）',
+              style: TextStyle(
+                  fontSize: _cf(12.5),
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF8A5A18))),
+          const SizedBox(height: 6),
+          _CollapseReqField(
+            prefKey: 'scene_entry_draft_$arcKey',
+            controller: ctl,
+            labelText: '条目内容（可手改）',
+            hintText: '',
+            fontSize: 11,
+            onChanged: (v) =>
+                state.worldBook?.continuePlans['scene_entry_$arcKey'] = v,
+          ),
+          const SizedBox(height: 6),
+          Center(
+            child: MiniButton(
+              label: '📝 场景条目写入世界书',
+              primary: true,
+              onTap: _isGenerating
+                  ? null
+                  : () => _writeSceneEntryDraft(state, arcKey),
+            ),
           ),
         ],
       ),
@@ -2986,6 +2952,82 @@ return true;
 
 
 
+  /// v1039：🤖AI细化分镜规划（独立按键，从写入流程剥离——三步规范：
+  /// 规划→细化(可选)→手动写入纯代码）。结果回填continuePlans草稿框可手改
+  Future<void> _refineShotPlan(AppState state, Arc? arc, {int? sceneNum}) async {
+    final arcKey = arc?.number.toString() ?? '1';
+    final entryKey = _arcEntryKey(state, arcKey);
+    if (entryKey == null) {
+      _addLog('❌ 弧线$arcKey还没有世界书条目');
+      return;
+    }
+    final planNum = sceneNum ?? (_maxSceneNumInEntry(state, entryKey) + 1);
+    var planRaw =
+        (state.worldBook?.continuePlans['shot_plan_${arcKey}_$planNum'] ?? '')
+            .trim();
+    if (planRaw.isEmpty) {
+      _addLog('❌ 分镜规划为空——先🧩生成分镜规划草稿');
+      return;
+    }
+    setState(() => _isGenerating = true);
+    try {
+      _addLog('🤖 分镜规划细化中（弧线$arcKey场景$planNum）…');
+      final sys = '你是网文分镜规划审核师。任务：检查并优化用户提供的分镜规划，'
+          '严格保持输入的结构原样输出。规则：\n'
+          '1.剔除毒点：低俗/降智/崩人设/破坏原著基调的设定与描写直接修正\n'
+          '2.修正各维度值的逻辑瑕疵与前后矛盾，焦点/镜头类型/视角等骨架不变\n'
+          '3.手法(Trick)四问结构（特质→呈现｜多职/零直陈｜批次｜落点=）保持完整\n'
+          '4.人物全部沿用原著原名，禁止拟新名\n'
+          '5.若输入是JSON数组：保持JSON数组结构与中文键名不变直接输出；'
+          '若输入是文本：保持原文本格式输出\n'
+          '6.禁止解释性文字，只输出优化后的规划本体'
+          '\n7.输出从"分镜1："开始——输入里的【本弧线规划】是参考信息，禁止复述进输出'
+          '\n8.【作家编排要求】：镜序是节奏链——钩子(入口冲击)→铺垫→升级→爆点→落点余波，'
+          '每镜的投放信息/作者意图要服务这个链，相邻镜之间转场衔接自然';
+      final arcEntryContent =
+          state.worldBook!.entries[entryKey]!.content.trim();
+      final usr = '【本弧线规划（弧线$arcKey条目——细化时人设/矛盾/伏笔以此为准）】\n$arcEntryContent\n\n'
+          '【分镜规划（场景$planNum）】\n$planRaw';
+      final okSend = await PromptPreview.maybePreview(
+        context,
+        sysPrompt: sys,
+        userPrompt: usr,
+        title: '分镜规划细化词链预览（弧线$arcKey场景$planNum）',
+        enabled: state.wbPromptPreview,
+      );
+      if (!okSend) {
+        _addLog('已取消细化');
+        return;
+      }
+      final config = state.getApiConfig('wb');
+      final result = await state.api.callApi(
+        task: '分镜规划细化',
+        systemPrompt: sys,
+        userPrompt: usr,
+        apiConfig: config,
+      );
+      if (!result.isSuccess) {
+        _addLog('❌ 细化失败：${result.error}');
+        return;
+      }
+      final out = TextCleaner.decodeLiteralNewlines(
+        TextCleaner.stripDecorativeEmoji(
+          TextCleaner.normalizeAiOutput(result.content),
+        ),
+      ).trim();
+      if (out.isEmpty) {
+        _addLog('⚠️ 细化输出为空——保留原规划');
+        return;
+      }
+      planRaw = _stripToShotPlan(out); // v1037：剥复述上下文
+      state.worldBook!.continuePlans['shot_plan_${arcKey}_$planNum'] = planRaw;
+      state.saveWorldBook();
+      _addLog('✓ 细化完成（${planRaw.length}字）——已回填草稿框，写入前可手改');
+    } finally {
+      if (mounted) setState(() => _isGenerating = false);
+    }
+  }
+
   /// v922：分镜规划写入条目（append到弧线条目尾部——创作页hasShots走沿分镜）
   Future<void> _writeShotPlanToEntry(AppState state, Arc? arc,
       {int? sceneNum}) async {
@@ -3004,66 +3046,8 @@ return true;
     // v1036/v1037：写入净化——剥掉plan里混入的场景头行/复述的条目上下文
     planRaw = _stripToShotPlan(planRaw);
     if (planRaw.isEmpty) {
-      _addLog('❌ 分镜规划为空——先🧩AI分镜规划');
+      _addLog('❌ 分镜规划为空——先🧩生成分镜规划草稿');
       return;
-    }
-    // v975：写入前AI细化（开关默认开）——剔除毒点/修正逻辑瑕疵，结果回填可手改
-    if (_shotPreWriteRefine) {
-      setState(() => _isGenerating = true);
-      try {
-        _addLog('🤖 分镜规划写入前细化中（场景$planNum）…');
-        final sys = '你是网文分镜规划审核师。任务：检查并优化用户提供的分镜规划，'
-            '严格保持输入的结构原样输出。规则：\n'
-            '1.剔除毒点：低俗/降智/崩人设/破坏原著基调的设定与描写直接修正\n'
-            '2.修正各维度值的逻辑瑕疵与前后矛盾，焦点/镜头类型/视角等骨架不变\n'
-            '3.手法(Trick)四问结构（特质→呈现｜多职/零直陈｜批次｜落点=）保持完整\n'
-            '4.人物全部沿用原著原名，禁止拟新名\n'
-            '5.若输入是JSON数组：保持JSON数组结构与中文键名不变直接输出；'
-            '若输入是文本：保持原文本格式输出\n'
-            '6.禁止解释性文字，只输出优化后的规划本体'
-            '\n7.输出从"分镜1："开始——输入里的【本弧线规划】是参考信息，禁止复述进输出';
-        final arcEntryContent =
-            state.worldBook!.entries[entryKey]!.content.trim();
-        final usr = '【本弧线规划（弧线$arcKey条目——细化时人设/矛盾/伏笔以此为准）】\n$arcEntryContent\n\n'
-            '【分镜规划（场景$planNum）】\n$planRaw';
-        final okSend = await PromptPreview.maybePreview(
-          context,
-          sysPrompt: sys,
-          userPrompt: usr,
-          title: '分镜规划细化词链预览（弧线$arcKey场景$planNum）',
-          enabled: state.wbPromptPreview,
-        );
-        if (!okSend) {
-          _addLog('已取消细化');
-          return;
-        }
-        final config = state.getApiConfig('wb');
-        final result = await state.api.callApi(
-          task: '分镜规划细化',
-          systemPrompt: sys,
-          userPrompt: usr,
-          apiConfig: config,
-        );
-        if (!result.isSuccess) {
-          _addLog('⚠️ 细化失败：${result.error}——按原规划写入');
-        } else {
-          final out = TextCleaner.decodeLiteralNewlines(
-            TextCleaner.stripDecorativeEmoji(
-              TextCleaner.normalizeAiOutput(result.content),
-            ),
-          ).trim();
-          if (out.isNotEmpty) {
-            planRaw = _stripToShotPlan(out); // v1037：剥复述上下文
-            state.worldBook!.continuePlans['shot_plan_${arcKey}_$planNum'] = planRaw;
-            state.saveWorldBook();
-            _addLog('✓ 细化完成（${planRaw.length}字）——已回填，写入前可手改');
-          } else {
-            _addLog('⚠️ 细化输出为空——按原规划写入');
-          }
-        }
-      } finally {
-        if (mounted) setState(() => _isGenerating = false);
-      }
     }
     // v973：JSON规划→条目标准维度行（条目不落裸JSON，创作页才能正确渲染）
     final plan = _shotPlanJsonToText(planRaw);
@@ -3104,6 +3088,35 @@ return true;
       _addLog('✓ 分镜规划已写入条目尾（${plan.length}字，场景$planNum块不存在——'
           '建议在场景续写层先写入场景块）');
     }
+  }
+
+  /// v1039：分镜规划草稿审阅框——可手改（控制器差异同步防滞留，v1038同款）
+  Widget _buildShotPlanDraftBox(
+      AppState state, String arcKey, String sceneNum) {
+    final planKey = 'shot_plan_${arcKey}_$sceneNum';
+    final plan = (state.worldBook?.continuePlans[planKey] ?? '').trim();
+    if (plan.isEmpty) return const SizedBox.shrink();
+    final ck = '${arcKey}_$sceneNum';
+    final ctl =
+        _shotPlanDraftCtl.putIfAbsent(ck, () => TextEditingController(text: plan));
+    if (ctl.text != plan) ctl.text = plan;
+    return Container(
+      margin: const EdgeInsets.only(top: 4, left: 10),
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF8E7),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFB45309).withOpacity(0.35)),
+      ),
+      child: _CollapseReqField(
+        prefKey: 'shot_plan_draft_$ck',
+        controller: ctl,
+        labelText: '分镜规划草稿（可手改）',
+        hintText: '',
+        fontSize: 10.5,
+        onChanged: (v) => state.worldBook?.continuePlans[planKey] = v,
+      ),
+    );
   }
 
   /// v1037：分镜规划净化——AI偶发把注入的【本弧线规划】上下文整段复述进输出
@@ -3377,19 +3390,147 @@ return true;
     }
   }
 
-  /// v780：📝写入世界书——把勾选的规划追加为该弧线条目的场景N块（纯代码零AI，无正文）
-  Future<void> _writePlannedSceneToWb(AppState state, Arc? arc) async {
+  /// v1039：⚙生成新场景条目草稿——①规划稿勾选源(可空，空=AI根据前文自拟)②写入前
+  /// AI细化(开关)③草稿落continuePlans审阅框——不再弹窗不再直接写条目（三步规范，
+  /// 手动📝写入世界书走_writeSceneEntryDraft）
+  Future<void> _genSceneEntryDraft(AppState state, Arc? arc) async {
     final arcKey = arc?.number.toString() ?? '1'; // v824：0弧线开新书fallback
     final plans = state.worldBook?.continuePlans ?? {};
     final opt = (plans[_plannerOptKey(arcKey)] ?? '').trim();
     final raw = (plans[_plannerRawKey(arcKey)] ?? '').trim();
-    String source;
+    var source = '';
     if (_newSceneOptChecked && opt.isNotEmpty) {
       source = opt;
     } else if (_newSceneRawChecked && raw.isNotEmpty) {
       source = raw;
-    } else {
-      _addLog('❌ 没有勾选的规划可写入——勾选优化框（或原始规划框）且内容非空');
+    }
+    final entryKey = _arcEntryKey(state, arcKey);
+    if (entryKey == null) {
+      _addLog('❌ 弧线$arcKey还没有世界书条目——先在改编模式生成原样世界书');
+      return;
+    }
+    if (arc != null && !_closedArcGuard(state, arc)) return; // v781：闭合守卫
+    final entry = state.worldBook!.entries[entryKey]!;
+    final nextNum = _maxSceneNumInEntry(state, entryKey) + 1;
+    // v958用户裁决：锚点序号核对——拆解链场景数必须已全部写入条目
+    final decompScenes =
+        state.arcAnalyses[arcKey]?.scenes.length ?? state.arcScenes[arcKey]?.length ?? 0;
+    if (decompScenes > 0 && nextNum - 1 < decompScenes) {
+      _addLog('❌ 序号错位：弧线$arcKey拆解有$decompScenes个场景，条目只写入${nextNum - 1}个'
+          '——先把拆解场景全部写入条目再规划新场景，已终止');
+      return;
+    }
+    state.api.clearAbort();
+    state.userAborted = false;
+    setState(() => _isGenerating = true);
+    try {
+      if (source.isEmpty) {
+        // v1039：规划全空——AI根据前文信息自行推演新场景规划（用户实测诉求：
+        // 不要求必须有规划内容）
+        _addLog('🤖 规划为空——AI根据前文信息自拟新场景规划…');
+        final generated = await _aiDraftScenesFromContext(state, arcKey, nextNum);
+        if (generated == null || generated.trim().isEmpty) {
+          _addLog('❌ AI自拟规划失败——可填规划后重试');
+          return;
+        }
+        source = generated.trim();
+        state.worldBook?.continuePlans[_plannerOptKey(arcKey)] = source;
+        state.saveWorldBook();
+        setState(() => _newSceneOptChecked = true);
+      }
+      // v826：写入前AI细化（开关默认开）——细化结果回填优化框+草稿框可手改
+      if (_preWriteRefine) {
+        final refined = await _refineScenePlanBeforeWrite(state, arcKey, source);
+        if (refined != null && refined.trim().isNotEmpty) {
+          source = refined.trim();
+          state.worldBook?.continuePlans[_plannerOptKey(arcKey)] = source;
+          state.saveWorldBook();
+          setState(() => _newSceneOptChecked = true);
+        } else {
+          _addLog('⚠️ 写入前细化失败/为空——按原规划生成草稿');
+        }
+      }
+      state.worldBook!.continuePlans['scene_entry_$arcKey'] = source;
+      state.saveWorldBook();
+      _addLog('✓ 新场景条目草稿已生成（${source.length}字）——下方审阅框可手改，'
+          '确认后点📝场景条目写入世界书');
+    } finally {
+      if (mounted) setState(() => _isGenerating = false);
+    }
+  }
+
+  /// v1039：AI根据前文信息自拟新场景规划（规划框全空时走这里）——
+  /// 注入弧线条目九件套+续写语料+素材，承接条目最后场景推向弧线闭合点
+  Future<String?> _aiDraftScenesFromContext(
+      AppState state, String arcKey, int nextNum) async {
+    final _ek = _arcEntryKey(state, arcKey);
+    final arcEntry = _ek == null
+        ? ''
+        : (state.worldBook?.entries[_ek]?.content.trim() ?? '');
+    if (arcEntry.isEmpty) return null;
+    final sys = '你是网文续写规划师。用户没有提供场景规划——请根据前文信息自行推演1-3个新场景，'
+        '输出规范场景条目规划，供后续写入世界书。输出规则：\n'
+        '1.可输出一个或多个场景，每场景仅一行，格式严格为：场景N：名称｜概述\n'
+        '2.概述200-400字，叙述用浅近文言（信息密度高省上下文，AI按义理解；对白台词用白话写进引号，人名地名照旧），'
+        '像电影镜头还原现场实况——多show少tell：以现场推进写（人物动作/神态/站位/环境互动），'
+        '对白要多（对白直接呈现性格与冲突，禁止"他愤怒地指责"这类概括转述），角色性格刻画饱满，少用比喻；'
+        '需含时间地点/出场人物/剧情推进；人物全部沿用原著原名\n'
+        '3.必须从条目最后场景的剧情状态自然衔接，剧情朝【本弧线规划】的概述收束方向推进\n'
+        '4.【作家编排要求】：场景序列是编排件——按钩子→铺垫→升级→爆点→余波节奏链设计，'
+        '每个场景的概述末尾追加一句"编排：本场景功能(钩子/建立/铺垫/升级/转折/爆点/余波)+给哪个场景蓄力或回收什么+本场景最出彩的爆点/落点在哪"\n'
+        '5.若提供【素材】块：素材内容必须有机融入场景剧情（自然带出，禁止生硬堆砌）\n'
+        '6.场景编号从N=$nextNum起连续递增，不要跳号\n'
+        '7.禁止解释性文字、小标题、markdown；概述内的对白用引号直接写具体台词';
+    final usr = '【本弧线规划（弧线$arcKey条目——场景必须承接此弧线的概述/人设/矛盾/伏笔/情绪曲线/脑洞）】\n$arcEntry\n\n'
+        '【续写语料（锚点/本弧线零件/已规划场景/前情概述/未回收伏笔/人物基准——人物与设定以此为准，禁止自拟新人物新设定）】\n${state.continueCorpus(arcKey)}\n\n'
+        '${_matBlock(state, arcKey)}'
+        '【起始场景编号】N=$nextNum\n\n'
+        '请根据以上前文信息自行推演新场景（1-3个）。';
+    final okSend = await PromptPreview.maybePreview(
+      context,
+      sysPrompt: sys,
+      userPrompt: usr,
+      title: 'AI自拟场景规划词链预览（弧线$arcKey）',
+      enabled: state.wbPromptPreview,
+    );
+    if (!okSend) {
+      _addLog('已取消AI自拟');
+      return null;
+    }
+    final config = state.getApiConfig('wb');
+    final result = await state.api.callApi(
+      task: 'AI自拟场景规划',
+      systemPrompt: sys,
+      userPrompt: usr,
+      apiConfig: config,
+    );
+    if (!result.isSuccess) {
+      _addLog('❌ AI自拟失败：${result.error}');
+      return null;
+    }
+    final out = TextCleaner.decodeLiteralNewlines(
+      TextCleaner.stripDecorativeEmoji(
+        TextCleaner.normalizeAiOutput(
+          result.content,
+          jsonMode: config.formatMode == 'json',
+        ),
+      ),
+    ).trim();
+    if (out.isEmpty || !RegExp(r'^场景\d+：', multiLine: true).hasMatch(out)) {
+      _addLog('⚠️ AI自拟结果为空或格式不对（缺场景N：行）');
+      return null;
+    }
+    _addLog('✓ AI已根据前文自拟场景规划');
+    return out;
+  }
+
+  /// v1039：📝场景条目写入世界书——纯代码零AI（弹窗已废除，写入源=草稿审阅框）。
+  /// 解析草稿"场景N：名称｜概述"行，去重排序后写入条目
+  Future<void> _writeSceneEntryDraft(AppState state, String arcKey) async {
+    final source =
+        (state.worldBook?.continuePlans['scene_entry_$arcKey'] ?? '').trim();
+    if (source.isEmpty) {
+      _addLog('❌ 没有场景条目草稿——先⚙生成新场景条目草稿');
       return;
     }
     final entryKey = _arcEntryKey(state, arcKey);
@@ -3397,28 +3538,12 @@ return true;
       _addLog('❌ 弧线$arcKey还没有世界书条目——先在改编模式生成原样世界书');
       return;
     }
-    if (arc != null && !_closedArcGuard(state, arc)) return; // v781：闭合守卫（v824：0弧线开新书跳过）
-    // v826：写入前AI细化（开关默认开）——完善补充/剔除毒点，细化结果回填优化框可手改
-    if (_preWriteRefine) {
-      setState(() => _isGenerating = true);
-      String? refined;
-      try {
-        refined = await _refineScenePlanBeforeWrite(state, arcKey, source);
-      } finally {
-        if (mounted) setState(() => _isGenerating = false);
-      }
-      if (refined != null && refined.trim().isNotEmpty) {
-        source = refined.trim();
-        state.worldBook?.continuePlans[_plannerOptKey(arcKey)] = source;
-        state.saveWorldBook();
-        setState(() => _newSceneOptChecked = true);
-      } else {
-        _addLog('⚠️ 写入前细化失败/为空——按原规划写入');
-      }
-    }
+    final arcObj = _getAllArcs(state)
+        .where((a) => a.number.toString() == arcKey)
+        .firstOrNull;
+    if (arcObj != null && !_closedArcGuard(state, arcObj)) return;
     final entry = state.worldBook!.entries[entryKey]!;
-    // v1034：先收集去重——AI细化稿偶发把同一场景写两遍（用户实测：
-    // 条目里出现两个场景1块=两套卡+排序乱），同号只保留最后一个
+    // v1034：先收集去重——AI稿偶发把同一场景写两遍，同号只保留最后一个
     final parsed = <int, (String, String)>{}; // sceneNum -> (name, brief)
     final order = <int>[];
     for (final m in RegExp(
@@ -3429,80 +3554,42 @@ return true;
       final name = m.group(2)!.trim();
       final brief = m.group(3)!.trim();
       if (parsed.containsKey(sceneNum)) {
-        _addLog('⚠️ 细化稿里场景$sceneNum重复——保留最后一个');
+        _addLog('⚠️ 草稿里场景$sceneNum重复——保留最后一个');
         order.remove(sceneNum);
       }
       parsed[sceneNum] = (name, brief);
       order.add(sceneNum);
     }
-    // v1034：按场景号升序写入——AI细化稿顺序不可信（用户实测2排到5后面），
-    // 有序插入保证条目里场景块永远按号排列（分镜续写卡按content顺序渲染）
+    // v1034：按场景号升序写入——AI稿顺序不可信，有序插入保证条目场景块按号排列
     order.sort();
     if (parsed.isEmpty) {
-      _addLog('ℹ️ 没有新增/修订场景（规划行需格式：场景N：名称｜概述）');
+      _addLog('ℹ️ 草稿无有效场景行（需格式：场景N：名称｜概述）');
       return;
     }
-    // v783：写入预览确认（本步纯代码零AI，预览即检查；确认后才动条目）
-    final previewSb = StringBuffer();
     var added = 0;
     var replaced = 0;
-    for (final sceneNum in order) {
-      final (name, brief) = parsed[sceneNum]!;
-      final span = _sceneBlockSpan(entry.content, sceneNum);
-      if (span != null) {
-        replaced++;
-        previewSb.writeln('【修订】场景$sceneNum：$name（替换原规划）');
-      } else {
-        added++;
-        previewSb.writeln('【新增】场景$sceneNum：$name（按号排序插入）');
-      }
-      previewSb.writeln('概述：$brief');
-      previewSb.writeln();
-    }
-    final okWrite = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('写入预览（纯代码零AI）'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: SingleChildScrollView(
-            child: SelectableText(
-                '将写入弧线${arc?.number ?? 1}条目（新增$added/修订$replaced）：\n\n${previewSb.toString().trim()}',
-                style: const TextStyle(fontSize: 12, height: 1.5)),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('确认写入'),
-          ),
-        ],
-      ),
-    );
-    if (okWrite != true) {
-      _addLog('已取消写入');
-      return;
-    }
-    // 确认后统一落条目：修订=原位替换；新增=按号有序插入
     for (final sceneNum in order) {
       final (name, brief) = parsed[sceneNum]!;
       final block = '场景$sceneNum：$name\n概述：$brief';
       final span = _sceneBlockSpan(entry.content, sceneNum);
       if (span != null) {
         entry.content = entry.content.replaceRange(span.$1, span.$2, block);
+        replaced++;
         _addLog('✓ 场景$sceneNum（$name）已修订替换原规划');
       } else {
         final insertAt = _orderedInsertOffset(entry.content, sceneNum);
         entry.content = entry.content.replaceRange(
             insertAt, insertAt, '\n\n$block\n');
+        added++;
         _addLog('✓ 场景$sceneNum（$name）规划已写入世界书（按号排序插入）');
       }
     }
     state.saveWorldBook();
+    // v1039：写入后清草稿（防重复写入同一批场景；要改就重新⚙生成）
+    state.worldBook?.continuePlans.remove('scene_entry_$arcKey');
+    _sceneEntryDraftCtl[arcKey]?.clear();
+    state.saveWorldBook();
+    if (mounted) setState(() {});
     _addLog('📖 写入完成：新增$added/修订$replaced个场景条目（无正文）——创作页出现待创作场景，正文在创作页完成');
   }
 
@@ -3589,57 +3676,76 @@ return true;
     state.userAborted = false;
     setState(() => _isGenerating = true);
     try {
-      _addLog('➕ 生成世界书新弧线条目（弧线$newNum，依据设定与前文推演）…');
+      _addLog('➕ 生成新弧线条目草稿（弧线$newNum，依据设定与前文推演）…');
       // v955：衔接来源=前一弧线分镜页场景数据（拆解链），禁从已创作正文/原著切片乱取
       // v977：降级不终止——分镜数据是加分项非硬性要求；取不到时退用上一弧线
       // 条目内容（弧线概述/人设/矛盾/伏笔等）做衔接锚，同样保证数据流纯粹
+      // v1039：前文注入增强——条目九件套+最后两场景双锚点（原单场景锚点信息不够，
+      // 用户实测AI对前文承接弱）；两个锚都注入，缺哪个跳哪个
       final String prevCtx;
       if (newNum <= 1) {
         // v967：新书豁免——开新书从弧线1起步，衔接依据=全局续写方向+世界书设定
         prevCtx = '【新书开局】无前文，依据上方续写方向与世界书设定开篇（第一弧线）';
       } else {
         final prevNum = newNum - 1;
+        final blocks = <String>[];
+        final prevEntryKey = _arcEntryKey(state, '$prevNum');
+        final prevEntryContent = prevEntryKey == null
+            ? ''
+            : (state.worldBook?.entries[prevEntryKey]?.content ?? '').trim();
+        if (prevEntryContent.isNotEmpty) {
+          blocks.add('【上一弧线条目（弧线$prevNum——概述/人设/矛盾/伏笔/情绪曲线/脑洞，'
+              '新弧线必须承接其收束状态与未回收伏笔）】\n$prevEntryContent');
+        }
         final prevScenes =
             state.arcAnalyses['$prevNum']?.scenes ?? state.arcScenes['$prevNum'] ?? const [];
         if (prevScenes.isNotEmpty) {
-          final lastSc = prevScenes.last;
-          final shotPts = lastSc.shots
-              .map((s) => s.focus)
-              .where((f) => f.trim().isNotEmpty)
-              .take(5)
-              .join('｜');
-          prevCtx =
-              '【衔接锚点·弧线$prevNum最后场景（${lastSc.name}）】\n${lastSc.summary.isEmpty ? '' : '概述：${lastSc.summary}\n'}${shotPts.isEmpty ? '' : '分镜要点：$shotPts\n'}该弧线共${prevScenes.length}场景，新弧线从此处剧情自然承接。';
-        } else {
-          final prevEntryKey = _arcEntryKey(state, '$prevNum');
-          final prevEntryContent = prevEntryKey == null
-              ? ''
-              : (state.worldBook?.entries[prevEntryKey]!.content ?? '').trim();
-          if (prevEntryContent.isEmpty) {
-            prevCtx = '【衔接锚点·弧线$prevNum】无场景数据与条目内容，'
-                '依据上方续写方向与世界书既有设定推演新弧线';
-            _addLog('⚠️ 弧线$prevNum无场景数据/条目——降级为仅依据设定推演');
-          } else {
-            prevCtx = '【衔接锚点·弧线$prevNum条目（概述/人设/矛盾/伏笔/情绪曲线/脑洞）】\n'
-                '$prevEntryContent\n新弧线从此弧线的收束状态与未回收伏笔自然承接。';
-            _addLog('ℹ️ 弧线$prevNum无场景数据——用其条目内容做衔接锚（更丰富可先扫描拆解）');
+          final tailScenes = prevScenes.length <= 2
+              ? prevScenes.toList()
+              : prevScenes.sublist(prevScenes.length - 2);
+          final sb = StringBuffer(
+              '【衔接锚点·弧线$prevNum最后${tailScenes.length}场景（该弧线共${prevScenes.length}场景）】');
+          for (final sc in tailScenes) {
+            final shotPts = sc.shots
+                .map((s) => s.focus)
+                .where((f) => f.trim().isNotEmpty)
+                .take(5)
+                .join('｜');
+            sb.write('\n· 场景「${sc.name}」：${sc.summary}'
+                '${shotPts.isEmpty ? '' : '\n  分镜要点：$shotPts'}');
           }
+          sb.write('\n新弧线从最后场景的剧情状态自然承接。');
+          blocks.add(sb.toString());
+        }
+        if (blocks.isEmpty) {
+          prevCtx = '【衔接锚点·弧线$prevNum】无场景数据与条目内容，'
+              '依据上方续写方向与世界书既有设定推演新弧线';
+          _addLog('⚠️ 弧线$prevNum无场景数据/条目——降级为仅依据设定推演');
+        } else {
+          prevCtx = blocks.join('\n\n');
         }
       }
       // v805：弧线条目不再生成场景清单（用户定稿：场景规划唯一入口=场景续写页工作台，
       // 避免条目清单与工作台规划两套数据乱套）
-      final sys = '你是原著续写作家。世界书=原样原著（全原名）。任务：为长篇规划一条全新的续写弧线，'
+      // v1039：作家编排能力强调+闭合点明确规划（从什么状态不可逆到什么状态）
+      final sys = '你是操盘过千万字连载的资深网文主编（原著续写作家）。世界书=原样原著（全原名）。'
+          '任务：为长篇规划一条全新的续写弧线，'
           '输出该弧线的世界书总结条目内容（无分镜结构，场景走自由创作）。格式：\n'
           '弧线N：标题（N=$newNum）\n'
-          '【弧线概述】：120-250字（承接当前剧情，本弧线主角处境变化轨迹，收束在明确变化上）\n'
+          '【弧线概述】：150-300字（承接当前剧情，本弧线主角处境变化轨迹，收束在明确变化上）\n'
           '【文言规则】：概述/零件各块叙述用浅近文言（信息密度高省上下文），对白台词仍用白话写进引号，人名地名照旧，AI按义理解不按字面\n'
           '【人设】：本弧线登场角色与定位（全部沿用原著原名+既有性格）\n'
           '【矛盾冲突】：核心冲突2-3条\n'
           '【伏笔】：本弧线种下/回收的伏笔\n'
           '【情绪曲线】：如「低谷→希望→兴奋→满足」\n'
           '【作者脑洞】：本弧线的核心幻想点2-3条\n'
+          '【作家编排要求】：弧线不是孤立事件，是承上启下的编排件——\n'
+          '1.节奏链：开篇承接上一弧线收束余波并引入新变量（钩子），中段2-3波层层升级（铺垫→升级），尾段收束爆发（爆点）+余波。概述里要体现这个编排节奏\n'
+          '2.弧线闭合必须规划清晰：【弧线概述】末尾明确写出闭合点——主角从「什么状态」不可逆地变化到「什么状态」（修为/身份/关系/格局任一维度），全弧线剧情都朝这个变化收束，禁止写到一半悬置\n'
+          '3.上一弧线未回收的伏笔优先在本弧线安排回收或实质推进；新种伏笔要与闭合点挂钩\n'
           '⚠️ 禁止输出任何场景清单（场景规划在场景续写页单独进行）\n'
-          '人名一律沿用原著原名；必须从当前进度自然衔接；禁止输出解释性文字。';
+          '人名一律沿用原著原名；必须从当前进度自然衔接；禁止输出解释性文字。'
+          '${state.writerStyleBlock.isEmpty ? '' : '\n${state.writerStyleBlock}'}';
       final usr = '【续写方向】\n${_continueReqSource(state).isEmpty ? '（未填写，按故事逻辑自然推进）' : _continueReqSource(state)}\n\n'
           '$prevCtx\n\n'
           '【续写语料（本弧线零件/前情概述/未回收伏笔/人物基准——人物与设定以此为准，禁止另起炉灶）】\n${state.continueCorpus('$newNum', includeAnchor: false)}\n\n'
@@ -3699,7 +3805,7 @@ return true;
     final content =
         (state.worldBook?.continuePlans['arc_entry_$newNum'] ?? '').trim();
     if (content.isEmpty) {
-      _addLog('❌ 弧线$newNum没有草稿——先➕生成世界书新弧线条目');
+      _addLog('❌ 弧线$newNum没有草稿——先➕生成新弧线条目草稿');
       return;
     }
     final wb = state.worldBook!;
@@ -4206,6 +4312,10 @@ return true;
   final Set<String> _contArcExpanded = {};
   // v1035：弧线条目草稿手改控制器（per-弧线号）
   final Map<String, TextEditingController> _arcEntryDraftCtl = {};
+  // v1039：场景条目草稿手改控制器（per-弧线号）
+  final Map<String, TextEditingController> _sceneEntryDraftCtl = {};
+  // v1039：分镜规划草稿手改控制器（per-弧线_场景）
+  final Map<String, TextEditingController> _shotPlanDraftCtl = {};
   // v1023：折叠头Key表——展开/收起后视线锚定
   final Map<String, GlobalKey> _foldHeaderKeyMap = {};
   GlobalKey _foldHeaderKeys(String k) =>
@@ -4224,6 +4334,7 @@ return true;
   final ScrollController _arcListCtl = ScrollController(); // v771：弧线列表垂直滚动条
   final ScrollController _contArcCtl = ScrollController(); // v771：续写弧线层
   final ScrollController _contSceneCtl = ScrollController(); // v771：续写场景层
+  final ScrollController _shotCtl = ScrollController(); // v1039：分镜续写层（原无controller=位置不可持久化）
   @override
   void initState() {
     super.initState();
@@ -4245,6 +4356,17 @@ return true;
         () => _scheduleScrollSave('arc', _contArcCtl));
     _contSceneCtl.addListener(
         () => _scheduleScrollSave('scene', _contSceneCtl));
+    _shotCtl.addListener(() => _scheduleScrollSave('shot', _shotCtl));
+    // v1039：默认展开最新弧线卡（弧线续写层场景层分镜层——首次进入视线即最新进度）
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final arcs = _getAllArcs(AppState.instance);
+      if (arcs.isNotEmpty) {
+        final lastKey = arcs.last.number.toString();
+        if (_contArcExpanded.isEmpty) _contArcExpanded.add(lastKey);
+        if (_shotArcExpanded.isEmpty) _shotArcExpanded.add(lastKey);
+        if (mounted) setState(() {});
+      }
+    });
     _continueTabCtrl.addListener(_saveContinueTab);
     WidgetsBinding.instance.addPostFrameCallback(
         (_) => _restoreScroll(retries: 3));
@@ -4282,19 +4404,34 @@ return true;
       _continueTabCtrl.index = tab;
     }
     var pending = false;
+    final defaults = <(String, ScrollController)>[]; // v1039：无记录=默认到最新
     for (final e in [
       ('arc', _contArcCtl),
       ('scene', _contSceneCtl),
+      ('shot', _shotCtl),
     ]) {
       final v = double.tryParse(
           st.storage.readFile('${p}continue_${e.$1}_off.flag') ?? '');
-      if (v == null) continue;
+      if (v == null) {
+        defaults.add(e);
+        continue;
+      }
       if (!e.$2.hasClients) {
         pending = true;
         continue;
       }
       final target = v.clamp(0.0, e.$2.position.maxScrollExtent);
       if ((e.$2.offset - target).abs() > 1) e.$2.jumpTo(target);
+    }
+    // v1039：从没滚过/新书——默认跳到列表底部（最新弧线卡+规划/草稿区）
+    for (final e in defaults) {
+      if (!e.$2.hasClients) {
+        pending = true;
+        continue;
+      }
+      if (e.$2.position.maxScrollExtent > 1) {
+        e.$2.jumpTo(e.$2.position.maxScrollExtent);
+      }
     }
     if (pending && retries > 0) {
       Future.delayed(const Duration(milliseconds: 400),
