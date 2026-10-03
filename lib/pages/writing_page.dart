@@ -1003,6 +1003,15 @@ class _WritingPageState extends State<WritingPage>
                       !state.writingImitateAuthor,
                     ),
                   ),
+                  // v1067：末篇范文（仅续写模式）——范文=场景页最后一个场景正文切片
+                  if (state.writingFreeContinue)
+                    MiniButton(
+                      label: '末篇范文',
+                      primary: state.writingLastSceneSample,
+                      onTap: () => state.setWritingLastSceneSample(
+                        !state.writingLastSceneSample,
+                      ),
+                    ),
                   MiniButton(
                     label: '防抄',
                     primary: state.writingPlagiarismCheck,
@@ -1615,9 +1624,25 @@ class _WritingPageState extends State<WritingPage>
   }
 
   /// v313：模仿原文作者——弧线物化正文按场景序号确定性取样
+  /// v1067：末篇范文——场景页最后一个场景的正文切片前1000字
+  /// （续写模式文风锚定最新正文：写到哪，范文取哪）
+  String _lastSceneSliceSample(AppState state) {
+    if (state.globalScenes.isEmpty) return '';
+    final st = state.globalScenes.last.text;
+    if (st.isEmpty) return '';
+    final end = 1000 > st.length ? st.length : 1000;
+    return st.substring(0, end);
+  }
+
   /// 写场景n(si=n-1)时从弧线原文第1+(n-1)*1000字处截1000字；越界取尾部1000字。
   /// 优先读arcScan全量弧线（含未闭合），fallback completedArcs
   String _buildStyleSample(AppState state, String arcKey, int si) {
+    // v1067：末篇范文开关（续写模式）——范文=场景页最后一个场景切片
+    if (state.writingLastSceneSample && state.writingFreeContinue) {
+      final last = _lastSceneSliceSample(state);
+      if (last.isNotEmpty) return last;
+      _addLog('⚠️ 末篇范文开关开但场景页无切片——回退本场景切片');
+    }
     // v353：范文=本场景锚定切片前1000字（与创作内容同段同源）。
     // ①si*1000旧公式是弧线正文顺序排布时代的产物，对独立切片会跳过前段/取到末尾
     // ②弧线正文兜底移除（用户裁决）——无切片=旧数据，提示重新划分而非瞎取
@@ -1716,6 +1741,12 @@ class _WritingPageState extends State<WritingPage>
   /// v752：逐镜范文只认镜级切片——无镜级锚点返回空不注入（用户裁决：
   /// 1000字场景切片是原著素材，镜级切片在时不叠加、不在时不回退）
   String _shotTextOnly(AppState state, String arcKey, int si, int shotIdx) {
+    // v1067：末篇范文开关（续写模式）——单镜范文也换成场景页最后一个场景切片
+    if (state.writingLastSceneSample && state.writingFreeContinue) {
+      final last = _lastSceneSliceSample(state);
+      if (last.isNotEmpty) return last;
+      _addLog('⚠️ 末篇范文开关开但场景页无切片——回退镜级切片');
+    }
     final scenes = state.arcScenes[arcKey] ?? const [];
     if (si < scenes.length &&
         shotIdx < scenes[si].shots.length &&
