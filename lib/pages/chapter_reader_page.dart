@@ -705,15 +705,10 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
     );
   }
 
-  /// v1059：目录章节标签——标题已自带编号（第X章/中文数字章/数字.）就不加前缀，
-  /// 否则补列表序号（旧版书源标题带编号，新导入的书可能没有）
+  /// v1060用户裁决：目录序号无条件加——只要有一章内容就有一个序号，
+  /// 不管标题是什么（标题自带"第X章"也一样加"N. "前缀）
   String _chapterLabel(int i, String title) {
-    final t = title.trim();
-    if (RegExp(r'^(第\s*\d+\s*章|第[零一二三四五六七八九十百千]+章|\d+[.、：:])')
-        .hasMatch(t)) {
-      return t;
-    }
-    return '${i + 1}. $t';
+    return '${i + 1}. ${title.trim()}';
   }
 
   void _showChapterList() {
