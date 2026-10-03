@@ -2486,6 +2486,7 @@ return true;
                     _contArcExpanded.add(arcKey);
                   }
                   _flushScrolls(); // v1051：展开/收起改变内容高度，立即落盘视口
+                  _saveContFolds(); // v1073：展开状态持久化
                 });
                 // v1023：视线锚回弧线标题行（统一规范）
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -2801,6 +2802,7 @@ return true;
                     ? _shotArcExpanded.remove(arcKey)
                     : _shotArcExpanded.add(arcKey);
                 _flushScrolls(); // v1051：展开/收起改变内容高度，立即落盘视口
+                _saveShotFolds(); // v1073：展开状态持久化
               }),
               child: Row(
                 children: [
@@ -4669,19 +4671,35 @@ return true;
         }
       });
     });
-    // v1039：默认展开最新弧线卡（弧线续写层场景层分镜层——首次进入视线即最新进度）
+    // v1039/v1073：展开状态持久化——有存档恢复存档（重启记住展开的弧线），
+    // 无存档默认展开最新弧线卡（首次进入视线即最新进度）
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final arcs = _getAllArcs(AppState.instance);
-      if (arcs.isNotEmpty) {
-        final lastKey = arcs.last.number.toString();
-        if (_contArcExpanded.isEmpty) _contArcExpanded.add(lastKey);
-        if (_shotArcExpanded.isEmpty) _shotArcExpanded.add(lastKey);
-        if (mounted) setState(() {});
+      final st = AppState.instance;
+      final p = st.storage.bookPath;
+      final arcs = _getAllArcs(st);
+      final savedCont = (st.storage.readFile('${p}cont_arc_folds.flag') ?? '')
+          .split(',')
+          .where((e) => e.isNotEmpty)
+          .toSet();
+      final savedShot = (st.storage.readFile('${p}shot_arc_folds.flag') ?? '')
+          .split(',')
+          .where((e) => e.isNotEmpty)
+          .toSet();
+      if (savedCont.isNotEmpty) {
+        _contArcExpanded.addAll(savedCont);
+      } else if (arcs.isNotEmpty) {
+        _contArcExpanded.add(arcs.last.number.toString());
       }
+      if (savedShot.isNotEmpty) {
+        _shotArcExpanded.addAll(savedShot);
+      } else if (arcs.isNotEmpty) {
+        _shotArcExpanded.add(arcs.last.number.toString());
+      }
+      if (mounted) setState(() {});
     });
     _continueTabCtrl.addListener(_saveContinueTab);
     WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _restoreScroll(retries: 3));
+        (_) => _restoreScroll(retries: 8)); // v1073：1.2s不够大书挂载，放宽到3.2s
   }
 
   Timer? _scrollSaveTimer;
@@ -4704,6 +4722,19 @@ return true;
     st.storage.writeFile('${st.storage.bookPath}continue_tab.flag',
         '${_continueTabCtrl.index}');
     _flushScrolls(); // v1051：切tab瞬间同步落盘（防抖窗口内切走=丢记录）
+  }
+
+  // v1073：弧线卡展开状态持久化（重启记住展开的弧线）
+  void _saveContFolds() {
+    final st = AppState.instance;
+    st.storage.writeFile('${st.storage.bookPath}cont_arc_folds.flag',
+        _contArcExpanded.join(','));
+  }
+
+  void _saveShotFolds() {
+    final st = AppState.instance;
+    st.storage.writeFile('${st.storage.bookPath}shot_arc_folds.flag',
+        _shotArcExpanded.join(','));
   }
 
   /// v1051：三层视口立即落盘（不等防抖）——实测：离开前在弧线105，
