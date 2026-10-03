@@ -3210,11 +3210,28 @@ return true;
   /// v973：分镜规划JSON→条目标准维度行文本（写入条目前转换，条目不落裸JSON）
   /// 形态：分镜N：\n  焦点(Focus)：…\n  镜头类型(Shot Type)：…（对齐buildWBSystemPrompt 9维度）
   /// 非JSON输入原样返回（兼容手改纯文本）
+  /// v1072：JSON键值形态维度行净化——AI偶发在文本维度行中夹JSON形态行
+  /// （截图实测：\"手法(Trick)\": \"特质...\"裸进条目→创作页当正文渲染）
+  String _normalizeJsonDimLines(String t) {
+    const dimKeys = [
+      '焦点', '镜头类型', '视角', '投放信息', '作者意图', '手法', '转场手法',
+      '篇幅', '段落', '笔墨', '功能抽象', '文风', '语感', '文笔节奏',
+    ];
+    return t.split('\n').map((line) {
+      final m = RegExp(r'^\s*"([^"]+?)"\s*:\s*"(.*)"\s*,?\s*$').firstMatch(line);
+      if (m == null) return line;
+      final k = m.group(1)!.trim();
+      final isDim = dimKeys.any((d) => k == d || k.startsWith('$d('));
+      if (!isDim) return line;
+      return '${k}：${m.group(2)!.trim()}';
+    }).join('\n');
+  }
+
   String _shotPlanJsonToText(String plan) {
-    var t = plan.trim();
+    var t = _normalizeJsonDimLines(plan.trim()); // v1072：先净化JSON形态维度行
     final fence = RegExp(r'^```[a-zA-Z]*\n?([\s\S]*?)\n?```\$').firstMatch(t);
     if (fence != null) t = fence.group(1)!.trim();
-    if (!t.startsWith('[') && !t.startsWith('{')) return plan;
+    if (!t.startsWith('[') && !t.startsWith('{')) return t; // v1072：净化后返回
     try {
       final raw = t.startsWith('[')
           ? jsonDecode(t) as List
@@ -3358,8 +3375,9 @@ return true;
         return;
       }
       // v1037：生成端同样净化——剥复述的条目上下文，只留分镜本体
-      final plan = _stripToShotPlan(
-          TextCleaner.stripQuotedFragment(result.content));
+      // v1072：JSON键值形态维度行一并转标准维度行
+      final plan = _normalizeJsonDimLines(_stripToShotPlan(
+          TextCleaner.stripQuotedFragment(result.content)));
       state.worldBook!.continuePlans[planKey] = plan;
       state.saveWorldBook();
       // v1055：编排自审——不合格推翻重做（failReason非空=第二稿不再审防循环）
