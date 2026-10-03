@@ -1940,6 +1940,11 @@ return true;
                                       onChanged: (v) => state
                                           .worldBook
                                           ?.continuePlans['arc_entry_$draftNum'] = v,
+                                      onClear: () => _clearField(ctl, (v) {
+                                        state.worldBook?.continuePlans[
+                                            'arc_entry_$draftNum'] = v;
+                                        state.saveWorldBook();
+                                      }),
                                     ),
                                     const SizedBox(height: 6),
                                     Center(
@@ -2224,6 +2229,10 @@ return true;
                 wb?.continueReq = v;
                 state.saveWorldBook();
               },
+              onClear: () => _clearField(_contReqRawCtrl, (v) {
+                wb?.continueReq = v;
+                state.saveWorldBook();
+              }),
             ),
           ),
           const SizedBox(height: 6),
@@ -2251,6 +2260,10 @@ return true;
                 wb?.continuePlans['req_opt'] = v;
                 state.saveWorldBook();
               },
+              onClear: () => _clearField(_contReqOptCtrl, (v) {
+                wb?.continuePlans['req_opt'] = v;
+                state.saveWorldBook();
+              }),
             ),
           ),
         ],
@@ -2814,6 +2827,10 @@ return true;
               fontSize: 11.5,
               onChanged: (v) =>
                   state.worldBook?.continuePlans[_plannerMatKey(arcKey)] = v,
+              onClear: () => _clearField(
+                  _scenePlanMatCtrl[arcKey],
+                  (v) => state
+                      .worldBook?.continuePlans[_plannerMatKey(arcKey)] = v),
             ),
             const SizedBox(height: 6),
           ],
@@ -2834,6 +2851,10 @@ return true;
               fontSize: 11.5,
               onChanged: (v) =>
                   state.worldBook?.continuePlans[_plannerRawKey(arcKey)] = v,
+              onClear: () => _clearField(
+                  _scenePlanRawCtrl[arcKey],
+                  (v) => state
+                      .worldBook?.continuePlans[_plannerRawKey(arcKey)] = v),
             ),
           ),
           const SizedBox(height: 6),
@@ -2863,6 +2884,10 @@ return true;
               fontSize: 11.5,
               onChanged: (v) =>
                   state.worldBook?.continuePlans[_plannerOptKey(arcKey)] = v,
+              onClear: () => _clearField(
+                  _scenePlanOptCtrl[arcKey],
+                  (v) => state
+                      .worldBook?.continuePlans[_plannerOptKey(arcKey)] = v),
             ),
           ),
           const SizedBox(height: 6),
@@ -2925,6 +2950,10 @@ return true;
             fontSize: 11,
             onChanged: (v) =>
                 state.worldBook?.continuePlans['scene_entry_$arcKey'] = v,
+            onClear: () => _clearField(ctl, (v) {
+              state.worldBook?.continuePlans['scene_entry_$arcKey'] = v;
+              state.saveWorldBook();
+            }),
           ),
           const SizedBox(height: 6),
           Center(
@@ -3108,8 +3137,15 @@ return true;
       entry.content =
           '${entry.content.substring(0, target.start)}$head\n$plan\n${entry.content.substring(end)}';
       state.saveWorldBook();
+      // v1046：写入后自动清空分镜规划草稿（防重复写入；下次生成从头开始）
+      final ck = '${arcKey}_$planNum';
+      state.worldBook?.continuePlans.remove('shot_plan_${arcKey}_$planNum');
+      _shotPlanDraftCtl[ck]?.clear();
+      _shotPlanPreviewOpen.removeWhere((k) => k.startsWith('$ck-'));
+      state.saveWorldBook();
+      if (mounted) setState(() {});
       _addLog('✓ 场景$planNum分镜已${overwrite ? "覆盖重写" : "写入"}条目（${plan.length}字）'
-          '——创作页该场景走沿分镜模式');
+          '——创作页该场景走沿分镜模式，分镜草稿已清空');
     } else {
       entry.content = '${entry.content.trimRight()}\n\n$plan\n';
       state.saveWorldBook();
@@ -3147,6 +3183,10 @@ return true;
             hintText: '',
             fontSize: 10.5,
             onChanged: (v) => state.worldBook?.continuePlans[planKey] = v,
+            onClear: () => _clearField(ctl, (v) {
+              state.worldBook?.continuePlans[planKey] = v;
+              state.saveWorldBook();
+            }),
           ),
           const SizedBox(height: 6),
           Center(
@@ -3648,12 +3688,19 @@ return true;
       }
     }
     state.saveWorldBook();
-    // v1039：写入后清草稿（防重复写入同一批场景；要改就重新⚙生成）
+    // v1039/v1046：写入后清草稿+规划raw/opt/素材（防重复写入；下次生成从头开始）
     state.worldBook?.continuePlans.remove('scene_entry_$arcKey');
     _sceneEntryDraftCtl[arcKey]?.clear();
+    state.worldBook?.continuePlans.remove(_plannerRawKey(arcKey));
+    _scenePlanRawCtrl[arcKey]?.clear();
+    state.worldBook?.continuePlans.remove(_plannerOptKey(arcKey));
+    _scenePlanOptCtrl[arcKey]?.clear();
+    state.worldBook?.continuePlans.remove(_plannerMatKey(arcKey));
+    _scenePlanMatCtrl[arcKey]?.clear();
     state.saveWorldBook();
     if (mounted) setState(() {});
     _addLog('📖 写入完成：新增$added/修订$replaced个场景条目（无正文）——创作页出现待创作场景，正文在创作页完成');
+    _addLog('ℹ️ 场景条目草稿与规划框已清空——下次生成从头开始');
   }
 
   /// v826：写入前AI细化——对勾选的场景规划做终审：完善补充+剔除毒点后再落世界书
@@ -3913,6 +3960,17 @@ return true;
       state.saveArcScan();
       if (mounted) setState(() {}); // 刷新各处弧线列表
       _addLog('✓ 弧线$newNum已写入世界书（${content.length}字，审阅后手动写入）——弧线/场景续写列表已同步');
+      // v1046：写入后自动清空——草稿+全局方向（方便下一次生成）
+      state.worldBook?.continuePlans.remove('arc_entry_$newNum');
+      _arcEntryDraftCtl['$newNum']?.clear();
+      state.worldBook?.continueReq = '';
+      _contReqRawCtrl.clear();
+      state.worldBook?.continuePlans.remove('req_opt');
+      _contReqOptCtrl.clear();
+      _reqOptChecked = false;
+      state.saveWorldBook();
+      if (mounted) setState(() {});
+      _addLog('ℹ️ 弧线条目草稿与全局续写方向已清空——下次生成从头开始');
   }
 
 
@@ -4386,7 +4444,14 @@ return true;
   // v1023：折叠头Key表——展开/收起后视线锚定
   final Map<String, GlobalKey> _foldHeaderKeyMap = {};
   GlobalKey _foldHeaderKeys(String k) =>
-      _foldHeaderKeyMap.putIfAbsent(k, () => GlobalKey()); // v963：场景续写层弧线卡展开状态（手动折叠——ExpansionTile在TabBarView冻死打不开v586已知）
+      _foldHeaderKeyMap.putIfAbsent(k, () => GlobalKey());
+
+  /// v1046：内容框手动清空——控制器+持久化值同步清（onChanged('')落库）
+  void _clearField(TextEditingController? ctl, void Function(String) onChanged) {
+    ctl?.clear();
+    onChanged('');
+    setState(() {});
+  } // v963：场景续写层弧线卡展开状态（手动折叠——ExpansionTile在TabBarView冻死打不开v586已知）
   bool _newSceneOptChecked = true; // AI优化规划勾选（默认写入源）
   bool _preWriteRefine = true; // v826：写入前AI细化开关（完善补充/剔除毒点，默认开）
   bool _shotPreWriteRefine = true; // v975：分镜规划写入前AI细化开关（去毒点/修逻辑，默认开）
@@ -4758,6 +4823,10 @@ return true;
                   state.worldBook!.requirements = v;
                   state.saveWorldBook();
                 },
+                onClear: () => _clearField(_reqController, (v) {
+                  state.worldBook?.requirements = v;
+                  state.saveWorldBook();
+                }),
               ),
             ),
             // 进度条（细条，状态文字在终端里）
@@ -5083,6 +5152,10 @@ return true;
                         state.worldBook!.arcRequirements[arcKey] = v;
                         state.saveWorldBook();
                       },
+                      onClear: () => _clearField(null, (v) {
+                        state.worldBook?.arcRequirements[arcKey] = v;
+                        state.saveWorldBook();
+                      }),
                     ),
                     // v590：AI优化按钮挪到用户框右下
                     Padding(
@@ -5390,6 +5463,13 @@ return true;
                               controller: TextEditingController(text: sceneReq),
                               labelText: '本场景改编要求（可选）...',
                               fontSize: 11,
+                              onClear: () => _clearField(null, (v) {
+                                if (state.worldBook == null)
+                                  state.worldBook = WorldBook();
+                                state.worldBook!.sceneRequirements[sceneReqKey] =
+                                    v;
+                                state.saveWorldBook();
+                              }),
                               onChanged: (v) {
                                 if (state.worldBook == null)
                                   state.worldBook = WorldBook();
@@ -5472,6 +5552,11 @@ return true;
                                     v;
                                 state.saveWorldBook();
                               },
+                              onClear: () => _clearField(null, (v) {
+                                state.worldBook!
+                                    .sceneRequirementsAI[sceneReqKey] = v;
+                                state.saveWorldBook();
+                              }),
                             ),
                             const SizedBox(height: 6), // v594：与上方文字框的行间距
                             Row(
@@ -7791,6 +7876,7 @@ class _CollapseReqField extends StatefulWidget {
     this.hintText,
     this.fontSize = 12,
     this.onChanged,
+    this.onClear, // v1046：手动清空按键回调（null=不显示）
   });
 
   final TextEditingController controller;
@@ -7799,6 +7885,7 @@ class _CollapseReqField extends StatefulWidget {
   final String prefKey;
   final double fontSize;
   final ValueChanged<String>? onChanged;
+  final VoidCallback? onClear;
 
   @override
   State<_CollapseReqField> createState() => _CollapseReqFieldState();
@@ -7858,6 +7945,10 @@ class _CollapseReqFieldState extends State<_CollapseReqField> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+            if (widget.onClear != null) ...[
+              const SizedBox(width: 4),
+              MiniButton(label: '清空', primary: false, onTap: widget.onClear),
+            ],
             MiniButton(
               label: _expanded ? '▲折叠' : '▼展开',
               primary: _expanded,
