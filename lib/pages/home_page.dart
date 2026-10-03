@@ -978,7 +978,7 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 1057;
+  static const int _appVersion = 1058;
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';
@@ -1401,9 +1401,17 @@ del /q update.bat
       if (assets.isEmpty) {
         throw Exception('该版本没有可下载的APK文件');
       }
-      final assetId = assets[0]['id'];
-      final assetName = assets[0]['name'];
-      final assetSize = assets[0]['size'] as int? ?? 0;
+      // v1058：按.apk后缀精确匹配（Release挂了apk+win zip两个asset，
+      // assets[0]硬取会下到win zip——实测在线更新下到13.5MB的win包）
+      final apkAssets = assets
+          .where((a) => (a['name'] as String? ?? '').toLowerCase().endsWith('.apk'))
+          .toList();
+      if (apkAssets.isEmpty) {
+        throw Exception('该版本没有APK文件（只有win包）');
+      }
+      final assetId = apkAssets.first['id'];
+      final assetName = apkAssets.first['name'];
+      final assetSize = apkAssets.first['size'] as int? ?? 0;
 
       // 公共断点续传下载器（Android APK与win zip共用）
       await _downloadAssetWithResume(
