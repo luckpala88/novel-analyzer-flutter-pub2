@@ -605,7 +605,7 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  '🎬 编排/Choreo：',
+                  '🎞 场景内分镜编排策略：', // v1084：标签对齐分镜页
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,

@@ -1968,16 +1968,27 @@ class _AnalysisPageState extends State<AnalysisPage>
         '弧线${an.arcNumber}概述：${an.arcSummary.isNotEmpty ? an.arcSummary : arc.summary}',
       );
       sb.writeln();
+      // v1084：弧线级编排对齐分镜页（分镜页有"弧线内场景编排策略"弧线级折叠块）
+      final arcChoreoTxt = (arc.arcChoreo.isNotEmpty
+              ? arc.arcChoreo
+              : (an.metadata?['arc_choreo']?.toString() ?? ''))
+          .trim();
+      if (arcChoreoTxt.isNotEmpty) {
+        sb.writeln('弧线内场景编排策略：${arcChoreoTxt.replaceAll('\n', ' ')}');
+        sb.writeln();
+      }
       for (final sc in an.scenes) {
         sb.writeln(
           '场景${an.scenes.indexOf(sc) + 1}：${sc.name}（${sc.chapterRange}）',
         );
         if (sc.summary.isNotEmpty) sb.writeln('概述：${sc.summary}');
-        // v1081：标签沿用过去的（弧线内场景编排策略——本场景，v878原样）
-        if (sc.choreo.isNotEmpty) sb.writeln('弧线内场景编排策略——本场景：${sc.choreo}');
+        // v1084：场景级编排——标签对齐分镜页（场景内分镜编排策略），
+        // 多行合并单行（按行解析的第二行起会掉进分镜折叠）
+        if (sc.choreo.isNotEmpty) {
+          sb.writeln('场景内分镜编排策略：${sc.choreo.trim().replaceAll('\n', ' ')}');
+        }
         for (var i = 0; i < sc.shots.length; i++) {
           final sh = sc.shots[i];
-          if (i == 0 && sc.choreo.isNotEmpty)
           sb.writeln('分镜${i + 1}：');
           sb.writeln('焦点(Focus)：${sh.focus}');
           sb.writeln('镜头类型(Shot Type)：${sh.shotType}');
@@ -2156,16 +2167,27 @@ class _AnalysisPageState extends State<AnalysisPage>
         '弧线${an.arcNumber}概述：${an.arcSummary.isNotEmpty ? an.arcSummary : arc.summary}',
       );
       sb.writeln();
+      // v1084：弧线级编排对齐分镜页（分镜页有"弧线内场景编排策略"弧线级折叠块）
+      final arcChoreoTxt = (arc.arcChoreo.isNotEmpty
+              ? arc.arcChoreo
+              : (an.metadata?['arc_choreo']?.toString() ?? ''))
+          .trim();
+      if (arcChoreoTxt.isNotEmpty) {
+        sb.writeln('弧线内场景编排策略：${arcChoreoTxt.replaceAll('\n', ' ')}');
+        sb.writeln();
+      }
       for (final sc in an.scenes) {
         sb.writeln(
           '场景${an.scenes.indexOf(sc) + 1}：${sc.name}（${sc.chapterRange}）',
         );
         if (sc.summary.isNotEmpty) sb.writeln('概述：${sc.summary}');
-        // v1081：标签沿用过去的（弧线内场景编排策略——本场景，v878原样）
-        if (sc.choreo.isNotEmpty) sb.writeln('弧线内场景编排策略——本场景：${sc.choreo}');
+        // v1084：场景级编排——标签对齐分镜页（场景内分镜编排策略），
+        // 多行合并单行（按行解析的第二行起会掉进分镜折叠）
+        if (sc.choreo.isNotEmpty) {
+          sb.writeln('场景内分镜编排策略：${sc.choreo.trim().replaceAll('\n', ' ')}');
+        }
         for (var i = 0; i < sc.shots.length; i++) {
           final sh = sc.shots[i];
-          if (i == 0 && sc.choreo.isNotEmpty)
           sb.writeln('分镜${i + 1}：');
           sb.writeln('焦点(Focus)：${sh.focus}');
           sb.writeln('镜头类型(Shot Type)：${sh.shotType}');
