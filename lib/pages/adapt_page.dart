@@ -2655,9 +2655,9 @@ return true;
             ),
             // v1039：分镜规划草稿审阅框（可手改，对齐弧线/场景草稿卡规范；
             // 替换原只读预览卡——三步UI统一：草稿卡审阅手改→手动写入）
-            _buildShotPlanDraftBox(state, arcKey, sceneNum),
+            _buildShotPlanDraftBox(state, arc, arcKey, sceneNum),
             // v974：场景内规划按键（分行布局Wrap）；v975：写入前细化开关
-            // v1039：三步对齐弧线/场景卡——①🧩生成草稿②🤖AI细化(可选)③📝手动写入（纯代码）
+            // v1043：三步竖排（规划→草稿→写入，对齐弧线/场景卡）
             Wrap(
               spacing: 6,
               runSpacing: 4,
@@ -2675,7 +2675,7 @@ return true;
                             'shot_plan_${arcKey}_$sceneNum'] ??
                         '')
                     .trim()
-                    .isNotEmpty) ...[
+                    .isNotEmpty)
                   MiniButton(
                     label: '🤖AI细化规划',
                     primary: false,
@@ -2684,15 +2684,6 @@ return true;
                         : () => _refineShotPlan(state, arc,
                             sceneNum: int.tryParse(sceneNum)),
                   ),
-                  MiniButton(
-                    label: '📝分镜写入条目',
-                    primary: true,
-                    onTap: _isGenerating
-                        ? null
-                        : () => _writeShotPlanToEntry(state, arc,
-                            sceneNum: int.tryParse(sceneNum)),
-                  ),
-                ],
               ],
             ),
           ],
@@ -3128,8 +3119,9 @@ return true;
   }
 
   /// v1039：分镜规划草稿审阅框——可手改（控制器差异同步防滞留，v1038同款）
+  /// v1043：三步竖排——草稿卡底部带📝分镜写入条目键（写入源=草稿框当前内容）
   Widget _buildShotPlanDraftBox(
-      AppState state, String arcKey, String sceneNum) {
+      AppState state, Arc? arc, String arcKey, String sceneNum) {
     final planKey = 'shot_plan_${arcKey}_$sceneNum';
     final plan = (state.worldBook?.continuePlans[planKey] ?? '').trim();
     if (plan.isEmpty) return const SizedBox.shrink();
@@ -3145,13 +3137,29 @@ return true;
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: const Color(0xFFB45309).withOpacity(0.35)),
       ),
-      child: _CollapseReqField(
-        prefKey: 'shot_plan_draft_$ck',
-        controller: ctl,
-        labelText: '分镜规划草稿（可手改）',
-        hintText: '',
-        fontSize: 10.5,
-        onChanged: (v) => state.worldBook?.continuePlans[planKey] = v,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _CollapseReqField(
+            prefKey: 'shot_plan_draft_$ck',
+            controller: ctl,
+            labelText: '分镜规划草稿（可手改）',
+            hintText: '',
+            fontSize: 10.5,
+            onChanged: (v) => state.worldBook?.continuePlans[planKey] = v,
+          ),
+          const SizedBox(height: 6),
+          Center(
+            child: MiniButton(
+              label: '📝分镜写入条目',
+              primary: true,
+              onTap: _isGenerating
+                  ? null
+                  : () => _writeShotPlanToEntry(state, arc,
+                      sceneNum: int.tryParse(sceneNum)),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -3368,7 +3376,7 @@ return true;
       // v825：放开v806单场景限制——允许多场景规划（不需要的写入前删行/写入后可删场景条目）
       final sys = '你是网文续写规划师。任务：把用户的粗糙新场景规划扩写为规范场景条目规划，'
           '供后续写入世界书。输出规则：\n'
-          '1.可输出一个或多个场景（用户规划有几段就规划几个），每场景仅一行，格式严格为：场景N：名称｜概述\n'
+          '1.可输出一个或多个场景（用户规划有几段就规划几个），每场景两行——第一行格式严格为：场景N：名称｜概述；第二行格式严格为：编排N：编排说明\n'
           '2.概述200-400字，${state.wenyanNarrate}；对白台词用白话写进引号，人名地名照旧，'
           '像电影镜头还原现场实况——多show少tell：以现场推进写（人物动作/神态/站位/环境互动），'
           '对白要多（对白直接呈现性格与冲突，禁止"他愤怒地指责"这类概括转述），角色性格刻画饱满，少用比喻；'
@@ -3376,13 +3384,17 @@ return true;
           '3.必须从当前进度自然衔接\n'
           '4.场景编号从N=$nextNum起连续递增，不要跳号\n'
           '5.若提供【素材】块：素材内容必须有机融入场景剧情（自然带出，禁止生硬堆砌）\n'
-          '6.禁止解释性文字、小标题、markdown；概述内的对白用引号直接写具体台词';
+          '6.禁止解释性文字、小标题、markdown；概述内的对白用引号直接写具体台词\n'
+          '7.【作家编排要求】：场景序列是编排件——按钩子→铺垫→升级→爆点→余波节奏链设计，'
+          '每个场景行之后单独跟一行"编排N：本场景功能(建立/铺垫/升级/转折/爆点/余波)+给哪个场景蓄力或回收什么+本场景最出彩的爆点/落点在哪"（独立标签行像拆书的编排策略，禁止混进概述），'
+          '编排方法遵循下方【作家风格卡】，剧情朝【本弧线规划】的弧线概述收束方向推进';
       // v976：注入本弧线条目九件套（弧线概述/人设/矛盾/伏笔/情绪曲线/脑洞）——
       // 用户实测：场景规划没参考弧线续写层的规划内容，场景脱离弧线设定
       final usr = '【本弧线规划（弧线$arcKey条目——场景必须承接此弧线的概述/人设/矛盾/伏笔/情绪曲线/脑洞）】\n${entry.content.trim()}\n\n'
           '【续写语料（锚点/本弧线零件/已规划场景/前情概述/未回收伏笔/人物基准——人物与设定以此为准，禁止自拟新人物新设定）】\n${state.continueCorpus(arcKey)}\n\n'
           '${_matBlock(state, arcKey)}'
           '【用户新场景规划】\n$raw\n\n'
+          '${state.writerStyleBlock.isEmpty ? '' : '${state.writerStyleBlock}\n\n'}'
           '【起始场景编号】N=$nextNum';
       // v783：词链检查
       final okSend = await PromptPreview.maybePreview(
@@ -3507,20 +3519,21 @@ return true;
     if (arcEntry.isEmpty) return null;
     final sys = '你是网文续写规划师。用户没有提供场景规划——请根据前文信息自行推演1-3个新场景，'
         '输出规范场景条目规划，供后续写入世界书。输出规则：\n'
-        '1.可输出一个或多个场景，每场景仅一行，格式严格为：场景N：名称｜概述\n'
+        '1.可输出一个或多个场景，每场景两行——第一行格式严格为：场景N：名称｜概述；第二行格式严格为：编排N：编排说明\n'
         '2.概述200-400字，${state.wenyanNarrate}；对白台词用白话写进引号，人名地名照旧，'
         '像电影镜头还原现场实况——多show少tell：以现场推进写（人物动作/神态/站位/环境互动），'
         '对白要多（对白直接呈现性格与冲突，禁止"他愤怒地指责"这类概括转述），角色性格刻画饱满，少用比喻；'
         '需含时间地点/出场人物/剧情推进；人物全部沿用原著原名\n'
         '3.必须从条目最后场景的剧情状态自然衔接，剧情朝【本弧线规划】的概述收束方向推进\n'
         '4.【作家编排要求】：场景序列是编排件——按钩子→铺垫→升级→爆点→余波节奏链设计，'
-        '每个场景的概述末尾追加一句"编排：本场景功能(钩子/建立/铺垫/升级/转折/爆点/余波)+给哪个场景蓄力或回收什么+本场景最出彩的爆点/落点在哪"\n'
+        '每个场景行之后单独跟一行"编排N：本场景功能(建立/铺垫/升级/转折/爆点/余波)+给哪个场景蓄力或回收什么+本场景最出彩的爆点/落点在哪"（独立标签行像拆书的编排策略，禁止混进概述），编排方法遵循下方【作家风格卡】\n'
         '5.若提供【素材】块：素材内容必须有机融入场景剧情（自然带出，禁止生硬堆砌）\n'
         '6.场景编号从N=$nextNum起连续递增，不要跳号\n'
         '7.禁止解释性文字、小标题、markdown；概述内的对白用引号直接写具体台词';
     final usr = '【本弧线规划（弧线$arcKey条目——场景必须承接此弧线的概述/人设/矛盾/伏笔/情绪曲线/脑洞）】\n$arcEntry\n\n'
         '【续写语料（锚点/本弧线零件/已规划场景/前情概述/未回收伏笔/人物基准——人物与设定以此为准，禁止自拟新人物新设定）】\n${state.continueCorpus(arcKey)}\n\n'
         '${_matBlock(state, arcKey)}'
+        '${state.writerStyleBlock.isEmpty ? '' : '${state.writerStyleBlock}\n\n'}'
         '【起始场景编号】N=$nextNum\n\n'
         '请根据以上前文信息自行推演新场景（1-3个）。';
     final okSend = await PromptPreview.maybePreview(
@@ -3581,20 +3594,29 @@ return true;
     if (arcObj != null && !_closedArcGuard(state, arcObj)) return;
     final entry = state.worldBook!.entries[entryKey]!;
     // v1034：先收集去重——AI稿偶发把同一场景写两遍，同号只保留最后一个
-    final parsed = <int, (String, String)>{}; // sceneNum -> (name, brief)
+    // v1043：独立编排行——场景行后紧跟"编排N："行一并捕获（像拆书的编排策略
+    // 独立成块，写进条目为"编排："行，不混进概述）
+    final parsed = <int, (String, String, String)>{}; // sceneNum -> (name, brief, choreo)
     final order = <int>[];
-    for (final m in RegExp(
-      r'^场景(\d+)：(.+?)｜(.+)$',
-      multiLine: true,
-    ).allMatches(source)) {
+    final lines = source.split('\n');
+    for (var i = 0; i < lines.length; i++) {
+      final m = RegExp(r'^场景(\d+)：(.+?)｜(.+)$')
+          .firstMatch(lines[i].trim());
+      if (m == null) continue;
       final sceneNum = int.tryParse(m.group(1)!) ?? 0;
       final name = m.group(2)!.trim();
       final brief = m.group(3)!.trim();
+      var choreo = '';
+      if (i + 1 < lines.length) {
+        final cm =
+            RegExp(r'^编排\d*[：:](.+)$').firstMatch(lines[i + 1].trim());
+        if (cm != null) choreo = cm.group(1)!.trim();
+      }
       if (parsed.containsKey(sceneNum)) {
         _addLog('⚠️ 草稿里场景$sceneNum重复——保留最后一个');
         order.remove(sceneNum);
       }
-      parsed[sceneNum] = (name, brief);
+      parsed[sceneNum] = (name, brief, choreo);
       order.add(sceneNum);
     }
     // v1034：按场景号升序写入——AI稿顺序不可信，有序插入保证条目场景块按号排列
@@ -3606,8 +3628,10 @@ return true;
     var added = 0;
     var replaced = 0;
     for (final sceneNum in order) {
-      final (name, brief) = parsed[sceneNum]!;
-      final block = '场景$sceneNum：$name\n概述：$brief';
+      final (name, brief, choreo) = parsed[sceneNum]!;
+      var block = '场景$sceneNum：$name\n概述：$brief';
+      // v1043：编排行独立落库（场景块内第三行，创作AI可读的菜单设计逻辑）
+      if (choreo.isNotEmpty) block = '$block\n编排：$choreo';
       final span = _sceneBlockSpan(entry.content, sceneNum);
       if (span != null) {
         entry.content = entry.content.replaceRange(span.$1, span.$2, block);
@@ -3642,14 +3666,14 @@ return true;
         '1.逐场景优化：完善时间地点/人物动机/因果衔接，补充让场景立得住的必要细节\n'
         '2.剔除毒点：与语料设定冲突、逻辑硬伤、主角降智、人物OOC、跳出衔接锚点的情节——直接修正或删掉该情节\n'
         '3.人物全部沿用原著原名，禁止自拟新人物新设定\n'
-        '4.输出格式与输入完全一致：每场景一行"场景N：名称｜概述"（编号保持不变）\n'
+        '4.输出格式与输入完全一致：每场景两行"场景N：名称｜概述"+"编排N：编排说明"（编号保持不变；输入里的编排N行原样保留结构，只优化措辞）\n'
         '5.概述200-400字，${state.wenyanNarrate}；对白台词用白话写进引号，人名地名照旧，'
         '像电影镜头还原现场实况——多show少tell：以现场推进写（人物动作/神态/站位/环境互动），'
         '对白要多（对白直接呈现性格与冲突，用引号写具体台词，禁止"他愤怒地指责"这类概括转述），'
         '角色性格刻画饱满，少用比喻\n'
         '6.若提供【素材】块：素材内容必须有机融入场景剧情（自然带出，禁止生硬堆砌），同时照常剔除毒点\n'
         '7.只输出场景行，禁止解释性文字、小标题、markdown\n'
-        '8.**编排说明（v878）**：每个场景的概述末尾追加一句"编排：本场景功能(钩子/建立/铺垫/升级/转折/爆点/余波)+给哪个场景蓄力或回收什么+本场景最出彩的爆点/落点在哪"——这是给创作AI的菜单设计逻辑，不是菜单本身';
+        '8.**编排说明（v1043）**：每个场景行之后单独跟一行"编排N：本场景功能(建立/铺垫/升级/转折/爆点/余波)+给哪个场景蓄力或回收什么+本场景最出彩的爆点/落点在哪"——独立标签行像拆书的编排策略，禁止混进概述；这是给创作AI的菜单设计逻辑，不是菜单本身';
     final _ek = _arcEntryKey(state, arcKey);
     final arcEntry = _ek == null
         ? ''
@@ -3769,7 +3793,8 @@ return true;
           '任务：为长篇规划一条全新的续写弧线，'
           '输出该弧线的世界书总结条目内容（无分镜结构，场景走自由创作）。格式：\n'
           '弧线N：标题（N=$newNum）\n'
-          '【弧线概述】：150-300字（承接当前剧情，本弧线主角处境变化轨迹，收束在明确变化上）\n'
+          '【弧线概述】：150-300字（承接当前剧情，本弧线主角处境变化轨迹，收束在明确变化上；纯剧情线，编排内容不写这里）\n'
+          '【弧线内编排】：像拆书时的场景编排策略一样独立成块——按剧情推进顺序分2-4段，每段一行写"功能(建立/铺垫/升级/转折/爆点/余波)+给哪场戏蓄力或回收什么+该段最出彩的爆点/落点在哪"，编排方法严格遵循作家档案的风格\n'
           // v1041：文言开关——关=通俗白话
           '${state.promptWenyan ? "【文言规则】：概述/零件各块叙述用浅近文言（信息密度高省上下文），对白台词仍用白话写进引号，人名地名照旧，AI按义理解不按字面\\n" : "【行文规则】：概述/零件各块用通俗白话叙述（不用文言腔），对白台词白话写进引号，人名地名照旧\\n"}'
           '【人设】：本弧线登场角色与定位（全部沿用原著原名+既有性格）\n'
@@ -3778,7 +3803,7 @@ return true;
           '【情绪曲线】：如「低谷→希望→兴奋→满足」\n'
           '【作者脑洞】：本弧线的核心幻想点2-3条\n'
           '【作家编排要求】：弧线不是孤立事件，是承上启下的编排件——\n'
-          '1.节奏链：开篇承接上一弧线收束余波并引入新变量（钩子），中段2-3波层层升级（铺垫→升级），尾段收束爆发（爆点）+余波。概述里要体现这个编排节奏\n'
+          '1.节奏链：开篇承接上一弧线收束余波并引入新变量（钩子），中段2-3波层层升级（铺垫→升级），尾段收束爆发（爆点）+余波——节奏链单独写进【弧线内编排】标签，禁止混进概述\n'
           '2.弧线闭合必须规划清晰：【弧线概述】末尾明确写出闭合点——主角从「什么状态」不可逆地变化到「什么状态」（修为/身份/关系/格局任一维度），全弧线剧情都朝这个变化收束，禁止写到一半悬置\n'
           '3.上一弧线未回收的伏笔优先在本弧线安排回收或实质推进；新种伏笔要与闭合点挂钩\n'
           '⚠️ 禁止输出任何场景清单（场景规划在场景续写页单独进行）\n'
