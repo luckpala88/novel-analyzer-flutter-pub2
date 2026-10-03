@@ -176,8 +176,13 @@ class PromptBuilder {
       '③**镜层**：分镜带"手法(Trick)"维度时，按其呈现路径用具体事件侧写——核心特质禁止直接陈述（"他很骄傲/她很美"=一票否决），trick标注的直接度/释放批次照做\n'
       '**铁律：三层讲法 > 事件骨架**——讲法层（trick/文风标尺/笔墨配额/编排取舍）硬约束逐条执行；事件骨架（每镜具体发生什么）是弹性参考，允许合并/调序/换过渡，只要①讲法规格不破②因果链不断③结构标记照常输出。出彩=学"怎么讲"，不是复述"讲了什么"\n';
 
-  static String buildWritingSystemPrompt({bool hasAdaptation = false}) {
-    final adaptDesc = hasAdaptation
+  static String buildWritingSystemPrompt(
+      {bool hasAdaptation = false, bool continueShots = false}) {
+    // v1063：续写沿分镜——条目分镜是续写规划AI的产出（非原著分析），
+    // 沿分镜创作照常逐镜对应，但不套"原样分析不得改写"令
+    final adaptDesc = continueShots
+        ? '世界书条目是续写模式生成的条目，分镜维度行是续写规划AI的产出（非原著分析数据），你必须使用条目里的分镜内容，逐镜对应创作。'
+        : hasAdaptation
         ? '世界书条目已经过用户改编要求处理，分镜内容（focus/shot_type/pov/info/intent/transition/length/style）已根据改编要求重新构思。你必须使用改编后的内容，绝不能回退到任何原始设定。'
         : '世界书条目是原书分析数据的原样整理，未经任何改编。分镜的focus/shot_type/pov/info/intent/transition/length/style全部维度内容与原书分析完全一致，你必须原样使用，不得"优化""润色""改写"任何分镜内容。';
     return '你是一位网文创作助手。你的任务是完全根据提供的世界书条目内容，创作指定场景的正文。\n\n' +

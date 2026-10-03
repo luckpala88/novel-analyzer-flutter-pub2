@@ -1053,15 +1053,21 @@ class _WritingPageState extends State<WritingPage>
                       _addLog('🔀 创作模式→续写（独立续写链：续写语料+衔接锚点+原著切片）');
                     },
                   ),
-                  // v815：自由=改编创作下的子开关（v545原义）；续写模式天然自由，此键无效
+                  // v1063：自由子开关两链都可用——续写链下条目可能有分镜（分镜续写
+                  // 层写入），不再强制自由：自由关=沿分镜，自由开=自由续写
                   MiniButton(
                     label: '自由',
-                    primary: state.writingFreeMode &&
-                        !state.writingFreeContinue,
+                    primary: state.writingFreeContinue
+                        ? state.writingXuFree
+                        : state.writingFreeMode,
                     onTap: () {
-                      if (state.writingFreeContinue) return;
-                      state.setWritingFreeMode(!state.writingFreeMode);
-                      _addLog('🔀 改编链自由子开关→${!state.writingFreeMode ? '开（不注入分镜结构）' : '关（沿分镜）'}');
+                      if (state.writingFreeContinue) {
+                        state.setWritingXuFree(!state.writingXuFree);
+                        _addLog('🔀 续写链自由子开关→${!state.writingXuFree ? '开（自由续写）' : '关（沿分镜）'}');
+                      } else {
+                        state.setWritingFreeMode(!state.writingFreeMode);
+                        _addLog('🔀 改编链自由子开关→${!state.writingFreeMode ? '开（不注入分镜结构）' : '关（沿分镜）'}');
+                      }
                     },
                   ),
                   ],
@@ -2460,7 +2466,7 @@ class _WritingPageState extends State<WritingPage>
           model: config.effectiveModel,
           temperature: config.temperature,
           draft: true,
-          genMode: '逐镜 · ${state.writingFreeMode ? (state.writingFreeContinue ? '自由续写' : '自由改编') : '沿分镜'}',
+          genMode: '逐镜 · ${_genModeLabel(state)}',
         );
       } else {
         draftItem!.content = content;
@@ -2949,13 +2955,17 @@ class _WritingPageState extends State<WritingPage>
           .join('\n');
       final hasShotStruct =
           RegExp('分镜\\s*0*[1-9]').hasMatch(sceneEntryContent);
-      final effectiveFree = state.writingFreeMode || !hasShotStruct;
+      final effectiveFree = (state.writingFreeContinue
+              ? state.writingXuFree
+              : state.writingFreeMode) ||
+          !hasShotStruct;
       if (!state.writingFreeMode && !hasShotStruct) {
         _addLog('ℹ️ 条目无分镜结构（只改编到弧线层）——自动自由创作模式');
       }
-      // v816：顶层模式分流——续写链/改编链各自独立一套提示词（互不混搭）
+      // v816/v1063：顶层模式分流——自由续写链（续写+自由开）/其余（沿分镜，
+      // 续写条目有分镜走buildWritingSystemPrompt，续写语料usr照注）
       final isContinue =
-          state.writingFreeMode && state.writingFreeContinue;
+          state.writingFreeContinue && state.writingXuFree;
       final String systemPrompt;
       if (isContinue) {
         systemPrompt = PromptBuilder.buildContinueWritingSystemPrompt() +
@@ -2965,9 +2975,12 @@ class _WritingPageState extends State<WritingPage>
       } else {
         var sp = PromptBuilder.buildWritingSystemPrompt(
           hasAdaptation: hasAdaptation,
+          continueShots: state.writingFreeContinue, // v1063：续写沿分镜说明
         );
         // v545：自由改编——系统prompt末尾追加覆盖令（v816：仅改编链）
-        if (effectiveFree) sp += PromptBuilder.freeModeOverride();
+        if (effectiveFree && !state.writingFreeContinue) {
+          sp += PromptBuilder.freeModeOverride();
+        }
         systemPrompt = sp +
             state.writerStyleBlock +
             PromptBuilder.styleNoteAsk; // v952：风格卡+搭便车沉淀
@@ -3010,7 +3023,7 @@ class _WritingPageState extends State<WritingPage>
       }
       // v812：自由续写——最近场景（si-1）原著切片喂完整；再往前（si-2）喂概述
       String sliceContext = '';
-      if (state.writingFreeMode && state.writingFreeContinue) {
+      if (state.writingFreeContinue) {
         final an = state.arcAnalyses[arcKey.toString()];
         if (an != null) {
           final k1 = si - 1;
@@ -3100,7 +3113,7 @@ class _WritingPageState extends State<WritingPage>
       }
       // v813：自由续写创作——条目注入换成统一续写语料（不再喂整条弧线条目全文）
       var wbEntriesForPrompt = state.worldBook!.entries;
-      if (state.writingFreeMode && state.writingFreeContinue) {
+      if (state.writingFreeContinue && state.writingXuFree) {
         final corpus = state.continueCorpus(arcKey.toString(), includeAnchor: false);
         if (corpus.isNotEmpty) {
           wbEntriesForPrompt = {
@@ -3236,7 +3249,7 @@ class _WritingPageState extends State<WritingPage>
               versions: versions,
               model: config.effectiveModel,
               temperature: config.temperature,
-              genMode: '逐镜 · ${state.writingFreeMode ? (state.writingFreeContinue ? '自由续写' : '自由改编') : '沿分镜'}',
+              genMode: '逐镜 · ${_genModeLabel(state)}',
             );
           }
           state.writings[wkey] = writing;
@@ -3584,7 +3597,7 @@ class _WritingPageState extends State<WritingPage>
           versions: versions,
           model: config.effectiveModel,
           temperature: config.temperature,
-          genMode: '整场景 · ${state.writingFreeMode ? (state.writingFreeContinue ? '自由续写' : '自由改编') : '沿分镜'}',
+          genMode: '整场景 · ${_genModeLabel(state)}',
         );
         state.writings[wkey] = writing;
         state.saveWritings();
@@ -4272,14 +4285,20 @@ class _WritingPageState extends State<WritingPage>
   }
 
   /// v731：txt备注行（模型·温度·逐镜/整场景·自由/标准）
+  /// v1063：创作模式标签——续写链区分沿分镜/自由续写
+  String _genModeLabel(AppState state) {
+    if (state.writingFreeContinue) {
+      return state.writingXuFree ? '自由续写' : '续写沿分镜';
+    }
+    return state.writingFreeMode ? '自由改编' : '沿分镜';
+  }
+
   /// writingModelNote开关控制；model空=不备注。复制功能不复制此行
   String? _txtNote(AppState state, {String model = '', Object? temp}) {
     if (!state.writingModelNote || model.isEmpty) return null;
     final mode = [
       state.writingShotByShot ? '逐镜' : '非逐镜',
-      state.writingFreeMode
-          ? (state.writingFreeContinue ? '自由续写' : '自由改编')
-          : '沿分镜',
+      _genModeLabel(state),
     ].join('·');
     return '[模型：$model · 温度$temp · $mode · v${AppVersion.v}]';
   }

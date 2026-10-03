@@ -139,7 +139,8 @@ class AppState extends ChangeNotifier {
   bool writingPlagiarismCheck = true; // v755：防抄袭检测开关（关=不检测不比较）
   bool writingPostCheck = true; // v758：分镜校验开关（正文是否按分镜维度创作；字数只是其中一项）
   bool writingFreeMode = false; // v545：自由创作——不注入世界书分镜结构（其余照注）
-  bool writingFreeContinue = false; // v792：自由分支二选一——true=自由续写(原著衔接链)，false=自由改编
+  bool writingFreeContinue = false; // v792：自由分支二选一——true=续写链，false=改编链
+  bool writingXuFree = false; // v1063：续写链自由子开关——false=沿分镜(条目可能有分镜)，true=自由续写
   bool writingLeanShots = false; // v592：精简分镜
   int writingShotStep = 1; // v642：逐镜批量步进（每次API生成N镜，1=传统逐镜）——屏蔽投放信息/文笔节奏/语感/笔墨（v612转场手法移出：它是镜间衔接指令）
   bool writingModelNote = true; // v870：默认开（用户实测flag丢失=txt备注消失，备注应是默认行为）
@@ -939,6 +940,8 @@ class AppState extends ChangeNotifier {
         storage.readFile('${p}writing_free_mode.flag') == 'true';
     writingFreeContinue =
         storage.readFile('${p}writing_free_continue.flag') == 'true'; // v792
+    writingXuFree =
+        storage.readFile('${p}writing_xu_free.flag') == 'true'; // v1063
     // v592：精简分镜开关
     writingLeanShots =
         storage.readFile('${p}writing_lean_shots.flag') == 'true';
@@ -1560,6 +1563,16 @@ class AppState extends ChangeNotifier {
       v ? 'true' : 'false',
     );
     notifyListeners(); // v597：v594补的notify插到了方法外没生效——挪进方法内
+  }
+
+  /// v1063：续写链自由子开关持久化
+  void setWritingXuFree(bool v) {
+    writingXuFree = v;
+    storage.writeFile(
+      '${storage.bookPath}writing_xu_free.flag',
+      v ? 'true' : 'false',
+    );
+    notifyListeners();
   }
 
   /// v792：自由续写分支持久化
