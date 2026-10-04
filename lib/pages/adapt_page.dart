@@ -4158,15 +4158,18 @@ return true;
     setState(() => _isGenerating = true);
     try {
       final sys = PromptBuilder.buildContinueReqSuggestSystemPrompt();
-      // v1090：注入上一个弧线条目完整九件套（此前只注入弧线标题行=帮想
+      // v1090：注入上一个弧线条目九件套（此前只注入弧线标题行=帮想
       // 无承接根基，产出质量不如聊天页——用户点名）
+      // v1100：只注头块（截到首个场景块前）——条目完整内容含全部场景的
+      // 分镜维度行=词链63785字（用户截图实测），分镜细节对帮想弧线方向无用
       String lastArcEntry = '';
       for (final a in _getAllArcs(state).reversed) {
         final ek = _arcEntryKey(state, a.number.toString());
         if (ek != null &&
             (state.worldBook?.entries[ek]?.content.trim().isNotEmpty ??
                 false)) {
-          lastArcEntry = state.worldBook!.entries[ek]!.content.trim();
+          lastArcEntry =
+              _arcEntryHeaderBlock(state.worldBook!.entries[ek]!.content);
           break;
         }
       }
