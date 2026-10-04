@@ -3954,8 +3954,10 @@ return true;
             ? ''
             : (state.worldBook?.entries[prevEntryKey]?.content ?? '').trim();
         if (prevEntryContent.isNotEmpty) {
+          // v1101：只注头块（九件套区）——条目全量含全部场景分镜维度行
+          // =词链90136字（用户截图实测），分镜细节对弧线草稿无用
           blocks.add('【上一弧线条目（弧线$prevNum——概述/人设/矛盾/伏笔/情绪曲线/脑洞，'
-              '新弧线必须承接其收束状态与未回收伏笔）】\n$prevEntryContent');
+              '新弧线必须承接其收束状态与未回收伏笔）】\n${_arcEntryHeaderBlock(prevEntryContent)}');
         }
         final prevScenes =
             state.arcAnalyses['$prevNum']?.scenes ?? state.arcScenes['$prevNum'] ?? const [];
