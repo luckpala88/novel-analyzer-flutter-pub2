@@ -1906,17 +1906,24 @@ return true;
                             if (ctl.text != draft) {
                               ctl.text = draft;
                             }
+                            final written =
+                                _writtenDraftKeys.contains('arc_entry_$draftNum');
                             return Padding(
                               padding:
                                   const EdgeInsets.symmetric(vertical: 6),
                               child: Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFFFF8E7),
+                                  color: written
+                                      ? const Color(0xFFE8F5E9)
+                                      : const Color(0xFFFFF8E7),
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
-                                    color: const Color(0xFFB45309)
-                                        .withOpacity(0.35),
+                                    color: written
+                                        ? const Color(0xFF2E7D32)
+                                            .withOpacity(0.45)
+                                        : const Color(0xFFB45309)
+                                            .withOpacity(0.35),
                                   ),
                                 ),
                                 child: Column(
@@ -1924,7 +1931,9 @@ return true;
                                       CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      '📄 弧线$draftNum条目草稿（审阅确认后再写入）',
+                                      written
+                                          ? '📄 弧线$draftNum条目草稿（✓已写入世界书）'
+                                          : '📄 弧线$draftNum条目草稿（审阅确认后再写入）',
                                       style: const TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w700,
@@ -2992,18 +3001,29 @@ return true;
     final ctl = _sceneEntryDraftCtl.putIfAbsent(
         arcKey, () => TextEditingController(text: draft));
     if (ctl.text != draft) ctl.text = draft; // v1038同款：差异同步防滞留
+    final written =
+        _writtenDraftKeys.contains('scene_entry_$arcKey');
     return Container(
       margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF8E7),
+        color: written
+            ? const Color(0xFFE8F5E9)
+            : const Color(0xFFFFF8E7),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFB45309).withOpacity(0.35)),
+        border: Border.all(
+          color: written
+              ? const Color(0xFF2E7D32).withOpacity(0.45)
+              : const Color(0xFFB45309).withOpacity(0.35),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('📄 场景条目草稿（审阅确认后再写入）',
+          Text(
+              written
+                  ? '📄 场景条目草稿（✓已写入世界书）'
+                  : '📄 场景条目草稿（审阅确认后再写入）',
               style: TextStyle(
                   fontSize: _cf(12.5),
                   fontWeight: FontWeight.w600,
@@ -3128,15 +3148,11 @@ return true;
       entry.content =
           '${entry.content.substring(0, target.start)}$head\n$plan\n${entry.content.substring(end)}';
       state.saveWorldBook();
-      // v1046：写入后自动清空分镜规划草稿（防重复写入；下次生成从头开始）
-      final ck = '${arcKey}_$planNum';
-      state.worldBook?.continuePlans.remove('shot_plan_${arcKey}_$planNum');
-      _shotPlanDraftCtl[ck]?.clear();
-      _shotPlanPreviewOpen.removeWhere((k) => k.startsWith('$ck-'));
-      state.saveWorldBook();
+      // v1089：写入后保留分镜规划草稿（用户手动清空即可）——绿框标记已写入
+      _writtenDraftKeys.add('shot_plan_${arcKey}_$planNum');
       if (mounted) setState(() {});
       _addLog('✓ 场景$planNum分镜已${overwrite ? "覆盖重写" : "写入"}条目（${plan.length}字）'
-          '——创作页该场景走沿分镜模式，分镜草稿已清空');
+          '——创作页该场景走沿分镜模式');
     } else {
       entry.content = '${entry.content.trimRight()}\n\n$plan\n';
       state.saveWorldBook();
@@ -3156,13 +3172,21 @@ return true;
     final ctl =
         _shotPlanDraftCtl.putIfAbsent(ck, () => TextEditingController(text: plan));
     if (ctl.text != plan) ctl.text = plan;
+    final written =
+        _writtenDraftKeys.contains('shot_plan_${arcKey}_$sceneNum');
     return Container(
       margin: const EdgeInsets.only(top: 4, left: 10),
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF8E7),
+        color: written
+            ? const Color(0xFFE8F5E9)
+            : const Color(0xFFFFF8E7),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFFB45309).withOpacity(0.35)),
+        border: Border.all(
+          color: written
+              ? const Color(0xFF2E7D32).withOpacity(0.45)
+              : const Color(0xFFB45309).withOpacity(0.35),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3170,7 +3194,9 @@ return true;
           _CollapseReqField(
             prefKey: 'shot_plan_draft_$ck',
             controller: ctl,
-            labelText: '分镜规划草稿（可手改）',
+            labelText: written
+                ? '分镜规划草稿（✓已写入条目，可手改）'
+                : '分镜规划草稿（可手改）',
             hintText: '',
             fontSize: 10.5,
             onChanged: (v) => state.worldBook?.continuePlans[planKey] = v,
@@ -3401,6 +3427,7 @@ return true;
           TextCleaner.stripQuotedFragment(result.content)));
       state.worldBook!.continuePlans[planKey] = plan;
       state.saveWorldBook();
+      _writtenDraftKeys.remove(planKey); // v1089：新稿重置已写入标记
       // v1055：编排自审——不合格推翻重做（failReason非空=第二稿不再审防循环）
       if (state.choreoSelfReview && failReason == null) {
         final v2 = await _choreoSelfReview(
@@ -3417,6 +3444,7 @@ return true;
         if (v2.isNotEmpty && v2.trim() != plan.trim()) {
           state.worldBook!.continuePlans[planKey] = v2;
           state.saveWorldBook();
+          _writtenDraftKeys.remove(planKey); // v1089
         }
       }
       _addLog('✓ 分镜规划完成（${(state.worldBook!.continuePlans[planKey] ?? '').length}字）——场景卡内确认后点📝写入条目落世界书');
@@ -3605,6 +3633,7 @@ return true;
       }
       state.worldBook!.continuePlans['scene_entry_$arcKey'] = source;
       state.saveWorldBook();
+      _writtenDraftKeys.remove('scene_entry_$arcKey'); // v1089：新稿重置已写入标记
       _addLog('✓ 新场景条目草稿已生成（${source.length}字）——下方审阅框可手改，'
           '确认后点📝场景条目写入世界书');
     } finally {
@@ -3751,19 +3780,10 @@ return true;
       }
     }
     state.saveWorldBook();
-    // v1039/v1046：写入后清草稿+规划raw/opt/素材（防重复写入；下次生成从头开始）
-    state.worldBook?.continuePlans.remove('scene_entry_$arcKey');
-    _sceneEntryDraftCtl[arcKey]?.clear();
-    state.worldBook?.continuePlans.remove(_plannerRawKey(arcKey));
-    _scenePlanRawCtrl[arcKey]?.clear();
-    state.worldBook?.continuePlans.remove(_plannerOptKey(arcKey));
-    _scenePlanOptCtrl[arcKey]?.clear();
-    state.worldBook?.continuePlans.remove(_plannerMatKey(arcKey));
-    _scenePlanMatCtrl[arcKey]?.clear();
-    state.saveWorldBook();
+    // v1089：写入后保留草稿/规划框内容（用户手动清空即可）——绿框标记已写入
+    _writtenDraftKeys.add('scene_entry_$arcKey');
     if (mounted) setState(() {});
     _addLog('📖 写入完成：新增$added/修订$replaced个场景条目（无正文）——创作页出现待创作场景，正文在创作页完成');
-    _addLog('ℹ️ 场景条目草稿与规划框已清空——下次生成从头开始');
   }
 
   /// v826：写入前AI细化——对勾选的场景规划做终审：完善补充+剔除毒点后再落世界书
@@ -3975,6 +3995,7 @@ return true;
       // FAIL路径首稿从未写入+??不防空串=推翻重做后草稿0字，日志实测）
       state.worldBook!.continuePlans['arc_entry_$newNum'] = content;
       state.saveWorldBook();
+      _writtenDraftKeys.remove('arc_entry_$newNum'); // v1089：新稿重置已写入标记
       // v1048/v1052：编排自审——不合格推翻重做（failReason非空=第二稿不再审防循环）
       if (state.choreoSelfReview && failReason == null) {
         final v2 = await _choreoSelfReview(
@@ -4058,15 +4079,8 @@ return true;
       state.saveArcScan();
       if (mounted) setState(() {}); // 刷新各处弧线列表
       _addLog('✓ 弧线$newNum已写入世界书（${content.length}字，审阅后手动写入）——弧线/场景续写列表已同步');
-      // v1046：写入后自动清空——草稿+全局方向（方便下一次生成）
-      state.worldBook?.continuePlans.remove('arc_entry_$newNum');
-      _arcEntryDraftCtl['$newNum']?.clear();
-      state.worldBook?.continueReq = '';
-      _contReqRawCtrl.clear();
-      state.worldBook?.continuePlans.remove('req_opt');
-      _contReqOptCtrl.clear();
-      _reqOptChecked = false;
-      state.saveWorldBook();
+      // v1089：写入后保留框内容（用户手动清空即可）——绿框标记已写入
+      _writtenDraftKeys.add('arc_entry_$newNum');
       if (mounted) setState(() {});
       _addLog('ℹ️ 弧线条目草稿与全局续写方向已清空——下次生成从头开始');
   }
@@ -4535,6 +4549,9 @@ return true;
   final Set<String> _contArcExpanded = {};
   // v1035：弧线条目草稿手改控制器（per-弧线号）
   final Map<String, TextEditingController> _arcEntryDraftCtl = {};
+  // v1089：写入世界书后草稿框保留内容（不再自动清空，用户手动清）——
+  // 本集合作绿框+已写入标记，key=continuePlans同款（arc_entry_N/scene_entry_K/shot_plan_K_N）
+  final Set<String> _writtenDraftKeys = {};
   // v1039：场景条目草稿手改控制器（per-弧线号）
   final Map<String, TextEditingController> _sceneEntryDraftCtl = {};
   // v1039：分镜规划草稿手改控制器（per-弧线_场景）
