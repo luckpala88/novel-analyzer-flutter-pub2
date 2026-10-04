@@ -3270,6 +3270,11 @@ return true;
     return t
         .split('\n')
         .map((line) {
+          // v1093：分镜编号壳头（"分镜1": { / "分镜1":, / 分镜1: {）→"分镜1："
+          // 用户实测AI漂移形态：键带引号+值是{开口（非合法JSON，v1087净化器不识别）
+          final hm = RegExp(r'^\s*"?分镜(\d+)"?\s*:\s*[\{,]?\s*$')
+              .firstMatch(line);
+          if (hm != null) return '分镜${hm.group(1)!}：';
           final m = RegExp(r'^\s*"([^"]+?)"\s*:\s*"(.*)"\s*,?\s*$')
               .firstMatch(line);
           if (m == null) return line;
@@ -3288,6 +3293,9 @@ return true;
           final t = line.trim();
           if (t == '[' || t == ']' || t == '{' || t == '}') return false;
           if (RegExp(r'^[\]},]+,?$').hasMatch(t)) return false;
+          if (RegExp(r'^"[^"]*"\s*:\s*[\[{]\s*,?\s*$').hasMatch(t)) {
+            return false; // v1093：非分镜键的JSON壳头（"xxx": {）一并剥除
+          }
           return true;
         })
         .join('\n');
