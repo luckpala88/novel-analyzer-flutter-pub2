@@ -2263,15 +2263,28 @@ return true;
         return draft;
       }
       final out = TextCleaner.normalizeAiOutput(result.content).trim();
-      if (out.toUpperCase().startsWith('PASS')) {
+      final parsed = _parseSelfReviewOut(out);
+      if (parsed != null && parsed.key == 'PASS') {
         _addLog('✅ 编排自审通过');
         return draft;
       }
-      if (out.toUpperCase().startsWith('FAIL')) {
-        final reason = out.substring(4).trim();
+      if (parsed != null && parsed.key == 'FAIL') {
+        final reason = parsed.value;
         _addLog('⛔ 编排自审不合格——推翻重来');
         if (reason.isNotEmpty) _addLog('自审意见：$reason');
-        final v2 = await regenerate(reason);
+        // v1103：重写失败/未产出新稿=报错终止让用户重试，禁止静默回退一稿
+        // （用户裁决2026-10-05：有审核意见就不许用一稿）
+        String v2;
+        try {
+          v2 = await regenerate(reason);
+        } catch (e) {
+          _addLog('⛔ 重写调用失败——本轮终止，请重试');
+          rethrow;
+        }
+        if (v2.trim().isEmpty || v2.trim() == draft.trim()) {
+          _addLog('⛔ 重写未产出新稿——本轮终止，请重试');
+          throw Exception('编排自审不合格且重写未生效——请重试');
+        }
         _addLog('✅ 已按自审意见推翻重做（第二稿直接采纳）');
         return v2;
       }
@@ -4686,16 +4699,17 @@ return true;
         return draft;
       }
       final out = TextCleaner.normalizeAiOutput(result.content).trim();
-      if (out.toUpperCase().startsWith('PASS')) {
+      final parsed = _parseSelfReviewOut(out);
+      if (parsed != null && parsed.key == 'PASS') {
         _addLog('✅ 编排自审通过（$kind）');
         return draft;
       }
-      if (!out.toUpperCase().startsWith('FAIL')) {
+      if (parsed == null || parsed.key != 'FAIL') {
         _addLog('ℹ️ 自审输出不规范（未带PASS/FAIL头）——按首稿采纳');
       _addLog('自审原文前200字：${out.length > 200 ? '${out.substring(0, 200)}…' : out}');
         return draft;
       }
-      final reason = out.substring(4).trim();
+      final reason = parsed.value;
       _addLog('⛔ 编排自审不合格（$kind）——带意见修订一次');
       if (reason.isNotEmpty) _addLog('自审意见：$reason');
       final reviseSys = '你是网文主编。根据审核意见修订以下$kind内容：'
@@ -4711,8 +4725,9 @@ return true;
         apiConfig: config,
       );
       if (!revised.isSuccess) {
-        _addLog('⚠️ 修订请求失败——按首稿采纳');
-        return draft;
+        // v1103：修订失败=报错终止让用户重试，不静默回退一稿（用户裁决2026-10-05）
+        _addLog('⛔ 修订请求失败——本轮终止，请重试');
+        throw Exception('编排自审不合格且修订失败——请重试');
       }
       final body = TextCleaner.stripQuotedFragment(
         TextCleaner.decodeLiteralNewlines(
@@ -4725,8 +4740,8 @@ return true;
         ),
       ).trim();
       if (body.length < draft.length ~/ 3) {
-        _addLog('⚠️ 修订稿异常偏短——按首稿采纳');
-        return draft;
+        _addLog('⛔ 修订稿异常偏短——本轮终止，请重试');
+        throw Exception('编排自审修订稿异常偏短——请重试');
       }
       _addLog('✅ 已按自审意见修订（${body.length}字，修订稿直接采纳）');
       return body;
@@ -8391,4 +8406,22 @@ class _TabKeepAliveState extends State<_TabKeepAlive>
     super.build(context);
     return widget.child;
   }
+}
+
+/// v1103：自审输出剥壳——AI常把判定写成"result：FAIL"/"status：FAIL"（v1102日志
+/// 实证，JSON壳污染同族），原startsWith('FAIL')解析不到→判不规范→重写链路从未生效。
+/// 返回(判定, 意见)；真无判定返回null。
+MapEntry<String, String>? _parseSelfReviewOut(String raw) {
+  final upper = raw.toUpperCase();
+  if (upper.startsWith('PASS')) return const MapEntry('PASS', '');
+  if (upper.startsWith('FAIL')) return MapEntry('FAIL', raw.substring(4).trim());
+  final m = RegExp(r'(?:result|status|结论|判定|verdict)\s*[:：]\s*(pass|fail)',
+          caseSensitive: false)
+      .firstMatch(raw);
+  if (m == null) return null;
+  final reason = raw
+      .substring(m.end)
+      .trim()
+      .replaceAll(RegExp(r'^["“”\s]+|["“”\s]+$'), '');
+  return MapEntry(m.group(1)!.toUpperCase(), reason);
 }
