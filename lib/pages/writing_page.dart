@@ -119,7 +119,7 @@ class _WritingPageState extends State<WritingPage>
       r'^[^\u4e00-\u9fa5\n]*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|镜头子类型|叙述|语感|笔墨|语感锚|笔墨配额|叙事功能|段落|Paras|手法)(\s*[(（][A-Za-z /]+[)）])?\s*(/\s*[A-Za-z /]+)?\s*[：:]',
     );
     final enRe = RegExp(
-      r'^[^\u4e00-\u9fa5\n]*(Focus|Shot Type|POV|Info|Intent|Transition|Length|Prose Style|Abstract|Voice|Ink)\s*[：:]',
+      r'^[^\u4e00-\u9fa5\n]*(Focus|Shot Type|POV|Info|Intent|Transition|Length|Prose Style|Abstract|Voice|Ink|Trick)\s*[：:]',
       caseSensitive: false,
     );
     for (var i = 0; i < lines.length; i++) {
@@ -4797,7 +4797,7 @@ class _WritingPageState extends State<WritingPage>
       // 换共享判定dimValuePolluted（>200字或≥3句读），60字误伤语感例句
       // /笔墨配额等真长维度值=用户实测'功能抽象内容反过来混入正文'
       final fld = RegExp(
-        r'^[^\u4e00-\u9fa5\n]*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|语感|笔墨|语感锚|笔墨配额|叙事功能|段落|Paras|文风|手法)(\s*[(（][A-Za-z /]+[)）])?\s*[：:]\s*(.*)',
+        r'^[^\u4e00-\u9fa5\n]*(投放信息|投放|作者意图|意图|转场手法|转场|篇幅|文笔节奏|功能抽象|焦点|镜头类型|视角|语感|笔墨|语感锚|笔墨配额|叙事功能|段落|Paras|文风|手法|Trick)(\s*[(（][A-Za-z /]+[)）])?\s*[：:]\s*(.*)',
       ).firstMatch(t);
       // v703：文风行豁免——三段式例句合法含句读，误判污染会剥标签把
       // 质感=…|标尺=…|例句=…整段漏进正文（用户截图实证，与txt导出同款）
@@ -4805,7 +4805,7 @@ class _WritingPageState extends State<WritingPage>
       // 天然含多个冒号引号且常超200字，被dimValuePolluted误判污染→剥标签
       // 按正文渲染（截图实证：🎭手法/Trick标签消失无法识别）
       final isStyleDim =
-          {'文风', '手法'}.contains(fld?.group(1) ?? '');
+          {'文风', '手法', 'Trick'}.contains(fld?.group(1) ?? '');
       if (fld != null &&
           !isStyleDim &&
           TextCleaner.dimValuePolluted(fld.group(3) ?? '')) {
@@ -4845,6 +4845,7 @@ class _WritingPageState extends State<WritingPage>
           '作者意图' || '意图' => '作者意图/Intent',
           '转场手法' || '转场' => '转场手法/Transition',
           '手法' => '手法/Trick', // v945：trick维度行渲染（v878加维度时漏了映射）
+          'Trick' => '手法/Trick', // v1096：AI漂移纯英文键行（用户实测认不到）
           '篇幅' => '篇幅/Length',
           '文笔节奏' => '文笔节奏/Prose Style',
           '文风' => '文风/Style', // v680：量化标尺维度行进分镜卡
@@ -4861,6 +4862,7 @@ class _WritingPageState extends State<WritingPage>
           '作者意图' || '意图' => ('💡', const Color(0xFF92400E)),
           '转场手法' || '转场' => ('✂️', const Color(0xFF0F766E)),
           '手法' => ('🎭', const Color(0xFF9D174D)), // v945：trick渲染映射
+          'Trick' => ('🎭', const Color(0xFF9D174D)), // v1096
           '篇幅' => ('📏', const Color(0xFF7C3AED)),
           '文笔节奏' => ('✍', const Color(0xFFDB2777)),
           '文风' => ('📊', const Color(0xFF6D28D9)), // v680
