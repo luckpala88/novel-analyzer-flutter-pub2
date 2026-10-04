@@ -2275,7 +2275,8 @@ return true;
         _addLog('✅ 已按自审意见推翻重做（第二稿直接采纳）');
         return v2;
       }
-      _addLog('ℹ️ 自审输出不规范——按首稿采纳');
+      _addLog('ℹ️ 自审输出不规范（未带PASS/FAIL头）——按首稿采纳');
+      _addLog('自审原文前200字：${out.length > 200 ? '${out.substring(0, 200)}…' : out}');
       return draft;
     } finally {
       if (mounted) setState(() => _isGenerating = false);
@@ -4690,7 +4691,8 @@ return true;
         return draft;
       }
       if (!out.toUpperCase().startsWith('FAIL')) {
-        _addLog('ℹ️ 自审输出不规范——按首稿采纳');
+        _addLog('ℹ️ 自审输出不规范（未带PASS/FAIL头）——按首稿采纳');
+      _addLog('自审原文前200字：${out.length > 200 ? '${out.substring(0, 200)}…' : out}');
         return draft;
       }
       final reason = out.substring(4).trim();
