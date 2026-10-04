@@ -3262,6 +3262,28 @@ return true;
   /// 非JSON输入原样返回（兼容手改纯文本）
   /// v1072：JSON键值形态维度行净化——AI偶发在文本维度行中夹JSON形态行
   /// （截图实测：\"手法(Trick)\": \"特质...\"裸进条目→创作页当正文渲染）
+  /// v1094：弧线草稿净化——AI输出JSON壳漂移（用户实测弧线105标题行残留
+  /// '\"弧线105：xxx\": '形态）①标题壳行：\"弧线N：标题\": 【弧线概述】→标题换行
+  /// ②维度键值壳：\"弧线概述\": \"xxx\"→【弧线概述】：xxx；复用分镜壳剥除
+  String _normalizeArcDraft(String t) {
+    t = _normalizeJsonDimLines(t);
+    t = t.replaceFirstMapped(
+        RegExp(r'^\s*"?(弧线\d+：[^":\n]{1,60})"?\s*:\s*', multiLine: true),
+        (m) => '${m.group(1)!}\n');
+    const dims = [
+      '弧线概述', '弧线内编排', '人设', '矛盾冲突', '伏笔', '情绪曲线', '作者脑洞',
+    ];
+    t = t.split('\n').map((line) {
+      final m = RegExp(r'^\s*"([^"]+?)"\s*:\s*"?(.*?)"?\s*,?\s*$')
+          .firstMatch(line);
+      if (m == null) return line;
+      final k = m.group(1)!.trim();
+      if (!dims.any((d) => k == d || k.startsWith('$d('))) return line;
+      return '【$k】：${m.group(2)!.trim()}';
+    }).join('\n');
+    return t.trim();
+  }
+
   String _normalizeJsonDimLines(String t) {
     const dimKeys = [
       '焦点', '镜头类型', '视角', '投放信息', '作者意图', '手法', '转场手法',
@@ -4022,7 +4044,8 @@ return true;
       // 不再生成即落条目（否则内容没确认就进世界书=乱源）
       // v1035：生成内容存草稿——v1052先落库再自审（原v1048删了直接赋值行，
       // FAIL路径首稿从未写入+??不防空串=推翻重做后草稿0字，日志实测）
-      state.worldBook!.continuePlans['arc_entry_$newNum'] = content;
+      state.worldBook!.continuePlans['arc_entry_$newNum'] =
+          _normalizeArcDraft(content); // v1094：JSON壳净化
       state.saveWorldBook();
       _writtenDraftKeys.remove('arc_entry_$newNum'); // v1089：新稿重置已写入标记
       // v1048/v1052：编排自审——不合格推翻重做（failReason非空=第二稿不再审防循环）
@@ -4041,7 +4064,8 @@ return true;
           },
         );
         if (v2.isNotEmpty && v2.trim() != content.trim()) {
-          state.worldBook!.continuePlans['arc_entry_$newNum'] = v2;
+          state.worldBook!.continuePlans['arc_entry_$newNum'] =
+              _normalizeArcDraft(v2); // v1094
           state.saveWorldBook();
         }
       }
@@ -4071,8 +4095,10 @@ return true;
       return;
     }
     final wb = state.worldBook!;
+    // v1094：写入兜底净化——v1093前的草稿可能带JSON壳残留，重写即洗净
+    final clean = _normalizeArcDraft(content);
     final uid = 'continue_arc$newNum';
-    final titleM = RegExp(r'弧线\d+：(.+)').firstMatch(content);
+    final titleM = RegExp(r'弧线\d+：(.+)').firstMatch(clean);
       // v970：标题截断到【——AI可能把【弧线概述】连在标题行（截图实证：
       // 标题含整段概述→卡片大字重复概述两遍），条目名/列表名都只要纯标题
       String? _t = titleM?.group(1)?.trim();
@@ -4082,7 +4108,7 @@ return true;
         uid: uid,
         key: '续弧线$newNum',
         comment: _t ?? '续写弧线$newNum',
-        content: content,
+        content: clean,
         arcKey: '$newNum',
         disable: false,
       );
@@ -4094,7 +4120,7 @@ return true;
       final arcTitle = _t ?? '续写弧线$newNum';
       // v786：概述截到下一个【标记（AI可能把【人设】连在同一行）+硬上限250字——列表只留概述
       final ovM = RegExp(r'【弧线概述】[：:]?\s*([\s\S]*?)(?=【|\n场景\d|$)')
-          .firstMatch(content);
+          .firstMatch(clean);
       state.arcScan!.arcs.removeWhere((a) => a.number == newNum); // 幂等：重加覆盖
       state.arcScan!.arcs.add(Arc(
         number: newNum,
