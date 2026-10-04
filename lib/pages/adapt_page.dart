@@ -3483,10 +3483,7 @@ return true;
     final arcKey = arc?.number.toString() ?? '1';
     final raw =
         (state.worldBook?.continuePlans[_plannerRawKey(arcKey)] ?? '').trim();
-    if (raw.isEmpty) {
-      _addLog('❌ 先填写新场景规划');
-      return;
-    }
+    // v1092：去掉空输入限制——不填规划=AI按前文自拟新场景设想
     final entryKey = _arcEntryKey(state, arcKey);
     if (entryKey == null) {
       _addLog('❌ 弧线$arcKey还没有世界书条目——先在改编模式生成原样世界书');
@@ -3509,7 +3506,9 @@ return true;
     state.userAborted = false;
     setState(() => _isGenerating = true);
     try {
-      _addLog('🤖 帮想新场景规划中（场景$nextNum起编）…');
+      _addLog(raw.isEmpty
+          ? '🤖 未填规划——AI按前文自拟新场景设想（场景$nextNum起编）…'
+          : '🤖 帮想新场景规划中（场景$nextNum起编）…');
       // v807：工作台永远添加新场景，去掉同号修订规则（简化）
       // v825：放开v806单场景限制——允许多场景规划（不需要的写入前删行/写入后可删场景条目）
       // v1047：优化键=初步设想阶段（不落地）——落地由⚙生成草稿的细化完成，
@@ -3529,7 +3528,7 @@ return true;
       final usr = '【本弧线规划（弧线$arcKey条目——场景必须承接此弧线的概述/人设/矛盾/伏笔/情绪曲线/脑洞）】\n${entry.content.trim()}\n\n'
           '【续写语料（锚点/本弧线零件/已规划场景/前情概述/未回收伏笔/人物基准——人物与设定以此为准，禁止自拟新人物新设定）】\n${state.continueCorpus(arcKey)}\n\n'
           '${_matBlock(state, arcKey)}'
-          '【用户新场景规划】\n$raw\n\n'
+          '【用户新场景规划】\n${raw.isEmpty ? '（未填写——依据本弧线规划与续写语料自行设计接下来的新场景，从当前进度自然衔接）' : raw}\n\n'
           '${state.writerStyleBlock.isEmpty ? '' : '${state.writerStyleBlock}\n\n'}'
           '【起始场景编号】N=$nextNum';
       // v783：词链检查
@@ -4109,10 +4108,7 @@ return true;
 
   Future<void> _continueOptimizeReq(AppState state) async {
     final dir = state.worldBook?.continueReq.trim() ?? '';
-    if (dir.isEmpty) {
-      _addLog('❌ 先填写全局续写方向');
-      return;
-    }
+    // v1092：去掉空输入限制——不填方向=AI按前文自拟新弧线方向
     final config = state.getApiConfig('wb');
     setState(() => _isGenerating = true);
     try {

@@ -1793,7 +1793,9 @@ class PromptBuilder {
   }) {
     final sb = StringBuffer();
     sb.writeln('【续写方向（底稿）】');
-    sb.writeln(direction.trim().isEmpty ? '（未填写）' : direction.trim());
+    sb.writeln(direction.trim().isEmpty
+        ? '（未填写——请依据上一个弧线条目与当前进度自行设计新弧线方向，遵循故事逻辑与原著风格）'
+        : direction.trim());
     sb.writeln();
     sb.writeln('【当前进度】');
     sb.writeln(progress);
