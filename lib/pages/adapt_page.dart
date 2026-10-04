@@ -1886,17 +1886,18 @@ return true;
                           }
                           // v1035/v1038：弧线条目草稿审阅框（精确slot+控制器内容同步）
                           if (i == allArcs.length + 2) {
-                            final draftNum =
-                                (allArcs.isEmpty ? 0 : allArcs.last.number) +
-                                    1;
-                            final draft =
-                                (state.worldBook?.continuePlans[
-                                        'arc_entry_$draftNum'] ??
-                                        '')
-                                    .trim();
-                            if (draft.isEmpty) {
-                              return const SizedBox.shrink();
-                            }
+                            // v1091：渲染所有非空弧线草稿卡（写入后保留显示）——
+                            // 旧slot只读"下一弧线号"草稿，写入后弧线列表+1=
+                            // slot找空key=卡片整体消失（数据仍在continuePlans）
+                            Widget card(int draftNum) {
+                              final draft =
+                                  (state.worldBook?.continuePlans[
+                                          'arc_entry_$draftNum'] ??
+                                          '')
+                                      .trim();
+                              if (draft.isEmpty) {
+                                return const SizedBox.shrink();
+                              }
                             // v1038：重新生成后同步控制器内容（putIfAbsent只建一次
                             // =旧内容滞留不刷新，用户实测；未聚焦才覆盖防打断输入）
                             final ctl = _arcEntryDraftCtl.putIfAbsent(
@@ -1970,6 +1971,27 @@ return true;
                                   ],
                                 ),
                               ),
+                            );
+                            }
+
+                            final plans = state.worldBook?.continuePlans ??
+                                const <String, String>{};
+                            final draftNums = <int>[];
+                            for (final k in plans.keys) {
+                              final m =
+                                  RegExp(r'^arc_entry_(\d+)$').firstMatch(k);
+                              if (m == null) continue;
+                              if ((plans[k] ?? '').trim().isEmpty) continue;
+                              draftNums.add(int.parse(m.group(1)!));
+                            }
+                            if (draftNums.isEmpty) {
+                              return const SizedBox.shrink();
+                            }
+                            draftNums.sort();
+                            return Column(
+                              children: [
+                                for (final n in draftNums) card(n),
+                              ],
                             );
                           }
                           return _buildContinueArcCard(
@@ -4082,7 +4104,6 @@ return true;
       // v1089：写入后保留框内容（用户手动清空即可）——绿框标记已写入
       _writtenDraftKeys.add('arc_entry_$newNum');
       if (mounted) setState(() {});
-      _addLog('ℹ️ 弧线条目草稿与全局续写方向已清空——下次生成从头开始');
   }
 
 
