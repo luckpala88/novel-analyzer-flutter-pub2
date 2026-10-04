@@ -3262,6 +3262,34 @@ return true;
   /// 非JSON输入原样返回（兼容手改纯文本）
   /// v1072：JSON键值形态维度行净化——AI偶发在文本维度行中夹JSON形态行
   /// （截图实测：\"手法(Trick)\": \"特质...\"裸进条目→创作页当正文渲染）
+  /// v1097：原著分镜info事件链——从拆解数据提炼每镜投放信息一行，
+  /// 给帮想提供具体事件种子（帮想凭空推=套路骨架，用户实测不如聊天）
+  String _shotInfoChainText(AppState state, List<int> arcNums,
+      {int maxLines = 30}) {
+    final buf = StringBuffer();
+    var n = 0;
+    for (final num in arcNums) {
+      final an = state.arcAnalyses[num.toString()];
+      if (an == null) continue;
+      var wroteHead = false;
+      for (final sc in an.scenes) {
+        if (sc.shots.isEmpty) continue;
+        if (!wroteHead) {
+          buf.writeln('场景「${sc.name}」：');
+          wroteHead = true;
+        }
+        for (final sh in sc.shots) {
+          final info = sh.info.trim();
+          if (info.isEmpty) continue;
+          buf.writeln('- $info');
+          n++;
+          if (n >= maxLines) return buf.toString();
+        }
+      }
+    }
+    return buf.toString();
+  }
+
   /// v1094：弧线草稿净化——AI输出JSON壳漂移（用户实测弧线105标题行残留
   /// '\"弧线105：xxx\": '形态）①标题壳行：\"弧线N：标题\": 【弧线概述】→标题换行
   /// ②维度键值壳：\"弧线概述\": \"xxx\"→【弧线概述】：xxx；复用分镜壳剥除
@@ -3558,6 +3586,7 @@ return true;
       final usr = '【本弧线规划（弧线$arcKey条目——场景必须承接此弧线的概述/人设/矛盾/伏笔/情绪曲线/脑洞）】\n${entry.content.trim()}\n\n'
           '【续写语料（锚点/本弧线零件/已规划场景/前情概述/未回收伏笔/人物基准——人物与设定以此为准，禁止自拟新人物新设定）】\n${state.continueCorpus(arcKey)}\n\n'
           '${_matBlock(state, arcKey)}'
+          '${_shotInfoChainText(state, [int.tryParse(arcKey) ?? 0, (int.tryParse(arcKey) ?? 0) - 1]).isEmpty ? '' : '【原著分镜事件链（本弧线拆解——新场景剧情的事件密度以此为准）】\n${_shotInfoChainText(state, [int.tryParse(arcKey) ?? 0, (int.tryParse(arcKey) ?? 0) - 1])}\n\n'}'
           '【用户新场景规划】\n${raw.isEmpty ? '（未填写——依据本弧线规划与续写语料自行设计接下来的新场景，从当前进度自然衔接）' : raw}\n\n'
           '${state.writerStyleBlock.isEmpty ? '' : '${state.writerStyleBlock}\n\n'}'
           '【起始场景编号】N=$nextNum';
@@ -4160,10 +4189,17 @@ return true;
           break;
         }
       }
+      // v1097：注入原著分镜事件链（帮想事件种子——禁套路化空推）
+      final origNums = <int>[
+        for (final a in _getAllArcs(state).reversed)
+          if (a.chapterRange != '续写') a.number,
+      ];
+      final shotChain = _shotInfoChainText(state, origNums.take(2).toList());
       final usr = PromptBuilder.buildContinueReqSuggestUserPrompt(
         direction: dir,
         progress: _continueProgressAll(state, _getAllArcs(state)),
         lastArcEntry: lastArcEntry,
+        shotChain: shotChain,
       );
       // v783：词链检查
       final okSend = await PromptPreview.maybePreview(

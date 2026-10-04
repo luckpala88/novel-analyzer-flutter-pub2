@@ -3192,6 +3192,23 @@ class _WritingPageState extends State<WritingPage>
               an.scenes[k2].summary.trim().isNotEmpty) {
             sliceContext += '【前二场景概述】\n${an.scenes[k2].summary.trim()}\n\n';
           }
+        } else {
+          // v1097：续写弧线无原著拆解（an==null）——取原著最近有拆解弧线的
+          // 尾场景正文做讲法实况参照（改编好=有原著实况托底，续写此前全凭
+          // 层层推演的抽象指令硬写=结论性流水账；只学讲法，剧情以规划为准）
+          for (final a in (state.arcScan?.arcs ?? const <Arc>[]).reversed) {
+            if (a.chapterRange == '续写') continue;
+            final aan = state.arcAnalyses[a.number.toString()];
+            if (aan == null) continue;
+            final scenes = aan.scenes
+                .where((sc) => sc.text.trim().isNotEmpty)
+                .toList();
+            if (scenes.isEmpty) continue;
+            final t = scenes.last.text.trim();
+            sliceContext +=
+                '【原著讲法实况参照（只学表述密度/对话节奏/细节呈现——剧情严格以续写规划为准）】\n${t.length > 2500 ? t.substring(t.length - 2500) : t}\n\n';
+            break;
+          }
         }
       }
       // v469对齐：弧线标题（从扫描结果找）
