@@ -4189,18 +4189,12 @@ return true;
           break;
         }
       }
-      // v1097：注入原著分镜事件链（帮想事件种子——禁套路化空推）
-      final origNums = <int>[
-        for (final a in _getAllArcs(state).reversed)
-          if (a.chapterRange != '续写') a.number,
-      ];
-      final shotChain = _shotInfoChainText(state, origNums.take(2).toList());
       final usr = PromptBuilder.buildContinueReqSuggestUserPrompt(
         direction: dir,
         progress: _continueProgressAll(state, _getAllArcs(state)),
         lastArcEntry: lastArcEntry,
-        shotChain: shotChain,
-      );
+      ); // v1098：剔除v1097分镜事件链注入（上一弧线条目已含编排块，再注
+      // 分镜链输入爆炸——用户词链实测点名剔除）
       // v783：词链检查
       final okSend = await PromptPreview.maybePreview(
         context,
@@ -4215,7 +4209,8 @@ return true;
       }
       final r = await state.api.callApi(
         task: '续写规划优化',  // v824任务级反馈
-        systemPrompt: sys,
+        systemPrompt: sys +
+            state.writerStyleBlock, // v1098：作家档案注入（此前缺失=帮想无创作方法）
         userPrompt: usr,
         apiConfig: config,
       );

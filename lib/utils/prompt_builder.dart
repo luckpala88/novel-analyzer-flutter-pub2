@@ -1791,7 +1791,6 @@ class PromptBuilder {
     required String direction,
     required String progress,
     String lastArcEntry = '',
-    String shotChain = '',
   }) {
     final sb = StringBuffer();
     sb.writeln('【续写方向（底稿）】');
@@ -1805,11 +1804,6 @@ class PromptBuilder {
       sb.writeln();
       sb.writeln('【上一个弧线条目（完整——新弧线的人物/矛盾/伏笔承接以此为准）】');
       sb.writeln(lastArcEntry.trim());
-    }
-    if (shotChain.trim().isNotEmpty) {
-      sb.writeln();
-      sb.writeln('【原著分镜事件链（从原著拆解提炼的具体事件——帮想剧情的事件密度以此为准，禁止套路化空推）】');
-      sb.writeln(shotChain.trim());
     }
     return sb.toString();
   }
