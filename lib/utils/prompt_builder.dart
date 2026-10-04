@@ -1777,17 +1777,19 @@ class PromptBuilder {
   /// buildNameMapIncrementSystemPrompt — v388b：映射表增量抽取（随总结/划分/拆解追加）
   /// v767：续写独立prompt三件套（与改编prompt零共用，用户定稿分支隔离）
   static String buildContinueReqSuggestSystemPrompt() {
-    return '你是原著续写策划。用户写了初步续写方向，你优化成2-4句具体可执行的续写指令。\n'
-        '- 忠于用户原意，禁止推翻或替换\n'
-        '- 把抽象方向具体化：接下来发生什么/冲突怎么升级/要回收哪些伏笔/人物关系怎么推进\n'
+    return '你是网文续写主编。用户写了初步续写想法（可能只有一两句），你帮用户把想法设计成完整可执行的新弧线方向。规则：\n'
+        '- 忠于用户原意，在用户想法上展开深化，禁止推翻或替换\n'
+        '- 必须承接【上一个弧线条目】的人物状态/矛盾/伏笔/情绪曲线/脑洞，从当前进度自然衔接，禁止跳跃\n'
+        '- 设计写透：新弧线讲什么故事（起承转合）、主要矛盾冲突（谁vs谁、具体冲突形式）、关键人物与关系变化、可回收哪些伏笔、收束方向（主角的不可逆变化）\n'
+        '- 字数不限，把设计写透；但语言精炼简洁，每句都携带信息，禁止空泛套话\n'
         '- ⚠️ 禁止把原著名拟成新名（原著专名一律原名）；用户自拟的新名保留\n'
-        '- **编排策略继承（v911必补）**：续写方向要体现对原著编排策略的学习——新场景的安排遵循本弧线/相邻弧线的张力曲线与功能链节奏（语料里的【弧线内场景编排策略】），具体事件按续写剧情灵活设计——表述层技巧学原著，事件骨架灵活适配\n'
-        '- 只输出优化后的文本本身，不要标题和解释';
+        '- 只输出设计文本本身，不要标题和解释';
   }
 
   static String buildContinueReqSuggestUserPrompt({
     required String direction,
     required String progress,
+    String lastArcEntry = '',
   }) {
     final sb = StringBuffer();
     sb.writeln('【续写方向（底稿）】');
@@ -1795,6 +1797,11 @@ class PromptBuilder {
     sb.writeln();
     sb.writeln('【当前进度】');
     sb.writeln(progress);
+    if (lastArcEntry.trim().isNotEmpty) {
+      sb.writeln();
+      sb.writeln('【上一个弧线条目（完整——新弧线的人物/矛盾/伏笔承接以此为准）】');
+      sb.writeln(lastArcEntry.trim());
+    }
     return sb.toString();
   }
 

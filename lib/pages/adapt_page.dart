@@ -2339,7 +2339,7 @@ return true;
           const SizedBox(height: 6),
           Center(
             child: MiniButton(
-              label: '🤖AI优化方向',
+              label: '🤖AI帮想新弧线',
               primary: true,
               onTap: _isGenerating ? null : () => _continueOptimizeReq(state),
             ),
@@ -2354,7 +2354,7 @@ return true;
             title: _CollapseReqField(
               prefKey: 'cont_req_opt',
               controller: _contReqOptCtrl,
-              labelText: 'AI优化后的方向（可手改，勾选后生效）',
+              labelText: 'AI帮想的新弧线方向（可手改，勾选后生效）',
               hintText: 'AI优化稿会出现在这里，可手动修改',
               fontSize: 11.5,
               onChanged: (v) {
@@ -2952,7 +2952,7 @@ return true;
           const SizedBox(height: 6),
           Center(
             child: MiniButton(
-              label: '🤖AI优化规划',
+              label: '🤖AI帮想新场景',
               primary: true,
               onTap: _isGenerating
                   ? null
@@ -2971,7 +2971,7 @@ return true;
               prefKey: 'scene_plan_opt_$arcKey',
               controller: _scenePlanOptCtrl.putIfAbsent(
                   arcKey, () => TextEditingController()),
-              labelText: 'AI优化后的规划（可手改；格式：场景N：名称｜概述…）',
+              labelText: 'AI帮想的新场景规划（可手改，勾选后生效）',
               hintText: 'AI优化稿会出现在这里，可手动修改',
               fontSize: 11.5,
               onChanged: (v) =>
@@ -3487,14 +3487,14 @@ return true;
     state.userAborted = false;
     setState(() => _isGenerating = true);
     try {
-      _addLog('🤖 优化新场景规划中（场景$nextNum起编）…');
+      _addLog('🤖 帮想新场景规划中（场景$nextNum起编）…');
       // v807：工作台永远添加新场景，去掉同号修订规则（简化）
       // v825：放开v806单场景限制——允许多场景规划（不需要的写入前删行/写入后可删场景条目）
       // v1047：优化键=初步设想阶段（不落地）——落地由⚙生成草稿的细化完成，
       // 优化键不再产出"场景N：名称｜概述"落地稿（用户实测越权干了草稿的活）
       final sys = '你是网文续写策划。任务：优化用户的初步设想——这是规划阶段，只出思路要点，'
           '落地写作由后续「生成草稿」步骤完成。输出规则：\n'
-          '1.每个设想场景一小段（2-3行），写清楚：这个场景写什么事件、出场人物、要推进什么矛盾/关系变化、'
+          '1.每个设想场景一小段，字数不限但语言精炼，写清楚：这个场景写什么事件、出场人物、要推进什么矛盾/关系变化、'
           '在节奏链中的功能(建立/铺垫/升级/转折/爆点/余波)、给后续哪场戏蓄力或回收什么\n'
           '2.必须从当前进度自然衔接，剧情朝【本弧线规划】的弧线概述收束方向推进\n'
           '3.若提供【素材】块：说明素材计划融入哪个场景、怎么融入\n'
@@ -3515,7 +3515,7 @@ return true;
         context,
         sysPrompt: sys,
         userPrompt: usr,
-        title: 'AI优化场景规划词链预览（弧线$arcKey）',
+        title: 'AI帮想新场景词链预览（弧线$arcKey）',
         enabled: state.wbPromptPreview,
       );
       if (!okSend) {
@@ -4096,16 +4096,29 @@ return true;
     setState(() => _isGenerating = true);
     try {
       final sys = PromptBuilder.buildContinueReqSuggestSystemPrompt();
+      // v1090：注入上一个弧线条目完整九件套（此前只注入弧线标题行=帮想
+      // 无承接根基，产出质量不如聊天页——用户点名）
+      String lastArcEntry = '';
+      for (final a in _getAllArcs(state).reversed) {
+        final ek = _arcEntryKey(state, a.number.toString());
+        if (ek != null &&
+            (state.worldBook?.entries[ek]?.content.trim().isNotEmpty ??
+                false)) {
+          lastArcEntry = state.worldBook!.entries[ek]!.content.trim();
+          break;
+        }
+      }
       final usr = PromptBuilder.buildContinueReqSuggestUserPrompt(
         direction: dir,
         progress: _continueProgressAll(state, _getAllArcs(state)),
+        lastArcEntry: lastArcEntry,
       );
       // v783：词链检查
       final okSend = await PromptPreview.maybePreview(
         context,
         sysPrompt: sys,
         userPrompt: usr,
-        title: 'AI优化续写方向词链预览',
+        title: 'AI帮想新弧线词链预览',
         enabled: state.wbPromptPreview,
       );
       if (!okSend) {
@@ -4135,7 +4148,7 @@ return true;
       _contReqOptCtrl.text = out; // v920：同步控制器（折叠框显示AI优化稿）
       state.saveWorldBook();
       setState(() => _reqOptChecked = true);
-      _addLog('✓ 续写方向已优化（${out.length}字）——勾选后生效');
+      _addLog('✓ 新弧线方向已生成（${out.length}字）——勾选后生效');
       if (mounted) setState(() {});
     } finally {
       if (mounted) setState(() => _isGenerating = false);
