@@ -8443,7 +8443,8 @@ MapEntry<String, String>? _parseSelfReviewOut(String raw) {
   // v1112：剥"PASS/FAIL"标签行壳——AI把格式说明带进输出首行
   // （"PASS/FAIL\nFAIL\n具体问题清单：…"日志实证），剥行后再按正文判定
   var text = raw.replaceFirst(
-      RegExp(r'^\s*["\'“”]?\s*PASS\s*/?\s*FAIL\s*["\'“”]?\s*[\n\r]+', caseSensitive: false),
+      RegExp(r'^\s*["“”]?\s*PASS\s*/?\s*FAIL\s*["“”]?\s*[\n\r]+',
+          caseSensitive: false),
       '');
   raw = text;
   final upper = raw.toUpperCase();
