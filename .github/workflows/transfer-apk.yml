@@ -105,8 +105,18 @@ jobs:
           # 后完成构建自己触发的transfer会看到无pending，负责最终清空
           TAG="${{ env.TAG }}"
           PENDING=$(curl -s -H "Authorization: token $TOKEN" "https://api.github.com/repos/${{ github.repository }}/actions/runs?head_branch=$TAG&per_page=20" | python3 -c "import json,sys; r=json.load(sys.stdin); n=[x for x in r.get('workflow_runs',[]) if x['name']!='transfer-apk' and x['status'] in ('in_progress','queued')]; print(len(n))")
+          # v1128：防状态延迟假象——Android/Windows几乎同时完成时，先完成侧的
+          # run状态可能仍显示in_progress（API落定延迟），两个transfer互相看到
+          # pending=双双跳过清镜像（v1127实证pub2堆积10个Release）。改为延迟
+          # 重查：每60秒重查一次，连续3次仍pending才跳过
+          for i in 1 2 3 4; do
+            if [ "$PENDING" = "0" ]; then break; fi
+            echo "仍有${PENDING}个构建在跑——60秒后重查（第${i}/4次，防状态延迟假象）"
+            sleep 60
+            PENDING=$(curl -s -H "Authorization: token $TOKEN" "https://api.github.com/repos/${{ github.repository }}/actions/runs?head_branch=$TAG&per_page=20" | python3 -c "import json,sys; r=json.load(sys.stdin); n=[x for x in r.get('workflow_runs',[]) if x['name']!='transfer-apk' and x['status'] in ('in_progress','queued')]; print(len(n))")
+          done
           if [ "$PENDING" != "0" ]; then
-            echo "仍有${PENDING}个构建在跑——跳过清镜像（由后完成构建触发的transfer收尾）"
+            echo "重查4次仍有${PENDING}个构建在跑——跳过清镜像（由后完成构建触发的transfer收尾）"
             exit 0
           fi
           # 转存完成后清空公共镜像：删release（连assets）→删全部tag→源码抹空（保留.github）
