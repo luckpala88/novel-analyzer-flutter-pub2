@@ -2257,28 +2257,37 @@ return true;
         _addLog('已取消自审——按首稿采纳');
         return draft;
       }
-      final result = await state.api.callApi(
-        task: '编排自审',
-        systemPrompt: sys,
-        userPrompt: usr,
-        apiConfig: config,
-      );
-      if (!result.isSuccess) {
-        _addLog('⚠️ 自审调用失败——按首稿采纳');
-        return draft;
-      }
-      final out = TextCleaner.normalizeAiOutput(result.content).trim();
-      final parsed = _parseSelfReviewOut(out);
-      if (parsed != null && parsed.key == 'PASS') {
-        _addLog('✅ 编排自审通过');
-        return draft;
-      }
-      if (parsed != null && parsed.key == 'FAIL') {
+      // v1111：审核-重写循环直到PASS才采用（用户裁决2026-10-05）——
+      // 重写稿必须再送审，上限5轮防失控烧API；仍不合格=报错终止请重试
+      String cur = draft;
+      for (var round = 1; round <= 5; round++) {
+        final usrR =
+            '${styleBlock.isEmpty ? '' : '$styleBlock\n\n'}【待审$kind编排草稿】\n$cur';
+        final result = await state.api.callApi(
+          task: '编排自审',
+          systemPrompt: sys,
+          userPrompt: usrR,
+          apiConfig: config,
+        );
+        if (!result.isSuccess) {
+          _addLog('⚠️ 自审调用失败——按当前稿采纳');
+          return cur;
+        }
+        final out = TextCleaner.normalizeAiOutput(result.content).trim();
+        final parsed = _parseSelfReviewOut(out);
+        if (parsed != null && parsed.key == 'PASS') {
+          _addLog(round == 1 ? '✅ 编排自审通过' : '✅ 复审通过（第$round轮）');
+          return cur;
+        }
+        if (parsed == null || parsed.key != 'FAIL') {
+          _addLog('ℹ️ 自审输出不规范（未带PASS/FAIL头）——按当前稿采纳');
+          _addLog('自审原文前200字：${out.length > 200 ? '${out.substring(0, 200)}…' : out}');
+          return cur;
+        }
         final reason = parsed.value;
-        _addLog('⛔ 编排自审不合格——推翻重来');
+        _addLog('⛔ 编排自审不合格（第$round轮）——推翻重来');
         if (reason.isNotEmpty) _addLog('自审意见：$reason');
-        // v1103：重写失败/未产出新稿=报错终止让用户重试，禁止静默回退一稿
-        // （用户裁决2026-10-05：有审核意见就不许用一稿）
+        // 重写失败/未产出新稿=报错终止让用户重试，禁止静默回退（v1103裁决）
         String v2;
         try {
           v2 = await regenerate(reason);
@@ -2286,16 +2295,14 @@ return true;
           _addLog('⛔ 重写调用失败——本轮终止，请重试');
           rethrow;
         }
-        if (v2.trim().isEmpty || v2.trim() == draft.trim()) {
+        if (v2.trim().isEmpty || v2.trim() == cur.trim()) {
           _addLog('⛔ 重写未产出新稿——本轮终止，请重试');
           throw Exception('编排自审不合格且重写未生效——请重试');
         }
-        _addLog('✅ 已按自审意见推翻重做（第二稿直接采纳）');
-        return v2;
+        cur = v2;
       }
-      _addLog('ℹ️ 自审输出不规范（未带PASS/FAIL头）——按首稿采纳');
-      _addLog('自审原文前200字：${out.length > 200 ? '${out.substring(0, 200)}…' : out}');
-      return draft;
+      _addLog('⛔ 自审连续5轮不合格——终止，请重试');
+      throw Exception('编排自审连续5轮不合格——请重试');
     } finally {
       if (mounted) setState(() => _isGenerating = false);
     }
@@ -4697,63 +4704,73 @@ return true;
         enabled: state.wbPromptPreview,
       );
       if (!okSend) return draft;
-      final result = await state.api.callApi(
-        task: '改编自审',
-        systemPrompt: sys,
-        userPrompt: usr,
-        apiConfig: config,
-      );
-      if (!result.isSuccess) {
-        _addLog('⚠️ 自审调用失败——按首稿采纳');
-        return draft;
-      }
-      final out = TextCleaner.normalizeAiOutput(result.content).trim();
-      final parsed = _parseSelfReviewOut(out);
-      if (parsed != null && parsed.key == 'PASS') {
-        _addLog('✅ 编排自审通过（$kind）');
-        return draft;
-      }
-      if (parsed == null || parsed.key != 'FAIL') {
-        _addLog('ℹ️ 自审输出不规范（未带PASS/FAIL头）——按首稿采纳');
-      _addLog('自审原文前200字：${out.length > 200 ? '${out.substring(0, 200)}…' : out}');
-        return draft;
-      }
-      final reason = parsed.value;
-      _addLog('⛔ 编排自审不合格（$kind）——带意见修订一次');
-      if (reason.isNotEmpty) _addLog('自审意见：$reason');
+      // v1111：审核-修订循环直到PASS才采用（用户裁决2026-10-05）——
+      // 修订稿必须再送审，上限5轮防失控烧API；仍不合格=报错终止请重试
       final reviseSys = '你是网文主编。根据审核意见修订以下$kind内容：'
           '保持原有结构与格式不变（条目块/维度行原样保留），只修正意见指出的问题；'
           '事件驱动（角色行动/互动/势力矛盾演变，禁微表情文艺碎笔）；人物沿用原名；'
           '只输出修订后的完整内容，禁止解释性文字';
-      final reviseUsr = '$contextBlock\n\n【待修订$kind】\n$draft\n\n'
-          '【审核意见（必须逐条修正）】\n$reason';
-      final revised = await state.api.callApi(
-        task: '改编修订',
-        systemPrompt: reviseSys,
-        userPrompt: reviseUsr,
-        apiConfig: config,
-      );
-      if (!revised.isSuccess) {
-        // v1103：修订失败=报错终止让用户重试，不静默回退一稿（用户裁决2026-10-05）
-        _addLog('⛔ 修订请求失败——本轮终止，请重试');
-        throw Exception('编排自审不合格且修订失败——请重试');
-      }
-      final body = TextCleaner.stripQuotedFragment(
-        TextCleaner.decodeLiteralNewlines(
-          TextCleaner.stripDecorativeEmoji(
-            TextCleaner.normalizeAiOutput(
-              revised.content,
-              jsonMode: config.formatMode == 'json',
+      String cur = draft;
+      for (var round = 1; round <= 5; round++) {
+        final usrR =
+            '${state.writerStyleBlock.isEmpty ? '' : '${state.writerStyleBlock}\n\n'}【待审$kind】\n$cur';
+        final result = await state.api.callApi(
+          task: '改编自审',
+          systemPrompt: sys,
+          userPrompt: usrR,
+          apiConfig: config,
+        );
+        if (!result.isSuccess) {
+          _addLog('⚠️ 自审调用失败——按当前稿采纳');
+          return cur;
+        }
+        final out = TextCleaner.normalizeAiOutput(result.content).trim();
+        final parsed = _parseSelfReviewOut(out);
+        if (parsed != null && parsed.key == 'PASS') {
+          _addLog(round == 1
+              ? '✅ 编排自审通过（$kind）'
+              : '✅ 复审通过（$kind第$round轮）');
+          return cur;
+        }
+        if (parsed == null || parsed.key != 'FAIL') {
+          _addLog('ℹ️ 自审输出不规范（未带PASS/FAIL头）——按当前稿采纳');
+          _addLog('自审原文前200字：${out.length > 200 ? '${out.substring(0, 200)}…' : out}');
+          return cur;
+        }
+        final reason = parsed.value;
+        _addLog('⛔ 编排自审不合格（$kind第$round轮）——带意见修订');
+        if (reason.isNotEmpty) _addLog('自审意见：$reason');
+        final reviseUsr = '$contextBlock\n\n【待修订$kind】\n$cur\n\n'
+            '【审核意见（必须逐条修正）】\n$reason';
+        final revised = await state.api.callApi(
+          task: '改编修订',
+          systemPrompt: reviseSys,
+          userPrompt: reviseUsr,
+          apiConfig: config,
+        );
+        if (!revised.isSuccess) {
+          // v1103：修订失败=报错终止让用户重试，不静默回退
+          _addLog('⛔ 修订请求失败——本轮终止，请重试');
+          throw Exception('编排自审不合格且修订失败——请重试');
+        }
+        final body = TextCleaner.stripQuotedFragment(
+          TextCleaner.decodeLiteralNewlines(
+            TextCleaner.stripDecorativeEmoji(
+              TextCleaner.normalizeAiOutput(
+                revised.content,
+                jsonMode: config.formatMode == 'json',
+              ),
             ),
           ),
-        ),
-      ).trim();
-      if (body.length < draft.length ~/ 3) {
-        _addLog('⛔ 修订稿异常偏短——本轮终止，请重试');
-        throw Exception('编排自审修订稿异常偏短——请重试');
+        ).trim();
+        if (body.length < cur.length ~/ 3) {
+          _addLog('⛔ 修订稿异常偏短——本轮终止，请重试');
+          throw Exception('编排自审修订稿异常偏短——请重试');
+        }
+        cur = body;
       }
-      _addLog('✅ 已按自审意见修订（${body.length}字，修订稿直接采纳）');
-      return body;
+      _addLog('⛔ 自审连续5轮不合格——终止，请重试');
+      throw Exception('编排自审连续5轮不合格——请重试');
     } finally {
       if (mounted) setState(() => _isGenerating = false);
     }
