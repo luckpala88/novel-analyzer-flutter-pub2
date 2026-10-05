@@ -3663,6 +3663,9 @@ return true;
               (m) => '${m.group(1)}：')
           .replaceAll(RegExp(r'"概述"\s*[:：]\s*"?'), '概述：')
           .replaceAll(RegExp(r'^\s*"|"?\s*[,，]?\s*$'), '');
+      // v1127：补回写入行——v1122剥壳块替换时漏带（saveWorldBook空转，
+      // 帮想结果从未进continuePlans=框只显示占位提示，用户截图实测）
+      state.worldBook?.continuePlans[_plannerOptKey(arcKey)] = out;
       state.saveWorldBook();
       setState(() => _newSceneOptChecked = true);
       _addLog('✓ 初步设想已优化（${out.length}字）——⚙生成新场景条目草稿落地后审阅写入');
