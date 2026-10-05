@@ -2215,7 +2215,7 @@ return true;
     );
   }
 
-  /// v1048：编排自审——独立AI审核，FAIL自动推翻重生成（第二稿直接采纳）。
+  /// v1111：编排自审——独立AI审核，FAIL推翻重生成后再送审，循环直到PASS才采用（上限5轮）。
   /// 关=零API成本直接采纳首稿；审核调用失败=按首稿（不误杀）
   Future<String> _choreoSelfReview(
     AppState state,
@@ -3701,7 +3701,7 @@ return true;
         final refined = await _refineScenePlanBeforeWrite(state, arcKey, source);
         if (refined != null && refined.trim().isNotEmpty) {
           source = refined.trim();
-          // v1048：编排自审——不合格推翻重做（重做第二稿直接采纳）
+          // v1111：编排自审——不合格推翻重做，重做稿再送审直到PASS才采用
           if (state.choreoSelfReview) {
             source = await _choreoSelfReview(
               state,
@@ -4671,7 +4671,7 @@ return true;
   GlobalKey _foldHeaderKeys(String k) =>
       _foldHeaderKeyMap.putIfAbsent(k, () => GlobalKey());
 
-  /// v1057：改编产出自审+AI修订——FAIL→带意见修订一次（修订稿直接采纳，
+  /// v1111：改编产出自审+AI修订——FAIL→带意见修订→再送审循环到PASS（上限5轮，
   /// 不重跑流水线防备份恢复/循环副作用）；开关关=零成本
   Future<String> _selfReviewRevise(
     AppState state,
