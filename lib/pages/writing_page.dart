@@ -370,6 +370,26 @@ class _WritingPageState extends State<WritingPage>
     return ov.isEmpty ? '' : ov.first.content.trim();
   }
 
+  /// v1109：镜检人设基准提取——弧线条目content里【人设】标记块（OOC判定
+  /// 参照物。此前镜检第6条OOC无参照物=空判，用户实测严重OOC点名全链强化）
+  String _personaBlockForCheck(AppState state, String arcKey) {
+    final wb = state.worldBook;
+    if (wb == null) return '';
+    final arcEntry = wb.entries.values
+        .where(
+          (e) => e.arcKey == arcKey && (e.sceneTag == null || e.sceneTag!.isEmpty),
+        )
+        .toList();
+    if (arcEntry.isEmpty) return '';
+    final c = arcEntry.first.content;
+    final i = c.indexOf('【人设】');
+    if (i < 0) return '';
+    var rest = c.substring(i);
+    final nxt = RegExp(r'\n\s*【').firstMatch(rest.substring(4));
+    if (nxt != null) rest = rest.substring(0, 4 + nxt.start);
+    return rest.trim();
+}
+
   /// v269：笔墨癖好提取（逐镜上下文）——弧线条目content里【笔墨癖好】
   /// 标记行后的内容（痴迷点/快进点/啰嗦点，300字内）
   String _inkHabitForShot(AppState state, String arcKey) {
@@ -2793,6 +2813,7 @@ class _WritingPageState extends State<WritingPage>
             shotBlock: shotBlock,
             body: body,
             styleBlock: state.writerStyleBlock, // v1065：风格卡注入（作家标准）
+            characterBlock: _personaBlockForCheck(state, arcKey), // v1109：人设基准（OOC判定参照）
           ),
           apiConfig: config,
         );
