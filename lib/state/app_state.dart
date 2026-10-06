@@ -163,7 +163,7 @@ class AppState extends ChangeNotifier {
   // v1140：帮想/生成草稿独立温度拆分（用户要求两次调用用不同温度）——
   // 帮想=短输出规划（高温去套路甜区1.8-2.0），草稿=长输出（低温稳语义甜区1.2-1.5）
   bool choreoTempOn = false;
-  double choreoSuggestTemp = 1.8; // 帮想温度（场景帮想/AI自拟/弧线帮想）
+  double choreoSuggestTemp = 2.0; // 帮想温度（场景帮想/AI自拟/弧线帮想，v1144用户定默认2.0）
   double choreoDraftTemp = 1.2; // 草稿温度（写入前细化/弧线条目草稿）
 
   void setChoreoSelfReview(bool v) {
@@ -1003,10 +1003,12 @@ class AppState extends ChangeNotifier {
     // v1136：帮想/草稿独立温度（默认关=用API温度；值默认1.8）
     choreoTempOn =
         storage.readFile('${p}choreo_temp_on.flag') == 'true';
+    // v1144：新flag优先，旧choreo_temp.flag只做fallback（原顺序反了=旧值永远
+    // 盖掉新滑条保存值，改了重启回旧值——单一事实源读写闭环教训）
     choreoSuggestTemp =
-        double.tryParse(storage.readFile('${p}choreo_temp.flag') ??
-            storage.readFile('${p}choreo_suggest_temp.flag') ?? '') ??
-        1.8; // 旧choreo_temp.flag兼容为帮想温度
+        double.tryParse(storage.readFile('${p}choreo_suggest_temp.flag') ??
+            storage.readFile('${p}choreo_temp.flag') ?? '') ??
+        2.0; // 无记录默认2.0；旧choreo_temp.flag兼容为帮想温度
     choreoDraftTemp =
         double.tryParse(storage.readFile('${p}choreo_draft_temp.flag') ?? '') ??
             1.2;
