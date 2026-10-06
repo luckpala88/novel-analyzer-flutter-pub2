@@ -5190,6 +5190,23 @@ return true;
                             ? '📄 已切换到续写模式（原样世界书续推新场景，自由创作）'
                             : '🎭 已切换到改编模式',
                       );
+                      // v1134：模式切换=整页分支替换，两棵子树切换controller
+                      // detach/reattach归零——切换后补恢复当前视图浏览位置
+                      Future.delayed(const Duration(milliseconds: 400), () {
+                        if (!mounted) return;
+                        if (sel.first == 'continue') {
+                          final i = _continueTabCtrl.index;
+                          final keys = ['arc', 'scene', 'shot'];
+                          final ctls = [_contArcCtl, _contSceneCtl, _shotCtl];
+                          if (i >= 0 && i <= 2) {
+                            _restoreOneScroll(keys[i], ctls[i], retries: 6);
+                          }
+                        } else {
+                          _restoreOneScroll(
+                              'layerarc$_adaptLayer', _layerArcCtls[_adaptLayer],
+                              retries: 6);
+                        }
+                      });
                     },
                   ),
                   MiniButton(

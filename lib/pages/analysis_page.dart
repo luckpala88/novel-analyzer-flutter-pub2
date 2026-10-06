@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../widgets/v_scroll_bar.dart';
 import 'package:flutter/services.dart';
@@ -41,7 +42,51 @@ class _AnalysisPageState extends State<AnalysisPage>
   final Map<String, GlobalKey> _tileKeys = {};
   GlobalKey _tileKey(String id) => _tileKeys.putIfAbsent(id, () => GlobalKey());
   @override
+
+  Timer? _listSaveTimer;
+  // v1134：滚动防抖落盘
+  void _scheduleListSave() {
+    _listSaveTimer?.cancel();
+    _listSaveTimer = Timer(const Duration(milliseconds: 600), () {
+      if (!_listCtl.hasClients) return;
+      final st = AppState.instance;
+      st.storage.writeFile('${st.storage.bookPath}analysis_list_off.flag',
+          _listCtl.offset.toStringAsFixed(1));
+    });
+  }
+
+  // v1134：恢复浏览位置（列表未挂载重试；无记录跳底部=最新内容）
+  void _restoreList({required int retries}) {
+    if (!_listCtl.hasClients) {
+      if (retries > 0) {
+        Future.delayed(const Duration(milliseconds: 400),
+            () => _restoreList(retries: retries - 1));
+      }
+      return;
+    }
+    final st = AppState.instance;
+    final v = double.tryParse(st.storage
+            .readFile('${st.storage.bookPath}analysis_list_off.flag') ??
+        '');
+    if (v == null) {
+      if (_listCtl.position.maxScrollExtent > 1) {
+        _listCtl.jumpTo(_listCtl.position.maxScrollExtent);
+      }
+      return;
+    }
+    final target = v.clamp(0.0, _listCtl.position.maxScrollExtent);
+    if ((_listCtl.offset - target).abs() > 1) _listCtl.jumpTo(target);
+  }
+
   void dispose() {
+    // v1134：销毁前立即落盘（防抖窗口内切走=丢最后位置）
+    if (_listCtl.hasClients) {
+      AppState.instance.storage.writeFile(
+        '${AppState.instance.storage.bookPath}analysis_list_off.flag',
+        _listCtl.offset.toStringAsFixed(0),
+      );
+    }
+    _listSaveTimer?.cancel();
     _listCtl.dispose();
     super.dispose();
   }
@@ -80,6 +125,10 @@ class _AnalysisPageState extends State<AnalysisPage>
 
   void initState() {
     super.initState();
+    // v1134：列表滚动位置持久化——有记录恢复，无记录默认跳底部（最新内容）
+    _listCtl.addListener(_scheduleListSave);
+    WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _restoreList(retries: 8));
     // v840：注册批量拆分镜钩子——聊天agent经用户确认后可远程启动
     Future.microtask(() {
       final st = context.read<AppState>();
