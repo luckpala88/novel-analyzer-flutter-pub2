@@ -66,7 +66,7 @@ class _WorldBookPageState extends State<WorldBookPage>
     _restoreUiState();
     _wbListCtl.addListener(_scheduleWbScrollSave);
     WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _restoreWbScroll(retries: 4));
+        (_) => _restoreWbScroll(retries: 8)); // v1133：4次1.6s不够大书挂载，对齐v1073放宽到8次
   }
 
   /// v1045：滚动位置防抖落盘（书级flag文件）

@@ -81,7 +81,9 @@ class _AdaptPageState extends State<AdaptPage>
   @override
   void dispose() {
     _flushScrolls(); // v1069：销毁前立即落盘三层视口（防抖窗口内切书/回收=丢位置）
-    _arcListCtl.dispose();
+    for (final c in _layerArcCtls) {
+      c.dispose();
+    }
     _contArcCtl.dispose();
     _contSceneCtl.dispose();
     _shotCtl.dispose();
@@ -4830,7 +4832,10 @@ return true;
   final _contReqOptCtrl = TextEditingController(); // v920
   bool _reqRawChecked = true; // v781：原始续写方向勾选
   bool _reqOptChecked = true; // v781：优化方向勾选
-  final ScrollController _arcListCtl = ScrollController(); // v771：弧线列表垂直滚动条
+  // v1133：弧线/场景/分镜三层各配独立controller——原三层共用_arcListCtl，
+  // TabBarView切页detach旧页，切回重attach归零（用户实测总回列表开头）
+  final List<ScrollController> _layerArcCtls =
+      List.generate(3, (_) => ScrollController());
   final ScrollController _contArcCtl = ScrollController(); // v771：续写弧线层
   final ScrollController _contSceneCtl = ScrollController(); // v771：续写场景层
   final ScrollController _shotCtl = ScrollController(); // v1039：分镜续写层（原无controller=位置不可持久化）
@@ -4856,6 +4861,22 @@ return true;
     _contSceneCtl.addListener(
         () => _scheduleScrollSave('scene', _contSceneCtl));
     _shotCtl.addListener(() => _scheduleScrollSave('shot', _shotCtl));
+    // v1133：弧线/场景/分镜三层列表滚动落盘+切层tab补恢复（v1042同款范式——
+    // 保活后State不销毁，但生成任务rebuild仍可能重挂载，落盘+恢复双保险）
+    for (var i = 0; i < _layerArcCtls.length; i++) {
+      _layerArcCtls[i]
+          .addListener(() => _scheduleScrollSave('layerarc$i', _layerArcCtls[i]));
+    }
+    _layerTabCtrl.addListener(() {
+      if (_layerTabCtrl.indexIsChanging) return;
+      final i = _layerTabCtrl.index;
+      if (i < 0 || i > 2) return;
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          _restoreOneScroll('layerarc$i', _layerArcCtls[i], retries: 4);
+        }
+      });
+    });
     // v1042：TabBarView懒构建——启动恢复时非当前tab的controller没有clients，
     // 重试耗尽即永久跳过（分镜层滚动位置丢失根因）。切到哪个tab就补恢复哪个
     _continueTabCtrl.addListener(() {
@@ -4897,8 +4918,13 @@ return true;
       if (mounted) setState(() {});
     });
     _continueTabCtrl.addListener(_saveContinueTab);
-    WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _restoreScroll(retries: 8)); // v1073：1.2s不够大书挂载，放宽到3.2s
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _restoreScroll(retries: 8); // v1073：1.2s不够大书挂载，放宽到3.2s
+      // v1133：三层列表启动恢复当前层（initState时非当前层无clients，切tab有补恢复）
+      _restoreOneScroll(
+          'layerarc$_adaptLayer', _layerArcCtls[_adaptLayer],
+          retries: 8);
+    });
   }
 
   Timer? _scrollSaveTimer;
@@ -4944,6 +4970,10 @@ return true;
       ('arc', _contArcCtl),
       ('scene', _contSceneCtl),
       ('shot', _shotCtl),
+      // v1133：弧线/场景/分镜三层列表视口纳入落盘
+      ('layerarc0', _layerArcCtls[0]),
+      ('layerarc1', _layerArcCtls[1]),
+      ('layerarc2', _layerArcCtls[2]),
     ]) {
       if (!e.$2.hasClients) continue;
       st.storage.writeFile('${st.storage.bookPath}continue_${e.$1}_off.flag',
@@ -5316,9 +5346,10 @@ return true;
               child: TabBarView(
                 controller: _layerTabCtrl,
                 children: [
-                  _arcListView(state, allArcs, 0),
-                  _arcListView(state, allArcs, 1),
-                  _arcListView(state, allArcs, 2),
+                  // v1133：保活——切tab/生成任务rebuild不销毁子页，滚动位置不丢
+                  _TabKeepAlive(child: _arcListView(state, allArcs, 0)),
+                  _TabKeepAlive(child: _arcListView(state, allArcs, 1)),
+                  _TabKeepAlive(child: _arcListView(state, allArcs, 2)),
                 ],
               ),
             ),
@@ -5360,7 +5391,7 @@ return true;
           : Stack(
               children: [
                 ListView.builder(
-                  controller: _arcListCtl,
+                  controller: _layerArcCtls[layer],
                   itemCount: allArcs.length, // v629b：自定义条目区撤出改编页（管理全走世界书页）
                   itemBuilder: (ctx, i) {
                     return _buildArcItem(
@@ -5375,7 +5406,7 @@ return true;
                   right: 0,
                   top: 0,
                   bottom: 0,
-                  child: VScrollBar(_arcListCtl),
+                  child: VScrollBar(_layerArcCtls[layer]),
                 ),
               ],
             ),
