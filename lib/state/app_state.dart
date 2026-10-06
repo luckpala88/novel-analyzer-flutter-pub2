@@ -1426,6 +1426,31 @@ class AppState extends ChangeNotifier {
     saveArcScan();
     saveArcAnalyses();
     saveArcScenes();
+
+    // v1155：全局账本回滚到剩余最新弧线快照（防删弧线后"未来状态"残留）
+    var bestN = -1;
+    String? bestKey;
+    for (final k in arcAnalyses.keys) {
+      final n = int.tryParse(k);
+      if (n != null &&
+          n > bestN &&
+          (arcAnalyses[k]!.metadata?['state_ledger_snapshot'] as List? ?? [])
+              .isNotEmpty) {
+        bestN = n;
+        bestKey = k;
+      }
+    }
+    if (bestKey != null) {
+      final snap =
+          arcAnalyses[bestKey]!.metadata!['state_ledger_snapshot'] as List;
+      stateLedger = snap
+          .whereType<Map>()
+          .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+          .toList();
+    } else {
+      stateLedger.clear();
+    }
+    saveStateLedger();
   }
 
   /// v431：保存全局场景流

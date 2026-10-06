@@ -177,13 +177,15 @@ class _AnalysisPageState extends State<AnalysisPage>
 
   /// v1154：世界状态账本查看弹层——每实体一行（类别/名称/状态/更新弧线），
   /// 状态列是正文主体（防复活/防易主复原的关键信息），支持长按复制单行
-  void _showStateLedger(AppState state) {
-    final ledger = state.stateLedger;
+  void _showStateLedger(AppState state,
+      {List<Map<String, dynamic>>? snapshot, String? title}) {
+    // v1155：弧线卡传本弧线快照，顶栏传最新全局账本
+    final ledger = snapshot ?? state.stateLedger;
     if (ledger.isEmpty) {
       showDialog(
         context: context,
         builder: (_) => AlertDialog(
-          title: const Text('📊 世界状态账本'),
+          title: Text(title ?? '📊 世界状态账本'),
           content: const Text('账本为空——对已有弧线重新零件提取后，状态对账任务会自动建立账本（从弧线1开始按序跑）。'),
           actions: [
             TextButton(
@@ -242,10 +244,21 @@ class _AnalysisPageState extends State<AnalysisPage>
                 child: Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        '📊 世界状态账本（${ledger.length}实体）',
-                        style: const TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.bold),
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              title ?? '📊 世界状态账本',
+                              style: const TextStyle(
+                                  fontSize: 15, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '（${ledger.length}实体）',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ],
                       ),
                     ),
                     MiniButton(
@@ -1149,6 +1162,32 @@ class _AnalysisPageState extends State<AnalysisPage>
                       ),
                     ],
                   ),
+                ),
+              ),
+            // v1155：本弧线世界状态账本快照（对账产物随弧线存档——删后续弧线不影响本弧线账本）
+            if (hasAnalysis &&
+                (analysis!.metadata?['state_ledger_snapshot'] as List? ?? [])
+                    .isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                child: Row(
+                  children: [
+                    MiniButton(
+                      label:
+                          '📊 本弧线账本(${(analysis.metadata!["state_ledger_snapshot"] as List).length}实体)',
+                      onTap: () => _showStateLedger(
+                        state,
+                        snapshot: (analysis
+                            .metadata!['state_ledger_snapshot']
+                                as List)
+                            .whereType<Map>()
+                            .map((e) =>
+                                e.map((k, v) => MapEntry(k.toString(), v)))
+                            .toList(),
+                        title: '📊 弧线${arc.number}账本快照',
+                      ),
+                    ),
+                  ],
                 ),
               ),
             // v894：弧线编排总纲显示（重提零件/分组产出，独立于概述块）
