@@ -4146,6 +4146,7 @@ return true;
       }
       final result = await state.api.callApi(
         task: '续写弧线添加',  // v824任务级反馈
+        tempOverride: state.choreoTempOn ? state.choreoTemp : null, // v1139
         systemPrompt: sys,
         userPrompt: usr,
         apiConfig: config,
@@ -4310,6 +4311,7 @@ return true;
       }
       final r = await state.api.callApi(
         task: '续写规划优化',  // v824任务级反馈
+        tempOverride: state.choreoTempOn ? state.choreoTemp : null, // v1139
         systemPrompt: sys +
             state.writerStyleBlock, // v1098：作家档案注入（此前缺失=帮想无创作方法）
         userPrompt: usr,
