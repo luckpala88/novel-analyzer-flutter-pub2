@@ -398,6 +398,14 @@ class _ScanPageState extends State<ScanPage>
                         );
                       }
                       if (v == 'regen_group') _confirmRegenArcs(state);
+                      if (v == 'extract_parts_inc') {
+                        batchExtractArcParts(
+                            state: state, log: _addLog, incremental: true);
+                      }
+                      if (v == 'extract_parts_redo') {
+                        batchExtractArcParts(
+                            state: state, log: _addLog, incremental: false);
+                      }
                     },
                     itemBuilder: (c) => [
                       PopupMenuItem(
@@ -417,6 +425,23 @@ class _ScanPageState extends State<ScanPage>
                         height: 40,
                         child: Text(
                           '重新生成全部弧线（清现有分组）',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                      ),
+                      // v1156：批量按弧线分步提取零件（四任务+状态对账，增量/重头）
+                      const PopupMenuItem(
+                        value: 'extract_parts_inc',
+                        height: 40,
+                        child: Text(
+                          '批量提取零件（增量——跳过已有）',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'extract_parts_redo',
+                        height: 40,
+                        child: Text(
+                          '批量提取零件（重头——全部重跑）',
                           style: TextStyle(fontSize: 13),
                         ),
                       ),

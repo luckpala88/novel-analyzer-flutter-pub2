@@ -1086,6 +1086,52 @@ Future<void> analyzeArcChoreo({
   log('✓ 弧线${arc.number}【弧线内场景编排策略】已落库（总纲${arcChoreoV.length}字+逐场景落点${scChoreos.length}字）');
 }
 
+/// v1156：批量按弧线分步提取零件（弧线页批量菜单）——逐弧线跑v1153四任务+状态对账。
+/// incremental=true跳过已有零件的弧线（增量续跑）；false全量重跑（用户需求）
+Future<void> batchExtractArcParts({
+  required AppState state,
+  required void Function(String msg) log,
+  required bool incremental,
+}) async {
+  final arcs = state.arcScan?.arcs ?? const <Arc>[];
+  final targets = <Arc>[];
+  for (final a in arcs) {
+    if (a.text.isEmpty) continue;
+    if (incremental) {
+      final an = state.arcAnalyses[a.number.toString()];
+      final has = an != null &&
+          ((an.metadata?['arc_summary_detailed'] ?? '').toString().isNotEmpty);
+      if (has) continue;
+    }
+    targets.add(a);
+  }
+  if (targets.isEmpty) {
+    log(incremental
+        ? 'ℹ 所有弧线均已有零件——无需增量提取（要全量重跑请选"重头"）'
+        : 'ℹ 无可提取弧线（无正文切片）');
+    return;
+  }
+  state.setSceneStreamBusy(true);
+  var done = 0;
+  try {
+    log('=== 批量零件提取开始：${targets.length}条弧线（${incremental ? "增量" : "重头"}，每弧线=剧情零件+facts+脑洞文风+状态对账四任务） ===');
+    for (final a in targets) {
+      if (state.userAborted) {
+        log('⛔ 用户终止——批量零件提取已停止（已完成$done/${targets.length}，已完成的成果已逐条落盘）');
+        return;
+      }
+      log('▶ 批量零件提取：弧线${a.number}（${done + 1}/${targets.length}）');
+      await extractArcParts(state: state, arc: a, log: log);
+      done++;
+      state.saveArcAnalyses();
+      log('💾 弧线${a.number}零件+账本已落盘（$done/${targets.length}）');
+    }
+    log('=== 批量零件提取完成：$done/${targets.length}条弧线 ===');
+  } finally {
+    state.setSceneStreamBusy(false);
+  }
+}
+
 /// v1154：世界状态对账（零件提取第四任务）——上一版账本+本弧线零件→增量更新。
 /// 账本=实体状态单一事实源（AppState.stateLedger），每弧线快照进metadata可回溯
 Future<void> reconcileStateLedger({
