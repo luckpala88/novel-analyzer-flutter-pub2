@@ -3428,9 +3428,25 @@ return true;
   /// 场景帮想只吃这块：分镜维度行是分镜帮想的输入，规划阶段把全部已规划
   /// 场景的分镜行再注一遍=与续写语料重复+输入爆炸（用户词链实测点名）
   String _arcEntryHeaderBlock(String content) {
-    final m = RegExp(r'^场景\d+：', multiLine: true).firstMatch(content);
-    final head = m == null ? content : content.substring(0, m.start);
-    return head.trim();
+    // v1149：剔除场景块但保留全部零件块——原实现截到首个场景行为止，而场景规划
+    // 写入后场景行插在九件套之前（概述→编排→场景N→【世界观设定】→【人设】…），
+    // 场景行后面的世界观/人设/矛盾/伏笔全被截掉（用户实测帮想只见概述+编排）
+    final sceneRe = RegExp(r'^场景\s*\d+\s*[：:]', multiLine: true);
+    final blockRe = RegExp(r'【[^】]+】');
+    final spans = <List<int>>[];
+    for (final m in sceneRe.allMatches(content)) {
+      final next = blockRe.allMatches(content, m.start).toList();
+      spans.add([m.start, next.isEmpty ? content.length : next.first.start]);
+    }
+    if (spans.isEmpty) return content.trim();
+    final sb = StringBuffer();
+    var cursor = 0;
+    for (final sp in spans) {
+      if (sp[0] > cursor) sb.write(content.substring(cursor, sp[0]));
+      cursor = sp[1];
+    }
+    if (cursor < content.length) sb.write(content.substring(cursor));
+    return sb.toString().trim();
   }
 
   /// v1094：弧线草稿净化——AI输出JSON壳漂移（用户实测弧线105标题行残留
