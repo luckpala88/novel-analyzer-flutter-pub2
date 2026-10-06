@@ -234,6 +234,7 @@ class ApiService {
         ? baseUrl.substring(0, 40)
         : baseUrl;
     _log('API -> $model [$apiType] @ $baseUrlShort');
+    _log('温度$temperature｜max_tokens$maxTokens'); // v1140：每次调用终端显示实际温度（覆盖无task名的直接调用）
     _startTimer();
     _startGen('正在生成中...');
 

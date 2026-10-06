@@ -2195,6 +2195,37 @@ return true;
   }
 
   /// v781：全局方向规划块（弧线续写层末尾，样式对齐新增场景工作台）
+  /// v1140：独立温度滑条行（帮想/草稿各一行）
+  Widget _tempSliderRow(String label, double value, ValueChanged<double> on) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 40,
+          child: Text(label,
+              style: TextStyle(
+                  fontSize: _cf(11), color: const Color(0xFF5B7A99))),
+        ),
+        Expanded(
+          child: Slider(
+            value: value.clamp(0.1, 2.5),
+            min: 0.1,
+            max: 2.5,
+            divisions: 48,
+            label: value.toStringAsFixed(2),
+            activeColor: const Color(0xFF2C5E8E),
+            onChanged: on,
+          ),
+        ),
+        SizedBox(
+          width: 34,
+          child: Text(value.toStringAsFixed(2),
+              style: TextStyle(
+                  fontSize: _cf(11), color: const Color(0xFF2C5E8E))),
+        ),
+      ],
+    );
+  }
+
   /// v1048：编排自审开关行（弧线规划卡+场景规划卡复用）
   /// v1136：下方加帮想/生成草稿独立温度行（勾选后AI链用滑条温度，不用API温度）
   Widget _buildSelfReviewToggle(AppState state) {
@@ -2230,33 +2261,19 @@ return true;
                     setState(() => state.setChoreoTempOn(v ?? false)),
               ),
             ),
-            Text('独立温度',
-                style: TextStyle(
-                    fontSize: _cf(11), color: const Color(0xFF5B7A99))),
             Expanded(
-              child: Slider(
-                value: state.choreoTemp.clamp(0.1, 2.5),
-                min: 0.1,
-                max: 2.5,
-                divisions: 48,
-                label: state.choreoTemp.toStringAsFixed(2),
-                activeColor: const Color(0xFF2C5E8E),
-                onChanged: state.choreoTempOn
-                    ? (v) => setState(() => state.setChoreoTemp(v))
-                    : null,
-              ),
-            ),
-            SizedBox(
-              width: 34,
-              child: Text(state.choreoTemp.toStringAsFixed(2),
+              child: Text('独立温度：帮想${state.choreoSuggestTemp.toStringAsFixed(1)}｜草稿${state.choreoDraftTemp.toStringAsFixed(1)}（勾选后AI用这两组温度，不用API温度）',
                   style: TextStyle(
-                      fontSize: _cf(11),
-                      color: state.choreoTempOn
-                          ? const Color(0xFF2C5E8E)
-                          : Colors.grey)),
+                      fontSize: _cf(10), color: const Color(0xFF5B7A99))),
             ),
           ],
         ),
+        if (state.choreoTempOn) ...[
+          _tempSliderRow('帮想', state.choreoSuggestTemp,
+              (v) => setState(() => state.setChoreoSuggestTemp(v))),
+          _tempSliderRow('草稿', state.choreoDraftTemp,
+              (v) => setState(() => state.setChoreoDraftTemp(v))),
+        ],
       ],
     );
   }
@@ -3687,7 +3704,7 @@ return true;
         systemPrompt: sys,
         userPrompt: usr,
         apiConfig: config,
-      tempOverride: state.choreoTempOn ? state.choreoTemp : null, // v1136
+      tempOverride: state.choreoTempOn ? state.choreoSuggestTemp : null, // v1140
       );
       if (!result.isSuccess) {
         _addLog('❌ 规划优化失败：${result.error}');
@@ -3857,7 +3874,7 @@ return true;
       systemPrompt: sys,
       userPrompt: usr,
       apiConfig: config,
-      tempOverride: state.choreoTempOn ? state.choreoTemp : null, // v1136
+      tempOverride: state.choreoTempOn ? state.choreoSuggestTemp : null, // v1140
     );
     if (!result.isSuccess) {
       _addLog('❌ AI自拟失败：${result.error}');
@@ -4006,7 +4023,7 @@ return true;
       systemPrompt: sys,
       userPrompt: usr,
       apiConfig: config,
-      tempOverride: state.choreoTempOn ? state.choreoTemp : null, // v1136
+      tempOverride: state.choreoTempOn ? state.choreoDraftTemp : null, // v1140
     );
     if (!result.isSuccess) {
       _addLog('❌ 写入前细化失败：${result.error}');
@@ -4146,7 +4163,7 @@ return true;
       }
       final result = await state.api.callApi(
         task: '续写弧线添加',  // v824任务级反馈
-        tempOverride: state.choreoTempOn ? state.choreoTemp : null, // v1139
+        tempOverride: state.choreoTempOn ? state.choreoDraftTemp : null, // v1140
         systemPrompt: sys,
         userPrompt: usr,
         apiConfig: config,
@@ -4311,7 +4328,7 @@ return true;
       }
       final r = await state.api.callApi(
         task: '续写规划优化',  // v824任务级反馈
-        tempOverride: state.choreoTempOn ? state.choreoTemp : null, // v1139
+        tempOverride: state.choreoTempOn ? state.choreoSuggestTemp : null, // v1140
         systemPrompt: sys +
             state.writerStyleBlock, // v1098：作家档案注入（此前缺失=帮想无创作方法）
         userPrompt: usr,
