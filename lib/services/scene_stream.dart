@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../models/arc.dart';
@@ -1084,6 +1086,57 @@ Future<void> analyzeArcChoreo({
   log('✓ 弧线${arc.number}【弧线内场景编排策略】已落库（总纲${arcChoreoV.length}字+逐场景落点${scChoreos.length}字）');
 }
 
+/// v1153：历史弧线零件注入——前两弧线（N-1/N-2）全部零件全量+更早弧线关键状态行。
+/// 数据源=arcAnalyses.metadata（拆解层自身产物，拆书阶段世界书条目尚不存在）。
+/// 用途：新弧线零件提取时人设承接（角色生死/关系变化/未回收伏笔需前情基准）
+String buildArcHistoryBlock(AppState state, int curNum) {
+  final nums = <int>[];
+  for (final k in state.arcAnalyses.keys) {
+    final n = int.tryParse(k);
+    if (n != null && n < curNum) nums.add(n);
+  }
+  if (nums.isEmpty) return '';
+  nums.sort();
+  String jStr(dynamic v) => v == null ? '' : (v is String ? v : jsonEncode(v));
+  String meta(Map<String, dynamic>? m, String k) {
+    final v = m?[k];
+    return v == null ? '' : v.toString();
+  }
+  final sb = StringBuffer();
+  var has = false;
+  final recent = nums.reversed.take(2).toSet(); // N-1、N-2
+  for (final n in nums.reversed.take(2)) {
+    final a = state.arcAnalyses[n.toString()];
+    if (a == null) continue;
+    has = true;
+    final m = a.metadata;
+    sb.writeln('—— 弧线$n（${a.arcTitle}）全部零件 ——');
+    final ov = meta(m, 'arc_summary_detailed');
+    if (ov.isNotEmpty) sb.writeln('概述：$ov');
+    if (m?['characters'] != null) sb.writeln('人设：${jStr(m!['characters'])}');
+    if (m?['conflicts'] != null) sb.writeln('矛盾冲突：${jStr(m!['conflicts'])}');
+    if (m?['foreshadowing'] != null) sb.writeln('伏笔：${jStr(m!['foreshadowing'])}');
+    final ir = meta(m, 'irreversible_changes');
+    if (ir.isNotEmpty) sb.writeln('不可逆变化：$ir');
+    final ec = meta(m, 'emotional_curve');
+    if (ec.isNotEmpty) sb.writeln('情绪曲线：$ec');
+    sb.writeln();
+  }
+  for (final n in nums) {
+    if (recent.contains(n)) continue; // 前两弧线已全量注入
+    final a = state.arcAnalyses[n.toString()];
+    if (a == null) continue;
+    has = true;
+    final m = a.metadata;
+    final ch = jStr(m?['characters']);
+    final ov = meta(m, 'arc_summary_detailed'); // v1153：概述含物品得失/归属变化——older行补前120字
+    sb.writeln('弧线$n（${a.arcTitle}）：不可逆变化：${meta(m, 'irreversible_changes')}'
+        '${ch.isEmpty ? '' : '｜人设状态：${ch.length > 400 ? ch.substring(0, 400) : ch}'}'
+        '${ov.isEmpty ? '' : '｜概述：${ov.length > 120 ? ov.substring(0, 120) : ov}'}');
+  }
+  return has ? sb.toString().trim() : '';
+}
+
 Future<void> extractArcParts({
   required AppState state,
   required Arc arc,
@@ -1093,7 +1146,6 @@ Future<void> extractArcParts({
     log('⚠ 弧线${arc.number}无正文切片，跳过零件提取');
     return;
   }
-  final systemPrompt = PromptBuilder.buildArcPartsSystemPrompt();
   // v889：场景清单（全局序号+名称）——scene_choreos标号依据
   final gsAll = state.globalScenes;
   final sceneList = (arc.sceneFrom >= 1 && gsAll.length >= arc.sceneTo)
@@ -1102,26 +1154,83 @@ Future<void> extractArcParts({
             '场景$i：${gsAll[i - 1].name}｜${gsAll[i - 1].summary.length > 60 ? gsAll[i - 1].summary.substring(0, 60) : gsAll[i - 1].summary}',
         ].join('\n')
       : '';
-  final userPrompt = PromptBuilder.buildArcPartsUserPrompt(
-    arcTitle: arc.title,
-    arcSummary: arc.summary,
-    arcText: arc.text,
-    sceneList: sceneList,
-  );
+  // v1153：历史弧线零件注入+三任务拆分调用（用户授权"拆书任务重可分开任务类型"）
+  final hisBlock = buildArcHistoryBlock(state, arc.number);
+  if (hisBlock.isNotEmpty) {
+    log('ℹ 弧线${arc.number}历史零件注入（${hisBlock.length}字，前两弧线全量+更早关键状态）');
+  }
   final config = state.getApiConfig('arc');
-  final result = await state.api.callApi(
-    task: '弧线零件提取',  // v824任务级反馈
-    systemPrompt: systemPrompt,
-    userPrompt: userPrompt,
+  final merged = <String, dynamic>{};
+  // 调用1：概述与剧情零件（含历史注入——人设承接变化）
+  final r1 = await state.api.callApi(
+    task: '弧线概述与剧情零件',
+    systemPrompt: PromptBuilder.buildArcStoryPartsSystemPrompt(),
+    userPrompt: PromptBuilder.buildArcPartsUserPrompt(
+      arcTitle: arc.title,
+      arcSummary: arc.summary,
+      arcText: arc.text,
+      sceneList: sceneList,
+      historyBlock: hisBlock,
+    ),
     apiConfig: config,
   );
-  if (!result.isSuccess) {
-    log('⚠ 弧线${arc.number}零件提取请求失败：${result.error}——跳过');
-    return;
+  if (r1.isSuccess) {
+    final p1 = JsonRepair.parseResponse(r1.content);
+    if (p1 != null) {
+      merged.addAll(p1);
+    } else {
+      log('⚠ 弧线${arc.number}剧情零件解析失败');
+    }
+  } else {
+    log('⚠ 弧线${arc.number}剧情零件请求失败：${r1.error}');
   }
-  final parts = JsonRepair.parseResponse(result.content);
-  if (parts == null) {
-    log('⚠ 弧线${arc.number}零件解析失败——跳过');
+  // 调用2：世界观facts（10体系重活独立跑）
+  final r2 = await state.api.callApi(
+    task: '弧线世界观facts',
+    systemPrompt: PromptBuilder.buildArcFactsSystemPrompt(),
+    userPrompt: PromptBuilder.buildArcPartsUserPrompt(
+      arcTitle: arc.title,
+      arcSummary: arc.summary,
+      arcText: arc.text,
+      sceneList: sceneList,
+    ),
+    apiConfig: config,
+  );
+  if (r2.isSuccess) {
+    final p2 = JsonRepair.parseResponse(r2.content);
+    if (p2 != null && p2['worldbuilding_facts'] != null) {
+      merged['worldbuilding_facts'] = p2['worldbuilding_facts'];
+    } else {
+      log('⚠ 弧线${arc.number}世界观facts缺失');
+    }
+  } else {
+    log('⚠ 弧线${arc.number}世界观facts请求失败：${r2.error}');
+  }
+  // 调用3：脑洞与文风
+  final r3 = await state.api.callApi(
+    task: '弧线脑洞与文风',
+    systemPrompt: PromptBuilder.buildArcFantasyStyleSystemPrompt(),
+    userPrompt: PromptBuilder.buildArcPartsUserPrompt(
+      arcTitle: arc.title,
+      arcSummary: arc.summary,
+      arcText: arc.text,
+    ),
+    apiConfig: config,
+  );
+  if (r3.isSuccess) {
+    final p3 = JsonRepair.parseResponse(r3.content);
+    if (p3 != null) {
+      for (final k in ['author_fantasy', 'ink_hobby', 'style_dna']) {
+        if (p3[k] != null) merged[k] = p3[k];
+      }
+    } else {
+      log('⚠ 弧线${arc.number}脑洞文风解析失败');
+    }
+  } else {
+    log('⚠ 弧线${arc.number}脑洞文风请求失败：${r3.error}');
+  }
+  if (merged.isEmpty) {
+    log('⚠ 弧线${arc.number}三个拆分调用全部失败——跳过');
     return;
   }
   // v486b用户裁决：概述两次生成各归其位——第一次（分组时基于场景摘要）放弧线页，
@@ -1131,7 +1240,7 @@ Future<void> extractArcParts({
   // ❌旧逻辑（v487，与场景页链打架已废弃）：
   // if (newSummary.isNotEmpty) analysis.arcSummary = newSummary;
   // analysis.arcSummary = arc.summary;
-  final newSummary = parts['arc_summary']?.toString() ?? '';
+  final newSummary = merged['arc_summary']?.toString() ?? '';
   if (newSummary.isNotEmpty) {
     log('✓ 弧线${arc.number}详细概述已生成（分镜页展示，弧线页保留分组概述）');
   } else {
@@ -1144,16 +1253,16 @@ Future<void> extractArcParts({
   analysis.metadata = {
     ...?analysis.metadata,
     'arc_summary_detailed': newSummary,
-    'characters': parts['characters'],
-    'conflicts': parts['conflicts'],
-    'foreshadowing': parts['foreshadowing'],
-    'arc_functions': parts['arc_functions'],
-    'irreversible_changes': parts['irreversible_changes'],
-    'emotional_curve': parts['emotional_curve'],
-    'author_fantasy': parts['author_fantasy'],
-    'ink_hobby': parts['ink_hobby'],
-    'style_dna': parts['style_dna'],
-    'worldbuilding_facts': parts['worldbuilding_facts'],
+    'characters': merged['characters'],
+    'conflicts': merged['conflicts'],
+    'foreshadowing': merged['foreshadowing'],
+    'arc_functions': merged['arc_functions'],
+    'irreversible_changes': merged['irreversible_changes'],
+    'emotional_curve': merged['emotional_curve'],
+    'author_fantasy': merged['author_fantasy'],
+    'ink_hobby': merged['ink_hobby'],
+    'style_dna': merged['style_dna'],
+    'worldbuilding_facts': merged['worldbuilding_facts'],
   };
   state.arcAnalyses[key] = analysis;
   state.saveArcAnalyses();

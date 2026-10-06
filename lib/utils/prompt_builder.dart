@@ -1827,6 +1827,8 @@ class PromptBuilder {
     required String direction,
     required String progress,
     String lastArcEntry = '',
+    String prevArcEntry = '', // v1153：上上个弧线头块（角色/伏笔变化脉络参照）
+    String historyDigest = '', // v1153：更早弧线历史消化摘要（独立任务产出）
     String sceneParts = '', // v1145：上一弧线场景级零件（剔除分镜）
   }) {
     final sb = StringBuffer();
@@ -1842,12 +1844,38 @@ class PromptBuilder {
       sb.writeln('【上一个弧线条目（完整——新弧线的人物/矛盾/伏笔承接以此为准）】');
       sb.writeln(lastArcEntry.trim());
     }
+    if (prevArcEntry.trim().isNotEmpty) {
+      sb.writeln();
+      sb.writeln('【上上个弧线条目（全部零件——角色/矛盾/伏笔的变化脉络参照）】');
+      sb.writeln(prevArcEntry.trim());
+    }
+    if (historyDigest.trim().isNotEmpty) {
+      sb.writeln();
+      sb.writeln('【全书历史弧线格局摘要（更早弧线独立消化任务产出——角色生死/关系/未回收伏笔以此为准）】');
+      sb.writeln(historyDigest.trim());
+    }
     if (sceneParts.trim().isNotEmpty) {
       sb.writeln();
       sb.writeln('【上一弧线场景零件（拆解层场景级——剧情连续性与世界观细节承接以此为准；分镜级内容已剔除）】');
       sb.writeln(sceneParts.trim());
     }
     return sb.toString();
+  }
+
+  /// v1153：弧线历史消化（独立任务拆分API调用，用户授权"任务重可分开任务类型"）——
+  /// 更早弧线条目压缩成全书格局摘要，供帮想新弧线时注入，避免生成调用过重
+  static String buildArcHistoryDigestSystemPrompt() {
+    return '你是网文续写编辑。给定全书此前若干弧线的条目内容（含弧线概述/人设/矛盾冲突/伏笔/不可逆变化/情绪曲线/作者脑洞等零件），压缩成一份"全书当前格局摘要"，供下一条新弧线生成时参考。要求：\n'
+        '- 主要角色最新状态逐人一行：姓名+最新处境/身份+生死存亡（死没死/重伤/失踪必须写明）+与主角关系及本弧线内的关系变化\n'
+        '- 未回收伏笔清单：条目中预期回报为"待回收"或明显未兑现的伏笔\n'
+        '- 主角当前状态：境界/资源/盟友/敌人格局的最新落点\n'
+        '- 世界观要点：当前生效的关键规则/组织/地点\n'
+        '- 只提取条目中确实写明的信息，禁止臆测补充；后弧线条目覆盖前弧线的过时状态（角色已死的不再列为存活）\n'
+        '- 总长不超过600字，纯文本输出，分小节列点';
+  }
+
+  static String buildArcHistoryDigestUserPrompt({required String hisBlock}) {
+    return '此前全部弧线条目如下，输出全书当前格局摘要：\n\n$hisBlock';
   }
 
   static String buildContinuePlanSystemPrompt() {
@@ -3134,21 +3162,45 @@ class PromptBuilder {
         '只输出纯JSON：{"arc_choreo": "总纲详析", "scene_choreos": "场景N:…；场景M:…"}\n\n';
   }
 
-  static String buildArcPartsSystemPrompt() {
-    return '你是一位资深网文编辑。给定一条弧线的原文切片，完成两件事：重写高质量弧线概述+提取全套弧线零件。\n\n'
+  /// v1153：零件提取拆分三任务（用户授权"拆书任务重可分开任务类型单独申请api调用"）——
+  /// ①概述与剧情零件（含历史弧线注入，人设承接变化）②世界观facts（10体系重活独立跑）
+  /// ③脑洞与文风。各自独立system+JSON键集，结果合并落库
+  static String buildArcStoryPartsSystemPrompt() {
+    return '你是一位资深网文编辑。给定一条弧线的原文切片与此前弧线的历史零件，完成：重写高质量弧线概述+提取剧情类零件。\n\n'
+'你是一位资深网文编辑。给定一条弧线的原文切片，完成两件事：重写高质量弧线概述+提取全套弧线零件。\n\n'
         '**0. 弧线概述（arc_summary，必填禁省略）**：从原文切片提炼——不是剧情复述，而是主角处境的变化轨迹：'
         '一连串关键变化（得到什么/失去什么/关系怎么变）逐环推进，最终落定在一个明确的不可逆变化上收束。'
         '句式："主角从【起点状态】出发，经过【关键变化1】、【关键变化2】，最终【落定的不可逆变化——如达成合作约定/收入稳定/正式组队/突破完成】，人生进入新阶段"。'
         'v812加细（续写前情靠它）：5-8句/300-500字，逐个交代关键变化的具体细节——谁对谁做了什么（承诺/交易/冲突/结盟/背叛）、得到或失去什么具体物品与信息、关系如何变化；具体到人名/物品/事件，落定必须是确定完成的（"达成约定"而不是"发现机会"）。输出自查：没有arc_summary键=不完整。\n\n'
-        '**1. 人设（characters）**：弧线中登场或有关键表现的角色：角色名、身份描述、定位（主角/盟友/反派/路人/导师）、性格特征。\n\n'
+
+        '**1. 人设（characters）**：弧线中登场或有关键表现的角色，每角色含：'
+        '角色名（原著原名）、身份描述、定位（主角/盟友/反派/路人/导师）、性格特征、'
+        '与主角的关系（盟友/敌对/师徒/亲属等，写明本弧线内关系变化如由敌转友/结盟破裂）、'
+        '本弧线状态变化（登场时处境→弧线中关键变化→弧线结束时最终状态；'
+        '死亡/重伤/失踪/身份转变/立场倒戈等不可逆结局必须写明，角色死没死是后续弧线创作硬约束，禁止含糊）。\n\n'
+
+        '历史承接（v1153，人设+物品）：结合注入的【历史弧线零件】——①各角色的与主角关系/本弧线状态必须体现与此前弧线的变化衔接（如关系由敌转友要写从什么变到什么）；历史弧线中已死亡/重伤/失踪的角色不得在本弧线无交代地登场；②关键物品/资源状态（v1153用户补充）：概述与不可逆变化中必须写明本弧线内关键物品/资源的得失与归属变化（谁从谁手里得到/失去什么、物品现在在谁手上）；上弧线已易主/已损毁/已上交的物品不得在本弧线无交代地回到原状——避免前后文逻辑矛盾。\n\n'
         '**2. 矛盾冲突（conflicts）**：核心冲突，含冲突类型（人vs人/人vs环境/人vs社会/内心冲突）和描述。\n\n'
         '**3. 伏笔（foreshadowing）**：种下或回收的伏笔：内容、种下位置（哪一章）、预期回报（无则"待回收"）。\n\n'
         '**4. 弧线功能（arc_functions）**：在整部小说中的叙事功能。\n\n'
         '**5. 不可逆变化（irreversible_changes）**：弧线结束后永久性的关键转折。\n\n'
         '**6. 情绪曲线（emotional_curve）**：读者/主角情绪轨迹，如「低谷→希望→兴奋→满足」。\n\n'
+
+        '只输出纯JSON（不要markdown）：{"arc_summary": "高质量弧线概述", "characters": [...], "conflicts": [...], "foreshadowing": [...], "arc_functions": [...], "irreversible_changes": "...", "emotional_curve": "..."}\n\n';
+  }
+
+  static String buildArcFactsSystemPrompt() {
+    return '你是一位资深网文编辑。给定一条弧线的原文切片，提取世界观facts零件。\n\n'
         '**8. 世界观设定facts（worldbuilding_facts）**：**以下10个体系每个必须各输出至少一条fact**（体系完整性检查清单，即使本弧线只间接提到也要提取；确实完全未涉及的体系输出一条rule为"本弧线未涉及"的fact）：经济体系/修炼境界体系/功法技能体系/社会政治体系/地理世界体系/法宝物品体系/丹药灵草体系/种族生物体系/组织势力体系/历史传说体系。每条fact含system（体系类型）、text（原文片段）、rule（提取的规则）、function（功能目的）。rule必须含本弧线实际出现的具体名目（法宝物品体系列法宝/物品/天材地宝名，丹药灵草体系列丹药/灵草名，功法技能体系列功法/神通/技能名，组织势力体系列势力名，种族生物体系列种族/妖兽名，地理世界体系列地点名；每个名目后带一句简单说明（是什么/有何用/当前状态），禁止只列名称（v1148））。输出自查：没有worldbuilding_facts键=不完整。\n\n'
+
+        '只输出纯JSON（不要markdown）：{"worldbuilding_facts": [...]}\n\n';
+  }
+
+  static String buildArcFantasyStyleSystemPrompt() {
+    return '你是一位资深网文编辑。给定一条弧线的原文切片，提取脑洞与文风零件。\n\n'
         '**7. 作者脑洞（author_fantasy）**：作者反复铺陈、明显投入的具体幻想内容。3-5条，格式「类别：具体内容（出处举例）」。落到具体类别（捡漏文化/知识变现/冤家搭档/以小博大/因祸得福等），不笼统。\n\n'
-        '只输出纯JSON（不要markdown）：{"arc_summary": "高质量弧线概述", "characters": [...], "conflicts": [...], "foreshadowing": [...], "arc_functions": [...], "irreversible_changes": "...", "emotional_curve": "...", "author_fantasy": [...], "worldbuilding_facts": [...]}\n\n';
+        '同时输出：ink_hobby（作者笔墨嗜好：反复出现的写法偏好，2-4条）、style_dna（文风DNA：叙事节奏/对白密度/描写比重等风格特征，2-4条）。\n\n'
+        '只输出纯JSON（不要markdown）：{"author_fantasy": [...], "ink_hobby": [...], "style_dna": [...]}\n\n';
   }
 
   static String buildArcPartsUserPrompt({
@@ -3156,15 +3208,19 @@ class PromptBuilder {
     required String arcSummary,
     required String arcText,
     String sceneList = '', // v889：场景清单（全局序号+名称+概述头）供scene_choreos标号
+    String historyBlock = '', // v1153：历史弧线零件（前两弧线全量+更早关键状态，只注剧情零件调用）
     bool choreoMode = false, // v901：编排分析模式（只要求编排两项输出）
   }) {
     final listBlock = sceneList.isEmpty
         ? ''
         : '\n\n【本弧线场景清单（scene_choreos的场景N用这些全局序号）】\n$sceneList';
+    final hisBlock = historyBlock.isEmpty
+        ? ''
+        : '\n\n【历史弧线零件（此前弧线的人设/冲突/伏笔/不可逆变化——本弧线人设的关系与状态变化必须与之衔接）】\n$historyBlock';
     final task = choreoMode
         ? '请分析这条弧线的弧线内场景编排策略（按系统提示的JSON格式，只输出arc_choreo和scene_choreos两项）'
         : '请生成高质量弧线概述并提取全套弧线零件（按系统提示的JSON格式输出）';
-    return '弧线「$arcTitle」的原文切片如下，$task：\n\n$arcText$listBlock';
+    return '弧线「$arcTitle」的原文切片如下，$task：\n\n$arcText$listBlock$hisBlock';
   }
 
 }
