@@ -2304,10 +2304,22 @@ class _AnalysisPageState extends State<AnalysisPage>
         if (item is Map) {
           String g(String k) => item[k]?.toString().trim() ?? '';
           if (item.containsKey('name')) {
+            // v1160：人设六字段全量导出（v1159渲染端修过，导出侧同类遗漏——
+            // relation/arcState此前被丢弃；traits/关系/状态带中文键兜底）
+            String g3(String a, String b, String c) {
+              if (g(a).isNotEmpty) return g(a);
+              if (g(b).isNotEmpty) return g(b);
+              return g(c);
+            }
+            final tr = g3('traits', '性格特征', '');
+            final rel = g3('relation', '与主角的关系', '与主角关系');
+            final st = g3('arcState', '本弧线状态变化', '本弧线状态');
             final parts = <String>[
               if (g('identity').isNotEmpty) g('identity'),
               if (g('role').isNotEmpty) '定位=${g('role')}',
-              if (g('traits').isNotEmpty) g('traits'),
+              if (tr.isNotEmpty) tr,
+              if (rel.isNotEmpty) '与主角=$rel',
+              if (st.isNotEmpty) '本弧线=$st',
             ];
             return '${g('name')}${parts.isNotEmpty ? '：${parts.join('，')}' : ''}';
           }
