@@ -1826,6 +1826,7 @@ class PromptBuilder {
     required String direction,
     required String progress,
     String lastArcEntry = '',
+    String sceneParts = '', // v1145：上一弧线场景级零件（剔除分镜）
   }) {
     final sb = StringBuffer();
     sb.writeln('【续写方向（底稿）】');
@@ -1839,6 +1840,11 @@ class PromptBuilder {
       sb.writeln();
       sb.writeln('【上一个弧线条目（完整——新弧线的人物/矛盾/伏笔承接以此为准）】');
       sb.writeln(lastArcEntry.trim());
+    }
+    if (sceneParts.trim().isNotEmpty) {
+      sb.writeln();
+      sb.writeln('【上一弧线场景零件（拆解层场景级——剧情连续性与世界观细节承接以此为准；分镜级内容已剔除）】');
+      sb.writeln(sceneParts.trim());
     }
     return sb.toString();
   }

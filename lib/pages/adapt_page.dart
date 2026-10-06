@@ -4308,10 +4308,35 @@ return true;
           break;
         }
       }
+      // v1145：注入上一弧线场景级拆解零件（name/summary/changes/choreo），
+      // 剔除shots分镜级——帮想继承拆解层世界观细节，不止头块九件套
+      String sceneParts = '';
+      for (final a in _getAllArcs(state).reversed) {
+        final sc =
+            (state.arcAnalyses[a.number.toString()]?.scenes ??
+                state.arcScenes[a.number.toString()] ??
+                const []);
+        if (sc.isNotEmpty) {
+          final sb2 = StringBuffer();
+          for (var i = 0; i < sc.length; i++) {
+            final e = sc[i];
+            final parts = <String>[
+              '场景${i + 1}：${e.name}',
+              if (e.summary.isNotEmpty) e.summary,
+              if (e.changes.isNotEmpty) '变化：${e.changes}',
+              if (e.choreo.isNotEmpty) '编排：${e.choreo}',
+            ];
+            sb2.writeln(parts.join('｜'));
+          }
+          sceneParts = sb2.toString();
+          break; // 只取最近有拆解零件的一条弧线
+        }
+      }
       final usr = PromptBuilder.buildContinueReqSuggestUserPrompt(
         direction: dir,
         progress: _continueProgressAll(state, _getAllArcs(state)),
         lastArcEntry: lastArcEntry,
+        sceneParts: sceneParts,
       ); // v1098：剔除v1097分镜事件链注入（上一弧线条目已含编排块，再注
       // 分镜链输入爆炸——用户词链实测点名剔除）
       // v783：词链检查
