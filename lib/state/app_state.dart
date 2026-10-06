@@ -160,12 +160,34 @@ class AppState extends ChangeNotifier {
   // v1048：编排自审开关——生成草稿后独立AI审核编排是否落实为符合作家风格的
   // 具体情节，不合格推翻重来（默认开，关=零API成本）
   bool choreoSelfReview = true;
+  // v1136：帮想/生成草稿独立温度（勾选后不使用API配置温度，防长链互相牵制）
+  bool choreoTempOn = false;
+  double choreoTemp = 1.8;
 
   void setChoreoSelfReview(bool v) {
     choreoSelfReview = v;
     storage.writeFile(
       '${storage.bookPath}choreo_self_review.flag',
       v ? 'true' : 'false',
+    );
+    notifyListeners();
+  }
+
+  // v1136：帮想/生成草稿独立温度
+  void setChoreoTempOn(bool v) {
+    choreoTempOn = v;
+    storage.writeFile(
+      '${storage.bookPath}choreo_temp_on.flag',
+      v ? 'true' : 'false',
+    );
+    notifyListeners();
+  }
+
+  void setChoreoTemp(double v) {
+    choreoTemp = v;
+    storage.writeFile(
+      '${storage.bookPath}choreo_temp.flag',
+      v.toStringAsFixed(2),
     );
     notifyListeners();
   }
@@ -967,6 +989,12 @@ class AppState extends ChangeNotifier {
     // v1048：编排自审开关（默认开）
     choreoSelfReview =
         storage.readFile('${p}choreo_self_review.flag') != 'false';
+    // v1136：帮想/草稿独立温度（默认关=用API温度；值默认1.8）
+    choreoTempOn =
+        storage.readFile('${p}choreo_temp_on.flag') == 'true';
+    choreoTemp =
+        double.tryParse(storage.readFile('${p}choreo_temp.flag') ?? '') ??
+            1.8;
     detectPromptPreview =
         storage.readFile('${p}detect_prompt_preview.flag') == 'true';
     final wsp = storage.readFile('${p}writing_scene_prompts.json');

@@ -2196,22 +2196,66 @@ return true;
 
   /// v781：全局方向规划块（弧线续写层末尾，样式对齐新增场景工作台）
   /// v1048：编排自审开关行（弧线规划卡+场景规划卡复用）
+  /// v1136：下方加帮想/生成草稿独立温度行（勾选后AI链用滑条温度，不用API温度）
   Widget _buildSelfReviewToggle(AppState state) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          width: 28,
-          height: 28,
-          child: Checkbox(
-            value: state.choreoSelfReview,
-            onChanged: (v) =>
-                setState(() => state.setChoreoSelfReview(v ?? true)),
-          ),
+        Row(
+          children: [
+            SizedBox(
+              width: 28,
+              height: 28,
+              child: Checkbox(
+                value: state.choreoSelfReview,
+                onChanged: (v) =>
+                    setState(() => state.setChoreoSelfReview(v ?? true)),
+              ),
+            ),
+            Expanded(
+              child: Text('编排自审（生成后AI审核编排是否落实为符合作家风格的具体情节，不合格推翻重来）',
+                  style: TextStyle(
+                      fontSize: _cf(11), color: const Color(0xFF5B7A99))),
+            ),
+          ],
         ),
-        Expanded(
-          child: Text('编排自审（生成后AI审核编排是否落实为符合作家风格的具体情节，不合格推翻重来）',
-              style: TextStyle(
-                  fontSize: _cf(11), color: const Color(0xFF5B7A99))),
+        Row(
+          children: [
+            SizedBox(
+              width: 28,
+              height: 28,
+              child: Checkbox(
+                value: state.choreoTempOn,
+                onChanged: (v) =>
+                    setState(() => state.setChoreoTempOn(v ?? false)),
+              ),
+            ),
+            Text('独立温度',
+                style: TextStyle(
+                    fontSize: _cf(11), color: const Color(0xFF5B7A99))),
+            Expanded(
+              child: Slider(
+                value: state.choreoTemp.clamp(0.1, 2.5),
+                min: 0.1,
+                max: 2.5,
+                divisions: 48,
+                label: state.choreoTemp.toStringAsFixed(2),
+                activeColor: const Color(0xFF2C5E8E),
+                onChanged: state.choreoTempOn
+                    ? (v) => setState(() => state.setChoreoTemp(v))
+                    : null,
+              ),
+            ),
+            SizedBox(
+              width: 34,
+              child: Text(state.choreoTemp.toStringAsFixed(2),
+                  style: TextStyle(
+                      fontSize: _cf(11),
+                      color: state.choreoTempOn
+                          ? const Color(0xFF2C5E8E)
+                          : Colors.grey)),
+            ),
+          ],
         ),
       ],
     );
@@ -3643,6 +3687,7 @@ return true;
         systemPrompt: sys,
         userPrompt: usr,
         apiConfig: config,
+      tempOverride: state.choreoTempOn ? state.choreoTemp : null, // v1136
       );
       if (!result.isSuccess) {
         _addLog('❌ 规划优化失败：${result.error}');
@@ -3812,6 +3857,7 @@ return true;
       systemPrompt: sys,
       userPrompt: usr,
       apiConfig: config,
+      tempOverride: state.choreoTempOn ? state.choreoTemp : null, // v1136
     );
     if (!result.isSuccess) {
       _addLog('❌ AI自拟失败：${result.error}');
@@ -3960,6 +4006,7 @@ return true;
       systemPrompt: sys,
       userPrompt: usr,
       apiConfig: config,
+      tempOverride: state.choreoTempOn ? state.choreoTemp : null, // v1136
     );
     if (!result.isSuccess) {
       _addLog('❌ 写入前细化失败：${result.error}');

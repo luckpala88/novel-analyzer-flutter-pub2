@@ -160,13 +160,15 @@ class ApiService {
     void Function(String chunk)? onChunk,
     String task = '',
     List<({String mime, String base64})> images = const [], // v838：vision图片
+    double? tempOverride, // v1136：任务级温度覆盖（独立温度开关用）
   }) async {
     rpmLimit = apiConfig.rpmLimit; // 配置的每分钟请求上限（0=不限）
+    final effTemp = tempOverride ?? apiConfig.temperature;
     final sw = Stopwatch()..start();
     if (task.isNotEmpty) {
       _log(
         '▶ $task｜模型${apiConfig.effectiveModel}'
-        '｜温度${apiConfig.temperature}｜max_tokens${apiConfig.maxTokens}'
+        '｜温度$effTemp${tempOverride != null ? '（独立）' : ''}｜max_tokens${apiConfig.maxTokens}'
         '｜RPM${apiConfig.rpmLimit > 0 ? apiConfig.rpmLimit : "不限"}',
       );
     }
@@ -177,7 +179,7 @@ class ApiService {
       model: apiConfig.effectiveModel,
       systemPrompt: systemPrompt,
       userPrompt: userPrompt,
-      temperature: apiConfig.temperature,
+      temperature: effTemp,
       maxTokens: apiConfig.maxTokens,
       formatMode: apiConfig.formatMode,
       onChunk: onChunk,
