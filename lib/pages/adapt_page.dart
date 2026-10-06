@@ -3428,14 +3428,17 @@ return true;
   /// 场景帮想只吃这块：分镜维度行是分镜帮想的输入，规划阶段把全部已规划
   /// 场景的分镜行再注一遍=与续写语料重复+输入爆炸（用户词链实测点名）
   String _arcEntryHeaderBlock(String content) {
-    // v1149：剔除场景块但保留全部零件块——原实现截到首个场景行为止，而场景规划
-    // 写入后场景行插在九件套之前（概述→编排→场景N→【世界观设定】→【人设】…），
-    // 场景行后面的世界观/人设/矛盾/伏笔全被截掉（用户实测帮想只见概述+编排）
-    final sceneRe = RegExp(r'^场景\s*\d+\s*[：:]', multiLine: true);
-    final blockRe = RegExp(r'【[^】]+】');
+    // v1150：只剔分镜明细，场景头（场景N：标题+概述行）保留——v1149把场景块
+    // 全挖掉过度了（用户纠正：场景概述是剧情连续性关键信息要保留）。
+    // 场景规划写入后结构=概述→编排→场景N行→场景概述→分镜N行…→【零件块】，
+    // 原v990截到首个场景行会把后面的【零件块】全吞掉。
+    final stopRe = RegExp(
+        r'^\s*分镜\s*\d+\s*[：.]|^场景\s*\d+\s*[：:]|【[^】]+】',
+        multiLine: true);
+    final shotRe = RegExp(r'^\s*分镜\s*\d+\s*[：.]', multiLine: true);
     final spans = <List<int>>[];
-    for (final m in sceneRe.allMatches(content)) {
-      final next = blockRe.allMatches(content, m.start).toList();
+    for (final m in shotRe.allMatches(content)) {
+      final next = stopRe.allMatches(content, m.end).toList();
       spans.add([m.start, next.isEmpty ? content.length : next.first.start]);
     }
     if (spans.isEmpty) return content.trim();
