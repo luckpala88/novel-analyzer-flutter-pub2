@@ -1346,7 +1346,22 @@ class _AnalysisPageState extends State<AnalysisPage>
         final name = m != null ? _asStr(m['name']) : _asStr(c);
         final role = m != null ? _asStr(m['role']) : '';
         final identity = m != null ? _asStr(m['identity']) : '';
-        final traits = m != null ? _asStr(m['traits']) : '';
+        // v1159：traits兜底中文键（旧数据/AI键名漂移兼容）+渲染关系/状态字段
+        final traits = m != null
+            ? (_asStr(m['traits']).isNotEmpty
+                ? _asStr(m['traits'])
+                : _asStr(m['性格特征']))
+            : '';
+        final relation = m != null
+            ? (_asStr(m['relation']).isNotEmpty
+                ? _asStr(m['relation'])
+                : _asStr(m['与主角的关系']) ?? _asStr(m['与主角关系']))
+            : '';
+        final arcState = m != null
+            ? (_asStr(m['arcState']).isNotEmpty
+                ? _asStr(m['arcState'])
+                : _asStr(m['本弧线状态变化']) ?? _asStr(m['本弧线状态']))
+            : '';
         charCards.add(
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 400),
@@ -1417,6 +1432,30 @@ class _AnalysisPageState extends State<AnalysisPage>
                           fontSize: 11.5,
                           color: V469Style.textMuted,
                           fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  // v1159：与主角的关系（含本弧线关系变化）
+                  if (relation.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        '🔗 $relation',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: V469Style.textSec,
+                        ),
+                      ),
+                    ),
+                  // v1159：本弧线状态变化（登场→变化→最终状态含生死）
+                  if (arcState.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        '📍 $arcState',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: Color(0xFFB45309),
                         ),
                       ),
                     ),
