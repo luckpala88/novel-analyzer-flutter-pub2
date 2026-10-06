@@ -1033,6 +1033,7 @@ Future<void> analyzeArcChoreo({
   required AppState state,
   required Arc arc,
   required void Function(String msg) log,
+  Future<bool> Function(String sys, String user)? previewHook, // v1157：词链预览
 }) async {
   if (arc.text.isEmpty) {
     log('⚠ 弧线${arc.number}无正文切片，跳过编排分析');
@@ -1053,6 +1054,14 @@ Future<void> analyzeArcChoreo({
     sceneList: sceneList,
     choreoMode: true,
   );
+  // v1157：词链预览（编排任务发前弹，取消即中止）
+  if (previewHook != null) {
+    final ok = await previewHook!(systemPrompt, userPrompt);
+    if (!ok) {
+      log('⛔ 弧线${arc.number}编排分析已取消（词链预览）');
+      return;
+    }
+  }
   final config = state.getApiConfig('arc');
   final result = await state.api.callApi(
     task: '场景内分镜编排策略分析', // v824任务级反馈
@@ -1086,12 +1095,66 @@ Future<void> analyzeArcChoreo({
   log('✓ 弧线${arc.number}【弧线内场景编排策略】已落库（总纲${arcChoreoV.length}字+逐场景落点${scChoreos.length}字）');
 }
 
+/// v1158：批量按弧线分步编排分析（弧线页批量菜单，用户需求：后补编排只能手点太费劲）——
+/// 逐弧线跑analyzeArcChoreo。incremental=true跳过已有编排（arc_choreo非空）的弧线
+Future<void> batchAnalyzeArcChoreo({
+  required AppState state,
+  required void Function(String msg) log,
+  required bool incremental,
+  Future<bool> Function(String sys, String user)? previewHook, // v1158：仅首条弧线预览
+}) async {
+  final arcs = state.arcScan?.arcs ?? const <Arc>[];
+  final targets = <Arc>[];
+  for (final a in arcs) {
+    if (a.text.isEmpty) continue;
+    if (incremental) {
+      final an = state.arcAnalyses[a.number.toString()];
+      final has = an != null &&
+          ((an.metadata?['arc_choreo'] ?? '').toString().isNotEmpty);
+      if (has) continue;
+    }
+    targets.add(a);
+  }
+  if (targets.isEmpty) {
+    log(incremental
+        ? 'ℹ 所有弧线均已有编排策略——无需增量编排（要全量重跑请选"重头"）'
+        : 'ℹ 无可编排弧线（无正文切片）');
+    return;
+  }
+  state.setSceneStreamBusy(true);
+  var done = 0;
+  try {
+    log('=== 批量编排分析开始：${targets.length}条弧线（${incremental ? "增量" : "重头"}） ===');
+    for (final a in targets) {
+      if (state.userAborted) {
+        log('⛔ 用户终止——批量编排已停止（已完成$done/${targets.length}，已完成成果已逐条落盘）');
+        return;
+      }
+      log('▶ 批量编排分析：弧线${a.number}（${done + 1}/${targets.length}）');
+      await analyzeArcChoreo(
+        state: state,
+        arc: a,
+        log: log,
+        // v1158：词链预览仅首条弧线弹一次（v465先例）
+        previewHook: (done == 0) ? previewHook : null,
+      );
+      done++;
+      state.saveArcAnalyses();
+      log('💾 弧线${a.number}编排已落盘（$done/${targets.length}）');
+    }
+    log('=== 批量编排分析完成：$done/${targets.length}条弧线 ===');
+  } finally {
+    state.setSceneStreamBusy(false);
+  }
+}
+
 /// v1156：批量按弧线分步提取零件（弧线页批量菜单）——逐弧线跑v1153四任务+状态对账。
 /// incremental=true跳过已有零件的弧线（增量续跑）；false全量重跑（用户需求）
 Future<void> batchExtractArcParts({
   required AppState state,
   required void Function(String msg) log,
   required bool incremental,
+  Future<bool> Function(String sys, String user)? previewHook, // v1157：仅首条弧线预览
 }) async {
   final arcs = state.arcScan?.arcs ?? const <Arc>[];
   final targets = <Arc>[];
@@ -1121,7 +1184,13 @@ Future<void> batchExtractArcParts({
         return;
       }
       log('▶ 批量零件提取：弧线${a.number}（${done + 1}/${targets.length}）');
-      await extractArcParts(state: state, arc: a, log: log);
+      await extractArcParts(
+        state: state,
+        arc: a,
+        log: log,
+        // v1157：词链预览仅首条弧线弹一次（v465先例——后续窗口内容重复预览意义小）
+        previewHook: (done == 0) ? previewHook : null,
+      );
       done++;
       state.saveArcAnalyses();
       log('💾 弧线${a.number}零件+账本已落盘（$done/${targets.length}）');
@@ -1253,6 +1322,7 @@ Future<void> extractArcParts({
   required AppState state,
   required Arc arc,
   required void Function(String msg) log,
+  Future<bool> Function(String sys, String user)? previewHook, // v1157：词链预览（调用1发前弹）
 }) async {
   if (arc.text.isEmpty) {
     log('⚠ 弧线${arc.number}无正文切片，跳过零件提取');
@@ -1274,6 +1344,23 @@ Future<void> extractArcParts({
   final config = state.getApiConfig('arc');
   final merged = <String, dynamic>{};
   // 调用1：概述与剧情零件（含历史注入——人设承接变化）
+  // v1157：词链预览（剧情零件任务=主prompt结构代表，发前弹，取消即中止）
+  if (previewHook != null) {
+    final ok = await previewHook!(
+      PromptBuilder.buildArcStoryPartsSystemPrompt(),
+      PromptBuilder.buildArcPartsUserPrompt(
+        arcTitle: arc.title,
+        arcSummary: arc.summary,
+        arcText: arc.text,
+        sceneList: sceneList,
+        historyBlock: hisBlock,
+      ),
+    );
+    if (!ok) {
+      log('⛔ 弧线${arc.number}零件提取已取消（词链预览）');
+      return;
+    }
+  }
   final r1 = await state.api.callApi(
     task: '弧线概述与剧情零件',
     systemPrompt: PromptBuilder.buildArcStoryPartsSystemPrompt(),

@@ -78,7 +78,6 @@ class _ScanPageState extends State<ScanPage>
     });
   }
 
-  bool _previewPrompt = false;
   // v288：生成内容字号（本页独立，0.8~1.6）
   double _fontScale = 1.0;
 
@@ -385,7 +384,7 @@ class _ScanPageState extends State<ScanPage>
                         groupArcsFromScenes(
                           state: state,
                           log: _addLog,
-                          previewHook: _previewPrompt
+                          previewHook: state.scanPromptPreview
                               ? (sys, user) => PromptPreview.maybePreview(
                                     context,
                                     sysPrompt: sys,
@@ -398,13 +397,39 @@ class _ScanPageState extends State<ScanPage>
                         );
                       }
                       if (v == 'regen_group') _confirmRegenArcs(state);
-                      if (v == 'extract_parts_inc') {
-                        batchExtractArcParts(
-                            state: state, log: _addLog, incremental: true);
+                      if (v == 'batch_choreo_inc' ||
+                          v == 'batch_choreo_redo') {
+                        batchAnalyzeArcChoreo(
+                          state: state,
+                          log: _addLog,
+                          incremental: v == 'batch_choreo_inc',
+                          previewHook: state.scanPromptPreview
+                              ? (sys, user) => PromptPreview.maybePreview(
+                                    context,
+                                    sysPrompt: sys,
+                                    userPrompt: user,
+                                    title: '批量编排分析词链预览（首条弧线）',
+                                    enabled: true,
+                                  )
+                              : null,
+                        );
                       }
-                      if (v == 'extract_parts_redo') {
+                      if (v == 'extract_parts_inc' ||
+                          v == 'extract_parts_redo') {
                         batchExtractArcParts(
-                            state: state, log: _addLog, incremental: false);
+                          state: state,
+                          log: _addLog,
+                          incremental: v == 'extract_parts_inc',
+                          previewHook: state.scanPromptPreview
+                              ? (sys, user) => PromptPreview.maybePreview(
+                                    context,
+                                    sysPrompt: sys,
+                                    userPrompt: user,
+                                    title: '批量零件提取词链预览（首条弧线）',
+                                    enabled: true,
+                                  )
+                              : null,
+                        );
                       }
                     },
                     itemBuilder: (c) => [
@@ -445,6 +470,23 @@ class _ScanPageState extends State<ScanPage>
                           style: TextStyle(fontSize: 13),
                         ),
                       ),
+                      // v1158：批量按弧线分步编排分析（增量/重头）
+                      const PopupMenuItem(
+                        value: 'batch_choreo_inc',
+                        height: 40,
+                        child: Text(
+                          '批量编排分析（增量——跳过已有）',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'batch_choreo_redo',
+                        height: 40,
+                        child: Text(
+                          '批量编排分析（重头——全部重跑）',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                      ),
                     ],
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -459,6 +501,15 @@ class _ScanPageState extends State<ScanPage>
                         style: TextStyle(fontSize: 12.5),
                       ),
                     ),
+                  ),
+                  // v1157：恢复弧线页词链开关（分组/零件提取/编排发前弹预览）
+                  const SizedBox(width: 6),
+                  MiniButton(
+                    label: '词链',
+                    primary: state.scanPromptPreview,
+                    enabled: true,
+                    onTap: () =>
+                        state.setScanPromptPreview(!state.scanPromptPreview),
                   ),
                   const SizedBox(width: 5),
                   const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
@@ -1142,6 +1193,22 @@ class _ScanPageState extends State<ScanPage>
                                                       state: state,
                                                       arc: arc,
                                                       log: _addLog,
+                                                      previewHook: state
+                                                              .scanPromptPreview
+                                                          ? (sys, user) =>
+                                                              PromptPreview
+                                                                  .maybePreview(
+                                                                    context,
+                                                                    sysPrompt:
+                                                                        sys,
+                                                                    userPrompt:
+                                                                        user,
+                                                                    title:
+                                                                        '编排分析词链预览',
+                                                                    enabled:
+                                                                        true,
+                                                                  )
+                                                          : null,
                                                     );
                                                     if (mounted) {
                                                       setState(() {});

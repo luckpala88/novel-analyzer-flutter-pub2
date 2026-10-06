@@ -177,6 +177,7 @@ class AppState extends ChangeNotifier {
   // v469对齐：各功能预览开关（scene/shot/wb/detect）
   bool scenePromptPreview = false;
   bool shotPromptPreview = false;
+  bool scanPromptPreview = false; // v1157：弧线页词链开关（分组/零件提取/编排共用）
   bool wbPromptPreview = false;
   bool detectPromptPreview = false;
   // v1041：概述/规划文言文开关（用户实测文言阅读困难，关=通俗白话）
@@ -1012,6 +1013,8 @@ class AppState extends ChangeNotifier {
         storage.readFile('${p}scene_prompt_preview.flag') == 'true';
     shotPromptPreview =
         storage.readFile('${p}shot_prompt_preview.flag') == 'true';
+    scanPromptPreview =
+        storage.readFile('${p}scan_prompt_preview.flag') == 'true';
     wbPromptPreview = storage.readFile('${p}wb_prompt_preview.flag') == 'true';
     // v1041：文言开关（默认true保持原行为，用户可关）
     promptWenyan =
@@ -2028,6 +2031,11 @@ class AppState extends ChangeNotifier {
     _setPreviewFlag('shot', v);
   }
 
+  void setScanPromptPreview(bool v) {
+    scanPromptPreview = v;
+    _setPreviewFlag('scan', v);
+  }
+
   void setWbPromptPreview(bool v) {
     wbPromptPreview = v;
     _setPreviewFlag('wb', v);
@@ -2414,6 +2422,7 @@ class AppState extends ChangeNotifier {
     'writing_imitate_author.flag',
     'writing_prompt_preview.flag', 'writing_model_note.flag',
     'scene_prompt_preview.flag', 'shot_prompt_preview.flag',
+    'scan_prompt_preview.flag', // v1157：弧线页词链
     'wb_prompt_preview.flag', 'detect_prompt_preview.flag',
   ];
 
