@@ -3938,6 +3938,7 @@ return true;
         '【续写语料（锚点/本弧线零件/已规划场景/前情概述/未回收伏笔/人物基准——人物与设定以此为准）】\n${state.continueCorpus(arcKey)}\n\n'
         '${_matBlock(state, arcKey)}'
         '${failReason == null ? '' : '【⚠️ 上一稿被编排自审否决——必须针对以下问题推翻重做】\n$failReason\n\n'}'
+        '${state.writerStyleBlock.isEmpty ? '' : '${state.writerStyleBlock}\n\n'}'
         '【待落地的场景规划（初步设想或完整规划，落地为场景条目草稿）】\n$source';
     final okSend = await PromptPreview.maybePreview(
       context,
