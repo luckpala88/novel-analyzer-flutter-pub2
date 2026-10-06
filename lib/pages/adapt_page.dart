@@ -2195,6 +2195,51 @@ return true;
   }
 
   /// v781：全局方向规划块（弧线续写层末尾，样式对齐新增场景工作台）
+  /// v1147：分镜续写tab顶部独立温度卡（开关+帮想/草稿滑条）
+  Widget _buildShotTempCard(AppState state) {
+    final g = state.shotTemp;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(8, 4, 12, 4),
+      padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF2FB),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFB8CFE5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: Checkbox(
+                  value: g.on,
+                  onChanged: (v) => setState(() {
+                    g.on = v ?? false;
+                    state.saveTempGroup(g, 'shot');
+                  }),
+                ),
+              ),
+              Expanded(
+                child: Text('分镜独立温度：帮想${g.suggest.toStringAsFixed(1)}｜草稿${g.draft.toStringAsFixed(1)}（勾选后AI用这两组温度）',
+                    style: TextStyle(
+                        fontSize: _cf(10), color: const Color(0xFF5B7A99))),
+              ),
+            ],
+          ),
+          if (g.on) ...[
+            _tempSliderRow('帮想', g.suggest,
+                (v) => setState(() { g.suggest = v; state.saveTempGroup(g, 'shot'); })),
+            _tempSliderRow('草稿', g.draft,
+                (v) => setState(() { g.draft = v; state.saveTempGroup(g, 'shot'); })),
+          ],
+        ],
+      ),
+    );
+  }
+
   /// v1140：独立温度滑条行（帮想/草稿各一行）
   Widget _tempSliderRow(String label, double value, ValueChanged<double> on) {
     return Row(
@@ -2227,8 +2272,8 @@ return true;
   }
 
   /// v1048：编排自审开关行（弧线规划卡+场景规划卡复用）
-  /// v1136：下方加帮想/生成草稿独立温度行（勾选后AI链用滑条温度，不用API温度）
-  Widget _buildSelfReviewToggle(AppState state) {
+  /// v1147：温度行按kind取tab独立温度组（arc/scene/shot三组互不联动）
+  Widget _buildSelfReviewToggle(AppState state, {String tempKind = 'scene'}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2250,30 +2295,46 @@ return true;
             ),
           ],
         ),
-        Row(
-          children: [
-            SizedBox(
-              width: 28,
-              height: 28,
-              child: Checkbox(
-                value: state.choreoTempOn,
-                onChanged: (v) =>
-                    setState(() => state.setChoreoTempOn(v ?? false)),
+        Builder(builder: (ctx) {
+          final g = tempKind == 'arc'
+              ? state.arcTemp
+              : tempKind == 'shot'
+                  ? state.shotTemp
+                  : state.sceneTemp;
+          final prefix = tempKind;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: Checkbox(
+                      value: g.on,
+                      onChanged: (v) => setState(() {
+                        g.on = v ?? false;
+                        state.saveTempGroup(g, prefix);
+                      }),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text('独立温度：帮想${g.suggest.toStringAsFixed(1)}｜草稿${g.draft.toStringAsFixed(1)}（本tab独立，勾选后AI用这两组温度）',
+                        style: TextStyle(
+                            fontSize: _cf(10),
+                            color: const Color(0xFF5B7A99))),
+                  ),
+                ],
               ),
-            ),
-            Expanded(
-              child: Text('独立温度：帮想${state.choreoSuggestTemp.toStringAsFixed(1)}｜草稿${state.choreoDraftTemp.toStringAsFixed(1)}（勾选后AI用这两组温度，不用API温度）',
-                  style: TextStyle(
-                      fontSize: _cf(10), color: const Color(0xFF5B7A99))),
-            ),
-          ],
-        ),
-        if (state.choreoTempOn) ...[
-          _tempSliderRow('帮想', state.choreoSuggestTemp,
-              (v) => setState(() => state.setChoreoSuggestTemp(v))),
-          _tempSliderRow('草稿', state.choreoDraftTemp,
-              (v) => setState(() => state.setChoreoDraftTemp(v))),
-        ],
+              if (g.on) ...[
+                _tempSliderRow('帮想', g.suggest,
+                    (v) => setState(() { g.suggest = v; state.saveTempGroup(g, prefix); })),
+                _tempSliderRow('草稿', g.draft,
+                    (v) => setState(() { g.draft = v; state.saveTempGroup(g, prefix); })),
+              ],
+            ],
+          );
+        }),
       ],
     );
   }
@@ -2434,7 +2495,7 @@ return true;
           // v1041：文言文概述开关
           _buildWenyanToggle(state),
           // v1048：编排自审开关
-          _buildSelfReviewToggle(state),
+          _buildSelfReviewToggle(state, tempKind: 'arc'),
           // v920：规划输入框改_CollapseReqField样式（折叠展开+自适应高度，
           // 对齐改编要求输入框；控制器持久化修复一次性controller丢光标）
           CheckboxListTile(
@@ -3109,7 +3170,7 @@ return true;
           // v1041：文言文概述开关
           _buildWenyanToggle(state),
           // v1048：编排自审开关
-          _buildSelfReviewToggle(state),
+          _buildSelfReviewToggle(state, tempKind: 'scene'),
         ],
       ),
     );
@@ -3704,7 +3765,7 @@ return true;
         systemPrompt: sys,
         userPrompt: usr,
         apiConfig: config,
-      tempOverride: state.choreoTempOn ? state.choreoSuggestTemp : null, // v1140
+      tempOverride: state.sceneTemp.on ? state.sceneTemp.suggest : null, // v1147场景组
       );
       if (!result.isSuccess) {
         _addLog('❌ 规划优化失败：${result.error}');
@@ -3874,7 +3935,7 @@ return true;
       systemPrompt: sys,
       userPrompt: usr,
       apiConfig: config,
-      tempOverride: state.choreoTempOn ? state.choreoSuggestTemp : null, // v1140
+      tempOverride: state.sceneTemp.on ? state.sceneTemp.suggest : null, // v1147场景组
     );
     if (!result.isSuccess) {
       _addLog('❌ AI自拟失败：${result.error}');
@@ -4023,7 +4084,7 @@ return true;
       systemPrompt: sys,
       userPrompt: usr,
       apiConfig: config,
-      tempOverride: state.choreoTempOn ? state.choreoDraftTemp : null, // v1140
+      tempOverride: state.sceneTemp.on ? state.sceneTemp.draft : null, // v1147场景组
     );
     if (!result.isSuccess) {
       _addLog('❌ 写入前细化失败：${result.error}');
@@ -4163,7 +4224,7 @@ return true;
       }
       final result = await state.api.callApi(
         task: '续写弧线添加',  // v824任务级反馈
-        tempOverride: state.choreoTempOn ? state.choreoDraftTemp : null, // v1140
+        tempOverride: state.arcTemp.on ? state.arcTemp.draft : null, // v1147弧线组
         systemPrompt: sys,
         userPrompt: usr,
         apiConfig: config,
@@ -4353,7 +4414,7 @@ return true;
       }
       final r = await state.api.callApi(
         task: '续写规划优化',  // v824任务级反馈
-        tempOverride: state.choreoTempOn ? state.choreoSuggestTemp : null, // v1140
+        tempOverride: state.arcTemp.on ? state.arcTemp.suggest : null, // v1147弧线组
         systemPrompt: sys +
             state.writerStyleBlock, // v1098：作家档案注入（此前缺失=帮想无创作方法）
         userPrompt: usr,

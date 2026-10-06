@@ -24,6 +24,29 @@ import '../services/tts_service.dart';
 
 /// 全局应用状态
 /// 对应原版JS的 var state = {...} 和 NativeBridge
+/// v1147：三tab独立温度组（弧线续写/场景续写/分镜续写各自开关+帮想+草稿）
+class ChoreoTempGroup {
+  bool on = false;
+  double suggest = 2.0; // 帮想（短输出规划，高温去套路）
+  double draft = 1.2; // 草稿（长输出，低温稳语义）
+
+  void load(StorageService storage, String p, String prefix) {
+    on = storage.readFile('${p}${prefix}_temp_on.flag') == 'true';
+    suggest = double.tryParse(
+            storage.readFile('${p}${prefix}_suggest_temp.flag') ?? '') ??
+        suggest;
+    draft = double.tryParse(
+            storage.readFile('${p}${prefix}_draft_temp.flag') ?? '') ??
+        draft;
+  }
+
+  void save(StorageService storage, String p, String prefix) {
+    storage.writeFile('${p}${prefix}_temp_on.flag', on ? 'true' : 'false');
+    storage.writeFile('${p}${prefix}_suggest_temp.flag', suggest.toStringAsFixed(2));
+    storage.writeFile('${p}${prefix}_draft_temp.flag', draft.toStringAsFixed(2));
+  }
+}
+
 class AppState extends ChangeNotifier {
   /// v264：伪JSON连击计数（运行时，不持久化）——同会话连续坏格式≥2=中转
   /// 稳定剥response_format，跳过格式重试直接剥壳抢救（gcli中转实测3/3）
@@ -160,11 +183,11 @@ class AppState extends ChangeNotifier {
   // v1048：编排自审开关——生成草稿后独立AI审核编排是否落实为符合作家风格的
   // 具体情节，不合格推翻重来（默认开，关=零API成本）
   bool choreoSelfReview = true;
-  // v1140：帮想/生成草稿独立温度拆分（用户要求两次调用用不同温度）——
-  // 帮想=短输出规划（高温去套路甜区1.8-2.0），草稿=长输出（低温稳语义甜区1.2-1.5）
-  bool choreoTempOn = false;
-  double choreoSuggestTemp = 2.0; // 帮想温度（场景帮想/AI自拟/弧线帮想，v1144用户定默认2.0）
-  double choreoDraftTemp = 1.2; // 草稿温度（写入前细化/弧线条目草稿）
+  // v1147：三tab独立温度组——弧线续写/场景续写/分镜续写各自独立
+  // （v1140书级单组被弧线卡与场景卡复用=联动，用户实测点名拆分）
+  final arcTemp = ChoreoTempGroup(); // 弧线续写tab：弧线帮想/弧线条目草稿
+  final sceneTemp = ChoreoTempGroup(); // 场景续写tab：场景帮想/场景条目草稿
+  final shotTemp = ChoreoTempGroup(); // 分镜续写tab：分镜规划
 
   void setChoreoSelfReview(bool v) {
     choreoSelfReview = v;
@@ -175,31 +198,9 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  // v1136：帮想/生成草稿独立温度
-  void setChoreoTempOn(bool v) {
-    choreoTempOn = v;
-    storage.writeFile(
-      '${storage.bookPath}choreo_temp_on.flag',
-      v ? 'true' : 'false',
-    );
-    notifyListeners();
-  }
-
-  void setChoreoSuggestTemp(double v) {
-    choreoSuggestTemp = v;
-    storage.writeFile(
-      '${storage.bookPath}choreo_suggest_temp.flag',
-      v.toStringAsFixed(2),
-    );
-    notifyListeners();
-  }
-
-  void setChoreoDraftTemp(double v) {
-    choreoDraftTemp = v;
-    storage.writeFile(
-      '${storage.bookPath}choreo_draft_temp.flag',
-      v.toStringAsFixed(2),
-    );
+  // v1147：tab温度组保存（页面setState触发UI刷新，这里只落盘）
+  void saveTempGroup(ChoreoTempGroup g, String prefix) {
+    g.save(storage, storage.bookPath, prefix);
     notifyListeners();
   }
 
@@ -1001,17 +1002,22 @@ class AppState extends ChangeNotifier {
     choreoSelfReview =
         storage.readFile('${p}choreo_self_review.flag') != 'false';
     // v1136：帮想/草稿独立温度（默认关=用API温度；值默认1.8）
-    choreoTempOn =
+    // v1147：三tab温度组——scene组兼容旧choreo_*flag（旧值优先读，只做迁移源）
+    arcTemp.load(storage, p, 'arc');
+    shotTemp.load(storage, p, 'shot');
+    sceneTemp.load(storage, p, 'scene');
+    final legacyOn =
         storage.readFile('${p}choreo_temp_on.flag') == 'true';
-    // v1144：新flag优先，旧choreo_temp.flag只做fallback（原顺序反了=旧值永远
-    // 盖掉新滑条保存值，改了重启回旧值——单一事实源读写闭环教训）
-    choreoSuggestTemp =
-        double.tryParse(storage.readFile('${p}choreo_suggest_temp.flag') ??
-            storage.readFile('${p}choreo_temp.flag') ?? '') ??
-        2.0; // 无记录默认2.0；旧choreo_temp.flag兼容为帮想温度
-    choreoDraftTemp =
-        double.tryParse(storage.readFile('${p}choreo_draft_temp.flag') ?? '') ??
-            1.2;
+    final legacySuggest = double.tryParse(
+        storage.readFile('${p}choreo_temp.flag') ?? '');
+    final legacyDraft = double.tryParse(
+        storage.readFile('${p}choreo_draft_temp.flag') ?? '');
+    if (legacyOn && !sceneTemp.on) {
+      sceneTemp.on = true;
+      if (legacySuggest != null) sceneTemp.suggest = legacySuggest;
+      if (legacyDraft != null) sceneTemp.draft = legacyDraft;
+      sceneTemp.save(storage, p, 'scene');
+    }
     detectPromptPreview =
         storage.readFile('${p}detect_prompt_preview.flag') == 'true';
     final wsp = storage.readFile('${p}writing_scene_prompts.json');
