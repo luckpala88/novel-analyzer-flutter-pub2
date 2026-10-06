@@ -3203,6 +3203,40 @@ class PromptBuilder {
         '只输出纯JSON（不要markdown）：{"author_fantasy": [...], "ink_hobby": [...], "style_dna": [...]}\n\n';
   }
 
+  /// v1154：世界状态对账（零件提取第四任务）——账本=实体状态单一事实源，
+  /// 滚动对账治"前言不搭后语"（逐类打补丁无底洞，用户裁决先上账本消费端后切）
+  static String buildLedgerReconcileSystemPrompt() {
+    return '你是网文连续性编辑。给定上一版"世界状态账本"（结构化实体清单：类别/名称/当前状态/更新于弧线N）与刚完成的新弧线信息，输出增量更新后的完整账本。规则：\n'
+        '- 逐实体核对新弧线信息：状态因本弧线发生变化的实体（生死/重伤/归属易主/势力存亡/立场转变/位置迁移/身份转变等），更新其"当前状态"并把lastArc改为本弧线号\n'
+        '- 新弧线中新出现的重要实体（新角色/新物品/新势力/新地点）新增行\n'
+        '- 无变化的实体原样保留；已死亡/已毁灭实体不删除（死亡/毁灭也是状态，防后续弧线复活）\n'
+        '- 状态描述要具体（"死亡——弧线三坊市被伏击"而不是只写"死亡"），一行内说完\n'
+        '- 类别开放：角色/物品/势力/地点/其他；只登记重要实体，次要路人不上账本\n'
+        '- 只依据给出的信息更新，禁止臆测补充\n'
+        '输出纯JSON（不要markdown）：{"ledger": [{"category": "角色", "name": "张三", "state": "死亡——被某某于坊市伏击", "lastArc": 3}]}\n\n';
+  }
+
+  static String buildLedgerReconcileUserPrompt({
+    required int arcNum,
+    required String prevLedger,
+    required String partBlock,
+  }) {
+    final sb = StringBuffer();
+    sb.writeln('刚完成弧线$arcNum的零件提取，更新世界状态账本：');
+    sb.writeln();
+    if (prevLedger.isNotEmpty) {
+      sb.writeln('【上一版账本】');
+      sb.writeln(prevLedger);
+      sb.writeln();
+    } else {
+      sb.writeln('（上一版账本为空——按本弧线信息新建账本）');
+      sb.writeln();
+    }
+    sb.writeln('【弧线$arcNum信息】');
+    sb.write(partBlock);
+    return sb.toString();
+  }
+
   static String buildArcPartsUserPrompt({
     required String arcTitle,
     required String arcSummary,

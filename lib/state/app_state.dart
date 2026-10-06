@@ -137,6 +137,7 @@ class AppState extends ChangeNotifier {
 
   // ===== 弧线分析（分镜） =====
   Map<String, ArcAnalysis> arcAnalyses = {}; // key: arc number
+  List<Map<String, dynamic>> stateLedger = []; // v1154：世界状态账本（实体状态单一事实源，滚动对账）
   bool isAnalyzing = false;
   // 分析元数据：跟踪哪些弧线已拆解
   Map<String, dynamic> reportMeta = {}; // {analyzedArcNumbers: []}
@@ -651,6 +652,7 @@ class AppState extends ChangeNotifier {
         arcScan = null;
         arcScenes = {};
         arcAnalyses = {};
+        stateLedger = [];
         worldBook = null;
         writings = {};
       }
@@ -830,6 +832,22 @@ class AppState extends ChangeNotifier {
       }
     } else {
       arcAnalyses = {};
+    }
+
+    // v1154：世界状态账本
+    final ledgerJson = storage.readFile('${p}state_ledger.json');
+    if (ledgerJson != null && ledgerJson.isNotEmpty) {
+      try {
+        final list = jsonDecode(ledgerJson) as List;
+        stateLedger = list
+            .whereType<Map>()
+            .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+            .toList();
+      } catch (e) {
+        stateLedger = [];
+      }
+    } else {
+      stateLedger = [];
     }
 
     // v916：场景数据单一事实源——重绑analysis.scenes为globalScenes子列表
@@ -1392,6 +1410,7 @@ class AppState extends ChangeNotifier {
       globalGroupedUpTo = 0;
       arcAnalyses.clear();
       arcScenes.clear();
+      stateLedger.clear();
     } else {
       // v651：闭包显式(Arc a)——?.链上未标类型的闭包被推成(dynamic)=>dynamic,
       // 运行期撞List<Arc>的test校验抛subtype异常(v647同款,剪断重分必炸)
@@ -1492,6 +1511,12 @@ class AppState extends ChangeNotifier {
     final map = <String, dynamic>{};
     arcAnalyses.forEach((k, v) => map[k] = v.toJson());
     storage.writeFile('${p}arc_analyses.json', jsonEncode(map));
+  }
+
+  /// v1154：保存世界状态账本
+  void saveStateLedger() {
+    final p = storage.bookPath;
+    storage.writeFile('${p}state_ledger.json', jsonEncode(stateLedger));
   }
 
   /// 保存世界书
@@ -2349,6 +2374,7 @@ class AppState extends ChangeNotifier {
   /// v318兼容的书目数据文件列表
   static const List<String> bookDataFiles = [
     'chapters.json', 'arc_scan.json', 'arc_analyses.json',
+    'state_ledger.json', // v1154：世界状态账本
     'global_scenes.json', // v431：全局场景流
     'arc_scenes.json', 'narrative_lines.json',
     'report.md', 'report_meta.json', 'worldbook.json',

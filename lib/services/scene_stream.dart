@@ -1086,6 +1086,72 @@ Future<void> analyzeArcChoreo({
   log('✓ 弧线${arc.number}【弧线内场景编排策略】已落库（总纲${arcChoreoV.length}字+逐场景落点${scChoreos.length}字）');
 }
 
+/// v1154：世界状态对账（零件提取第四任务）——上一版账本+本弧线零件→增量更新。
+/// 账本=实体状态单一事实源（AppState.stateLedger），每弧线快照进metadata可回溯
+Future<void> reconcileStateLedger({
+  required AppState state,
+  required Arc arc,
+  required Map<String, dynamic> parts,
+  required void Function(String msg) log,
+}) async {
+  final prevLedger = state.stateLedger.isEmpty ? '' : jsonEncode(state.stateLedger);
+  final pb = StringBuffer();
+  final ov = parts['arc_summary']?.toString() ?? '';
+  if (ov.isNotEmpty) pb.writeln('【本弧线概述】\n$ov');
+  if (parts['characters'] != null) pb.writeln('【人设】${jsonEncode(parts['characters'])}');
+  if (parts['conflicts'] != null) pb.writeln('【矛盾冲突】${jsonEncode(parts['conflicts'])}');
+  if (parts['foreshadowing'] != null) pb.writeln('【伏笔】${jsonEncode(parts['foreshadowing'])}');
+  final ir = parts['irreversible_changes']?.toString() ?? '';
+  if (ir.isNotEmpty) pb.writeln('【不可逆变化】$ir');
+  final facts = parts['worldbuilding_facts'] == null ? '' : jsonEncode(parts['worldbuilding_facts']);
+  if (facts.isNotEmpty) pb.writeln('【世界观facts】$facts');
+  if (pb.toString().trim().isEmpty) {
+    log('⚠ 弧线${arc.number}无零件可对账——跳过');
+    return;
+  }
+  final config = state.getApiConfig('arc');
+  final r = await state.api.callApi(
+    task: '世界状态对账', // v824任务级反馈
+    systemPrompt: PromptBuilder.buildLedgerReconcileSystemPrompt(),
+    userPrompt: PromptBuilder.buildLedgerReconcileUserPrompt(
+      arcNum: arc.number,
+      prevLedger: prevLedger,
+      partBlock: pb.toString(),
+    ),
+    apiConfig: config,
+  );
+  if (!r.isSuccess) {
+    log('⚠ 弧线${arc.number}状态对账请求失败：${r.error}——账本保留上一版');
+    return;
+  }
+  final out = JsonRepair.parseResponse(r.content);
+  final list = out?['ledger'];
+  if (list is! List || list.isEmpty) {
+    log('⚠ 弧线${arc.number}状态对账输出无效——账本保留上一版');
+    return;
+  }
+  final newLedger = <Map<String, dynamic>>[];
+  for (final e in list) {
+    if (e is Map) newLedger.add(e.map((k, v) => MapEntry(k.toString(), v)));
+  }
+  if (newLedger.isEmpty) {
+    log('⚠ 弧线${arc.number}状态对账账本为空——保留上一版');
+    return;
+  }
+  state.stateLedger = newLedger;
+  state.saveStateLedger();
+  final key = arc.number.toString();
+  final analysis = state.arcAnalyses[key];
+  if (analysis != null) {
+    analysis.metadata = {
+      ...?analysis.metadata,
+      'state_ledger_snapshot': newLedger, // 快照可回溯
+    };
+    state.saveArcAnalyses();
+  }
+  log('✓ 弧线${arc.number}世界状态账本已更新（${newLedger.length}实体，快照已存）');
+}
+
 /// v1153：历史弧线零件注入——前两弧线（N-1/N-2）全部零件全量+更早弧线关键状态行。
 /// 数据源=arcAnalyses.metadata（拆解层自身产物，拆书阶段世界书条目尚不存在）。
 /// 用途：新弧线零件提取时人设承接（角色生死/关系变化/未回收伏笔需前情基准）
@@ -1271,6 +1337,8 @@ Future<void> extractArcParts({
     state.saveArcScan();
   }
   log('✓ 弧线${arc.number}零件已提取（人设/冲突/伏笔/脑洞/facts）');
+  // v1154：状态对账第四任务——账本滚动更新（失败不中断主流程）
+  await reconcileStateLedger(state: state, arc: arc, parts: merged, log: log);
   // v496：实时刷新分镜页/弧线页（结果落盘后立即notify，用户边跑边看）
   state.notifyListeners();
 }
