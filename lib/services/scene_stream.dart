@@ -622,7 +622,11 @@ Future<void> groupArcsFromScenes({
         }
         state.globalGroupedUpTo = cursor;
         for (final a in arcs) {
-          if (state.arcAnalyses[a.number.toString()]?.metadata?['arc_summary_detailed'] != null) {
+          // v1164：零件+编排都齐才判"已提取"——只判零件会把没跑过编排的旧弧线
+          // 一并跳过（用户实测：增量续跑时前面弧线全跳过编排，只有新弧线有编排）
+          final md = state.arcAnalyses[a.number.toString()]?.metadata;
+          if (md?['arc_summary_detailed'] != null &&
+              (md?['arc_choreo'] ?? '').toString().isNotEmpty) {
             extractedArcs.add(a.number);
           }
         }
@@ -882,10 +886,21 @@ Future<void> groupArcsFromScenes({
         // 本批新闭合的弧线立即提取零件，不用等全部组完
         for (final a in arcs) {
           if (a.status == 'complete' && !extractedArcs.contains(a.number)) {
-            await extractArcParts(state: state, arc: a, log: log);
+            // v1164：零件/编排分别判缺补跑——零件齐的不重烧零件API，只补编排
+            final md = state.arcAnalyses[a.number.toString()]?.metadata;
+            final hasParts = md?['arc_summary_detailed'] != null;
+            final hasChoreo =
+                (md?['arc_choreo'] ?? '').toString().isNotEmpty;
+            if (hasParts) {
+              log('ℹ 弧线${a.number}零件已有——补跑编排策略分析');
+            } else {
+              await extractArcParts(state: state, arc: a, log: log);
+            }
             // v903：编排分析自动化（滚动模式同步）
-            log('▶ 弧线${a.number}【弧线内场景编排策略】分析开始');
-            await analyzeArcChoreo(state: state, arc: a, log: log);
+            if (!hasChoreo) {
+              log('▶ 弧线${a.number}【弧线内场景编排策略】分析开始');
+              await analyzeArcChoreo(state: state, arc: a, log: log);
+            }
             extractedArcs.add(a.number);
             // v496：一条弧线内容完整即保存（前面成果永不丢）
             if (state.arcScan == null || state.arcScan!.arcs.length < arcs.length) {
@@ -952,10 +967,17 @@ Future<void> groupArcsFromScenes({
             log('⛔ 用户终止——零件提取已停止');
             break;
           }
-          await extractArcParts(state: state, arc: a, log: log);
-          // v903：编排分析自动化——批量流程内嵌，用户零手感（v899起编排是表述层标配）
-          log('▶ 弧线${a.number}【弧线内场景编排策略】分析开始');
-          await analyzeArcChoreo(state: state, arc: a, log: log);
+          // v1164：零件/编排分别判缺补跑（与主循环同规则）
+          final md = state.arcAnalyses[a.number.toString()]?.metadata;
+          final hasParts = md?['arc_summary_detailed'] != null;
+          final hasChoreo = (md?['arc_choreo'] ?? '').toString().isNotEmpty;
+          if (!hasParts) {
+            await extractArcParts(state: state, arc: a, log: log);
+          }
+          if (!hasChoreo) {
+            log('▶ 弧线${a.number}【弧线内场景编排策略】分析开始');
+            await analyzeArcChoreo(state: state, arc: a, log: log);
+          }
           done++;
           log('零件+编排提取进度：$done/${arcs.length}');
         }
