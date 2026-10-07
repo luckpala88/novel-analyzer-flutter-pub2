@@ -1086,7 +1086,8 @@ Future<void> analyzeArcChoreo({
   }
   final config = state.getApiConfig('arc');
   final result = await state.api.callApi(
-    task: '场景内分镜编排策略分析', // v824任务级反馈
+    task: '弧线内场景编排策略分析', // v824任务级反馈；v1165改名——原与分镜级analyzeSceneChoreo重名致日志混淆
+
     systemPrompt: systemPrompt,
     userPrompt: userPrompt,
     apiConfig: config,
