@@ -15,6 +15,7 @@ import '../models/chapter.dart';
 import '../models/scene.dart';
 import '../utils/chinese_number.dart';
 import '../services/scene_stream.dart';
+import '../widgets/arc_parts_view.dart';
 import '../widgets/scene_card_item.dart';
 import '../utils/anchor_repair.dart';
 import '../utils/arc_text.dart';
@@ -48,6 +49,7 @@ class _ScanPageState extends State<ScanPage>
   final _logController = ScrollController();
   final List<String> _logs = [];
   bool _isScanning = false;
+  final Set<String> _partsOpen = {}; // v1167：弧线卡零件区展开键
   final _groupBatchController = TextEditingController(); // v441：每批场景数
   void _saveGroupBatch(state, {bool persist = false}) {
     final v = int.tryParse(_groupBatchController.text) ?? 0;
@@ -1232,8 +1234,47 @@ class _ScanPageState extends State<ScanPage>
                                                     }
                                                   },
                                           ),
+                                          const SizedBox(width: 4),
+                                          FilledButton(
+                                              style: FilledButton.styleFrom(
+                                                visualDensity: VisualDensity.compact,
+                                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                                textStyle: const TextStyle(fontSize: 11),
+                                              ),
+                                              onPressed: () => setState(() {
+                                                final k = '${arc.number}';
+                                                _partsOpen.contains(k)
+                                                    ? _partsOpen.remove(k)
+                                                    : _partsOpen.add(k);
+                                              }),
+                                              child: Text(
+                                                  _partsOpen.contains('${arc.number}')
+                                                      ? '收起'
+                                                      : '零件内容'),
+                                          ),
                                         ],
                                       ),
+                                      // v1167：弧线页直显零件区（用户需求：不切分镜页查看；
+                                      // 只渲染零件，不含分镜编排/分镜内容）
+                                      if (_partsOpen.contains('${arc.number}'))
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 8),
+                                          child: Builder(builder: (_) {
+                                            final an =
+                                                state.arcAnalyses[arc.number.toString()];
+                                            if (an == null || an.metadata == null) {
+                                              return const Text('暂无零件——先点「零件」提取',
+                                                  style: TextStyle(
+                                                      fontSize: 11.5,
+                                                      color: V469Style.textMuted));
+                                            }
+                                            return Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: ArcParts.build(an),
+                                            );
+                                          }),
+                                        ),
                                     ],
                                   ),
                                 ),
