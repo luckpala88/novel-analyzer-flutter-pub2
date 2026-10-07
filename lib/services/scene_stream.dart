@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/arc.dart';
 import '../models/scene.dart';
 import '../state/app_state.dart';
+import '../services/api_service.dart';
 import '../utils/arc_text.dart';
 import '../utils/json_repair.dart';
 import '../utils/prompt_builder.dart';
@@ -1199,6 +1200,13 @@ Future<void> batchExtractArcParts({
         : 'ℹ 无可提取弧线（无正文切片）');
     return;
   }
+  // v1166：重头模式清空账本——不清则弧线1对账拿旧全书账本当"上一版"照抄，
+  // 弧线1快照变成全书状态（用户实测103实体异常）
+  if (!incremental && state.stateLedger.isNotEmpty) {
+    state.stateLedger = [];
+    state.saveStateLedger();
+    log('ℹ 重头模式：账本已清空，从弧线1重新递推对账');
+  }
   state.setSceneStreamBusy(true);
   var done = 0;
   try {
@@ -1415,27 +1423,50 @@ Future<void> extractArcParts({
       return;
     }
   }
-  final r1 = await state.api.callApi(
-    task: '弧线概述与剧情零件',
-    systemPrompt: PromptBuilder.buildArcStoryPartsSystemPrompt(),
-    userPrompt: PromptBuilder.buildArcPartsUserPrompt(
-      arcTitle: arc.title,
-      arcSummary: arc.summary,
-      arcText: arc.text,
-      sceneList: sceneList,
-      historyBlock: hisBlock,
-    ),
-    apiConfig: config,
-  );
-  if (r1.isSuccess) {
-    final p1 = JsonRepair.parseResponse(r1.content);
-    if (p1 != null) {
-      merged.addAll(p1);
-    } else {
-      log('⚠ 弧线${arc.number}剧情零件解析失败');
+  // v1166：剧情零件带质量防御——输出过短/解析失败/缺核心键（arc_summary+characters
+  // 双缺，弧线1实测262字偷懒输出）自动重试一次
+  Future<ApiResult> callStoryParts() => state.api.callApi(
+        task: '弧线概述与剧情零件',
+        systemPrompt: PromptBuilder.buildArcStoryPartsSystemPrompt(),
+        userPrompt: PromptBuilder.buildArcPartsUserPrompt(
+          arcTitle: arc.title,
+          arcSummary: arc.summary,
+          arcText: arc.text,
+          sceneList: sceneList,
+          historyBlock: hisBlock,
+        ),
+        apiConfig: config,
+      );
+  Map<String, dynamic>? parseStory(ApiResult r) {
+    if (!r.isSuccess) {
+      log('⚠ 弧线${arc.number}剧情零件请求失败：${r.error}');
+      return null;
     }
+    final p = JsonRepair.parseResponse(r.content);
+    if (p == null) {
+      log('⚠ 弧线${arc.number}剧情零件解析失败（输出${r.content.length}字）');
+      return null;
+    }
+    final noSummary = (p['arc_summary'] ?? '').toString().trim().isEmpty;
+    final chars = p['characters'];
+    final noChars = chars is! List || chars.isEmpty;
+    if (noSummary || noChars) {
+      log('⚠ 弧线${arc.number}剧情零件缺核心键'
+          '${noSummary ? "（无arc_summary）" : ""}${noChars ? "（无人设）" : ""}，输出仅${r.content.length}字');
+      return null;
+    }
+    return p;
+  }
+
+  var p1 = parseStory(await callStoryParts());
+  if (p1 == null) {
+    log('↻ 弧线${arc.number}剧情零件重试一次…');
+    p1 = parseStory(await callStoryParts());
+  }
+  if (p1 != null) {
+    merged.addAll(p1);
   } else {
-    log('⚠ 弧线${arc.number}剧情零件请求失败：${r1.error}');
+    log('⚠ 弧线${arc.number}剧情零件两次尝试均不完整——零件可能缺位，可单独重跑该弧线');
   }
   // 调用2：世界观facts（10体系重活独立跑）
   final r2 = await state.api.callApi(
