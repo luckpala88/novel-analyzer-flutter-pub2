@@ -1163,6 +1163,31 @@ class _ScanPageState extends State<ScanPage>
                                                     state.sceneStreamBusy
                                                 ? null
                                                 : () async {
+                                                    // v1161：未闭合弧线提取确认——编造收束点会污染账本
+                                                    if (arc.status != 'complete') {
+                                                      final go = await showDialog<bool>(
+                                                        context: context,
+                                                        builder: (_) => AlertDialog(
+                                                          title: const Text('⚠ 弧线未闭合'),
+                                                          content: Text(
+                                                              '弧线${arc.number}尚未闭合（status=${arc.status}）。\n\n'
+                                                              '零件提取按"落定不可逆变化收束"模板要求概述与状态——未闭合弧线会被AI编造收束点，'
+                                                              '编造状态经状态对账登记进账本，污染后续弧线的承接基准。\n\n'
+                                                              '建议闭合后再提取；确要继续请选"仍要提取"。'),
+                                                          actions: [
+                                                            TextButton(
+                                                              onPressed: () => Navigator.pop(context, false),
+                                                              child: const Text('取消'),
+                                                            ),
+                                                            TextButton(
+                                                              onPressed: () => Navigator.pop(context, true),
+                                                              child: const Text('仍要提取'),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      );
+                                                      if (go != true) return;
+                                                    }
                                                     _addLog(
                                                         '↻ 弧线${arc.number}重提零件（切片重喂，全套零件+详细概述刷新）…');
                                                     await extractArcParts(

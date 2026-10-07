@@ -1158,8 +1158,15 @@ Future<void> batchExtractArcParts({
 }) async {
   final arcs = state.arcScan?.arcs ?? const <Arc>[];
   final targets = <Arc>[];
+  final skippedOpen = <int>[];
   for (final a in arcs) {
     if (a.text.isEmpty) continue;
+    // v1161：只提取已闭合弧线（status=complete）——未闭合弧线没有收束点，
+    // AI会按"落定不可逆变化"模板编造收束点，编造状态经对账污染账本
+    if (a.status != 'complete') {
+      skippedOpen.add(a.number);
+      continue;
+    }
     if (incremental) {
       final an = state.arcAnalyses[a.number.toString()];
       final has = an != null &&
@@ -1168,9 +1175,12 @@ Future<void> batchExtractArcParts({
     }
     targets.add(a);
   }
+  if (skippedOpen.isNotEmpty) {
+    log('ℹ 跳过未闭合弧线：${skippedOpen.join('、')}（闭合后增量补跑即可）');
+  }
   if (targets.isEmpty) {
     log(incremental
-        ? 'ℹ 所有弧线均已有零件——无需增量提取（要全量重跑请选"重头"）'
+        ? 'ℹ 没有可提取的已闭合弧线（未闭合的不提取——编造收束点会污染账本）'
         : 'ℹ 无可提取弧线（无正文切片）');
     return;
   }
