@@ -766,6 +766,34 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
                 ),
               ),
             );
+          } else if (isItem &&
+              currentTitle != null &&
+              (currentTitle.contains('人设') || currentTitle.contains('角色'))) {
+            // v1163：人设条目行名字高亮（用户需求：角色名加粗区分）——
+            // 名字=行首到首个分隔符，textMain加粗；其余textSec
+            final nm = RegExp(r'^([^，,：:]{1,12})[，,：:]\s*(.*)$').firstMatch(body);
+            if (nm != null) {
+              spans.add(TextSpan(
+                text: '▸ ${nm.group(1)}',
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: V469Style.textMain,
+                ),
+              ));
+              spans.add(TextSpan(
+                text: '，${nm.group(2)}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: V469Style.textSec,
+                  height: 1.5,
+                ),
+              ));
+            } else {
+              spans.addAll(
+                V469Style.contentSpans('▸ $body', fontSize: 11),
+              );
+            }
           } else {
             spans.addAll(
               V469Style.contentSpans(isItem ? '▸ $body' : body, fontSize: 11),

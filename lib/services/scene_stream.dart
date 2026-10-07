@@ -1203,6 +1203,35 @@ Future<void> batchExtractArcParts({
   }
 }
 
+/// v1163：零件输出净化——AI格式漂移把"💎 不可逆变化+内容"粘进其他字段值
+/// （截图实证：弧线功能第二条尾部粘连）。irreversible_changes为空时切出归还；
+/// 其他零件标题标记只剥离保内容（兜底可读）
+void sanitizeParts(Map<String, dynamic> m) {
+  const irMarker = '💎 不可逆变化';
+  final ir = (m['irreversible_changes'] ?? '').toString().trim();
+  if (ir.isNotEmpty) return; // 目标字段有内容：只剥离不转移
+  for (final key in ['arc_functions', 'conflicts', 'foreshadowing', 'author_fantasy']) {
+    final v = m[key];
+    if (v is List) {
+      for (var i = 0; i < v.length; i++) {
+        final t = v[i].toString();
+        final idx = t.indexOf(irMarker);
+        if (idx < 0) continue;
+        final head = t.substring(0, idx).trim();
+        var tail = t.substring(idx + irMarker.length).trim();
+        tail = tail.replaceFirst(RegExp(r'^[：:]\s*'), '');
+        if (head.isNotEmpty) {
+          v[i] = head;
+        } else {
+          v.removeAt(i);
+        }
+        if (tail.isNotEmpty) m['irreversible_changes'] = tail;
+        return;
+      }
+    }
+  }
+}
+
 /// v1154：世界状态对账（零件提取第四任务）——上一版账本+本弧线零件→增量更新。
 /// 账本=实体状态单一事实源（AppState.stateLedger），每弧线快照进metadata可回溯
 Future<void> reconcileStateLedger({
@@ -1434,6 +1463,7 @@ Future<void> extractArcParts({
     log('⚠ 弧线${arc.number}三个拆分调用全部失败——跳过');
     return;
   }
+  sanitizeParts(merged); // v1163：AI粘连带净化（💎不可逆变化切出归还）
   // v486b用户裁决：概述两次生成各归其位——第一次（分组时基于场景摘要）放弧线页，
   // 第二次（零件提取时基于原文切片，更细）只进分析层放分镜页展示，不写回覆盖弧线页
   // v488：详细概述存metadata['arc_summary_detailed']独立字段（场景页拆解链与零件提取链
