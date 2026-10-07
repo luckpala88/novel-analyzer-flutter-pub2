@@ -49,7 +49,6 @@ class _ScanPageState extends State<ScanPage>
   final _logController = ScrollController();
   final List<String> _logs = [];
   bool _isScanning = false;
-  final Set<String> _partsOpen = {}; // v1167：弧线卡零件区展开键
   final _groupBatchController = TextEditingController(); // v441：每批场景数
   void _saveGroupBatch(state, {bool persist = false}) {
     final v = int.tryParse(_groupBatchController.text) ?? 0;
@@ -1143,121 +1142,11 @@ class _ScanPageState extends State<ScanPage>
                                                 },
                                           ),
                                           // v296：浏览弧线精准正文（人工抽查分割）
-                                          const SizedBox(width: 4),
-                                          FilledButton(
-                                              style: FilledButton.styleFrom(
-                                                visualDensity: VisualDensity.compact,
-                                                padding: const EdgeInsets.symmetric(horizontal: 10),
-                                                textStyle: const TextStyle(fontSize: 11),
-                                              ),
-                                              child: const Text('正文'),                                            onPressed: () =>
-                                                _showArcText(state, arc),
-                                          ),
-                                          // v819：重提零件——重跑extractArcParts刷新全套零件+详细概述
-                                          const SizedBox(width: 4),
-                                          FilledButton(
-                                              style: FilledButton.styleFrom(
-                                                visualDensity: VisualDensity.compact,
-                                                padding: const EdgeInsets.symmetric(horizontal: 10),
-                                                textStyle: const TextStyle(fontSize: 11),
-                                              ),
-                                              child: const Text('零件'),                                            onPressed: _isScanning ||
-                                                    state.sceneStreamBusy
-                                                ? null
-                                                : () async {
-                                                    _addLog(
-                                                        '↻ 弧线${arc.number}重提零件（切片重喂，全套零件+详细概述刷新）…');
-                                                    await extractArcParts(
-                                                      state: state,
-                                                      arc: arc,
-                                                      log: _addLog,
-                                                      // v1162：单弧线零件也接词链预览（v1157漏——批量传了单条没传）
-                                                      previewHook: state
-                                                              .scanPromptPreview
-                                                          ? (sys, user) =>
-                                                              PromptPreview
-                                                                  .maybePreview(
-                                                                    context,
-                                                                    sysPrompt:
-                                                                        sys,
-                                                                    userPrompt:
-                                                                        user,
-                                                                    title:
-                                                                        '弧线${arc.number}零件提取词链预览',
-                                                                    enabled:
-                                                                        true,
-                                                                  )
-                                                          : null,
-                                                    );
-                                                    if (mounted) {
-                                                      setState(() {});
-                                                    }
-                                                  },
-                                          ),
-                                          // v901：分析编排——独立按键（骨架/表述分离，单任务保质量）
-                                          const SizedBox(width: 4),
-                                          FilledButton(
-                                              style: FilledButton.styleFrom(
-                                                visualDensity: VisualDensity.compact,
-                                                padding: const EdgeInsets.symmetric(horizontal: 10),
-                                                textStyle: const TextStyle(fontSize: 11),
-                                              ),
-                                              child: const Text('编排'),                                            onPressed: _isScanning ||
-                                                    state.sceneStreamBusy
-                                                ? null
-                                                : () async {
-                                                    _addLog(
-                                                        '🧠 弧线${arc.number}编排策略分析（只做编排一项，质量优先）…');
-                                                    await analyzeArcChoreo(
-                                                      state: state,
-                                                      arc: arc,
-                                                      log: _addLog,
-                                                      previewHook: state
-                                                              .scanPromptPreview
-                                                          ? (sys, user) =>
-                                                              PromptPreview
-                                                                  .maybePreview(
-                                                                    context,
-                                                                    sysPrompt:
-                                                                        sys,
-                                                                    userPrompt:
-                                                                        user,
-                                                                    title:
-                                                                        '编排分析词链预览',
-                                                                    enabled:
-                                                                        true,
-                                                                  )
-                                                          : null,
-                                                    );
-                                                    if (mounted) {
-                                                      setState(() {});
-                                                    }
-                                                  },
-                                          ),
-                                          const SizedBox(width: 4),
-                                          FilledButton(
-                                              style: FilledButton.styleFrom(
-                                                visualDensity: VisualDensity.compact,
-                                                padding: const EdgeInsets.symmetric(horizontal: 10),
-                                                textStyle: const TextStyle(fontSize: 11),
-                                              ),
-                                              onPressed: () => setState(() {
-                                                final k = '${arc.number}';
-                                                _partsOpen.contains(k)
-                                                    ? _partsOpen.remove(k)
-                                                    : _partsOpen.add(k);
-                                              }),
-                                              child: Text(
-                                                  _partsOpen.contains('${arc.number}')
-                                                      ? '收起'
-                                                      : '零件内容'),
-                                          ),
                                         ],
                                       ),
                                       // v1167：弧线页直显零件区（用户需求：不切分镜页查看；
                                       // 只渲染零件，不含分镜编排/分镜内容）
-                                      if (_partsOpen.contains('${arc.number}'))
-                                        Padding(
+                                      Padding(
                                           padding: const EdgeInsets.only(top: 8),
                                           child: Builder(builder: (_) {
                                             final an =
