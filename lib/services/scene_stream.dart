@@ -588,26 +588,31 @@ Future<void> groupArcsFromScenes({
         // 场景流长度。违反=场景流曾重建/清零而旧弧线残留（两代流混血）：
         // 级联清空旧弧线+对应分镜/拆解，从场景1重新分组（用户裁决：清流必清弧）
         final oldArcs = state.arcScan!.arcs;
-        var tiled = state.globalGroupedUpTo > 0 &&
-            state.globalGroupedUpTo <= gs.length &&
-            oldArcs.first.sceneFrom == 1;
-        if (tiled) {
-          var expect = 1;
+        // v1181：平铺完好性（首弧=1+连续不交叉）与断点数字分开判——弧线平铺
+        // 是分组成果本体，断点只是账面数字（重导章节/旧bug会让数字过期）。
+        // 数字坏了修正数字继续跑，不再级联清空48条弧线（用户实测惨案）
+        var flat = oldArcs.first.sceneFrom == 1;
+        var expect = 1;
+        if (flat) {
           for (final a in oldArcs) {
             if (a.sceneFrom != expect) {
-              tiled = false;
+              flat = false;
               break;
             }
             expect = a.sceneTo + 1;
           }
-          if (tiled && oldArcs.last.sceneTo != state.globalGroupedUpTo) {
-            tiled = false;
-          }
         }
-        if (!tiled) {
+        final lastTo = oldArcs.last.sceneTo;
+        if (!flat || lastTo > gs.length) {
           state.clearArcCascade();
-          log('⛔ 场景流与弧线分组状态不一致（场景流曾重建/回退，旧弧线残留）——已级联清空旧弧线/分镜/拆解/正文切片，本次从场景1重新分组');
+          log('⛔ 弧线平铺断裂（首弧起点/连续性/越界检查失败）——已级联清空旧弧线/分镜/拆解/正文切片，本次从场景1重新分组');
         } else {
+          if (state.globalGroupedUpTo != lastTo) {
+            final stale = state.globalGroupedUpTo;
+            state.globalGroupedUpTo = lastTo;
+            state.saveGlobalScenes();
+            log('ℹ 账面断点($stale)与弧线尾($lastTo)不一致——已按弧线平铺修正断点，增量续跑');
+          }
         arcs.addAll(state.arcScan!.arcs);
         arcNum = arcs.length;
         cursor = arcs.last.sceneTo.clamp(0, gs.length);
