@@ -26,6 +26,7 @@ import '../widgets/content_font.dart';
 import '../widgets/api_config_panel.dart';
 import '../utils/v469_style.dart';
 import '../widgets/api_log_panel.dart';
+import '../widgets/ledger_dialog.dart';
 import '../widgets/v119_ui.dart';
 
 class ScanPage extends StatefulWidget {
@@ -511,6 +512,13 @@ class _ScanPageState extends State<ScanPage>
                     enabled: true,
                     onTap: () =>
                         state.setScanPromptPreview(!state.scanPromptPreview),
+                  ),
+                  const SizedBox(width: 5),
+                  // v1173：世界状态账本（与分镜页同款，全局最新账本）
+                  MiniButton(
+                    label: '账本',
+                    enabled: true,
+                    onTap: () => showStateLedger(context, state),
                   ),
                   const SizedBox(width: 5),
                   const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
@@ -1152,6 +1160,35 @@ class _ScanPageState extends State<ScanPage>
                                               child: const Text('正文'),                                            onPressed: () =>
                                                 _showArcText(state, arc),
                                           ),
+                                          // v1173：本弧线账本快照（与分镜页弧线卡同款，对账产物随弧线存档）
+                                          if ((state.arcAnalyses[arc.number.toString()]?.metadata?['state_ledger_snapshot'] as List?)?.isNotEmpty ?? false) ...[
+                                            const SizedBox(width: 4),
+                                            MiniButton(
+                                              label:
+                                                  '📊账本(${((state.arcAnalyses[arc.number.toString()]?.metadata?['state_ledger_snapshot']) as List).length})',
+                                              enabled: true,
+                                              onTap: () {
+                                                final snap = (state
+                                                        .arcAnalyses[
+                                                            arc.number
+                                                                .toString()]
+                                                        ?.metadata?[
+                                                    'state_ledger_snapshot']
+                                                        as List)
+                                                    .whereType<Map>()
+                                                    .map((e) => e.map(
+                                                        (k, v) =>
+                                                            MapEntry(k
+                                                                .toString(),
+                                                                v)))
+                                                    .toList();
+                                                showStateLedger(context, state,
+                                                    snapshot: snap,
+                                                    title:
+                                                        '📊 弧线${arc.number}账本快照');
+                                              },
+                                            ),
+                                          ],
                                         ],
                                       ),
                                       // v1167：弧线页直显零件区（用户需求：不切分镜页查看；
