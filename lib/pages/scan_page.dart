@@ -1329,10 +1329,19 @@ class _ScanPageState extends State<ScanPage>
         state.saveArcScan();
         state.saveArcAnalyses();
         state.saveArcScenes();
+        // v1175：剪断点之后的场景分镜/编排产物随弧线作废（弧线边界变了，
+        // 旧编排基于旧弧线上下文——残留会让分镜页误显示已拆/已编排）
+        for (var i = cutIdx; i < state.globalScenes.length; i++) {
+          state.globalScenes[i].shots = [];
+          state.globalScenes[i].choreo = '';
+        }
         state.saveGlobalScenes();
+        // v1175：账本回滚到保留弧线最新快照（剪断不走clearArcCascade，手动补——
+        // 否则终态账本残留，增量重提弧线N对账被"未来状态"倒灌）
+        state.rollbackLedgerToLatestSnapshot();
         final keptEnd = state.globalGroupedUpTo;
         _addLog(
-          '✂ 已剪断重分点：删除$removed条弧线，保留${kept.length}条（平铺到场景$keptEnd）——点批量→"生成弧线（从场景${keptEnd + 1}继续）"',
+          '✂ 已剪断重分点：删除$removed条弧线，保留${kept.length}条（平铺到场景$keptEnd），剪断点后的分镜/编排产物已清——点批量→"生成弧线（从场景${keptEnd + 1}继续）"',
         );
       } catch (e) {
         _addLog('⛔ 剪断重分异常：$e');
@@ -1380,7 +1389,13 @@ class _ScanPageState extends State<ScanPage>
       // v1173：重分必清账本——漏清则弧线1对账拿旧全书账本当"上一版"照抄（用户实测漏报）
       state.stateLedger.clear();
       state.saveStateLedger();
-      _addLog('分组已清空+账本已清空，自动从头重新生成弧线（含逐弧线零件提取）');
+      // v1175：重分同时清场景上的分镜拆解+编排产物——旧记录残留会让分镜页
+      // 误显示"已拆/已编排"（清理清单写于v878分镜字段存在之前，数据演进后漏更新）
+      for (final sc in state.globalScenes) {
+        sc.shots = [];
+        sc.choreo = '';
+      }
+      _addLog('分组已清空+账本已清空+场景分镜/编排产物已清空，自动从头重新生成弧线（含逐弧线零件提取）');
       try {
         await groupArcsFromScenes(state: state, log: _addLog);
       } catch (e) {

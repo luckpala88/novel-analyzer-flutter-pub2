@@ -1431,6 +1431,12 @@ class AppState extends ChangeNotifier {
     saveArcScenes();
 
     // v1155：全局账本回滚到剩余最新弧线快照（防删弧线后"未来状态"残留）
+    rollbackLedgerToLatestSnapshot();
+  }
+
+  /// v1175：全局账本回滚到剩余最新弧线快照（从clearArcCascade提取公共——
+  /// 剪断重分不走cascade，同样需要回滚，防"未来状态"残留倒灌增量重提）
+  void rollbackLedgerToLatestSnapshot() {
     var bestN = -1;
     String? bestKey;
     for (final k in arcAnalyses.keys) {
