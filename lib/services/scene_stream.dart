@@ -646,7 +646,7 @@ Future<void> groupArcsFromScenes({
           // v1164：零件+编排都齐才判"已提取"——只判零件会把没跑过编排的旧弧线
           // 一并跳过（用户实测：增量续跑时前面弧线全跳过编排，只有新弧线有编排）
           final md = state.arcAnalyses[a.number.toString()]?.metadata;
-          if (md?['arc_summary_detailed'] != null &&
+          if ((md?['arc_summary_detailed'] ?? '').toString().isNotEmpty && // v1183：判非空防空串脏数据误跳
               (md?['arc_choreo'] ?? '').toString().isNotEmpty) {
             extractedArcs.add(a.number);
           }
@@ -911,7 +911,8 @@ Future<void> groupArcsFromScenes({
           if (a.status == 'complete' && !extractedArcs.contains(a.number)) {
             // v1164：零件/编排分别判缺补跑——零件齐的不重烧零件API，只补编排
             final md = state.arcAnalyses[a.number.toString()]?.metadata;
-            final hasParts = md?['arc_summary_detailed'] != null;
+            final hasParts =
+                (md?['arc_summary_detailed'] ?? '').toString().isNotEmpty; // v1183：判非空
             final hasChoreo =
                 (md?['arc_choreo'] ?? '').toString().isNotEmpty;
             if (hasParts) {
@@ -1034,7 +1035,8 @@ Future<void> groupArcsFromScenes({
           }
           // v1164：零件/编排分别判缺补跑（与主循环同规则）
           final md = state.arcAnalyses[a.number.toString()]?.metadata;
-          final hasParts = md?['arc_summary_detailed'] != null;
+          final hasParts =
+              (md?['arc_summary_detailed'] ?? '').toString().isNotEmpty; // v1183：判非空
           final hasChoreo = (md?['arc_choreo'] ?? '').toString().isNotEmpty;
           if (!hasParts) {
             final ok = await extractArcParts(state: state, arc: a, log: log);
@@ -1577,7 +1579,13 @@ Future<bool> extractArcParts({
   // v1154：状态对账第四任务——账本滚动更新（v1172：失败=弧线失败，不落盘）
   final ledgerOk = await reconcileStateLedger(state: state, arc: arc, parts: merged, log: log);
   if (!ledgerOk) {
-    if (old == null) state.arcAnalyses.remove(key); // 新建的analysis回滚
+    // v1183：回滚要完整——old非null（编排落库建的analysis）时恢复原metadata，
+    // 否则本轮写入的空arc_summary_detailed键残留，增量续跑hasParts误判跳过该弧线
+    if (old == null) {
+      state.arcAnalyses.remove(key);
+    } else {
+      analysis.metadata = old.metadata;
+    }
     log('⛔ 弧线${arc.number}状态对账失败——零件未落盘，增量续跑可从本弧线重来');
     return false;
   }
