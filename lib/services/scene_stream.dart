@@ -794,23 +794,25 @@ Future<void> groupArcsFromScenes({
           // （Scene.choreo专属"场景内分镜编排策略"=拆分镜详版，字段分家防覆盖）
           final scChoreos = m['scene_choreos']?.toString() ?? '';
           String scChoreosSaved = ''; // v900：延后到analysis创建后落库
+          // v1177：-1=AI未输出；>=0=输出且为落点数——日志延到arcNum赋值后
+          // （v1086教训：先算新值再打日志。首条弧线曾误报"弧线0"——log在arcNum+1之前打）
+          int choreoCount = -1;
           if (scChoreos.isNotEmpty) {
-            final choreoCount = RegExp(
-              r'(\d+)\s*[:：]',
-            ).allMatches(scChoreos).length;
             scChoreosSaved = scChoreos;
-            if (choreoCount > 0) {
-              log('✓ 编排落库：弧线$arcNum $choreoCount个场景编排落点');
-            } else {
-              log('⚠️ 弧线$arcNum scene_choreos格式未解析出任何场景（原文头80字：${scChoreos.substring(0, scChoreos.length > 80 ? 80 : scChoreos.length)}）');
-            }
-          } else {
-            log('⚠️ 弧线$arcNum AI未输出scene_choreos字段（arc_choreo=${m['arc_choreo'] != null ? "有" : "无"}）');
+            choreoCount =
+                RegExp(r'(\d+)\s*[:：]').allMatches(scChoreos).length;
           }
           final arcChoreoV = m['arc_choreo']?.toString() ?? '';
           final isContinuation = openArc != null &&
               (m['title']?.toString() ?? '').contains(openArc.title);
           arcNum = isContinuation ? openArc!.number : arcNum + 1;
+          if (scChoreos.isEmpty) {
+            log('⚠️ 弧线$arcNum AI未输出scene_choreos字段（arc_choreo=${m['arc_choreo'] != null ? "有" : "无"}）');
+          } else if (choreoCount == 0) {
+            log('⚠️ 弧线$arcNum scene_choreos格式未解析出任何场景（原文头80字：${scChoreos.substring(0, scChoreos.length > 80 ? 80 : scChoreos.length)}）');
+          } else {
+            log('✓ 编排落库：弧线$arcNum $choreoCount个场景编排落点');
+          }
           // v492b：前段场景分析层——必须在分支处理前抓取（处理后openArc可能被置null）
           final prevAnalysis = isContinuation
               ? state.arcAnalyses[openArc!.number.toString()]
