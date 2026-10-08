@@ -1340,7 +1340,10 @@ class _ScanPageState extends State<ScanPage>
       state.saveArcAnalyses();
       state.saveArcScenes();
       state.saveGlobalScenes();
-      _addLog('分组已清空，自动从头重新生成弧线（含逐弧线零件提取）');
+      // v1173：重分必清账本——漏清则弧线1对账拿旧全书账本当"上一版"照抄（用户实测漏报）
+      state.stateLedger.clear();
+      state.saveStateLedger();
+      _addLog('分组已清空+账本已清空，自动从头重新生成弧线（含逐弧线零件提取）');
       try {
         await groupArcsFromScenes(state: state, log: _addLog);
       } catch (e) {
