@@ -913,7 +913,10 @@ Future<void> groupArcsFromScenes({
                 }
                 state.saveArcScan();
                 state.saveArcAnalyses();
-                state.globalGroupedUpTo = cursor;
+                // v1179：断点=已分组弧线尾而非cursor——cursor在提取循环后才推进，
+                // 此刻还是上一批的值，弧线尾>账面断点会触发卫兵级联清空（断点续跑失效实测）
+                state.globalGroupedUpTo =
+                    arcs.last.sceneTo.clamp(0, gs.length);
                 state.saveGlobalScenes();
                 return;
               }
@@ -935,7 +938,10 @@ Future<void> groupArcsFromScenes({
                 }
                 state.saveArcScan();
                 state.saveArcAnalyses();
-                state.globalGroupedUpTo = cursor;
+                // v1179：断点=已分组弧线尾而非cursor——cursor在提取循环后才推进，
+                // 此刻还是上一批的值，弧线尾>账面断点会触发卫兵级联清空（断点续跑失效实测）
+                state.globalGroupedUpTo =
+                    arcs.last.sceneTo.clamp(0, gs.length);
                 state.saveGlobalScenes();
                 return;
               }
@@ -1234,21 +1240,31 @@ Future<bool> reconcileStateLedger({
     return false;
   }
   final config = state.getApiConfig('arc');
-  final r = await state.api.callApi(
-    task: '世界状态对账', // v824任务级反馈
-    systemPrompt: PromptBuilder.buildLedgerReconcileSystemPrompt(),
-    userPrompt: PromptBuilder.buildLedgerReconcileUserPrompt(
-      arcNum: arc.number,
-      prevLedger: prevLedger,
-      partBlock: pb.toString(),
-    ),
-    apiConfig: config,
-  );
+  // v1179：对账与其他任务同款重试一次（实测对账输出无效直接终止整批太脆）
+  Future<ApiResult> callReconcile() => state.api.callApi(
+        task: '世界状态对账', // v824任务级反馈
+        systemPrompt: PromptBuilder.buildLedgerReconcileSystemPrompt(),
+        userPrompt: PromptBuilder.buildLedgerReconcileUserPrompt(
+          arcNum: arc.number,
+          prevLedger: prevLedger,
+          partBlock: pb.toString(),
+        ),
+        apiConfig: config,
+      );
+  var r = await callReconcile();
+  var out = r.isSuccess ? JsonRepair.parseResponse(r.content) : null;
+  var badOut = out == null ||
+      out['ledger'] is! List ||
+      (out['ledger'] as List).isEmpty;
+  if (badOut) {
+    log('↻ 弧线${arc.number}状态对账无效，重试一次…');
+    r = await callReconcile();
+    out = r.isSuccess ? JsonRepair.parseResponse(r.content) : null;
+  }
   if (!r.isSuccess) {
     log('⚠ 弧线${arc.number}状态对账请求失败：${r.error}——账本保留上一版');
     return false;
   }
-  final out = JsonRepair.parseResponse(r.content);
   final list = out?['ledger'];
   if (list is! List || list.isEmpty) {
     log('⚠ 弧线${arc.number}状态对账输出无效——账本保留上一版');
