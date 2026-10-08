@@ -101,6 +101,15 @@ jobs:
             $body = @{ tag_name = $tag; name = $tag } | ConvertTo-Json
             $release = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases" -Method Post -Headers $headers -ContentType "application/json" -Body $body
           }
+          # v1182：先删同名旧资产（重推tag时Release已有旧APK，直接POST会422）
+          try {
+            $assets = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases/$($release.id)/assets" -Headers $headers
+            $old = $assets | Where-Object { $_.name -eq "novel_analyzer_flutter.apk" }
+            if ($old) {
+              Write-Host "发现同名旧资产，删除后重传..."
+              Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases/assets/$($old.id)" -Method Delete -Headers $headers | Out-Null
+            }
+          } catch { Write-Host "清理旧资产失败(忽略继续): $_" }
           $uploadUrl = "https://uploads.github.com/repos/${{ github.repository }}/releases/$($release.id)/assets?name=novel_analyzer_flutter.apk"
           Invoke-RestMethod -Uri $uploadUrl -Method Post -Headers @{ Authorization = "Bearer $env:GH_TOKEN" } -ContentType "application/vnd.android.package-archive" -InFile "build/app/outputs/flutter-apk/app-release.apk"
           Write-Host "APK_UPLOAD_OK"
