@@ -911,45 +911,19 @@ Future<void> groupArcsFromScenes({
           if (a.status == 'complete' && !extractedArcs.contains(a.number)) {
             // v1164：零件/编排分别判缺补跑——零件齐的不重烧零件API，只补编排
             final md = state.arcAnalyses[a.number.toString()]?.metadata;
-            final hasParts =
+            var hasParts =
                 (md?['arc_summary_detailed'] ?? '').toString().isNotEmpty; // v1183：判非空
             final hasChoreo =
                 (md?['arc_choreo'] ?? '').toString().isNotEmpty;
-            // v1184：零件+编排齐但账本快照缺（历史对账失败残留）——只补对账不重烧零件
+            // v1185：零件或账本快照不齐——整条弧线重新提取（用户裁决：零件含账本，
+            // 不齐减掉重来；分组边界保留不影响其他弧线）。配合各任务3次重试抗网络抖动
             final hasSnap =
                 (md?['state_ledger_snapshot'] as List? ?? []).isNotEmpty;
-            if (hasParts && hasChoreo && !hasSnap) {
-              final parts = <String, dynamic>{
-                'arc_summary': md?['arc_summary_detailed'],
-                'characters': md?['characters'],
-                'conflicts': md?['conflicts'],
-                'foreshadowing': md?['foreshadowing'],
-                'irreversible_changes': md?['irreversible_changes'],
-                'worldbuilding_facts': md?['worldbuilding_facts'],
-              };
-              log('↻ 弧线${a.number}账本快照缺失——补跑状态对账（零件不重烧）');
-              final okL = await reconcileStateLedger(
-                  state: state, arc: a, parts: parts, log: log);
-              if (!okL) {
-                log('⛔ 弧线${a.number}对账补跑失败——批量生成弧线终止（已保存${arcs.length}条弧线分组，成果已落盘）');
-                log('ℹ 修复API配置后重新「批量」——从弧线${a.number}增量继续');
-                if (state.arcScan == null ||
-                    state.arcScan!.arcs.length < arcs.length) {
-                  state.arcScan = ArcScan(
-                    arcs: List.of(arcs),
-                    scannedChapterCount: (gs.last.endChapter as num).toInt(),
-                    overallSummary: '',
-                  );
-                } else {
-                  state.arcScan!.arcs = List.of(arcs);
-                }
-                state.saveArcScan();
-                state.saveArcAnalyses();
-                state.globalGroupedUpTo =
-                    arcs.last.sceneTo.clamp(0, gs.length);
-                state.saveGlobalScenes();
-                return;
-              }
+            if (hasParts && !hasSnap) {
+              log('↻ 弧线${a.number}账本快照缺失——清零件记录整条重新提取（编排保留）');
+              state.arcAnalyses[a.number.toString()]!.metadata
+                  ?.remove('arc_summary_detailed'); // 只清零件判据，编排字段保留
+              hasParts = false; // 重置后走下方完整提取分支
             }
             if (hasParts) {
               log('ℹ 弧线${a.number}零件已有——补跑编排策略分析');
@@ -1071,9 +1045,18 @@ Future<void> groupArcsFromScenes({
           }
           // v1164：零件/编排分别判缺补跑（与主循环同规则）
           final md = state.arcAnalyses[a.number.toString()]?.metadata;
-          final hasParts =
+          var hasParts =
               (md?['arc_summary_detailed'] ?? '').toString().isNotEmpty; // v1183：判非空
           final hasChoreo = (md?['arc_choreo'] ?? '').toString().isNotEmpty;
+          // v1185：账本快照缺=整条重新提取（用户裁决：零件含账本，不齐减掉重来）
+          final hasSnap =
+              (md?['state_ledger_snapshot'] as List? ?? []).isNotEmpty;
+          if (hasParts && !hasSnap) {
+            log('↻ 弧线${a.number}账本快照缺失——清零件记录整条重新提取（编排保留）');
+            state.arcAnalyses[a.number.toString()]!.metadata
+                ?.remove('arc_summary_detailed'); // 只清零件判据，编排字段保留
+            hasParts = false; // 重置后走下方完整提取分支
+          }
           if (!hasParts) {
             final ok = await extractArcParts(state: state, arc: a, log: log);
             if (!ok) {
@@ -1208,9 +1191,10 @@ Future<bool> analyzeArcChoreo({
     log('⛔ 弧线${arc.number}编排分析失败：${result.error}');
     return false; // v1172：报错即失败（重试一次）
   }
+  // v1185：最多3次尝试
   var parts = JsonRepair.parseResponse(result.content);
-  if (parts == null) {
-    log('↻ 弧线${arc.number}编排解析失败，重试一次…');
+  for (var attempt = 1; parts == null && attempt <= 2; attempt++) {
+    log('↻ 弧线${arc.number}编排解析失败，重试（$attempt/2）…');
     final r = await state.api.callApi(
       task: '弧线内场景编排策略分析',
       systemPrompt: systemPrompt,
@@ -1309,13 +1293,15 @@ Future<bool> reconcileStateLedger({
         ),
         apiConfig: config,
       );
+  // v1185：最多3次尝试
   var r = await callReconcile();
   var out = r.isSuccess ? JsonRepair.parseResponse(r.content) : null;
-  var badOut = out == null ||
-      out['ledger'] is! List ||
-      (out['ledger'] as List).isEmpty;
-  if (badOut) {
-    log('↻ 弧线${arc.number}状态对账无效，重试一次…');
+  for (var attempt = 1; attempt <= 2; attempt++) {
+    final bad = out == null ||
+        out['ledger'] is! List ||
+        (out['ledger'] as List).isEmpty;
+    if (!bad) break;
+    log('↻ 弧线${arc.number}状态对账无效，重试（$attempt/2）…');
     r = await callReconcile();
     out = r.isSuccess ? JsonRepair.parseResponse(r.content) : null;
   }
@@ -1482,15 +1468,17 @@ Future<bool> extractArcParts({
     return p;
   }
 
-  var p1 = parseStory(await callStoryParts());
-  if (p1 == null) {
-    log('↻ 弧线${arc.number}剧情零件重试一次…');
+  // v1185：API网络问题最多3次尝试（用户裁决：多重试一两次防中断）
+  Map<String, dynamic>? p1;
+  for (var attempt = 1; attempt <= 3; attempt++) {
     p1 = parseStory(await callStoryParts());
+    if (p1 != null) break;
+    if (attempt < 3) log('↻ 弧线${arc.number}剧情零件重试（$attempt/2）…');
   }
   if (p1 != null) {
     merged.addAll(p1);
   } else {
-    log('⛔ 弧线${arc.number}剧情零件两次尝试均不完整——增量续跑可从本弧线重来');
+    log('⛔ 弧线${arc.number}剧情零件三次尝试均不完整——增量续跑可从本弧线重来');
     return false;
   }
   // 调用2：世界观facts（10体系重活独立跑）
@@ -1516,9 +1504,10 @@ Future<bool> extractArcParts({
     return null;
   }
 
-  var p2ok = parseFacts(r2);
-  if (p2ok == null) {
-    log('↻ 弧线${arc.number}世界观facts重试一次…');
+  // v1185：最多3次尝试
+  Map<String, dynamic>? p2ok = parseFacts(r2);
+  for (var attempt = 1; p2ok == null && attempt <= 2; attempt++) {
+    log('↻ 弧线${arc.number}世界观facts重试（$attempt/2）…');
     p2ok = parseFacts(await state.api.callApi(
       task: '弧线世界观facts',
       systemPrompt: PromptBuilder.buildArcFactsSystemPrompt(),
@@ -1533,7 +1522,7 @@ Future<bool> extractArcParts({
   if (p2ok != null) {
     merged['worldbuilding_facts'] = p2ok['worldbuilding_facts'];
   } else {
-    log('⛔ 弧线${arc.number}世界观facts两次尝试均失败——增量续跑可从本弧线重来');
+    log('⛔ 弧线${arc.number}世界观facts三次尝试均失败——增量续跑可从本弧线重来');
     return false;
   }
   // 调用3：脑洞与文风
@@ -1555,9 +1544,10 @@ Future<bool> extractArcParts({
     return JsonRepair.parseResponse(r.content);
   }
 
-  var p3 = parseFantasy(r3);
-  if (p3 == null) {
-    log('↻ 弧线${arc.number}脑洞文风重试一次…');
+  // v1185：最多3次尝试
+  Map<String, dynamic>? p3 = parseFantasy(r3);
+  for (var attempt = 1; p3 == null && attempt <= 2; attempt++) {
+    log('↻ 弧线${arc.number}脑洞文风重试（$attempt/2）…');
     p3 = parseFantasy(await state.api.callApi(
       task: '弧线脑洞与文风',
       systemPrompt: PromptBuilder.buildArcFantasyStyleSystemPrompt(),
@@ -1574,7 +1564,7 @@ Future<bool> extractArcParts({
       if (p3[k] != null) merged[k] = p3[k];
     }
   } else {
-    log('⛔ 弧线${arc.number}脑洞文风两次尝试均失败——增量续跑可从本弧线重来');
+    log('⛔ 弧线${arc.number}脑洞文风三次尝试均失败——增量续跑可从本弧线重来');
     return false;
   }
   sanitizeParts(merged); // v1163：AI粘连带净化（💎不可逆变化切出归还）
@@ -1622,6 +1612,7 @@ Future<bool> extractArcParts({
     } else {
       analysis.metadata = old.metadata;
     }
+    state.saveArcAnalyses(); // v1185：清键状态落盘（重启后判缺依然成立，幂等重跑）
     log('⛔ 弧线${arc.number}状态对账失败——零件未落盘，增量续跑可从本弧线重来');
     return false;
   }
