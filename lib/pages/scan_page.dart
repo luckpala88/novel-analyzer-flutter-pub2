@@ -399,40 +399,6 @@ class _ScanPageState extends State<ScanPage>
                         );
                       }
                       if (v == 'regen_group') _confirmRegenArcs(state);
-                      if (v == 'batch_choreo_inc' ||
-                          v == 'batch_choreo_redo') {
-                        batchAnalyzeArcChoreo(
-                          state: state,
-                          log: _addLog,
-                          incremental: v == 'batch_choreo_inc',
-                          previewHook: state.scanPromptPreview
-                              ? (sys, user) => PromptPreview.maybePreview(
-                                    context,
-                                    sysPrompt: sys,
-                                    userPrompt: user,
-                                    title: '批量编排分析词链预览（首条弧线）',
-                                    enabled: true,
-                                  )
-                              : null,
-                        );
-                      }
-                      if (v == 'extract_parts_inc' ||
-                          v == 'extract_parts_redo') {
-                        batchExtractArcParts(
-                          state: state,
-                          log: _addLog,
-                          incremental: v == 'extract_parts_inc',
-                          previewHook: state.scanPromptPreview
-                              ? (sys, user) => PromptPreview.maybePreview(
-                                    context,
-                                    sysPrompt: sys,
-                                    userPrompt: user,
-                                    title: '批量零件提取词链预览（首条弧线）',
-                                    enabled: true,
-                                  )
-                              : null,
-                        );
-                      }
                     },
                     itemBuilder: (c) => [
                       PopupMenuItem(
@@ -452,40 +418,6 @@ class _ScanPageState extends State<ScanPage>
                         height: 40,
                         child: Text(
                           '重新生成全部弧线（清现有分组）',
-                          style: TextStyle(fontSize: 13),
-                        ),
-                      ),
-                      // v1156：批量按弧线分步提取零件（四任务+状态对账，增量/重头）
-                      const PopupMenuItem(
-                        value: 'extract_parts_inc',
-                        height: 40,
-                        child: Text(
-                          '批量提取零件（增量——跳过已有）',
-                          style: TextStyle(fontSize: 13),
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'extract_parts_redo',
-                        height: 40,
-                        child: Text(
-                          '批量提取零件（重头——全部重跑）',
-                          style: TextStyle(fontSize: 13),
-                        ),
-                      ),
-                      // v1158：批量按弧线分步编排分析（增量/重头）
-                      const PopupMenuItem(
-                        value: 'batch_choreo_inc',
-                        height: 40,
-                        child: Text(
-                          '批量编排分析（增量——跳过已有）',
-                          style: TextStyle(fontSize: 13),
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'batch_choreo_redo',
-                        height: 40,
-                        child: Text(
-                          '批量编排分析（重头——全部重跑）',
                           style: TextStyle(fontSize: 13),
                         ),
                       ),
