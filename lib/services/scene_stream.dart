@@ -587,6 +587,21 @@ Future<void> groupArcsFromScenes({
         // v537：一致性卫兵——弧线必须从场景1连续平铺到分组断点，且断点不超
         // 场景流长度。违反=场景流曾重建/清零而旧弧线残留（两代流混血）：
         // 级联清空旧弧线+对应分镜/拆解，从场景1重新分组（用户裁决：清流必清弧）
+        // v1181：增量前置——先自动减掉末条不完整弧线（用户裁决：增量前自动减，
+        // 不完整尾弧本来就要重分；留着会让sceneTo越过断点触发卫兵级联清空）
+        final preArcs = state.arcScan!.arcs;
+        if (preArcs.isNotEmpty && preArcs.last.status == 'incomplete') {
+          final drop = preArcs.removeLast();
+          state.arcAnalyses.remove(drop.number.toString());
+          state.arcScenes.remove(drop.number.toString());
+          state.globalGroupedUpTo =
+              preArcs.isEmpty ? 0 : preArcs.last.sceneTo;
+          state.saveArcScan();
+          state.saveArcAnalyses();
+          state.saveArcScenes();
+          state.saveGlobalScenes();
+          log('↻ 增量前置：自动减掉不完整弧线${drop.number}「${drop.title}」（场景${drop.sceneFrom}-${drop.sceneTo}），从场景${state.globalGroupedUpTo + 1}重分');
+        }
         final oldArcs = state.arcScan!.arcs;
         // v1181：平铺完好性（首弧=1+连续不交叉）与断点数字分开判——弧线平铺
         // 是分组成果本体，断点只是账面数字（重导章节/旧bug会让数字过期）。
