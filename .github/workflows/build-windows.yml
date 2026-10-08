@@ -23,7 +23,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main  # v383b：checkout main（与tag v383内容一致+Runner.rc版本号修正；tag已推无法重打，重打会杀release）
+          # v1182：checkout tag本身——transfer-apk转存后会把main源码抹成空壳，
+          # checkout main拿不到home_page.dart必挂（v1181/v1182 win版全挂实测）。
+          # tag触发时github.ref=tag引用（完整源码）；手动dispatch用inputs.tag
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.ref }}
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
