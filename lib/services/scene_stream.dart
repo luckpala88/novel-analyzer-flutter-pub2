@@ -895,12 +895,48 @@ Future<void> groupArcsFromScenes({
             if (hasParts) {
               log('ℹ 弧线${a.number}零件已有——补跑编排策略分析');
             } else {
-              await extractArcParts(state: state, arc: a, log: log);
+              final ok = await extractArcParts(state: state, arc: a, log: log);
+              // v1172：报错即终止——保存分组成果断点，增量续跑从本弧线重来
+              if (!ok) {
+                log('⛔ 弧线${a.number}零件提取失败——批量生成弧线终止（已保存${arcs.length}条弧线分组，成果已落盘）');
+                log('ℹ 修复API配置后重新「批量」——从弧线${a.number}增量继续');
+                if (state.arcScan == null || state.arcScan!.arcs.length < arcs.length) {
+                  state.arcScan = ArcScan(
+                    arcs: List.of(arcs),
+                    scannedChapterCount: (gs.last.endChapter as num).toInt(),
+                    overallSummary: '',
+                  );
+                } else {
+                  state.arcScan!.arcs = List.of(arcs);
+                }
+                state.saveArcScan();
+                state.saveArcAnalyses();
+                state.globalGroupedUpTo = cursor;
+                state.saveGlobalScenes();
+                return;
+              }
             }
             // v903：编排分析自动化（滚动模式同步）
             if (!hasChoreo) {
               log('▶ 弧线${a.number}【弧线内场景编排策略】分析开始');
-              await analyzeArcChoreo(state: state, arc: a, log: log);
+              final okC = await analyzeArcChoreo(state: state, arc: a, log: log);
+              if (!okC) {
+                log('⛔ 弧线${a.number}编排分析失败——批量生成弧线终止（零件已落盘，编排增量补跑）');
+                if (state.arcScan == null || state.arcScan!.arcs.length < arcs.length) {
+                  state.arcScan = ArcScan(
+                    arcs: List.of(arcs),
+                    scannedChapterCount: (gs.last.endChapter as num).toInt(),
+                    overallSummary: '',
+                  );
+                } else {
+                  state.arcScan!.arcs = List.of(arcs);
+                }
+                state.saveArcScan();
+                state.saveArcAnalyses();
+                state.globalGroupedUpTo = cursor;
+                state.saveGlobalScenes();
+                return;
+              }
             }
             extractedArcs.add(a.number);
             // v496：一条弧线内容完整即保存（前面成果永不丢）
@@ -973,11 +1009,19 @@ Future<void> groupArcsFromScenes({
           final hasParts = md?['arc_summary_detailed'] != null;
           final hasChoreo = (md?['arc_choreo'] ?? '').toString().isNotEmpty;
           if (!hasParts) {
-            await extractArcParts(state: state, arc: a, log: log);
+            final ok = await extractArcParts(state: state, arc: a, log: log);
+            if (!ok) {
+              log('⛔ 弧线${a.number}零件提取失败——兜底提取终止（增量续跑可从本弧线重来）');
+              return;
+            }
           }
           if (!hasChoreo) {
             log('▶ 弧线${a.number}【弧线内场景编排策略】分析开始');
-            await analyzeArcChoreo(state: state, arc: a, log: log);
+            final okC = await analyzeArcChoreo(state: state, arc: a, log: log);
+            if (!okC) {
+              log('⛔ 弧线${a.number}编排分析失败——兜底提取终止（零件已落盘，编排增量补跑）');
+              return;
+            }
           }
           done++;
           log('零件+编排提取进度：$done/${arcs.length}');
@@ -1052,7 +1096,8 @@ Future<void> analyzeSceneChoreo({
 }
 
 /// v901：弧线内场景编排策略分析（独立按键——骨架/表述分离，单任务保质量）
-Future<void> analyzeArcChoreo({
+/// v1172：返回true=成功落库；false=失败（批量报错即终止，增量续跑从该弧线重来）
+Future<bool> analyzeArcChoreo({
   required AppState state,
   required Arc arc,
   required void Function(String msg) log,
@@ -1060,7 +1105,7 @@ Future<void> analyzeArcChoreo({
 }) async {
   if (arc.text.isEmpty) {
     log('⚠ 弧线${arc.number}无正文切片，跳过编排分析');
-    return;
+    return false;
   }
   final gsAll = state.globalScenes;
   final sceneList = (arc.sceneFrom >= 1 && gsAll.length >= arc.sceneTo)
@@ -1082,7 +1127,7 @@ Future<void> analyzeArcChoreo({
     final ok = await previewHook!(systemPrompt, userPrompt);
     if (!ok) {
       log('⛔ 弧线${arc.number}编排分析已取消（词链预览）');
-      return;
+      return false;
     }
   }
   final config = state.getApiConfig('arc');
@@ -1094,29 +1139,42 @@ Future<void> analyzeArcChoreo({
     apiConfig: config,
   );
   if (!result.isSuccess) {
-    log('⚠ 弧线${arc.number}编排分析失败：${result.error}');
-    return;
+    log('⛔ 弧线${arc.number}编排分析失败：${result.error}');
+    return false; // v1172：报错即失败（重试一次）
   }
-  final parts = JsonRepair.parseResponse(result.content);
+  var parts = JsonRepair.parseResponse(result.content);
   if (parts == null) {
-    log('⚠ 弧线${arc.number}编排分析解析失败——跳过');
-    return;
+    log('↻ 弧线${arc.number}编排解析失败，重试一次…');
+    final r = await state.api.callApi(
+      task: '弧线内场景编排策略分析',
+      systemPrompt: systemPrompt,
+      userPrompt: userPrompt,
+      apiConfig: config,
+    );
+    parts = r.isSuccess ? JsonRepair.parseResponse(r.content) : null;
+  }
+  if (parts == null) {
+    log('⛔ 弧线${arc.number}编排分析两次尝试均失败——增量续跑可从本弧线重来');
+    return false;
   }
   // 总纲：Arc+metadata双写（显示+语料两个消费端）
   final arcChoreoV = parts['arc_choreo']?.toString() ?? '';
   final scChoreos = parts['scene_choreos']?.toString() ?? '';
-  if (scChoreos.isNotEmpty) {
-    final analysis = state.arcAnalyses[arc.number.toString()];
-    if (analysis != null) {
-      analysis.metadata = {
-        ...?analysis.metadata,
-        'arc_choreo': arcChoreoV,
-        'scene_choreos': scChoreos,
-      };
-      state.saveArcAnalyses();
-    }
+  if (scChoreos.isEmpty) {
+    log('⛔ 弧线${arc.number}编排输出缺scene_choreos——视为失败，增量续跑可从本弧线重来');
+    return false;
+  }
+  final analysis = state.arcAnalyses[arc.number.toString()];
+  if (analysis != null) {
+    analysis.metadata = {
+      ...?analysis.metadata,
+      'arc_choreo': arcChoreoV,
+      'scene_choreos': scChoreos,
+    };
+    state.saveArcAnalyses();
   }
   log('✓ 弧线${arc.number}【弧线内场景编排策略】已落库（总纲${arcChoreoV.length}字+逐场景落点${scChoreos.length}字）');
+  return true;
 }
 
 /// v1158：批量按弧线分步编排分析（弧线页批量菜单，用户需求：后补编排只能手点太费劲）——
@@ -1155,13 +1213,19 @@ Future<void> batchAnalyzeArcChoreo({
         return;
       }
       log('▶ 批量编排分析：弧线${a.number}（${done + 1}/${targets.length}）');
-      await analyzeArcChoreo(
+      final ok = await analyzeArcChoreo(
         state: state,
         arc: a,
         log: log,
         // v1158：词链预览仅首条弧线弹一次（v465先例）
         previewHook: (done == 0) ? previewHook : null,
       );
+      // v1172：报错即终止
+      if (!ok) {
+        log('⛔ 弧线${a.number}编排分析失败——批量终止（已完成$done/${targets.length}条，成果已逐条落盘）');
+        log('ℹ 修复API配置后点「批量编排分析（增量）」——自动从弧线${a.number}继续');
+        return;
+      }
       done++;
       state.saveArcAnalyses();
       log('💾 弧线${a.number}编排已落盘（$done/${targets.length}）');
@@ -1217,13 +1281,19 @@ Future<void> batchExtractArcParts({
         return;
       }
       log('▶ 批量零件提取：弧线${a.number}（${done + 1}/${targets.length}）');
-      await extractArcParts(
+      final ok = await extractArcParts(
         state: state,
         arc: a,
         log: log,
         // v1157：词链预览仅首条弧线弹一次（v465先例——后续窗口内容重复预览意义小）
         previewHook: (done == 0) ? previewHook : null,
       );
+      // v1172：报错即终止（用户裁决：保证前面没问题再做后面的，失败弧线不落盘不留半成品）
+      if (!ok) {
+        log('⛔ 弧线${a.number}零件提取失败——批量终止（已完成$done/${targets.length}条，成果已逐条落盘）');
+        log('ℹ 修复API配置后点「批量零件提取（增量）」——自动从弧线${a.number}继续，已完成的弧线不会重烧');
+        return;
+      }
       done++;
       state.saveArcAnalyses();
       log('💾 弧线${a.number}零件+账本已落盘（$done/${targets.length}）');
@@ -1265,7 +1335,8 @@ void sanitizeParts(Map<String, dynamic> m) {
 
 /// v1154：世界状态对账（零件提取第四任务）——上一版账本+本弧线零件→增量更新。
 /// 账本=实体状态单一事实源（AppState.stateLedger），每弧线快照进metadata可回溯
-Future<void> reconcileStateLedger({
+/// v1172：返回true=账本已滚动更新；false=对账失败（账本保留上一版，零件不落盘）
+Future<bool> reconcileStateLedger({
   required AppState state,
   required Arc arc,
   required Map<String, dynamic> parts,
@@ -1283,8 +1354,8 @@ Future<void> reconcileStateLedger({
   final facts = parts['worldbuilding_facts'] == null ? '' : jsonEncode(parts['worldbuilding_facts']);
   if (facts.isNotEmpty) pb.writeln('【世界观facts】$facts');
   if (pb.toString().trim().isEmpty) {
-    log('⚠ 弧线${arc.number}无零件可对账——跳过');
-    return;
+    log('⛔ 弧线${arc.number}无零件可对账');
+    return false;
   }
   final config = state.getApiConfig('arc');
   final r = await state.api.callApi(
@@ -1299,13 +1370,13 @@ Future<void> reconcileStateLedger({
   );
   if (!r.isSuccess) {
     log('⚠ 弧线${arc.number}状态对账请求失败：${r.error}——账本保留上一版');
-    return;
+    return false;
   }
   final out = JsonRepair.parseResponse(r.content);
   final list = out?['ledger'];
   if (list is! List || list.isEmpty) {
     log('⚠ 弧线${arc.number}状态对账输出无效——账本保留上一版');
-    return;
+    return false;
   }
   final newLedger = <Map<String, dynamic>>[];
   for (final e in list) {
@@ -1313,7 +1384,7 @@ Future<void> reconcileStateLedger({
   }
   if (newLedger.isEmpty) {
     log('⚠ 弧线${arc.number}状态对账账本为空——保留上一版');
-    return;
+    return false;
   }
   state.stateLedger = newLedger;
   state.saveStateLedger();
@@ -1327,6 +1398,7 @@ Future<void> reconcileStateLedger({
     state.saveArcAnalyses();
   }
   log('✓ 弧线${arc.number}世界状态账本已更新（${newLedger.length}实体，快照已存）');
+  return true;
 }
 
 /// v1153：历史弧线零件注入——前两弧线（N-1/N-2）全部零件全量+更早弧线关键状态行。
@@ -1380,7 +1452,9 @@ String buildArcHistoryBlock(AppState state, int curNum) {
   return has ? sb.toString().trim() : '';
 }
 
-Future<void> extractArcParts({
+/// v1172：返回true=四任务全成功且零件+账本已落盘；false=任一失败（不落盘，
+/// 增量续跑从本弧线重来——用户裁决：批量报错即终止，保证前面没问题再做后面的）
+Future<bool> extractArcParts({
   required AppState state,
   required Arc arc,
   required void Function(String msg) log,
@@ -1388,7 +1462,7 @@ Future<void> extractArcParts({
 }) async {
   if (arc.text.isEmpty) {
     log('⚠ 弧线${arc.number}无正文切片，跳过零件提取');
-    return;
+    return false;
   }
   // v889：场景清单（全局序号+名称）——scene_choreos标号依据
   final gsAll = state.globalScenes;
@@ -1420,7 +1494,7 @@ Future<void> extractArcParts({
     );
     if (!ok) {
       log('⛔ 弧线${arc.number}零件提取已取消（词链预览）');
-      return;
+      return false;
     }
   }
   // v1166：剧情零件带质量防御——输出过短/解析失败/缺核心键（arc_summary+characters
@@ -1466,7 +1540,8 @@ Future<void> extractArcParts({
   if (p1 != null) {
     merged.addAll(p1);
   } else {
-    log('⚠ 弧线${arc.number}剧情零件两次尝试均不完整——零件可能缺位，可单独重跑该弧线');
+    log('⛔ 弧线${arc.number}剧情零件两次尝试均不完整——增量续跑可从本弧线重来');
+    return false;
   }
   // 调用2：世界观facts（10体系重活独立跑）
   final r2 = await state.api.callApi(
@@ -1480,15 +1555,36 @@ Future<void> extractArcParts({
     ),
     apiConfig: config,
   );
-  if (r2.isSuccess) {
-    final p2 = JsonRepair.parseResponse(r2.content);
-    if (p2 != null && p2['worldbuilding_facts'] != null) {
-      merged['worldbuilding_facts'] = p2['worldbuilding_facts'];
-    } else {
-      log('⚠ 弧线${arc.number}世界观facts缺失');
+  Map<String, dynamic>? parseFacts(ApiResult r) {
+    if (!r.isSuccess) {
+      log('⚠ 弧线${arc.number}世界观facts请求失败：${r.error}');
+      return null;
     }
+    final p2 = JsonRepair.parseResponse(r.content);
+    if (p2 != null && p2['worldbuilding_facts'] != null) return p2;
+    log('⚠ 弧线${arc.number}世界观facts缺失');
+    return null;
+  }
+
+  var p2ok = parseFacts(r2);
+  if (p2ok == null) {
+    log('↻ 弧线${arc.number}世界观facts重试一次…');
+    p2ok = parseFacts(await state.api.callApi(
+      task: '弧线世界观facts',
+      systemPrompt: PromptBuilder.buildArcFactsSystemPrompt(),
+      userPrompt: PromptBuilder.buildArcPartsUserPrompt(
+        arcTitle: arc.title,
+        arcSummary: arc.summary,
+        arcText: arc.text,
+      ),
+      apiConfig: config,
+    ));
+  }
+  if (p2ok != null) {
+    merged['worldbuilding_facts'] = p2ok['worldbuilding_facts'];
   } else {
-    log('⚠ 弧线${arc.number}世界观facts请求失败：${r2.error}');
+    log('⛔ 弧线${arc.number}世界观facts两次尝试均失败——增量续跑可从本弧线重来');
+    return false;
   }
   // 调用3：脑洞与文风
   final r3 = await state.api.callApi(
@@ -1501,21 +1597,35 @@ Future<void> extractArcParts({
     ),
     apiConfig: config,
   );
-  if (r3.isSuccess) {
-    final p3 = JsonRepair.parseResponse(r3.content);
-    if (p3 != null) {
-      for (final k in ['author_fantasy', 'ink_hobby', 'style_dna']) {
-        if (p3[k] != null) merged[k] = p3[k];
-      }
-    } else {
-      log('⚠ 弧线${arc.number}脑洞文风解析失败');
+  Map<String, dynamic>? parseFantasy(ApiResult r) {
+    if (!r.isSuccess) {
+      log('⚠ 弧线${arc.number}脑洞文风请求失败：${r.error}');
+      return null;
+    }
+    return JsonRepair.parseResponse(r.content);
+  }
+
+  var p3 = parseFantasy(r3);
+  if (p3 == null) {
+    log('↻ 弧线${arc.number}脑洞文风重试一次…');
+    p3 = parseFantasy(await state.api.callApi(
+      task: '弧线脑洞与文风',
+      systemPrompt: PromptBuilder.buildArcFantasyStyleSystemPrompt(),
+      userPrompt: PromptBuilder.buildArcPartsUserPrompt(
+        arcTitle: arc.title,
+        arcSummary: arc.summary,
+        arcText: arc.text,
+      ),
+      apiConfig: config,
+    ));
+  }
+  if (p3 != null) {
+    for (final k in ['author_fantasy', 'ink_hobby', 'style_dna']) {
+      if (p3[k] != null) merged[k] = p3[k];
     }
   } else {
-    log('⚠ 弧线${arc.number}脑洞文风请求失败：${r3.error}');
-  }
-  if (merged.isEmpty) {
-    log('⚠ 弧线${arc.number}三个拆分调用全部失败——跳过');
-    return;
+    log('⛔ 弧线${arc.number}脑洞文风两次尝试均失败——增量续跑可从本弧线重来');
+    return false;
   }
   sanitizeParts(merged); // v1163：AI粘连带净化（💎不可逆变化切出归还）
   // v486b用户裁决：概述两次生成各归其位——第一次（分组时基于场景摘要）放弧线页，
@@ -1549,17 +1659,25 @@ Future<void> extractArcParts({
     'style_dna': merged['style_dna'],
     'worldbuilding_facts': merged['worldbuilding_facts'],
   };
+  // v1172：先写内存（对账快照需要读analysis）——对账成功才落盘，失败回滚内存，
+  // 保证增量续跑判断（arc_summary_detailed非空）不误跳失败弧线
   state.arcAnalyses[key] = analysis;
+  // v1154：状态对账第四任务——账本滚动更新（v1172：失败=弧线失败，不落盘）
+  final ledgerOk = await reconcileStateLedger(state: state, arc: arc, parts: merged, log: log);
+  if (!ledgerOk) {
+    if (old == null) state.arcAnalyses.remove(key); // 新建的analysis回滚
+    log('⛔ 弧线${arc.number}状态对账失败——零件未落盘，增量续跑可从本弧线重来');
+    return false;
+  }
   state.saveArcAnalyses();
   // v481：概述同步到弧线页（arcScan.arcs的summary）
   if (newSummary.isNotEmpty && state.syncArcSummariesFromAnalyses() > 0) {
     state.saveArcScan();
   }
-  log('✓ 弧线${arc.number}零件已提取（人设/冲突/伏笔/脑洞/facts）');
-  // v1154：状态对账第四任务——账本滚动更新（失败不中断主流程）
-  await reconcileStateLedger(state: state, arc: arc, parts: merged, log: log);
+  log('✓ 弧线${arc.number}零件+账本已提取落盘（人设/冲突/伏笔/脑洞/facts/对账）');
   // v496：实时刷新分镜页/弧线页（结果落盘后立即notify，用户边跑边看）
   state.notifyListeners();
+  return true;
 }
 
 /// v492弧线覆盖对账：返回null=通过；否则返回失败原因（场景洞/章洞清单）
