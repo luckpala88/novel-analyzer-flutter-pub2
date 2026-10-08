@@ -915,6 +915,42 @@ Future<void> groupArcsFromScenes({
                 (md?['arc_summary_detailed'] ?? '').toString().isNotEmpty; // v1183：判非空
             final hasChoreo =
                 (md?['arc_choreo'] ?? '').toString().isNotEmpty;
+            // v1184：零件+编排齐但账本快照缺（历史对账失败残留）——只补对账不重烧零件
+            final hasSnap =
+                (md?['state_ledger_snapshot'] as List? ?? []).isNotEmpty;
+            if (hasParts && hasChoreo && !hasSnap) {
+              final parts = <String, dynamic>{
+                'arc_summary': md?['arc_summary_detailed'],
+                'characters': md?['characters'],
+                'conflicts': md?['conflicts'],
+                'foreshadowing': md?['foreshadowing'],
+                'irreversible_changes': md?['irreversible_changes'],
+                'worldbuilding_facts': md?['worldbuilding_facts'],
+              };
+              log('↻ 弧线${a.number}账本快照缺失——补跑状态对账（零件不重烧）');
+              final okL = await reconcileStateLedger(
+                  state: state, arc: a, parts: parts, log: log);
+              if (!okL) {
+                log('⛔ 弧线${a.number}对账补跑失败——批量生成弧线终止（已保存${arcs.length}条弧线分组，成果已落盘）');
+                log('ℹ 修复API配置后重新「批量」——从弧线${a.number}增量继续');
+                if (state.arcScan == null ||
+                    state.arcScan!.arcs.length < arcs.length) {
+                  state.arcScan = ArcScan(
+                    arcs: List.of(arcs),
+                    scannedChapterCount: (gs.last.endChapter as num).toInt(),
+                    overallSummary: '',
+                  );
+                } else {
+                  state.arcScan!.arcs = List.of(arcs);
+                }
+                state.saveArcScan();
+                state.saveArcAnalyses();
+                state.globalGroupedUpTo =
+                    arcs.last.sceneTo.clamp(0, gs.length);
+                state.saveGlobalScenes();
+                return;
+              }
+            }
             if (hasParts) {
               log('ℹ 弧线${a.number}零件已有——补跑编排策略分析');
             } else {
