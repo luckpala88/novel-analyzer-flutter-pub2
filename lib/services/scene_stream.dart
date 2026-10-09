@@ -1417,31 +1417,12 @@ Future<bool> extractArcParts({
             '场景$i：${gsAll[i - 1].name}｜${gsAll[i - 1].summary.length > 60 ? gsAll[i - 1].summary.substring(0, 60) : gsAll[i - 1].summary}',
         ].join('\n')
       : '';
-  // v1153：历史弧线零件注入+三任务拆分调用（用户授权"拆书任务重可分开任务类型"）
-  final hisBlock = buildArcHistoryBlock(state, arc.number);
-  if (hisBlock.isNotEmpty) {
-    log('ℹ 弧线${arc.number}历史零件注入（${hisBlock.length}字，上一弧线全量+更早关键状态）');
-  }
+  // v1191：历史零件注入废除（用户裁决：拆书提取的输入=原文，原文自带连续性
+  // →提取结果天然与N-1一致，注入是冗余烧token；防前后矛盾真正需要的是续写链
+  // ——那条走世界书条目+格局摘要，不吃此注入）。buildArcHistoryBlock保留备用
   final config = state.getApiConfig('arc');
   final merged = <String, dynamic>{};
-  // 调用1：概述与剧情零件（含历史注入——人设承接变化）
-  // v1157：词链预览（剧情零件任务=主prompt结构代表，发前弹，取消即中止）
-  if (previewHook != null) {
-    final ok = await previewHook!(
-      PromptBuilder.buildArcStoryPartsSystemPrompt(),
-      PromptBuilder.buildArcPartsUserPrompt(
-        arcTitle: arc.title,
-        arcSummary: arc.summary,
-        arcText: arc.text,
-        sceneList: sceneList,
-        historyBlock: hisBlock,
-      ),
-    );
-    if (!ok) {
-      log('⛔ 弧线${arc.number}零件提取已取消（词链预览）');
-      return false;
-    }
-  }
+  // v1191：旧预览段删除（v1186全景提取前已有previewHook，此段残留致双弹+旧prompt）
   // v1186：四任务合一"弧线全景提取"（用户裁决：200弧线×5次API太慢）——
   // 编排+剧情零件+facts+脑洞文风一次调用（输入高度重叠输出约8k字）；
   // 对账仍独立（输出2-3万字账本链，混入长输出砍尾=污染单一事实源）
@@ -1451,7 +1432,6 @@ Future<bool> extractArcParts({
     arcSummary: arc.summary,
     arcText: arc.text,
     sceneList: sceneList,
-    historyBlock: hisBlock,
     fullMode: true,
   );
   // v1157：词链预览（全景提取=提取主链唯一调用，发前弹，取消即中止）
