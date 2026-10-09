@@ -663,6 +663,25 @@ class _ScanPageState extends State<ScanPage>
                                               V469Style.accentBg,
                                             );
                                           }),
+                                        // v1188：账本徽章——收起状态一眼判有无
+                                        // （快照实体数/无账本警示，不展开核对）
+                                        Builder(builder: (ctx) {
+                                          final snap = state
+                                              .arcAnalyses[arc.number
+                                                  .toString()]
+                                              ?.metadata?['state_ledger_snapshot'] as List?;
+                                          return snap == null || snap.isEmpty
+                                              ? V469Style.badge(
+                                                  '📊 无账本',
+                                                  const Color(0xFFB45309),
+                                                  const Color(0x14B45309),
+                                                )
+                                              : V469Style.badge(
+                                                  '📊 账本${snap.length}',
+                                                  const Color(0xFF0F766E),
+                                                  const Color(0x140F766E),
+                                                );
+                                        }),
                                         // v283：视角主角徽章
                                         if (arc.focusCharacter.isNotEmpty)
                                           V469Style.badge(
