@@ -682,6 +682,57 @@ class _ScanPageState extends State<ScanPage>
                                                   const Color(0x140F766E),
                                                 );
                                         }),
+                                        // v1189：场景数徽章（总场数不展开可查）
+                                        V469Style.badge(
+                                          '🎬 ${arc.sceneTo - arc.sceneFrom + 1}场',
+                                          const Color(0xFF0369A1),
+                                          const Color(0x140369A1),
+                                        ),
+                                        // v1189：编排徽章（全景提取产出arc_choreo）
+                                        Builder(builder: (ctx) {
+                                          final ch = state
+                                              .arcAnalyses[arc.number
+                                                  .toString()]
+                                              ?.metadata?['arc_choreo']
+                                              ?.toString();
+                                          return (ch == null || ch.isEmpty)
+                                              ? V469Style.badge(
+                                                  '🎼 无编排',
+                                                  const Color(0xFFB45309),
+                                                  const Color(0x14B45309),
+                                                )
+                                              : V469Style.badge(
+                                                  '🎼 编排',
+                                                  const Color(0xFF7C3AED),
+                                                  const Color(0x147C3AED),
+                                                );
+                                        }),
+                                        // v1189：世界观体系徽章（十体系齐=N/10，
+                                        // 齐全青绿，缺体系橙警示——facts遗漏一眼定位）
+                                        Builder(builder: (ctx) {
+                                          final facts = state
+                                              .arcAnalyses[arc.number
+                                                  .toString()]
+                                              ?.metadata?['worldbuilding_facts'] as List?;
+                                          final systems = (facts ?? const [])
+                                              .map((f) =>
+                                                  (f as Map)['system']
+                                                      ?.toString() ??
+                                                  '')
+                                              .where((e) => e.isNotEmpty)
+                                              .toSet();
+                                          return systems.length >= 10
+                                              ? V469Style.badge(
+                                                  '🌐 体系${systems.length}',
+                                                  const Color(0xFF0F766E),
+                                                  const Color(0x140F766E),
+                                                )
+                                              : V469Style.badge(
+                                                  '🌐 体系${systems.length}/10',
+                                                  const Color(0xFFB45309),
+                                                  const Color(0x14B45309),
+                                                );
+                                        }),
                                         // v283：视角主角徽章
                                         if (arc.focusCharacter.isNotEmpty)
                                           V469Style.badge(
