@@ -761,6 +761,14 @@ Future<void> groupArcsFromScenes({
         // v493：解析失败真重试（此前话术"重试本批"实际是break，从未重试）
         var parsed = JsonRepair.parseResponse(result.content);
         var arcsJson = parsed?['arcs'] as List?;
+        if (arcsJson == null) {
+          // v1194：裸数组兜底（AI格式漂移无arcs包装——22:40三连解析失败实证）
+          final bare = JsonRepair.parseListResponse(result.content);
+          if (bare != null && bare.isNotEmpty) {
+            arcsJson = bare;
+            log('ℹ 分组输出为裸数组（无arcs包装）——已兼容解析');
+          }
+        }
         var retryN = 0;
         while ((arcsJson == null || arcsJson.isEmpty) && retryN < 2 && !state.userAborted) {
           retryN++;
@@ -777,10 +785,31 @@ Future<void> groupArcsFromScenes({
           }
           parsed = JsonRepair.parseResponse(r2.content);
           arcsJson = parsed?['arcs'] as List?;
+          if (arcsJson == null) {
+            final bare2 = JsonRepair.parseListResponse(r2.content);
+            if (bare2 != null && bare2.isNotEmpty) {
+              arcsJson = bare2;
+              log('ℹ 重试输出为裸数组——已兼容解析');
+            }
+          }
         }
         if (arcsJson == null || arcsJson.isEmpty) {
           log('⛔ 分组解析失败（重试${retryN}次仍无弧线返回）——中断，请用"重来"重新分组');
           break;
+        }
+        // v1194：全列表未闭合收口——AI单批可返回多条弧线，中间条标"待续"但本批
+        // 后续已另起（只有最后一条进openArc），中间条永久遗incomplete→提取循环
+        // 只认complete→零件永远空白（弧线100/101实证：体系0/10+无账本）。
+        // 批尾统一扫：除最后一条外的所有incomplete弧线补转伪闭合
+        if (arcsJson.isNotEmpty) {
+          for (var i = 0; i < arcs.length - 1; i++) {
+            final a = arcs[i];
+            if (a.status != 'complete') {
+              a.status = 'complete';
+              a.closeType = 'pseudo';
+              log('ℹ 未闭合弧线${a.number}「${a.title}」后续弧线已存在——补转伪闭合');
+            }
+          }
         }
         // v470：未闭合弧线自动收口——上一批遗留的openArc若本批AI没有延续
         // （直接另起新弧线），自动转为伪闭合complete（否则永久遗incomplete，

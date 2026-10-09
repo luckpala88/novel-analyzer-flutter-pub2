@@ -4,6 +4,24 @@ import 'dart:convert';
 /// 处理被max_tokens截断的JSON、markdown包裹、全角标点等
 class JsonRepair {
   /// 解析可能不完整的JSON字符串
+  /// v1194：裸数组兼容——AI格式漂移时输出[{...},...]（无键包装），实测分组
+  /// 三连"解析失败"浪费3次重试+中断。截取[到]解析为List返回，null=无数组
+  static List<dynamic>? parseListResponse(String text) {
+    var s = text.trim();
+    final firstBracket = s.indexOf('[');
+    if (firstBracket < 0) return null;
+    s = s.substring(firstBracket);
+    final lastBracket = s.lastIndexOf(']');
+    if (lastBracket < 0) return null;
+    s = s.substring(0, lastBracket + 1);
+    try {
+      final v = jsonDecode(s);
+      return v is List ? v : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   static Map<String, dynamic>? parseResponse(String text) {
     var s = text.trim();
 
