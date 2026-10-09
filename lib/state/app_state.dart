@@ -2566,6 +2566,32 @@ class AppState extends ChangeNotifier {
       }
       if (anchored) sb.writeln();
     }
+    // v1192：账本消费端切换（用户裁决）——续写编的是原著没发生的新内容，
+    // 没有原文兜底，硬状态必须外部注入。账本=全历史实体最新落点（比近3弧线
+    // 条目快照更全更准）；N-1拆解零件人设=性格/关系细节（账本只有一句状态）
+    if (stateLedger.isNotEmpty) {
+      sb.writeln('【世界状态账本（实体当前状态硬约束——生死/归属/立场以此为准，禁止死人复活/已毁物品凭空回来）】');
+      for (final e in stateLedger) {
+        sb.writeln(
+            '${e['category'] ?? ''}｜${e['name'] ?? ''}｜${e['state'] ?? ''}（更新于弧线${e['lastArc'] ?? '?'}）');
+      }
+      sb.writeln();
+    }
+    final prevMd = arcAnalyses['${myNum - 1}']?.metadata;
+    if (prevMd != null) {
+      final ch = prevMd['characters'];
+      if (ch is List && ch.isNotEmpty) {
+        sb.writeln('【上一弧线（弧线${myNum - 1}）拆解零件·人设（性格/关系细节以此衔接，账本没有这些）】');
+        sb.writeln(ch.toString());
+        sb.writeln();
+      }
+      final cf = prevMd['conflicts'];
+      if (cf is List && cf.isNotEmpty) {
+        sb.writeln('【上一弧线（弧线${myNum - 1}）拆解零件·矛盾冲突（冲突走向衔接）】');
+        sb.writeln(cf.toString());
+        sb.writeln();
+      }
+    }
     final core = continueArcCoreBlock(arcKey);
     if (core.isNotEmpty) {
       sb.writeln('【本弧线零件】');
@@ -2631,7 +2657,8 @@ class AppState extends ChangeNotifier {
       sb.write(fb.toString());
       sb.writeln();
     }
-    for (var n = myNum - 1; n >= myNum - recentArcs && n >= 1; n--) {
+    // v1192：近3条目人设全量→仅N-1（账本+拆解零件已覆盖，防语料膨胀）
+    for (var n = myNum - 1; n >= myNum - 1 && n >= 1; n--) {
       final c = _continueEntryOf(n);
       if (c == null || c.isEmpty) continue;
       final b = extractMarkedBlock(c, '人设');
