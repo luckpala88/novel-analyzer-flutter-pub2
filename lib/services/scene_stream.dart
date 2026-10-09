@@ -1427,11 +1427,19 @@ Future<bool> extractArcParts({
   // 编排+剧情零件+facts+脑洞文风一次调用（输入高度重叠输出约8k字）；
   // 对账仍独立（输出2-3万字账本链，混入长输出砍尾=污染单一事实源）
   final sysFull = PromptBuilder.buildArcFullExtractSystemPrompt();
+  // v1193：边界状态注入——分组器已判闭合的弧线禁用"弧线未闭合"句式
+  // （防AI再判一遍与分组器打架，弧线85实证：✅完整但不可逆变化写"弧线未闭合"）
+  final boundaryStatus = arc.status != 'complete'
+      ? '边界未闭合（待续）——正文切片是进行中片段，按未闭合句式如实提取'
+      : arc.closeType == 'pseudo'
+          ? '边界已闭合（伪闭合）——本弧线叙事段在此完整结束并切线，正文切片是完整叙事段，按已闭合规则提取'
+          : '边界已闭合（真闭合）——本弧线正文在此收束，正文切片是完整叙事段，按已闭合规则提取';
   final userFull = PromptBuilder.buildArcPartsUserPrompt(
     arcTitle: arc.title,
     arcSummary: arc.summary,
     arcText: arc.text,
     sceneList: sceneList,
+    boundaryStatus: boundaryStatus,
     fullMode: true,
   );
   // v1157：词链预览（全景提取=提取主链唯一调用，发前弹，取消即中止）
