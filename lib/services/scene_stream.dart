@@ -1433,139 +1433,70 @@ Future<bool> extractArcParts({
       return false;
     }
   }
-  // v1166：剧情零件带质量防御——输出过短/解析失败/缺核心键（arc_summary+characters
-  // 双缺，弧线1实测262字偷懒输出）自动重试一次
-  Future<ApiResult> callStoryParts() => state.api.callApi(
-        task: '弧线概述与剧情零件',
-        systemPrompt: PromptBuilder.buildArcStoryPartsSystemPrompt(),
-        userPrompt: PromptBuilder.buildArcPartsUserPrompt(
-          arcTitle: arc.title,
-          arcSummary: arc.summary,
-          arcText: arc.text,
-          sceneList: sceneList,
-          historyBlock: hisBlock,
-        ),
-        apiConfig: config,
-      );
-  Map<String, dynamic>? parseStory(ApiResult r) {
-    if (!r.isSuccess) {
-      log('⚠ 弧线${arc.number}剧情零件请求失败：${r.error}');
-      return null;
+  // v1186：四任务合一"弧线全景提取"（用户裁决：200弧线×5次API太慢）——
+  // 编排+剧情零件+facts+脑洞文风一次调用（输入高度重叠输出约8k字）；
+  // 对账仍独立（输出2-3万字账本链，混入长输出砍尾=污染单一事实源）
+  final sysFull = PromptBuilder.buildArcFullExtractSystemPrompt();
+  final userFull = PromptBuilder.buildArcPartsUserPrompt(
+    arcTitle: arc.title,
+    arcSummary: arc.summary,
+    arcText: arc.text,
+    sceneList: sceneList,
+    historyBlock: hisBlock,
+    fullMode: true,
+  );
+  // v1157：词链预览（全景提取=提取主链唯一调用，发前弹，取消即中止）
+  if (previewHook != null) {
+    final ok = await previewHook!(sysFull, userFull);
+    if (!ok) {
+      log('⛔ 弧线${arc.number}全景提取已取消（词链预览）');
+      return false;
     }
-    final p = JsonRepair.parseResponse(r.content);
-    if (p == null) {
-      log('⚠ 弧线${arc.number}剧情零件解析失败（输出${r.content.length}字）');
-      return null;
-    }
-    final noSummary = (p['arc_summary'] ?? '').toString().trim().isEmpty;
-    final chars = p['characters'];
-    final noChars = chars is! List || chars.isEmpty;
-    if (noSummary || noChars) {
-      log('⚠ 弧线${arc.number}剧情零件缺核心键'
-          '${noSummary ? "（无arc_summary）" : ""}${noChars ? "（无人设）" : ""}，输出仅${r.content.length}字');
-      return null;
-    }
-    return p;
   }
-
-  // v1185：API网络问题最多3次尝试（用户裁决：多重试一两次防中断）
-  Map<String, dynamic>? p1;
+  Map<String, dynamic>? full;
   for (var attempt = 1; attempt <= 3; attempt++) {
-    p1 = parseStory(await callStoryParts());
-    if (p1 != null) break;
-    if (attempt < 3) log('↻ 弧线${arc.number}剧情零件重试（$attempt/2）…');
-  }
-  if (p1 != null) {
-    merged.addAll(p1);
-  } else {
-    log('⛔ 弧线${arc.number}剧情零件三次尝试均不完整——增量续跑可从本弧线重来');
-    return false;
-  }
-  // 调用2：世界观facts（10体系重活独立跑）
-  final r2 = await state.api.callApi(
-    task: '弧线世界观facts',
-    systemPrompt: PromptBuilder.buildArcFactsSystemPrompt(),
-    userPrompt: PromptBuilder.buildArcPartsUserPrompt(
-      arcTitle: arc.title,
-      arcSummary: arc.summary,
-      arcText: arc.text,
-      sceneList: sceneList,
-    ),
-    apiConfig: config,
-  );
-  Map<String, dynamic>? parseFacts(ApiResult r) {
-    if (!r.isSuccess) {
-      log('⚠ 弧线${arc.number}世界观facts请求失败：${r.error}');
-      return null;
-    }
-    final p2 = JsonRepair.parseResponse(r.content);
-    if (p2 != null && p2['worldbuilding_facts'] != null) return p2;
-    log('⚠ 弧线${arc.number}世界观facts缺失');
-    return null;
-  }
-
-  // v1185：最多3次尝试
-  Map<String, dynamic>? p2ok = parseFacts(r2);
-  for (var attempt = 1; p2ok == null && attempt <= 2; attempt++) {
-    log('↻ 弧线${arc.number}世界观facts重试（$attempt/2）…');
-    p2ok = parseFacts(await state.api.callApi(
-      task: '弧线世界观facts',
-      systemPrompt: PromptBuilder.buildArcFactsSystemPrompt(),
-      userPrompt: PromptBuilder.buildArcPartsUserPrompt(
-        arcTitle: arc.title,
-        arcSummary: arc.summary,
-        arcText: arc.text,
-      ),
+    final r = await state.api.callApi(
+      task: '弧线全景提取（编排+零件+facts+脑洞）',
+      systemPrompt: sysFull,
+      userPrompt: userFull,
       apiConfig: config,
-    ));
-  }
-  if (p2ok != null) {
-    merged['worldbuilding_facts'] = p2ok['worldbuilding_facts'];
-  } else {
-    log('⛔ 弧线${arc.number}世界观facts三次尝试均失败——增量续跑可从本弧线重来');
-    return false;
-  }
-  // 调用3：脑洞与文风
-  final r3 = await state.api.callApi(
-    task: '弧线脑洞与文风',
-    systemPrompt: PromptBuilder.buildArcFantasyStyleSystemPrompt(),
-    userPrompt: PromptBuilder.buildArcPartsUserPrompt(
-      arcTitle: arc.title,
-      arcSummary: arc.summary,
-      arcText: arc.text,
-    ),
-    apiConfig: config,
-  );
-  Map<String, dynamic>? parseFantasy(ApiResult r) {
+    );
     if (!r.isSuccess) {
-      log('⚠ 弧线${arc.number}脑洞文风请求失败：${r.error}');
-      return null;
+      log('⚠ 弧线${arc.number}全景提取请求失败：${r.error}');
+    } else {
+      final p = JsonRepair.parseResponse(r.content);
+      if (p == null) {
+        log('⚠ 弧线${arc.number}全景提取解析失败（输出${r.content.length}字）');
+      } else {
+        final noSummary = (p['arc_summary'] ?? '').toString().trim().isEmpty;
+        final chars = p['characters'];
+        final noChars = chars is! List || chars.isEmpty;
+        final noFacts = p['worldbuilding_facts'] is! List;
+        final noChoreo = (p['scene_choreos'] ?? '').toString().trim().isEmpty;
+        if (noSummary || noChars || noFacts || noChoreo) {
+          log('⚠ 弧线${arc.number}全景提取缺核心键'
+              '${noSummary ? "（无概述）" : ""}${noChars ? "（无人设）" : ""}'
+              '${noFacts ? "（无facts）" : ""}${noChoreo ? "（无编排落点）" : ""}，输出${r.content.length}字');
+        } else {
+          full = p;
+        }
+      }
     }
-    return JsonRepair.parseResponse(r.content);
+    if (full != null) break;
+    if (attempt < 3) log('↻ 弧线${arc.number}全景提取重试（$attempt/2）…');
   }
-
-  // v1185：最多3次尝试
-  Map<String, dynamic>? p3 = parseFantasy(r3);
-  for (var attempt = 1; p3 == null && attempt <= 2; attempt++) {
-    log('↻ 弧线${arc.number}脑洞文风重试（$attempt/2）…');
-    p3 = parseFantasy(await state.api.callApi(
-      task: '弧线脑洞与文风',
-      systemPrompt: PromptBuilder.buildArcFantasyStyleSystemPrompt(),
-      userPrompt: PromptBuilder.buildArcPartsUserPrompt(
-        arcTitle: arc.title,
-        arcSummary: arc.summary,
-        arcText: arc.text,
-      ),
-      apiConfig: config,
-    ));
-  }
-  if (p3 != null) {
-    for (final k in ['author_fantasy', 'ink_hobby', 'style_dna']) {
-      if (p3[k] != null) merged[k] = p3[k];
-    }
-  } else {
-    log('⛔ 弧线${arc.number}脑洞文风三次尝试均失败——增量续跑可从本弧线重来');
+  if (full == null) {
+    log('⛔ 弧线${arc.number}全景提取三次尝试均不完整——增量续跑可从本弧线重来');
     return false;
+  }
+  // 编排+零件+facts+脑洞文风统一落merged（原三任务键集不变，编排两键新增）
+  for (final k in [
+    'arc_choreo', 'scene_choreos',
+    'arc_summary', 'characters', 'conflicts', 'foreshadowing',
+    'arc_functions', 'irreversible_changes', 'emotional_curve',
+    'worldbuilding_facts', 'author_fantasy', 'ink_hobby', 'style_dna',
+  ]) {
+    if (full[k] != null) merged[k] = full[k];
   }
   sanitizeParts(merged); // v1163：AI粘连带净化（💎不可逆变化切出归还）
   // v486b用户裁决：概述两次生成各归其位——第一次（分组时基于场景摘要）放弧线页，
@@ -1584,9 +1515,11 @@ Future<bool> extractArcParts({
   final key = arc.number.toString();
   final old = state.arcAnalyses[key];
   final analysis = old ?? ArcAnalysis(arcNumber: arc.number, arcTitle: arc.title);
-  // v901：编排已拆到独立按键analyzeArcChoreo（骨架/表述分离，单任务保质量）
+  // v1186：编排随全景提取一并落库（analyzeArcChoreo降级为旧数据兜底补跑）
   analysis.metadata = {
     ...?analysis.metadata,
+    'arc_choreo': merged['arc_choreo'],
+    'scene_choreos': merged['scene_choreos'],
     'arc_summary_detailed': newSummary,
     'characters': merged['characters'],
     'conflicts': merged['conflicts'],
@@ -1621,7 +1554,7 @@ Future<bool> extractArcParts({
   if (newSummary.isNotEmpty && state.syncArcSummariesFromAnalyses() > 0) {
     state.saveArcScan();
   }
-  log('✓ 弧线${arc.number}零件+账本已提取落盘（人设/冲突/伏笔/脑洞/facts/对账）');
+  log('✓ 弧线${arc.number}全景提取+账本已落盘（编排/人设/冲突/伏笔/脑洞/facts/对账）');
   // v496：实时刷新分镜页/弧线页（结果落盘后立即notify，用户边跑边看）
   state.notifyListeners();
   return true;
