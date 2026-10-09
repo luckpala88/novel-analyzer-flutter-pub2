@@ -3327,7 +3327,7 @@ class PromptBuilder {
     required String arcSummary,
     required String arcText,
     String sceneList = '', // v889：场景清单（全局序号+名称+概述头）供scene_choreos标号
-    String historyBlock = '', // v1153：历史弧线零件（前两弧线全量+更早关键状态，只注剧情零件调用）
+    String historyBlock = '', // v1153：历史弧线零件（N-1全量+更早关键状态，v1190缩为一条）
     bool choreoMode = false, // v901：编排分析模式（只要求编排两项输出）
     bool fullMode = false, // v1186：全景提取模式（编排+零件+facts+脑洞四合一）
   }) {

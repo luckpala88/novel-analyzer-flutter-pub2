@@ -1343,7 +1343,7 @@ Future<bool> reconcileStateLedger({
   return true;
 }
 
-/// v1153：历史弧线零件注入——前两弧线（N-1/N-2）全部零件全量+更早弧线关键状态行。
+/// v1153：历史弧线零件注入——N-1弧线全量+更早弧线关键状态行（v1190缩为一条）。
 /// 数据源=arcAnalyses.metadata（拆解层自身产物，拆书阶段世界书条目尚不存在）。
 /// 用途：新弧线零件提取时人设承接（角色生死/关系变化/未回收伏笔需前情基准）
 String buildArcHistoryBlock(AppState state, int curNum) {
@@ -1361,8 +1361,11 @@ String buildArcHistoryBlock(AppState state, int curNum) {
   }
   final sb = StringBuffer();
   var has = false;
-  final recent = nums.reversed.take(2).toSet(); // N-1、N-2
-  for (final n in nums.reversed.take(2)) {
+  // v1190：全量注入缩为N-1一条（用户裁决：71k字注入太大）——人设承接是
+  // 递推链：N-1条目本身已写"状态变化（从什么变到什么）"，N-2信息已被N-1
+  // 吸收，单独再注一遍是重复；更早弧线关键状态行保留（每行仅500余字）
+  final recent = nums.reversed.take(1).toSet(); // N-1
+  for (final n in nums.reversed.take(1)) {
     final a = state.arcAnalyses[n.toString()];
     if (a == null) continue;
     has = true;
@@ -1380,7 +1383,7 @@ String buildArcHistoryBlock(AppState state, int curNum) {
     sb.writeln();
   }
   for (final n in nums) {
-    if (recent.contains(n)) continue; // 前两弧线已全量注入
+    if (recent.contains(n)) continue; // N-1已全量注入
     final a = state.arcAnalyses[n.toString()];
     if (a == null) continue;
     has = true;
@@ -1417,7 +1420,7 @@ Future<bool> extractArcParts({
   // v1153：历史弧线零件注入+三任务拆分调用（用户授权"拆书任务重可分开任务类型"）
   final hisBlock = buildArcHistoryBlock(state, arc.number);
   if (hisBlock.isNotEmpty) {
-    log('ℹ 弧线${arc.number}历史零件注入（${hisBlock.length}字，前两弧线全量+更早关键状态）');
+    log('ℹ 弧线${arc.number}历史零件注入（${hisBlock.length}字，上一弧线全量+更早关键状态）');
   }
   final config = state.getApiConfig('arc');
   final merged = <String, dynamic>{};
