@@ -596,11 +596,14 @@ Future<void> groupArcsFromScenes({
           state.arcScenes.remove(drop.number.toString());
           state.globalGroupedUpTo =
               preArcs.isEmpty ? 0 : preArcs.last.sceneTo;
+          // v1187：账本回滚到保留末弧快照（与手动剪断v1175同规则）——中断前旧尾弧
+          // 对账可能已落盘，残留会让弧线${drop.number - 1}重提对账被"未来状态"倒灌
+          state.rollbackLedgerToLatestSnapshot();
           state.saveArcScan();
           state.saveArcAnalyses();
           state.saveArcScenes();
           state.saveGlobalScenes();
-          log('↻ 增量前置：自动减掉不完整弧线${drop.number}「${drop.title}」（场景${drop.sceneFrom}-${drop.sceneTo}），从场景${state.globalGroupedUpTo + 1}重分');
+          log('↻ 增量前置：自动减掉不完整弧线${drop.number}「${drop.title}」（场景${drop.sceneFrom}-${drop.sceneTo}），从场景${state.globalGroupedUpTo + 1}重分（账本已回滚）');
         }
         final oldArcs = state.arcScan!.arcs;
         // v1181：平铺完好性（首弧=1+连续不交叉）与断点数字分开判——弧线平铺
@@ -645,9 +648,12 @@ Future<void> groupArcsFromScenes({
         for (final a in arcs) {
           // v1164：零件+编排都齐才判"已提取"——只判零件会把没跑过编排的旧弧线
           // 一并跳过（用户实测：增量续跑时前面弧线全跳过编排，只有新弧线有编排）
+          // v1187：判据加账本快照（v1185裁决"零件含账本不齐=整条重新生成"）——
+          // 漏查会让账本缺的弧线直接跳过，主循环hasSnap检查永远轮不到（弧线64实证）
           final md = state.arcAnalyses[a.number.toString()]?.metadata;
           if ((md?['arc_summary_detailed'] ?? '').toString().isNotEmpty && // v1183：判非空防空串脏数据误跳
-              (md?['arc_choreo'] ?? '').toString().isNotEmpty) {
+              (md?['arc_choreo'] ?? '').toString().isNotEmpty &&
+              (md?['state_ledger_snapshot'] as List? ?? []).isNotEmpty) {
             extractedArcs.add(a.number);
           }
         }
