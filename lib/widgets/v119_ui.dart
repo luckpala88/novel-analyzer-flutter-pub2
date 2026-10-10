@@ -339,6 +339,29 @@ Widget writerStyleButton(BuildContext context, dynamic state) {
                       ? const Icon(Icons.check, size: 18)
                       : null,
                   onTap: () => Navigator.pop(ctx, s['name']),
+                  // v1197：长按删除档案（确认框防误删；删除后提示）
+                  onLongPress: () async {
+                    Navigator.pop(ctx);
+                    final ok = await showDialog<bool>(
+                      context: context,
+                      builder: (dctx) => AlertDialog(
+                        title: Text('删除作家档案「${s['name']}」？',
+                            style: const TextStyle(fontSize: 15)),
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.pop(dctx, false),
+                              child: const Text('取消')),
+                          TextButton(
+                              onPressed: () => Navigator.pop(dctx, true),
+                              child: const Text('删除',
+                                  style: TextStyle(color: Colors.red))),
+                        ],
+                      ),
+                    );
+                    if (ok == true) {
+                      state.deleteStyleProfile(s['name']);
+                    }
+                  },
                 ),
               const Divider(height: 1),
               ListTile(

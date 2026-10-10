@@ -325,6 +325,23 @@ class AppState extends ChangeNotifier {
     return true;
   }
 
+  /// v1197：覆盖写入风格档案（聊天工具update_style mode=overwrite）——
+  /// 追加模式改不了旧内容，覆盖=以content全文替换
+  bool overwriteStyleProfile(String name, String content) {
+    if (name.isEmpty || content.isEmpty) return false;
+    final ts =
+        DateTime.now().toIso8601String().substring(0, 16).replaceAll('T', ' ');
+    final i = styleProfiles.indexWhere((s) => s['name'] == name);
+    if (i >= 0) {
+      styleProfiles[i]['content'] = content;
+      styleProfiles[i]['updatedAt'] = ts;
+    } else {
+      styleProfiles.add({'name': name, 'content': content, 'updatedAt': ts});
+    }
+    saveStyleProfiles();
+    return true;
+  }
+
   void deleteStyleProfile(String name) {
     styleProfiles.removeWhere((s) => s['name'] == name);
     if (selectedWriterStyle == name) selectedWriterStyle = '';

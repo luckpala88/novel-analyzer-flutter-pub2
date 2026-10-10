@@ -27,7 +27,7 @@ const String agentToolDoc = '''
 8. {"tool":"verify_data","args":{"target":"choreo","arc":210}} —— 数据诊断（只读）：target=choreo查编排字段落库情况（弧线总纲+逐场景统计，可带arc过滤单条弧线）；target=trick查手法维度（已拆分镜中trick非空的镜数统计，可带arc过滤）——用于验证新版本功能是否落库。注意：choreo/trick分别是"生成弧线(分组)"和"拆分镜"步骤的产物，重扫场景不会产生它们；choreo缺失应重新分组，trick缺失应重拆分镜
 9. {"tool":"get_styles","args":{"name":"作家名"}} —— 个人风格档案（只读）：无name=列全部档案清单；有name=返回该档案全文。档案=某位"作家"的写作风格记忆（文风/句式/trick偏好/讲法习惯），创作/改编/二创页可选用来注入
 10. {"tool":"collect_style"} —— 汇总当前书表述层语料（只读）：弧线编排总纲样本+场景编排落点+trick维度样本+文风DNA+用户全局要求——供你总结/完善风格档案的素材
-11. {"tool":"update_style","args":{"name":"作家名","content":"档案markdown全文（增量时=旧档案+新条目拼接后的完整版）"}} —— 写入风格档案（需用户确认；同名=追加合并，新名=新建）。用户说"记住这个风格/把X沉淀到作家档案"时使用：先get_styles读旧档，再拼好全文调本工具
+11. {"tool":"update_style","args":{"name":"作家名","content":"档案markdown全文","mode":"append|overwrite|delete"}} —— 风格档案写入（需用户确认）。mode=append(默认,追加合并,新名=新建)/overwrite(整篇覆盖——用户说"修改/重写/精简某档案"用)/delete(删除档案,content可空)。追加时先get_styles读旧档再拼全文；overwrite时content即新档案全文（可基于旧档修改）
 规则：一次只发一个指令，发出后停止等待结果；任务完成后用自然语言汇报结果；用户闲聊/问功能时不要发指令。
 ''';
 
@@ -266,10 +266,27 @@ Future<AgentToolResult> runTool(AppState state, String tool,
       return AgentToolResult(tool, true,
           '语料汇总（${buf.length}段，供总结风格档案）：\n${buf.join('\n\n')}');
     case 'update_style': // v951：写风格档案（写类，已过确认）
+      // v1197：mode三模式——append(默认,兼容旧行为)/overwrite(覆盖全文,
+      // 修旧内容)/delete(删档案,content可空)
       final name = (args['name'] ?? '').toString().trim();
+      final mode = (args['mode'] ?? 'append').toString().trim().toLowerCase();
+      if (name.isEmpty) return AgentToolResult(tool, false, '缺少name参数');
+      if (mode == 'delete') {
+        final existed = state.styleProfiles.any((s) => s['name'] == name);
+        if (!existed) {
+          return AgentToolResult(tool, false, '无「$name」档案（get_styles无参列清单核对）');
+        }
+        state.deleteStyleProfile(name);
+        return AgentToolResult(tool, true, '已删除风格档案「$name」');
+      }
       final content = (args['content'] ?? '').toString().trim();
-      if (name.isEmpty || content.isEmpty) {
-        return AgentToolResult(tool, false, '缺少name或content参数');
+      if (content.isEmpty) {
+        return AgentToolResult(tool, false, '缺少content参数');
+      }
+      if (mode == 'overwrite') {
+        state.overwriteStyleProfile(name, content);
+        return AgentToolResult(tool, true,
+            '已覆盖写入风格档案「$name」（现${state.styleProfiles.firstWhere((s) => s['name'] == name)['content']?.length ?? 0}字）');
       }
       final existed = state.styleProfiles.any((s) => s['name'] == name);
       state.upsertStyleProfile(name, content);
