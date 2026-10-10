@@ -1332,9 +1332,11 @@ Future<bool> reconcileStateLedger({
   var r = await callReconcile();
   var out = r.isSuccess ? JsonRepair.parseResponse(r.content) : null;
   for (var attempt = 1; attempt <= 2; attempt++) {
+    // v1195：判据兼容增量格式（changed/added任一非空=有效）与全量ledger
     final bad = out == null ||
-        out['ledger'] is! List ||
-        (out['ledger'] as List).isEmpty;
+        !((out['ledger'] is List && (out['ledger'] as List).isNotEmpty) ||
+            ((out['changed'] as List?)?.isNotEmpty ?? false) ||
+            ((out['added'] as List?)?.isNotEmpty ?? false));
     if (!bad) break;
     log('↻ 弧线${arc.number}状态对账无效，重试（$attempt/2）…');
     r = await callReconcile();
@@ -1345,13 +1347,68 @@ Future<bool> reconcileStateLedger({
     return false;
   }
   final list = out?['ledger'];
-  if (list is! List || list.isEmpty) {
+  // v1195：增量格式（无ledger键）放行，由下方merge处理；全量格式仍验空
+  final isInc = list is! List;
+  if (!isInc && list.isEmpty) {
     log('⚠ 弧线${arc.number}状态对账输出无效——账本保留上一版');
     return false;
   }
   final newLedger = <Map<String, dynamic>>[];
-  for (final e in list) {
-    if (e is Map) newLedger.add(e.map((k, v) => MapEntry(k.toString(), v)));
+  // v1195：增量merge——AI只回吐changed/added/removed（瘦身：67k全量→5-10k增量），
+  // 程序合并进上一版快照；落库仍是全量账本，下游消费端零改动。
+  // 兜底：AI格式漂移回吐旧全量格式{"ledger":[...]}时直接全量采用
+  final changed = (out?['changed'] as List?) ?? const [];
+  final added = (out?['added'] as List?) ?? const [];
+  final removedRaw = (out?['removed'] as List?) ?? const [];
+  final isIncremental = isInc && (changed.isNotEmpty || added.isNotEmpty);
+  if (isIncremental) {
+    String entKey(Map e) => '${e['category']}|${e['name']}';
+    final removedNames = <String>{
+      for (final r in removedRaw)
+        if (r is Map)
+          r['name'].toString()
+        else
+          r.toString(),
+    };
+    final changedByKey = <String, Map<String, dynamic>>{
+      for (final e in changed)
+        if (e is Map)
+          entKey(e.map((k, v) => MapEntry(k.toString(), v))):
+              e.map((k, v) => MapEntry(k.toString(), v)),
+    };
+    final addedByKey = <String, Map<String, dynamic>>{
+      for (final e in added)
+        if (e is Map)
+          entKey(e.map((k, v) => MapEntry(k.toString(), v))):
+              e.map((k, v) => MapEntry(k.toString(), v)),
+    };
+    // 保序合并：旧账本顺序遍历，removed剔除、changed覆盖、其余原样
+    final seen = <String>{};
+    for (final e0 in state.stateLedger) {
+      final k = entKey(e0);
+      if (removedNames.contains(k.split('|').last) || removedNames.contains(k)) continue;
+      seen.add(k);
+      newLedger.add(changedByKey[k] ?? e0);
+    }
+    // 新增（changed未命中旧账也按新增处理）追加尾部
+    for (final entry in addedByKey.entries) {
+      if (!seen.contains(entry.key)) newLedger.add(entry.value);
+    }
+    for (final entry in changedByKey.entries) {
+      if (!seen.contains(entry.key) && !addedByKey.containsKey(entry.key)) {
+        newLedger.add(entry.value);
+      }
+    }
+    log('ℹ 弧线${arc.number}增量对账：变更${changedByKey.length}+新增${addedByKey.length}-剔除$removedNames.length，合并后${newLedger.length}实体');
+  } else {
+    if (list is! List) {
+      // v1195：重试后仍无变更无账本（changed/added/removed全空）——保留上一版
+      log('⚠ 弧线${arc.number}状态对账输出无变更无账本——保留上一版');
+      return false;
+    }
+    for (final e in list) {
+      if (e is Map) newLedger.add(e.map((k, v) => MapEntry(k.toString(), v)));
+    }
   }
   if (newLedger.isEmpty) {
     log('⚠ 弧线${arc.number}状态对账账本为空——保留上一版');
