@@ -160,6 +160,48 @@ class CloudSyncService {
     await prefs.setString('supabase_user_email', _userEmail);
   }
 
+  /// v1198: 同步错误分类——DNS解析失败大概率=免费项目被自动暂停（pause后域名DNS记录被撤销）
+  String _classifySyncError(Object e, {String context = '连接'}) {
+    final msg = e.toString();
+    if (msg.contains('Failed host lookup') ||
+        msg.contains('No address associated with hostname')) {
+      return '服务器域名无法解析——大概率是Supabase免费项目7天不活跃被自动暂停: '
+          '登录 supabase.com/dashboard → 点 Resume project 恢复(数据不会丢,1-2分钟变Active); '
+          '若项目确认是Active状态,则是手机网络/DNS问题,换网或稍后重试';
+    }
+    if (msg.contains('Software caused connection abort') ||
+        msg.contains('Connection closed') ||
+        msg.contains('Connection reset')) {
+      return '网络连接被中断($context)——多见于弱网或平台故障,稍后重试';
+    }
+    return '$context异常: $e';
+  }
+
+  /// v1198: 上传/下载前探活(GET /auth/v1/health)。
+  /// 返回null=可以继续; 返回非null=致命错误文案(直接终止并展示)。
+  /// 探活自身异常(超时/非200)不算致命,只记日志放行,不拦正常上传。
+  Future<String?> _probeServer({void Function(String msg)? onLog}) async {
+    try {
+      final resp = await http
+          .get(
+            Uri.parse('$_supabaseUrl/auth/v1/health'),
+            headers: {'apikey': _anonKey},
+          )
+          .timeout(const Duration(seconds: 15));
+      if (resp.statusCode == 200) return null;
+      onLog?.call('服务器探活: HTTP ${resp.statusCode}(服务存疑,继续尝试)');
+      return null;
+    } catch (e) {
+      final msg = e.toString();
+      if (msg.contains('Failed host lookup') ||
+          msg.contains('No address associated with hostname')) {
+        return _classifySyncError(e, context: '服务器探活');
+      }
+      onLog?.call('服务器探活异常: $e(继续尝试)');
+      return null;
+    }
+  }
+
   /// 上传数据到云端（v318兼容：分块上传到Storage + 元数据写入sync_data表）
   /// 数据格式和v318一致：{version:1, books:{书名:{文件名:内容}}, global:{文件名:内容}}
   Future<String> upload(
@@ -170,6 +212,12 @@ class CloudSyncService {
     if (!_loggedIn) return '未登录';
     await _ensureValidToken();
     onLog?.call('开始上传...');
+    // v1198: 上传前探活,DNS失败提前终止(150MB白打31块请求不如先问服务器死活)
+    final probeFail = await _probeServer(onLog: onLog);
+    if (probeFail != null) {
+      onLog?.call('上传中止: $probeFail');
+      return '上传失败: $probeFail';
+    }
     try {
       final userId = _extractUserId(_accessToken);
       final pkgSize = jsonData.length;
@@ -235,8 +283,9 @@ class CloudSyncService {
 
       return '成功上传 ${sizeMB}MB, $totalChunks块';
     } catch (e) {
-      onLog?.call('上传异常: $e');
-      return '上传失败: $e';
+      final friendly = _classifySyncError(e, context: '上传');
+      onLog?.call('上传异常: $friendly');
+      return '上传失败: $friendly';
     }
   }
 
@@ -249,6 +298,12 @@ class CloudSyncService {
     if (!_loggedIn) return null;
     await _ensureValidToken();
     onLog?.call('开始下载...');
+    // v1198: 下载前同样探活,DNS失败直接给出恢复指引
+    final probeFail = await _probeServer(onLog: onLog);
+    if (probeFail != null) {
+      onLog?.call('下载中止: $probeFail');
+      return null;
+    }
     try {
       final userId = _extractUserId(_accessToken);
       final bucketName = 'sync-data';
@@ -301,7 +356,7 @@ class CloudSyncService {
         onLog,
       );
     } catch (e) {
-      onLog?.call('下载异常: $e');
+      onLog?.call('下载异常: ${_classifySyncError(e, context: '下载')}');
       return null;
     }
   }
