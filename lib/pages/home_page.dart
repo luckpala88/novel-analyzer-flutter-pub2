@@ -200,12 +200,9 @@ class _HomePageState extends State<HomePage>
 
   // ===== 书目管理 =====
   void _showBookDialog(AppState state) {
-    // v1201：底部弹窗route会清掉MediaQuery top padding→SafeArea拿到0等于没垫
-    // （v1199/v1200两连实证AppBar被状态栏吞）——页面context先取真实状态栏高，header显式垫顶
-    final double topPad = MediaQuery.of(context).padding.top;
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // v1199：面板加高到顶
+      isScrollControlled: true,
       // builder内watch：删除/切换书目后列表立即刷新（原一次性闭包不响应notifyListeners）
       builder: (ctx) {
         final live = ctx.watch<AppState>();
@@ -218,36 +215,35 @@ class _HomePageState extends State<HomePage>
             return live.bookList.indexOf(a).compareTo(live.bookList.indexOf(b));
           });
         return SizedBox(
-          height: MediaQuery.of(ctx).size.height,
+          // v1202：高度90%——全屏顶到状态栏时header三连被吞（v1199/1200/1201实证：
+          // 弹窗route与全面屏下top padding全不可信），留10%空隙让header永远落在屏幕安全区
+          height: MediaQuery.of(ctx).size.height * 0.9,
           child: Column(
             children: [
-              // v1201：AppBar→自定义header行（显式垫topPad，AppBar在sheet里不可靠）
-              Padding(
-                padding: EdgeInsets.only(top: topPad),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(ctx),
-                    ),
-                    Expanded(
-                      child: Text(
-                        '书目 (${live.bookList.length})',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
+              // v1201：自定义header行（AppBar在sheet里不可靠）
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                  Expanded(
+                    child: Text(
+                      '书目 (${live.bookList.length})',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    // v1199：加号旁补文字，整体可点（按钮用文字不用图标惯例）
-                    TextButton.icon(
-                      icon: const Icon(Icons.add, size: 20),
-                      label: const Text('添加书籍'),
-                      onPressed: () => _showCreateBookDialog(state),
-                    ),
-                    const SizedBox(width: 4),
-                  ],
-                ),
+                  ),
+                  // v1199：加号旁补文字，整体可点（按钮用文字不用图标惯例）
+                  TextButton.icon(
+                    icon: const Icon(Icons.add, size: 20),
+                    label: const Text('添加书籍'),
+                    onPressed: () => _showCreateBookDialog(state),
+                  ),
+                  const SizedBox(width: 4),
+                ],
               ),
               Expanded(
                 // v1200：分隔线列表（indent避开图标）+字号14→16，行高不变
@@ -1029,7 +1025,7 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 1201;
+  static const int _appVersion = 1202;
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';
