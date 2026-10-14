@@ -216,7 +216,9 @@ class _HomePageState extends State<HomePage>
           });
         return SizedBox(
           height: MediaQuery.of(ctx).size.height,
-          child: Column(
+          // v1200：SafeArea顶垫——v1199AppBar被顶进状态栏底下（用户截图实证"上面都看不见"）
+          child: SafeArea(
+            child: Column(
             children: [
               AppBar(
                 title: Text('书目 (${live.bookList.length})'),
@@ -235,10 +237,19 @@ class _HomePageState extends State<HomePage>
                 ],
               ),
               Expanded(
-                child: ListView(
-                  children: sortedBooks
-                      .map(
-                        (b) => ListTile(
+                // v1200：分隔线列表（indent避开图标）+字号14→16，行高不变
+                child: ListView.separated(
+                  itemCount: sortedBooks.length,
+                  separatorBuilder: (_, __) => Divider(
+                    height: 1,
+                    thickness: 0.5,
+                    indent: 52,
+                    endIndent: 16,
+                    color: Colors.grey.shade300,
+                  ),
+                  itemBuilder: (ctx, i) {
+                    final b = sortedBooks[i];
+                    return ListTile(
                           dense: true, // v1199：行高压缩
                           visualDensity: VisualDensity.compact,
                           leading: const Icon(Icons.book_outlined, size: 20),
@@ -250,17 +261,17 @@ class _HomePageState extends State<HomePage>
                               Flexible(
                                 child: Text(
                                   b,
-                                  style: const TextStyle(fontSize: 14),
+                                  style: const TextStyle(fontSize: 16),
                                 ),
                               ),
                               if (b == live.currentBook) ...[
                                 const SizedBox(width: 6),
                                 Padding(
-                                  padding: const EdgeInsets.only(top: 1),
+                                  padding: const EdgeInsets.only(top: 2),
                                   child: Text(
                                     '当前',
                                     style: TextStyle(
-                                      fontSize: 11,
+                                      fontSize: 12,
                                       color: Colors.green.shade700,
                                     ),
                                   ),
@@ -287,9 +298,8 @@ class _HomePageState extends State<HomePage>
                             }
                             if (ctx.mounted) Navigator.pop(ctx);
                           },
-                        ),
-                      )
-                      .toList(),
+                        );
+                  },
                 ),
               ),
             // 敏感词警示（Android公共存储MediaProvider会拦截敏感词目录名）
@@ -305,6 +315,7 @@ class _HomePageState extends State<HomePage>
               ),
             ),
           ],
+            ),
           ),
         );
       },
@@ -1006,7 +1017,7 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 1199;
+  static const int _appVersion = 1200;
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';
