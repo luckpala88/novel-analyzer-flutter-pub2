@@ -217,7 +217,7 @@ class _HomePageState extends State<HomePage>
         return SizedBox(
           // v1202：高度90%——全屏顶到状态栏时header三连被吞（v1199/1200/1201实证：
           // 弹窗route与全面屏下top padding全不可信），留10%空隙让header永远落在屏幕安全区
-          height: MediaQuery.of(ctx).size.height * 0.9,
+          height: MediaQuery.of(ctx).size.height * 0.8,
           child: Column(
             children: [
               // v1201：自定义header行（AppBar在sheet里不可靠）
@@ -242,7 +242,7 @@ class _HomePageState extends State<HomePage>
                     label: const Text('添加书籍'),
                     onPressed: () => _showCreateBookDialog(state),
                   ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 16),
                 ],
               ),
               Expanded(
@@ -1025,7 +1025,7 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 1202;
+  static const int _appVersion = 1203;
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';
