@@ -202,69 +202,96 @@ class _HomePageState extends State<HomePage>
   void _showBookDialog(AppState state) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true, // v1199：面板加高到顶
       // builder内watch：删除/切换书目后列表立即刷新（原一次性闭包不响应notifyListeners）
       builder: (ctx) {
         final live = ctx.watch<AppState>();
-        return Column(
-          children: [
-            AppBar(
-              title: Text('书目 (${live.bookList.length})'),
-              leading: IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.pop(ctx),
-              ),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.add),
-                  tooltip: '新建书目',
-                  onPressed: () => _showCreateBookDialog(state),
+        // v1199：最近打开在前（时间戳desc；没记过时间的保持原顺序垫底）
+        final sortedBooks = List<String>.from(live.bookList)
+          ..sort((a, b) {
+            final ta = live.bookLastOpened[a] ?? 0;
+            final tb = live.bookLastOpened[b] ?? 0;
+            if (ta != tb) return tb.compareTo(ta);
+            return live.bookList.indexOf(a).compareTo(live.bookList.indexOf(b));
+          });
+        return SizedBox(
+          height: MediaQuery.of(ctx).size.height,
+          child: Column(
+            children: [
+              AppBar(
+                title: Text('书目 (${live.bookList.length})'),
+                leading: IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(ctx),
                 ),
-              ],
-            ),
-            Expanded(
-              child: ListView(
-                children: live.bookList
-                    .map(
-                      (b) => ListTile(
-                        leading: const Icon(Icons.book_outlined),
-                        title: Text(b),
-                        subtitle: Text(b == live.currentBook ? '当前' : ''),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (b == live.currentBook)
-                              const Icon(
-                                Icons.check_circle,
-                                color: Colors.green,
-                              ),
-                            // 删除键（确认弹窗后才删）
-                            IconButton(
-                              icon: Icon(
-                                Icons.delete_outline,
-                                size: 20,
-                                color: Colors.red.shade400,
-                              ),
-                              tooltip: '删除书目',
-                              onPressed: () =>
-                                  _confirmDeleteBook(ctx, state, b),
-                            ),
-                          ],
-                        ),
-                        onTap: () async {
-                          final ok = await state.selectBook(b);
-                          if (!ok) {
-                            if (ctx.mounted) {
-                              AppState.instance.apiLog('有生成任务运行中，不能切换书目');;
-                            }
-                            return;
-                          }
-                          if (ctx.mounted) Navigator.pop(ctx);
-                        },
-                      ),
-                    )
-                    .toList(),
+                actions: [
+                  // v1199：加号旁补文字，整体可点（按钮用文字不用图标惯例）
+                  TextButton.icon(
+                    icon: const Icon(Icons.add, size: 20),
+                    label: const Text('添加书籍'),
+                    onPressed: () => _showCreateBookDialog(state),
+                  ),
+                  const SizedBox(width: 4),
+                ],
               ),
-            ),
+              Expanded(
+                child: ListView(
+                  children: sortedBooks
+                      .map(
+                        (b) => ListTile(
+                          dense: true, // v1199：行高压缩
+                          visualDensity: VisualDensity.compact,
+                          leading: const Icon(Icons.book_outlined, size: 20),
+                          // v1199：完整书名自动换行（不截断）；当前书行内标记替代subtitle（subtitle撑高行）
+                          title: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  b,
+                                  style: const TextStyle(fontSize: 14),
+                                ),
+                              ),
+                              if (b == live.currentBook) ...[
+                                const SizedBox(width: 6),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 1),
+                                  child: Text(
+                                    '当前',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.green.shade700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          trailing: IconButton(
+                            icon: Icon(
+                              Icons.delete_outline,
+                              size: 20,
+                              color: Colors.red.shade400,
+                            ),
+                            tooltip: '删除书目',
+                            onPressed: () => _confirmDeleteBook(ctx, state, b),
+                          ),
+                          onTap: () async {
+                            final ok = await state.selectBook(b);
+                            if (!ok) {
+                              if (ctx.mounted) {
+                                AppState.instance.apiLog('有生成任务运行中，不能切换书目');
+                              }
+                              return;
+                            }
+                            if (ctx.mounted) Navigator.pop(ctx);
+                          },
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
             // 敏感词警示（Android公共存储MediaProvider会拦截敏感词目录名）
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
@@ -278,6 +305,7 @@ class _HomePageState extends State<HomePage>
               ),
             ),
           ],
+          ),
         );
       },
     );
@@ -978,7 +1006,7 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 1198;
+  static const int _appVersion = 1199;
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';

@@ -122,6 +122,8 @@ class AppState extends ChangeNotifier {
   // ===== 书目管理 =====
   String currentBook = '';
   List<String> bookList = [];
+  /// v1199：书目最近打开时间戳(毫秒)——书目面板按"最近打开在前"排序，SharedPreferences持久化(覆盖安装不丢)
+  Map<String, int> bookLastOpened = {};
 
   // ===== 章节数据 =====
   List<Chapter> chapters = [];
@@ -272,6 +274,8 @@ class AppState extends ChangeNotifier {
   Future<void> init() async {
     await storage.init();
     currentBook = storage.currentBook;
+    await _loadBookLastOpened();
+    if (currentBook.isNotEmpty) _touchBookLastOpened(currentBook);
     await loadBookList();
     await loadAllData();
     await loadSettings();
@@ -625,6 +629,28 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ===== v1199：书目最近打开时间（书目面板排序用）=====
+  Future<void> _loadBookLastOpened() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('book_last_opened');
+      if (raw != null && raw.isNotEmpty) {
+        final m = jsonDecode(raw) as Map;
+        bookLastOpened = m.map(
+          (k, v) => MapEntry(k as String, (v as num).toInt()),
+        );
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _touchBookLastOpened(String book) async {
+    bookLastOpened[book] = DateTime.now().millisecondsSinceEpoch;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('book_last_opened', jsonEncode(bookLastOpened));
+    } catch (_) {}
+  }
+
   /// 切换书目（有生成任务时禁止——防扫描/生成循环把数据写进新书，v162跨书污染根因）
   Future<bool> selectBook(String name) async {
     // v222：切书时目录真实性校验+模糊找回（book_list里的脏名→真实目录名）
@@ -660,6 +686,7 @@ class AppState extends ChangeNotifier {
       return false;
     }
     currentBook = name;
+    _touchBookLastOpened(name); // v1199：记最近打开时间（不await，不拖慢切书）
     await storage.setBook(name);
     await loadAllData();
     notifyListeners();
