@@ -200,6 +200,9 @@ class _HomePageState extends State<HomePage>
 
   // ===== 书目管理 =====
   void _showBookDialog(AppState state) {
+    // v1201：底部弹窗route会清掉MediaQuery top padding→SafeArea拿到0等于没垫
+    // （v1199/v1200两连实证AppBar被状态栏吞）——页面context先取真实状态栏高，header显式垫顶
+    final double topPad = MediaQuery.of(context).padding.top;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true, // v1199：面板加高到顶
@@ -216,25 +219,35 @@ class _HomePageState extends State<HomePage>
           });
         return SizedBox(
           height: MediaQuery.of(ctx).size.height,
-          // v1200：SafeArea顶垫——v1199AppBar被顶进状态栏底下（用户截图实证"上面都看不见"）
-          child: SafeArea(
-            child: Column(
+          child: Column(
             children: [
-              AppBar(
-                title: Text('书目 (${live.bookList.length})'),
-                leading: IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(ctx),
+              // v1201：AppBar→自定义header行（显式垫topPad，AppBar在sheet里不可靠）
+              Padding(
+                padding: EdgeInsets.only(top: topPad),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                    Expanded(
+                      child: Text(
+                        '书目 (${live.bookList.length})',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    // v1199：加号旁补文字，整体可点（按钮用文字不用图标惯例）
+                    TextButton.icon(
+                      icon: const Icon(Icons.add, size: 20),
+                      label: const Text('添加书籍'),
+                      onPressed: () => _showCreateBookDialog(state),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
                 ),
-                actions: [
-                  // v1199：加号旁补文字，整体可点（按钮用文字不用图标惯例）
-                  TextButton.icon(
-                    icon: const Icon(Icons.add, size: 20),
-                    label: const Text('添加书籍'),
-                    onPressed: () => _showCreateBookDialog(state),
-                  ),
-                  const SizedBox(width: 4),
-                ],
               ),
               Expanded(
                 // v1200：分隔线列表（indent避开图标）+字号14→16，行高不变
@@ -315,7 +328,6 @@ class _HomePageState extends State<HomePage>
               ),
             ),
           ],
-            ),
           ),
         );
       },
@@ -1017,7 +1029,7 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 1200;
+  static const int _appVersion = 1201;
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';
