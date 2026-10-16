@@ -8324,16 +8324,16 @@ return true;
       // 出现两次，第二次空块紧跟），只保留首次出现，后续重复行及其空块
       // （到下一个标记/文末）整段删除；若首块为空则保留内容完整的那个块
       entry.content = _dedupeStructSections(entry.content);
-      // v935：编排总纲代码级兜底——prompt规定了【弧线内场景编排策略】段但
+      // v935：编排总纲代码级兜底——prompt规定了【弧线状态账】段但
       // AI实测会漏写（用户实测条目里没有）；机器能查的走代码：条目无此段
       // 且metadata有arc_choreo时，由代码把原文拼进条目（拼在【世界观设定】前，
-      // 与九件套段并列；弧线内场景编排策略=弧线级总纲，落库后场景/分镜层都读它）
+      // 与九件套段并列；弧线状态账=弧线级总纲，落库后场景/分镜层都读它；v1205）
       final choreo = (arcChoreo ?? '').trim();
       if (choreo.isNotEmpty &&
-          !entry.content.contains('弧线内场景编排策略')) {
+          !entry.content.contains('弧线状态账')) {
         final insertRe = RegExp(r'【世界观设定】');
         final m = insertRe.firstMatch(entry.content);
-        final block = '\n【弧线内场景编排策略】\n$choreo\n';
+        final block = '\n【弧线状态账】\n$choreo\n';
         entry.content = m == null
             ? '${entry.content.trimRight()}\n$block'
             : '${entry.content.substring(0, m.start)}$block${entry.content.substring(m.start)}';

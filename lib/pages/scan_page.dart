@@ -38,7 +38,7 @@ class ScanPage extends StatefulWidget {
 
 class _ScanPageState extends State<ScanPage>
     with AutomaticKeepAliveClientMixin {
-  // v1007：弧线内场景编排策略（总纲）折叠态——默认折叠，per-arc key=弧线号（内存态）
+  // v1007：弧线状态账（总纲）折叠态——默认折叠，per-arc key=弧线号（内存态；v1205）
   final Set<String> _arcChoreoOpen = {};
   // v1020：编排块标题Key表——折叠/展开后锚定视线
   final Map<String, GlobalKey> _choreoHeaderKeys = {};
@@ -930,7 +930,7 @@ class _ScanPageState extends State<ScanPage>
                                               const SizedBox(width: 4),
                                               const Expanded(
                                                 child: Text(
-                                                  '🎬 弧线内场景编排策略（总纲）',
+                                                  '🎬 弧线状态账（总纲）',
                                                   style: TextStyle(
                                                     fontSize: 11,
                                                     fontWeight: FontWeight.w700,
@@ -1035,7 +1035,7 @@ class _ScanPageState extends State<ScanPage>
                                               const SizedBox(width: 4),
                                               const Expanded(
                                                 child: Text(
-                                                  '📋 逐场景编排落点（各场景功能与蓄力方向——详版在拆分镜后见各场景卡）',
+                                                  '📋 逐场景状态变化（各场景角色状态变化——v1205状态账；详版在拆分镜后见各场景卡）',
                                                   style: TextStyle(
                                                     fontSize: 11,
                                                     fontWeight: FontWeight.w700,

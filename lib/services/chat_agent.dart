@@ -26,7 +26,7 @@ const String agentToolDoc = '''
 7. {"tool":"write_scene","args":{"arc":1,"scene":1}} —— 创作指定弧线第N个场景的续写正文（需用户确认；前提：世界书已有该场景条目；长任务，正文写到创作页）
 8. {"tool":"verify_data","args":{"target":"choreo","arc":210}} —— 数据诊断（只读）：target=choreo查编排字段落库情况（弧线总纲+逐场景统计，可带arc过滤单条弧线）；target=trick查手法维度（已拆分镜中trick非空的镜数统计，可带arc过滤）——用于验证新版本功能是否落库。注意：choreo/trick分别是"生成弧线(分组)"和"拆分镜"步骤的产物，重扫场景不会产生它们；choreo缺失应重新分组，trick缺失应重拆分镜
 9. {"tool":"get_styles","args":{"name":"作家名"}} —— 个人风格档案（只读）：无name=列全部档案清单；有name=返回该档案全文。档案=某位"作家"的写作风格记忆（文风/句式/trick偏好/讲法习惯），创作/改编/二创页可选用来注入
-10. {"tool":"collect_style"} —— 汇总当前书表述层语料（只读）：弧线编排总纲样本+场景编排落点+trick维度样本+文风DNA+用户全局要求——供你总结/完善风格档案的素材
+10. {"tool":"collect_style"} —— 汇总当前书表述层语料（只读）：弧线状态账样本+逐场景状态变化样本+trick维度样本+文风DNA+用户全局要求（v1205）——供你总结/完善风格档案的素材
 11. {"tool":"update_style","args":{"name":"作家名","content":"档案markdown全文","mode":"append|overwrite|delete"}} —— 风格档案写入（需用户确认）。mode=append(默认,追加合并,新名=新建)/overwrite(整篇覆盖——用户说"修改/重写/精简某档案"用)/delete(删除档案,content可空)。追加时先get_styles读旧档再拼全文；overwrite时content即新档案全文（可基于旧档修改）
 规则：一次只发一个指令，发出后停止等待结果；任务完成后用自然语言汇报结果；用户闲聊/问功能时不要发指令。
 ''';
@@ -214,7 +214,7 @@ Future<AgentToolResult> runTool(AppState state, String tool,
       return AgentToolResult(tool, true, '【${hit['name']}】\n${hit['content']}');
     case 'collect_style': // v951：表述层语料汇总（总结风格档案的素材）
       final buf = <String>[];
-      // 弧线编排总纲（取前3条样本）
+      // 弧线状态账总纲（取前3条样本）
       var choreoN = 0;
       for (final a in state.allArcs) {
         if (choreoN >= 3) break;
@@ -223,7 +223,7 @@ Future<AgentToolResult> runTool(AppState state, String tool,
                 ?.toString() ??
             '';
         if (ch.isNotEmpty) {
-          buf.add('【弧线${a.number}编排总纲】${ch.length > 300 ? ch.substring(0, 300) : ch}');
+          buf.add('【弧线${a.number}状态账】${ch.length > 300 ? ch.substring(0, 300) : ch}');
           choreoN++;
         }
       }
