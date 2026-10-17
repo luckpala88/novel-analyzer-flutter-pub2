@@ -898,11 +898,10 @@ class AppState extends ChangeNotifier {
       arcAnalyses = {};
     }
 
-    // v1205：弧线编排→状态账换代——旧模板（拉扯循环逐轮四拍）存量数据一次性清空
-    // （用户2026-10-17裁决：存量清掉重跑。清的是弧线层arc_choreo/scene_choreos；
-    // 场景内分镜编排Scene.choreo保留不动）。书级标记文件防重复清——新扫描生成的
-    // 状态账落库后不再wipe（旧内容与新内容同字段名，只能靠标记区分代次）
-    final choreoWipeFlag = '${p}v1205_choreo_wiped.txt';
+    // v1209：弧线分析换代——旧模板（v1205状态账格式）存量一次性清空
+    // （用户2026-10-18定稿：arc_choreo=弧线总目的，scene_choreos=逐场景目的/水文）。
+    // 书级标记文件防重复清；场景内分镜编排Scene.choreo保留不动
+    final choreoWipeFlag = '${p}choreo_wiped_v1209.txt';
     if (storage.readFile(choreoWipeFlag) == null) {
       var wiped = 0;
       if (arcScan != null) {
@@ -921,7 +920,7 @@ class AppState extends ChangeNotifier {
       if (arcAnalyses.isNotEmpty) saveArcAnalyses();
       storage.writeFile(choreoWipeFlag, 'v1205');
       if (wiped > 0) {
-        apiLog('↻ v1205编排换代：已清空旧版弧线编排存量（$wiped条弧线+分析metadata）——重新跑弧线状态账分析即按新模板生成');
+        apiLog('↻ v1205编排换代：已清空旧版弧线编排存量（$wiped条弧线+分析metadata）——重新跑弧线总目的分析即按新模板生成');
       }
     }
 
@@ -2688,15 +2687,15 @@ class AppState extends ChangeNotifier {
       sb.writeln(core);
       sb.writeln();
     }
-    // v894/v918：弧线状态账进语料——总纲+逐场景状态变化（新场景与状态
+    // v894/v918：弧线总目的进语料——总纲+逐场景目的（新场景与状态
     // 变化序列衔接、朝闭合落点推进；v1205编排改状态账）
     final an = arcAnalyses[arcKey];
     final choreo = an?.metadata?['arc_choreo']?.toString() ?? '';
     final scCh = an?.metadata?['scene_choreos']?.toString() ?? '';
     if (choreo.isNotEmpty || scCh.isNotEmpty) {
-      sb.writeln('【弧线状态账（规划新场景时必须与已记录的状态变化衔接，朝闭合落点推进）】');
+      sb.writeln('【弧线总目的（规划新场景时必须服务弧线总目的）】');
       if (choreo.isNotEmpty) sb.writeln('总纲：$choreo');
-      if (scCh.isNotEmpty) sb.writeln('逐场景状态变化：$scCh');
+      if (scCh.isNotEmpty) sb.writeln('逐场景目的：$scCh');
       sb.writeln();
     }
     final cur = _continueEntryOf(myNum);
