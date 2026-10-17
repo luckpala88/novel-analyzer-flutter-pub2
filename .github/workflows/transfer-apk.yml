@@ -136,6 +136,15 @@ jobs:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUNID: ${{ github.run_id }}
         run: |
+          # v1206b：双资产齐才清镜像——v1206实测：transfer1只收到zip（APK还在后
+          # 完成的构建手里没传完），照旧清镜像把刚传上去的APK一起删了，transfer2
+          # 醒来双资产缺失FAIL=整版丢失。双资产任一缺失=本轮没完成使命，镜像必须
+          # 原样保留给后续transfer收尾，不依赖pending计数可视性（01:57:40的清镜像
+          # 就发生在排队transfer不可见的API延迟窗口里）
+          if [ "${{ env.APK_OK }}" != "1" ] || [ "${{ env.ZIP_OK }}" != "1" ]; then
+            echo "双资产未齐（APK=${{ env.APK_OK }} ZIP=${{ env.ZIP_OK }}）——本轮不清镜像，由收齐双资产的transfer收尾"
+            exit 0
+          fi
           # v782：仅当该tag无构建在跑才清镜像——否则后完成构建（通常Windows）
           # 传的zip会孤悬镜像、被下一次清空吞掉或转存链断裂（v781事故根因）
           # 后完成构建自己触发的transfer会看到无pending，负责最终清空
