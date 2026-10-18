@@ -39,7 +39,7 @@ class ScanPage extends StatefulWidget {
 
 class _ScanPageState extends State<ScanPage>
     with AutomaticKeepAliveClientMixin {
-  // v1007：弧线总目的（总纲）折叠态——默认折叠，per-arc key=弧线号（内存态；v1209）
+  // v1007：弧线目的折叠态——默认折叠，per-arc key=弧线号（内存态；v1209）
   final Set<String> _arcChoreoOpen = {};
   // v1020：编排块标题Key表——折叠/展开后锚定视线
   final Map<String, GlobalKey> _choreoHeaderKeys = {};
@@ -754,6 +754,112 @@ class _ScanPageState extends State<ScanPage>
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
+                                      if ((state.arcAnalyses[arc.number
+                                                  .toString()]
+                                              ?.metadata?['arc_choreo']
+                                              as String? ??
+                                          '')
+                                      .isNotEmpty) ...[
+                                        GestureDetector(
+                                          behavior: HitTestBehavior.opaque,
+                                          onTap: () {
+                                            setState(() {
+                                              final k = 'arc${arc.number}';
+                                              if (_arcChoreoOpen.contains(k)) {
+                                                _arcChoreoOpen.remove(k);
+                                              } else {
+                                                _arcChoreoOpen.add(k);
+                                              }
+                                            });
+                                            // v1020：视线锚回标题行
+                                            WidgetsBinding.instance
+                                                .addPostFrameCallback((_) {
+                                              final hctx = _choreoKey(
+                                                      'arc${arc.number}_h')
+                                                  .currentContext;
+                                              if (hctx != null) {
+                                                Scrollable.ensureVisible(hctx,
+                                                    alignment: 0.0,
+                                                    duration: const Duration(
+                                                        milliseconds: 150));
+                                              }
+                                            });
+                                          },
+                                          child: KeyedSubtree(
+                                              key: _choreoKey(
+                                                  'arc${arc.number}_h'),
+                                              child: Row(
+                                            children: [
+                                              Text(
+                                                _arcChoreoOpen.contains('arc${arc.number}') ? '▾' : '▸',
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Color(0xFFB45309),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              const Expanded(
+                                                child: Text(
+                                                  '🎯 弧线目的',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: Color(0xFFB45309),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        )),
+                                        if (_arcChoreoOpen.contains('arc${arc.number}'))
+                                        Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFB45309)
+                                                .withOpacity(0.06),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                state.arcAnalyses[arc.number
+                                                        .toString()]!
+                                                    .metadata?['arc_choreo']
+                                                    as String,
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  height: 1.5,
+                                                  color: V469Style.textSec,
+                                                ),
+                                              ),
+                                              // v1008：长内容底部收起键——浏览到尾不用滚回顶部
+                                              GestureDetector(
+                                                behavior: HitTestBehavior.opaque,
+                                                onTap: () => setState(() => _arcChoreoOpen
+                                                    .remove('arc${arc.number}')),
+                                                child: const Padding(
+                                                  padding: EdgeInsets.only(top: 6),
+                                                  child: Text(
+                                                    '▲ 收起',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight: FontWeight.w700,
+                                                      color: Color(0xFFB45309),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                      ],
+const SizedBox(height: 8),
                                       if (arc.summary.isNotEmpty) ...[
                                         Text(
                                           '📝 弧线概述',
@@ -889,111 +995,6 @@ class _ScanPageState extends State<ScanPage>
                                         );
                                       }),
                                       // v917：权威存储=analysis.metadata（单一容器）
-                                      if ((state.arcAnalyses[arc.number
-                                                  .toString()]
-                                              ?.metadata?['arc_choreo']
-                                              as String? ??
-                                          '')
-                                      .isNotEmpty) ...[
-                                        GestureDetector(
-                                          behavior: HitTestBehavior.opaque,
-                                          onTap: () {
-                                            setState(() {
-                                              final k = 'arc${arc.number}';
-                                              if (_arcChoreoOpen.contains(k)) {
-                                                _arcChoreoOpen.remove(k);
-                                              } else {
-                                                _arcChoreoOpen.add(k);
-                                              }
-                                            });
-                                            // v1020：视线锚回标题行
-                                            WidgetsBinding.instance
-                                                .addPostFrameCallback((_) {
-                                              final hctx = _choreoKey(
-                                                      'arc${arc.number}_h')
-                                                  .currentContext;
-                                              if (hctx != null) {
-                                                Scrollable.ensureVisible(hctx,
-                                                    alignment: 0.0,
-                                                    duration: const Duration(
-                                                        milliseconds: 150));
-                                              }
-                                            });
-                                          },
-                                          child: KeyedSubtree(
-                                              key: _choreoKey(
-                                                  'arc${arc.number}_h'),
-                                              child: Row(
-                                            children: [
-                                              Text(
-                                                _arcChoreoOpen.contains('arc${arc.number}') ? '▾' : '▸',
-                                                style: const TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: Color(0xFFB45309),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 4),
-                                              const Expanded(
-                                                child: Text(
-                                                  '🎬 弧线总目的',
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: Color(0xFFB45309),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        )),
-                                        if (_arcChoreoOpen.contains('arc${arc.number}'))
-                                        Container(
-                                          width: double.infinity,
-                                          padding: const EdgeInsets.all(8),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFB45309)
-                                                .withOpacity(0.06),
-                                            borderRadius:
-                                                BorderRadius.circular(6),
-                                          ),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                state.arcAnalyses[arc.number
-                                                        .toString()]!
-                                                    .metadata?['arc_choreo']
-                                                    as String,
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  height: 1.5,
-                                                  color: V469Style.textSec,
-                                                ),
-                                              ),
-                                              // v1008：长内容底部收起键——浏览到尾不用滚回顶部
-                                              GestureDetector(
-                                                behavior: HitTestBehavior.opaque,
-                                                onTap: () => setState(() => _arcChoreoOpen
-                                                    .remove('arc${arc.number}')),
-                                                child: const Padding(
-                                                  padding: EdgeInsets.only(top: 6),
-                                                  child: Text(
-                                                    '▲ 收起',
-                                                    style: TextStyle(
-                                                      fontSize: 11,
-                                                      fontWeight: FontWeight.w700,
-                                                      color: Color(0xFFB45309),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                      ],
                                       if (arc.coreChange.isNotEmpty) ...[
                                         Text(
                                           '💎 不可逆变化',

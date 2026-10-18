@@ -632,7 +632,7 @@ class _AnalysisPageState extends State<AnalysisPage>
     ];
   }
 
-  /// v894/v918：弧线总目的显示块——边框容器+分行（段间距；v1209总目的）
+  /// v894/v918：弧线目的显示块——边框容器+分行（段间距；v1209总目的）
   /// v1016：默认折叠——点标题行展开/收起+底部收起键，状态持久化（对齐场景块v1006）
   List<Widget> _buildArcChoreoBlock(String fromMeta, String fromArc, String arcKey) {
     final v = fromMeta.isNotEmpty ? fromMeta : fromArc;
@@ -693,7 +693,7 @@ class _AnalysisPageState extends State<AnalysisPage>
                           )),
                       const SizedBox(width: 4),
                       const Expanded(
-                        child: Text('🎬 弧线总目的',
+                        child: Text('🎬 弧线目的',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
@@ -926,6 +926,17 @@ class _AnalysisPageState extends State<AnalysisPage>
                 ],
               ),
             ),
+            // v894：弧线目的显示（重提零件/分组产出，独立于概述块）
+            if (hasAnalysis)
+              ..._buildArcChoreoBlock(
+                analysis!.metadata?['arc_choreo']?.toString() ?? '',
+                state.allArcs
+                    .where((a) => a.number.toString() == arcKey)
+                    .map((a) => a.arcChoreo)
+                    .firstWhere((c) => c.isNotEmpty, orElse: () => ''),
+                arcKey,
+              ),
+            // 弧线目的在概述前（v1211用户裁决）
             // v488：弧线概述两次生成各归其位——分镜页优先展示零件提取详细版
             // （detailed），无则退回分组/场景划分概述（analysis.arcSummary）
             // ❌旧逻辑（v469，直读arcSummary与弧线页同一字段=两页概述一模一样，已废弃）：
@@ -1022,16 +1033,6 @@ class _AnalysisPageState extends State<AnalysisPage>
                     ),
                   ],
                 ),
-              ),
-            // v894：弧线总目的显示（重提零件/分组产出，独立于概述块）
-            if (hasAnalysis)
-              ..._buildArcChoreoBlock(
-                analysis!.metadata?['arc_choreo']?.toString() ?? '',
-                state.allArcs
-                    .where((a) => a.number.toString() == arcKey)
-                    .map((a) => a.arcChoreo)
-                    .firstWhere((c) => c.isNotEmpty, orElse: () => ''),
-                arcKey,
               ),
             // v1168：场景列表折叠头（对齐弧线页v1023样式——默认折叠点开显示）
             GestureDetector(
@@ -1719,13 +1720,13 @@ class _AnalysisPageState extends State<AnalysisPage>
         '弧线${an.arcNumber}概述：${an.arcSummary.isNotEmpty ? an.arcSummary : arc.summary}',
       );
       sb.writeln();
-      // v1084：弧线级编排对齐分镜页（分镜页有"弧线总目的"弧线级折叠块（v1205））
+      // v1084：弧线级编排对齐分镜页（分镜页有"弧线目的"弧线级折叠块（v1205））
       final arcChoreoTxt = (arc.arcChoreo.isNotEmpty
               ? arc.arcChoreo
               : (an.metadata?['arc_choreo']?.toString() ?? ''))
           .trim();
       if (arcChoreoTxt.isNotEmpty) {
-        sb.writeln('弧线总目的：${arcChoreoTxt.replaceAll('\n', ' ')}');
+        sb.writeln('弧线目的：${arcChoreoTxt.replaceAll('\n', ' ')}');
         sb.writeln();
       }
       for (final sc in an.scenes) {
@@ -1931,13 +1932,13 @@ class _AnalysisPageState extends State<AnalysisPage>
         '弧线${an.arcNumber}概述：${an.arcSummary.isNotEmpty ? an.arcSummary : arc.summary}',
       );
       sb.writeln();
-      // v1084：弧线级编排对齐分镜页（分镜页有"弧线总目的"弧线级折叠块（v1205））
+      // v1084：弧线级编排对齐分镜页（分镜页有"弧线目的"弧线级折叠块（v1205））
       final arcChoreoTxt = (arc.arcChoreo.isNotEmpty
               ? arc.arcChoreo
               : (an.metadata?['arc_choreo']?.toString() ?? ''))
           .trim();
       if (arcChoreoTxt.isNotEmpty) {
-        sb.writeln('弧线总目的：${arcChoreoTxt.replaceAll('\n', ' ')}');
+        sb.writeln('弧线目的：${arcChoreoTxt.replaceAll('\n', ' ')}');
         sb.writeln();
       }
       for (final sc in an.scenes) {

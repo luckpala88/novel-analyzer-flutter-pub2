@@ -737,9 +737,9 @@ Future<void> groupArcsFromScenes({
             '- focus=视角主角\n'
             '- 最后一条弧线若叙事未收束（书未读完的中间态），status=incomplete\n\n'
             '- ⚠️ arc_choreo与scene_choreos为**必填字段**（v886实测：模型常只给arc_choreo漏scene_choreos=输出不完整）\n'
-            '- arc_choreo（弧线总目的）：${PromptBuilder.arcChoreoTemplate}\n'
+            '- arc_choreo（弧线目的）：${PromptBuilder.arcChoreoTemplate}\n'
             '- scene_choreos（逐场景目的，**本弧线每个场景都必须有一项**）：${PromptBuilder.scenePurposeTemplate}\n'
-            '只输出纯JSON：{"arcs": [{"title": "...", "summary": "...", "focus": "...", "close_type": "real/pseudo", "status": "complete/incomplete", "scene_from": 起始场景序号, "scene_to": 结束场景序号, "closure_reason": "闭合依据(a)落定在哪个场景(b)为什么不是前一场景(c)提前闭合会怎样", "arc_choreo": "弧线总目的", "scene_choreos": "场景N:目的内容；场景M:无"}]}';
+            '只输出纯JSON：{"arcs": [{"title": "...", "summary": "...", "focus": "...", "close_type": "real/pseudo", "status": "complete/incomplete", "scene_from": 起始场景序号, "scene_to": 结束场景序号, "closure_reason": "闭合依据(a)落定在哪个场景(b)为什么不是前一场景(c)提前闭合会怎样", "arc_choreo": "弧线目的", "scene_choreos": "场景N:目的内容；场景M:无"}]}';
         final userPrompt =
             '${openArc == null ? '上文弧线均已闭合，请从本批第一个场景开始新弧线' : '已分组上文的未闭合弧线：$openDesc（延续它时title保持一致，必要时加"·续"）'}\n\n'
             '以下是场景$cursor+1-$to的序列：\n\n$sb\n\n'
@@ -844,7 +844,7 @@ Future<void> groupArcsFromScenes({
           final seg = gs.sublist(from2, to2 + 1);
           if (seg.isEmpty) continue;
           prevTo = to2 + 1;
-          // v900概念定稿：scene_choreos=弧线总目的的**逐场景目的判定**（v1209改）
+          // v900概念定稿：scene_choreos=弧线目的的**逐场景目的判定**（v1209改）
           // （弧线层结构数据）——存arcAnalyses.metadata，不再写Scene.choreo
           // （Scene.choreo专属"场景内分镜编排策略"=拆分镜详版，字段分家防覆盖）
           final scChoreos = m['scene_choreos']?.toString() ?? '';
@@ -989,7 +989,7 @@ Future<void> groupArcsFromScenes({
             }
             // v903：编排分析自动化（滚动模式同步）
             if (!hasChoreo) {
-              log('▶ 弧线${a.number}【弧线总目的】分析开始');
+              log('▶ 弧线${a.number}【弧线目的】分析开始');
               final okC = await analyzeArcChoreo(state: state, arc: a, log: log);
               if (!okC) {
                 log('⛔ 弧线${a.number}编排分析失败——批量生成弧线终止（零件已落盘，编排增量补跑）');
@@ -1100,7 +1100,7 @@ Future<void> groupArcsFromScenes({
             }
           }
           if (!hasChoreo) {
-            log('▶ 弧线${a.number}【弧线总目的】分析开始');
+            log('▶ 弧线${a.number}【弧线目的】分析开始');
             final okC = await analyzeArcChoreo(state: state, arc: a, log: log);
             if (!okC) {
               log('⛔ 弧线${a.number}编排分析失败——兜底提取终止（零件已落盘，编排增量补跑）');
@@ -1179,7 +1179,7 @@ Future<void> analyzeSceneChoreo({
   log('✓ 场景${scene.globalIndex + 1}【场景内分镜编排策略】已落库（${choreo.length}字）');
 }
 
-/// v901：弧线总目的分析（独立按键——骨架/表述分离，单任务保质量；v1209总目的）
+/// v901：弧线目的分析（独立按键——骨架/表述分离，单任务保质量；v1209总目的）
 /// v1172：返回true=成功落库；false=失败（批量报错即终止，增量续跑从该弧线重来）
 Future<bool> analyzeArcChoreo({
   required AppState state,
@@ -1216,7 +1216,7 @@ Future<bool> analyzeArcChoreo({
   }
   final config = state.getApiConfig('arc');
   final result = await state.api.callApi(
-    task: '弧线总目的分析', // v824任务级反馈；v1165改名——原与分镜级analyzeSceneChoreo重名致日志混淆
+    task: '弧线目的分析', // v824任务级反馈；v1165改名——原与分镜级analyzeSceneChoreo重名致日志混淆
 
     systemPrompt: systemPrompt,
     userPrompt: userPrompt,
@@ -1231,7 +1231,7 @@ Future<bool> analyzeArcChoreo({
   for (var attempt = 1; parts == null && attempt <= 2; attempt++) {
     log('↻ 弧线${arc.number}编排解析失败，重试（$attempt/2）…');
     final r = await state.api.callApi(
-      task: '弧线总目的分析',
+      task: '弧线目的分析',
       systemPrompt: systemPrompt,
       userPrompt: userPrompt,
       apiConfig: config,
@@ -1258,7 +1258,7 @@ Future<bool> analyzeArcChoreo({
     };
     state.saveArcAnalyses();
   }
-  log('✓ 弧线${arc.number}【弧线总目的】已落库（总目的${arcChoreoV.length}字+逐场景目的${scChoreos.length}字）');
+  log('✓ 弧线${arc.number}【弧线目的】已落库（总目的${arcChoreoV.length}字+逐场景目的${scChoreos.length}字）');
   return true;
 }
 
