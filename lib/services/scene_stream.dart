@@ -739,7 +739,7 @@ Future<void> groupArcsFromScenes({
             '- ⚠️ arc_choreo与scene_choreos为**必填字段**（v886实测：模型常只给arc_choreo漏scene_choreos=输出不完整）\n'
             '- arc_choreo（弧线总目的）：${PromptBuilder.arcChoreoTemplate}\n'
             '- scene_choreos（逐场景目的，**本弧线每个场景都必须有一项**）：${PromptBuilder.scenePurposeTemplate}\n'
-            '只输出纯JSON：{"arcs": [{"title": "...", "summary": "...", "focus": "...", "close_type": "real/pseudo", "status": "complete/incomplete", "scene_from": 起始场景序号, "scene_to": 结束场景序号, "closure_reason": "闭合依据(a)落定在哪个场景(b)为什么不是前一场景(c)提前闭合会怎样", "arc_choreo": "弧线总目的", "scene_choreos": "场景N:目的；场景M:水文"}]}';
+            '只输出纯JSON：{"arcs": [{"title": "...", "summary": "...", "focus": "...", "close_type": "real/pseudo", "status": "complete/incomplete", "scene_from": 起始场景序号, "scene_to": 结束场景序号, "closure_reason": "闭合依据(a)落定在哪个场景(b)为什么不是前一场景(c)提前闭合会怎样", "arc_choreo": "弧线总目的", "scene_choreos": "场景N:目的内容；场景M:无"}]}';
         final userPrompt =
             '${openArc == null ? '上文弧线均已闭合，请从本批第一个场景开始新弧线' : '已分组上文的未闭合弧线：$openDesc（延续它时title保持一致，必要时加"·续"）'}\n\n'
             '以下是场景$cursor+1-$to的序列：\n\n$sb\n\n'

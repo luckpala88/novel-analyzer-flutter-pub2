@@ -1,3 +1,4 @@
+import '../utils/choreo_text.dart';
 import 'dart:convert';
 
 import 'dart:async';
@@ -868,6 +869,11 @@ class _ScanPageState extends State<ScanPage>
                                                     scene: sc,
                                                     // v469：全局场景流编号（与场景页对账）
                                                     index: sc.globalIndex + 1,
+                                                    // v1211：场景目的（从scene_choreos按场景号提取剥壳，分散到概述下）
+                                                    scenePurpose: ChoreoText.extract(
+                                                      (state.arcAnalyses[arc.number.toString()]?.metadata?['scene_choreos'] as String? ?? ''),
+                                                      sc.globalIndex + 1,
+                                                    ),
                                                     onView: () =>
                                                         showSliceViewerSheet(
                                                       context,
@@ -987,88 +993,6 @@ class _ScanPageState extends State<ScanPage>
                                           ),
                                         ),
                                         const SizedBox(height: 6),
-                                      ],
-                                      if ((state.arcAnalyses[arc.number
-                                              .toString()]
-                                          ?.metadata?['scene_choreos']
-                                              as String? ??
-                                          '')
-                                      .isNotEmpty) ...[
-                                        GestureDetector(
-                                          behavior: HitTestBehavior.opaque,
-                                          onTap: () {
-                                            setState(() {
-                                              final k = 'scenes${arc.number}';
-                                              if (_arcChoreoOpen.contains(k)) {
-                                                _arcChoreoOpen.remove(k);
-                                              } else {
-                                                _arcChoreoOpen.add(k);
-                                              }
-                                            });
-                                            // v1020：视线锚回标题行
-                                            WidgetsBinding.instance
-                                                .addPostFrameCallback((_) {
-                                              final hctx = _choreoKey(
-                                                      'scenes${arc.number}_h')
-                                                  .currentContext;
-                                              if (hctx != null) {
-                                                Scrollable.ensureVisible(hctx,
-                                                    alignment: 0.0,
-                                                    duration: const Duration(
-                                                        milliseconds: 150));
-                                              }
-                                            });
-                                          },
-                                          child: KeyedSubtree(
-                                              key: _choreoKey(
-                                                  'scenes${arc.number}_h'),
-                                              child: Row(
-                                            children: [
-                                              Text(
-                                                _arcChoreoOpen.contains('scenes${arc.number}') ? '▾' : '▸',
-                                                style: const TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: Color(0xFF64748B),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 4),
-                                              const Expanded(
-                                                child: Text(
-                                                  '📋 逐场景目的（各场景有目的还是水文、是否服务弧线总目的；详版在拆分镜后见各场景卡）',
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: Color(0xFF64748B),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        )),
-                                        if (_arcChoreoOpen.contains('scenes${arc.number}'))
-                                        Container(
-                                          width: double.infinity,
-                                          padding: const EdgeInsets.all(8),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFF64748B)
-                                                .withOpacity(0.06),
-                                            borderRadius:
-                                                BorderRadius.circular(6),
-                                          ),
-                                          child: Text(
-                                            state.arcAnalyses[arc.number
-                                                    .toString()]!
-                                                .metadata?['scene_choreos']
-                                                as String,
-                                            style: const TextStyle(
-                                              fontSize: 11.5,
-                                              height: 1.5,
-                                              color: V469Style.textSec,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
                                       ],
                                       if (arc.coreChange.isNotEmpty) ...[
                                         Text(
