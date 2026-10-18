@@ -217,6 +217,20 @@ class ArcParts {
                         ),
                       ),
                     ),
+                  // v1217：主角三观与理想人格（v1210加values时漏了此渲染端——
+                  // 仅主角有此键，世界观/人生观/价值观+作者的理想人格）
+                  if (m != null && _asStr(m['values']).isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: Text(
+                        '🎯 三观与理想人格：${_asStr(m['values'])}',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          height: 1.5,
+                          color: Color(0xFF7C3AED),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
