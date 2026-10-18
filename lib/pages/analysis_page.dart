@@ -1781,6 +1781,7 @@ class _AnalysisPageState extends State<AnalysisPage>
               if (tr.isNotEmpty) tr,
               if (rel.isNotEmpty) '与主角=$rel',
               if (st.isNotEmpty) '本弧线=$st',
+              if (g('values').isNotEmpty) '三观与理想人格=${g('values')}',
             ];
             return '${g('name')}${parts.isNotEmpty ? '：${parts.join('，')}' : ''}';
           }
