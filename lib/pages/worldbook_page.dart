@@ -485,13 +485,15 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
     final tail = <String>[];
     final sceneRe = RegExp(r'^[^\u4e00-\u9fa5\n]*场[景面]?\s*(\d+)\s*[：:】\]]');
     final overviewRe = RegExp(r'^[^\u4e00-\u9fa5\n]*概[述说][：:]');
-    // v938：编排段提取常显——v936/v937编排已落库但解析器不认"编排："行，
+    // v938：交手回合段提取常显——v936/v937已落库但解析器不认"编排："行，
     // 落进lines分镜明细折叠区=场景块常显区看不见（用户实测截图实锤）
-    // v1077：编排行识别放宽——原只认"编排："（改编链格式），直写条目的
+    // v1077：行识别放宽——原只认"编排："（改编链格式），直写条目的
     // "编排策略——本场景："不匹配→掉进分镜折叠区（用户截图实锤）；同时
     // 兼容存量条目的"场景内分镜编排策略(Choreo)："
+    // v1218：新段名"交手回合："（分析层）与"设计："（改编菜单，原"编排："）必须兼容
     final choreoRe = RegExp(
-        r'^[^\u4e00-\u9fa5\n]*(弧线内场景|场景内分镜)?编排(策略)?(——本场景)?(\(Choreo\))?[：:]');
+        // v1218：+"设计"（改编菜单行，原"编排"）
+        r'^[^\u4e00-\u9fa5\n]*(弧线内场景|场景内分镜)?(交手回合|编排|设计)(策略)?(——本场景)?(\(Choreo\))?[：:]');
     for (final raw in lines) {
       final t = raw.trim();
       if (sceneRe.hasMatch(t)) {
@@ -605,7 +607,7 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  '🎞 场景内分镜编排策略：', // v1084：标签对齐分镜页
+                  '🎞 场景交手回合记录：', // v1084：标签对齐分镜页（v1218改名）
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,

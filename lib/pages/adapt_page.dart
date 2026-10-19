@@ -213,7 +213,7 @@ class _AdaptPageState extends State<AdaptPage>
     return m?.group(1)?.trim() ?? '';
   }
 
-  /// v936/v937：场景框架编排段代码级兜底——数据源两级：Scene.choreo
+  /// v936/v937：场景交手回合段代码级兜底（v1218原"编排段"）——数据源两级：Scene.choreo
   /// （拆分镜详版，改编场景阶段通常为空）→ scene_choreos整串按场景号提取段；
   /// 终端自检日志全链可见（v937用户要求）：两个来源字数+提取结果字数，
   /// 兜底触发/不触发都有据可查
@@ -222,18 +222,19 @@ class _AdaptPageState extends State<AdaptPage>
     final fromScene = sceneChoreo.trim();
     final fromAll = _choreoFromAll(sceneChoreosAll, sceneIdx);
     _addLog(
-        '🔍 编排自检｜场景${sceneIdx + 1}｜Scene.choreo=${fromScene.length}字｜scene_choreos串=${sceneChoreosAll.trim().length}字｜本场景段提取=${fromAll.length}字');
+        '🔍 交手回合自检｜场景${sceneIdx + 1}｜Scene.choreo=${fromScene.length}字｜scene_choreos串=${sceneChoreosAll.trim().length}字｜本场景段提取=${fromAll.length}字');
     final c = fromScene.isNotEmpty ? fromScene : fromAll;
-    if (frameContent.contains('编排：')) {
-      _addLog('🔍 编排自检｜AI已写编排段，无需兜底');
+    // v1218：AI按新prompt写"交手回合："段，存量路径兼容"编排："
+    if (frameContent.contains('交手回合：') || frameContent.contains('编排：')) {
+      _addLog('🔍 交手回合自检｜AI已写交手回合段，无需兜底');
       return frameContent;
     }
     if (c.isEmpty) {
-      _addLog('⛔ 编排自检｜两个来源皆空——该弧线无编排数据（先跑"分析编排"或重新扫描）');
+      _addLog('⛔ 交手回合自检｜两个来源皆空——该弧线无交手回合数据（先跑"分析交手回合"或重新扫描）');
       return frameContent;
     }
-    _addLog('↩ 场景${sceneIdx + 1}：AI漏写编排段，代码级补入（${c.length}字，来源：${fromScene.isNotEmpty ? "Scene.choreo" : "scene_choreos串"}）');
-    return '${frameContent.trimRight()}\n编排：$c';
+    _addLog('↩ 场景${sceneIdx + 1}：AI漏写交手回合段，代码级补入（${c.length}字，来源：${fromScene.isNotEmpty ? "Scene.choreo" : "scene_choreos串"}）');
+    return '${frameContent.trimRight()}\n交手回合：$c';
   }
 
   /// 弧线条目content追加场景框架（插到九件套【世界观设定】前）
@@ -445,11 +446,12 @@ class _AdaptPageState extends State<AdaptPage>
         newContent = '$newContent$chapterSuffix';
       }
     }
-    // v940：编排行同概述一样保留——v936/v937编排已落库进场景块，但本函数
-    // 重写块时只搬概述行+场景头，"编排："行被丢弃（用户实测：改编分镜后
-    // 场景块编排段消失）。编排行从旧块搬进新块（概述行后）
+    // v940：交手回合行同概述一样保留——v936/v937已落库进场景块，但本函数
+    // 重写块时只搬概述行+场景头，"编排：/交手回合："行被丢弃（用户实测：改编分镜后
+    // 场景块交手回合段消失）。行从旧块搬进新块（概述行后）
+    // v1218：段名"交手回合："（新）与"编排："（存量）都要认
     final oldChoreo = RegExp(
-      r'^编排[：:].*$',
+      r'^(交手回合|编排)[：:].*$',
       multiLine: true,
     ).firstMatch(oldBlock)?.group(0);
     final hasSummary = RegExp(
@@ -473,11 +475,11 @@ class _AdaptPageState extends State<AdaptPage>
                   '${newContent.substring(firstNl + 1)}';
       }
     }
-    // v940续：编排行写回——新块无"编排："且旧块有时，插到概述行后
-    // （世界书页v938渲染编排行常显，分镜层后续重读它执行）
+    // v940续：交手回合行写回——新块无该段且旧块有时，插到概述行后
+    // （世界书页v938渲染该行常显，分镜层后续重读它执行）
     if (oldChoreo != null &&
         oldChoreo.trim().isNotEmpty &&
-        !RegExp(r'^编排[：:]', multiLine: true).hasMatch(newContent)) {
+        !RegExp(r'^(交手回合|编排)[：:]', multiLine: true).hasMatch(newContent)) {
       final firstNl = newContent.indexOf('\n');
       if (firstNl > 0) {
         final firstLineEnd = newContent.indexOf('\n', firstNl + 1);
@@ -2271,7 +2273,7 @@ return true;
     );
   }
 
-  /// v1048：编排自审开关行（弧线规划卡+场景规划卡复用）
+  /// v1048：设计自审开关行（弧线规划卡+场景规划卡复用，v1218原"编排自审"）
   /// v1147：温度行按kind取tab独立温度组（arc/scene/shot三组互不联动）
   Widget _buildSelfReviewToggle(AppState state, {String tempKind = 'scene'}) {
     return Column(
@@ -2289,7 +2291,7 @@ return true;
               ),
             ),
             Expanded(
-              child: Text('编排自审（生成后AI审核编排是否落实为符合作家风格的具体情节，不合格推翻重来）',
+              child: Text('设计自审（生成后AI审核设计是否落实为符合作家风格的具体情节，不合格推翻重来）',
                   style: TextStyle(
                       fontSize: _cf(11), color: const Color(0xFF5B7A99))),
             ),
@@ -2339,7 +2341,7 @@ return true;
     );
   }
 
-  /// v1111：编排自审——独立AI审核，FAIL推翻重生成后再送审，循环直到PASS才采用（上限5轮）。
+  /// v1111：设计自审——独立AI审核，FAIL推翻重生成后再送审，循环直到PASS才采用（上限5轮）。
   /// 关=零API成本直接采纳首稿；审核调用失败=按首稿（不误杀）
   Future<String> _choreoSelfReview(
     AppState state,
@@ -2352,16 +2354,16 @@ return true;
     final config = state.getApiConfig('wb');
     setState(() => _isGenerating = true);
     try {
-      _addLog('🤖 编排自审中（$kind）…');
-      final sys = '你是资深网文主编，对刚生成的$kind编排草稿做终审。逐条审核（任一条不过=FAIL）：\n'
+      _addLog('🤖 设计自审中（$kind）…');
+      final sys = '你是资深网文主编，对刚生成的$kind设计草稿做终审。逐条审核（任一条不过=FAIL）：\n'
           '${kind == '弧线'
-              ? '1.编排落实到具体事件（v1135弧线级）：编排以宏观事件链推进——先什么后什么、谁在哪个阶段做了什么、引发什么转折、谁被卷入，通篇读得出一条清晰的推进主线；纯策略套话/标签罗列/空洞方法论/生造词堆砌、读不出任何具体事件=FAIL（注意：弧线级禁止功能标签与场景级细节，判定以3a为准，勿因缺标签扣分）'
-              : '1.编排落实到具体情节：编排内容必须是"功能标签+谁做了什么、引发什么后果、谁被卷入"——只有功能+蓄力+爆点标签、没有任何具体情节=FAIL（功能标签+情节齐全=合格）'}\n'
+              ? '1.设计落实到具体事件（v1135弧线级）：设计以宏观事件链推进——先什么后什么、谁在哪个阶段做了什么、引发什么转折、谁被卷入，通篇读得出一条清晰的推进主线；纯策略套话/标签罗列/空洞方法论/生造词堆砌、读不出任何具体事件=FAIL（注意：弧线级禁止功能标签与场景级细节，判定以3a为准，勿因缺标签扣分）'
+              : '1.设计落实到具体情节：设计内容必须是"功能标签+谁做了什么、引发什么后果、谁被卷入"——只有功能+蓄力+爆点标签、没有任何具体情节=FAIL（功能标签+情节齐全=合格）'}\n'
           '2.符合作家风格：对照【作家风格卡】的讲法/节奏/笔墨特征，明显不符=FAIL\n'
-          '3.事件驱动：编排以角色行动/角色互动/势力矛盾关系的演变推进——'
+          '3.事件驱动：设计以角色行动/角色互动/势力矛盾关系的演变推进——'
           '把笔墨放在微表情/手指动作/静态环境外貌上=FAIL\n'
           '${kind == '弧线'
-              ? '3a.弧线级分层纪律（v1123）：编排只应有大方向推进策略（先什么后什么、重点拉扯/爽点在哪）——出现具体场景情节、功能标签序列、台词动作细节=越权FAIL；策略空洞无推进方向=FAIL'
+              ? '3a.弧线级分层纪律（v1123）：设计只应有大方向推进策略（先什么后什么、重点拉扯/爽点在哪）——出现具体场景情节、功能标签序列、台词动作细节=越权FAIL；策略空洞无推进方向=FAIL'
               : kind == '场景'
                   ? '3a.场景概述级（v1126）：叙事流概括冲突推进（谁与谁就什么交锋、怎么升级）即可，禁止纯功能标签；具体2-3回合台词展开是分镜/正文级标准，勿越级要求概述'
                   : '角色活动与互动细节充分：关键交锋/协作/试探/对抗要有具体的动作、具体台词、来回回合的展开（至少2-3个回合），一笔带过、只给结论、直接跳过过程=FAIL'}\n'
@@ -2376,17 +2378,17 @@ return true;
                   '只有一方推进其余主要角色当背景板、或某角色的目标/阻碍/行动缺项导致冲突悬空=FAIL；'
                   '性格必须由台词与行动顺便带出，直接声明性格或叙述概括=FAIL'}\n'
           '${kind == '弧线'
-              ? '3e.拉扯方向（v1123弧线级）：编排策略里要体现楼梯式逐级加码的推进方向（收获与代价交替、困难升级），一路顺风式策略=FAIL'
+              ? '3e.拉扯方向（v1123弧线级）：设计里要体现楼梯式逐级加码的推进方向（收获与代价交替、困难升级），一路顺风式策略=FAIL'
               : '3e.楼梯式拉扯（v1110反平推）：推进必须是"解决困难→得到什么又失去什么→面临新困难→获得新帮助→再解决"的拉扯链，开场先置主角于具体困难中；一路顺风平推、困难一次性解决、只有收获没有代价=FAIL'}\n'
           '4.节奏链成立：${kind == '弧线' ? '策略朝闭合点收束（主角从什么状态不可逆变化到什么状态）' : '钩子→铺垫→升级→爆点→余波'}\n'
           '输出格式：第一行只写PASS或FAIL；FAIL时从第二行写具体问题清单（供推翻重做时修正）';
       final usr =
-          '${styleBlock.isEmpty ? '' : '$styleBlock\n\n'}【待审$kind编排草稿】\n$draft';
+          '${styleBlock.isEmpty ? '' : '$styleBlock\n\n'}【待审$kind设计草稿】\n$draft';
       final okSend = await PromptPreview.maybePreview(
         context,
         sysPrompt: sys,
         userPrompt: usr,
-        title: '编排自审词链预览（$kind）',
+        title: '设计自审词链预览（$kind）',
         enabled: state.wbPromptPreview,
       );
       if (!okSend) {
@@ -2398,9 +2400,9 @@ return true;
       String cur = draft;
       for (var round = 1; round <= 5; round++) {
         final usrR =
-            '${styleBlock.isEmpty ? '' : '$styleBlock\n\n'}【待审$kind编排草稿】\n$cur';
+            '${styleBlock.isEmpty ? '' : '$styleBlock\n\n'}【待审$kind设计草稿】\n$cur';
         final result = await state.api.callApi(
-          task: '编排自审',
+          task: '设计自审',
           systemPrompt: sys,
           userPrompt: usrR,
           apiConfig: config,
@@ -2412,7 +2414,7 @@ return true;
         final out = TextCleaner.normalizeAiOutput(result.content).trim();
         final parsed = _parseSelfReviewOut(out);
         if (parsed != null && parsed.key == 'PASS') {
-          _addLog(round == 1 ? '✅ 编排自审通过' : '✅ 复审通过（第$round轮）');
+          _addLog(round == 1 ? '✅ 设计自审通过' : '✅ 复审通过（第$round轮）');
           return cur;
         }
         if (parsed == null || parsed.key != 'FAIL') {
@@ -2421,7 +2423,7 @@ return true;
           return cur;
         }
         final reason = parsed.value;
-        _addLog('⛔ 编排自审不合格（第$round轮）——推翻重来');
+        _addLog('⛔ 设计自审不合格（第$round轮）——推翻重来');
         if (reason.isNotEmpty) _addLog('自审意见：$reason');
         // 重写失败/未产出新稿=报错终止让用户重试，禁止静默回退（v1103裁决）
         String v2;
@@ -2433,12 +2435,12 @@ return true;
         }
         if (v2.trim().isEmpty || v2.trim() == cur.trim()) {
           _addLog('⛔ 重写未产出新稿——本轮终止，请重试');
-          throw Exception('编排自审不合格且重写未生效——请重试');
+          throw Exception('设计自审不合格且重写未生效——请重试');
         }
         cur = v2;
       }
       _addLog('⛔ 自审连续5轮不合格——终止，请重试');
-      throw Exception('编排自审连续5轮不合格——请重试');
+      throw Exception('设计自审连续5轮不合格——请重试');
     } finally {
       if (mounted) setState(() => _isGenerating = false);
     }
@@ -2494,7 +2496,7 @@ return true;
           const SizedBox(height: 6),
           // v1041：文言文概述开关
           _buildWenyanToggle(state),
-          // v1048：编排自审开关
+          // v1048：设计自审开关
           _buildSelfReviewToggle(state, tempKind: 'arc'),
           // v920：规划输入框改_CollapseReqField样式（折叠展开+自适应高度，
           // 对齐改编要求输入框；控制器持久化修复一次性controller丢光标）
@@ -3169,7 +3171,7 @@ return true;
           const SizedBox(height: 6),
           // v1041：文言文概述开关
           _buildWenyanToggle(state),
-          // v1048：编排自审开关
+          // v1048：设计自审开关
           _buildSelfReviewToggle(state, tempKind: 'scene'),
         ],
       ),
@@ -3242,7 +3244,7 @@ return true;
   }
 
 
-  /// v922：相邻场景编排样本（分镜规划讲法对齐用）——取本弧线最后一个
+  /// v922：相邻场景交手回合样本（分镜规划讲法对齐用）——取本弧线最后一个
   /// 有choreo的场景的策略 + 该场景前2镜的trick
   String _continueShotPlanSample(AppState state, String arcKey) {
     final an = state.arcAnalyses[arcKey];
@@ -3267,7 +3269,7 @@ return true;
         if (sh.trick.isNotEmpty) sh.trick,
     ];
     final buf = StringBuffer();
-    buf.writeln('场景「${sample.name}」分镜编排策略：');
+    buf.writeln('场景「${sample.name}」交手回合：');
     buf.writeln(sample.choreo);
     if (tricks.isNotEmpty) {
       buf.writeln('该场景前几镜的镜内表述策略：');
@@ -3430,11 +3432,11 @@ return true;
   String _arcEntryHeaderBlock(String content) {
     // v1150：只剔分镜明细，场景头（场景N：标题+概述行）保留——v1149把场景块
     // 全挖掉过度了（用户纠正：场景概述是剧情连续性关键信息要保留）。
-    // 场景规划写入后结构=概述→编排→场景N行→场景概述→分镜N行…→【零件块】，
+    // 场景规划写入后结构=概述→设计→场景N行→场景概述→分镜N行…→【零件块】，
     // 原v990截到首个场景行会把后面的【零件块】全吞掉。
-    // v1151：场景编排策略行（编排N：）也是保留对象——作为分镜块停符，自身不挖
+    // v1151：场景交手回合行/设计行（编排N：/交手回合N：/设计N：）也是保留对象——作为分镜块停符，自身不挖
     final stopRe = RegExp(
-        r'^\s*分镜\s*\d+\s*[：.]|^编排\s*\d*\s*[：:]|^场景\s*\d+\s*[：:]|【[^】]+】',
+        r'^\s*分镜\s*\d+\s*[：.]|^(交手回合|编排|设计)\s*\d*\s*[：:]|^场景\s*\d+\s*[：:]|【[^】]+】',
         multiLine: true);
     final shotRe = RegExp(r'^\s*分镜\s*\d+\s*[：.]', multiLine: true);
     final spans = <List<int>>[];
@@ -3462,7 +3464,7 @@ return true;
         RegExp(r'^\s*"?(弧线\d+：[^":\n]{1,60})"?\s*:\s*', multiLine: true),
         (m) => '${m.group(1)!}\n');
     const dims = [
-      '弧线概述', '弧线内编排', '人设', '矛盾冲突', '伏笔', '情绪曲线', '作者脑洞',
+      '弧线概述', '弧线内设计', '弧线内编排', '人设', '矛盾冲突', '伏笔', '情绪曲线', '作者脑洞', // v1218：段名"弧线内设计"（原"弧线内编排"），存量兼容
     ];
     t = t.split('\n').map((line) {
       final m = RegExp(r'^\s*"([^"]+?)"\s*:\s*"?(.*?)"?\s*,?\s*$')
@@ -3587,7 +3589,7 @@ return true;
     }
   }
 
-  /// v922：🧩AI分镜规划——新场景拆分镜（有编排策略理论支持后，续写场景
+  /// v922：🧩AI分镜规划——新场景拆分镜（有交手回合理论支持后，续写场景
   /// 可走沿分镜创作；输出写continuePlans+显示在分镜规划框可手改）
   Future<void> _planNewSceneShots(AppState state, Arc? arc,
       {int? sceneNum, String? failReason}) async {
@@ -3652,7 +3654,7 @@ return true;
         systemPrompt: PromptBuilder.buildContinueShotPlanSystemPrompt() +
             state.writerStyleBlock, // v954：作家风格卡注入（新场景结构规划也学讲法）
         userPrompt: '$arcEntryBlock\n\n'
-            '${failReason == null ? '' : '【⚠️ 上一稿被编排自审否决——必须针对以下问题推翻重做】\n$failReason\n\n'}'
+            '${failReason == null ? '' : '【⚠️ 上一稿被设计自审否决——必须针对以下问题推翻重做】\n$failReason\n\n'}'
             '${PromptBuilder.buildContinueShotPlanUserPrompt(
           entryBrief: entryBrief,
           corpus: state.continueCorpus(arcKey),
@@ -3671,7 +3673,7 @@ return true;
       state.worldBook!.continuePlans[planKey] = plan;
       state.saveWorldBook();
       _writtenDraftKeys.remove(planKey); // v1089：新稿重置已写入标记
-      // v1055：编排自审——不合格推翻重做（failReason非空=第二稿不再审防循环）
+      // v1055：设计自审——不合格推翻重做（failReason非空=第二稿不再审防循环）
       if (state.choreoSelfReview && failReason == null) {
         final v2 = await _choreoSelfReview(
           state,
@@ -3880,7 +3882,7 @@ return true;
         final refined = await _refineScenePlanBeforeWrite(state, arcKey, source);
         if (refined != null && refined.trim().isNotEmpty) {
           source = refined.trim();
-          // v1111：编排自审——不合格推翻重做，重做稿再送审直到PASS才采用
+          // v1111：设计自审——不合格推翻重做，重做稿再送审直到PASS才采用
           if (state.choreoSelfReview) {
             source = await _choreoSelfReview(
               state,
@@ -3920,14 +3922,14 @@ return true;
     if (arcEntry.isEmpty) return null;
     final sys = '你是网文续写规划师。用户没有提供场景规划——请根据前文信息自行推演1-3个新场景，'
         '输出规范场景条目规划，供后续写入世界书。输出规则：\n'
-        '1.可输出一个或多个场景，每场景两行——第一行格式严格为：场景N：名称｜概述；第二行格式严格为：编排N：编排说明\n'
+        '1.可输出一个或多个场景，每场景两行——第一行格式严格为：场景N：名称｜概述；第二行格式严格为：设计N：设计说明\n'
     '2.概述200-400字，${state.wenyanNarrate}；人名地名照旧——概述是规划文件不是正文（v1126）：'
     '叙事流概括写清谁做了什么、得到什么失去什么（具体名目取自方向/语料）、关键决策、关系变化，目标/阻碍/应对融进叙事（拉扯推进靠事件逐级升级，不靠情绪逐级升级）；角色像正常人（v1130）：情绪烈度=事件在角色眼中的分量×其性格身份，多数时候是权衡利弊后的行动，情绪爆发只在真正的大事上用一次，禁止拍桌/狂热/嘶吼之类的极端反应堆砌，矛盾写成利益与立场的博弈；'
     '只点缀三五字原话（如冷哼"聒噪"），不展开台词交锋与动作细节——交锋回合的具体台词归分镜/正文创作，少用比喻；'
     '需含时间地点/出场人物/剧情推进；人物全部沿用原著原名\n'
         '3.必须从条目最后场景的剧情状态自然衔接，剧情朝【本弧线规划】的概述收束方向推进\n'
-        '4.【作家编排要求】：场景序列是编排件——按钩子→铺垫→升级→爆点→余波节奏链设计，'
-        '每个场景行之后单独跟一行"编排N：本场景功能(建立/铺垫/升级/转折/爆点/余波)+具体情节(谁做了什么、引发什么后果——禁止只写功能标签没有情节)+给哪个场景蓄力或回收什么+本场景最出彩的爆点/落点在哪"（独立标签行像拆书的编排策略，禁止混进概述），编排方法遵循下方【作家风格卡】\n'
+        '4.【作家设计要求】：场景序列是设计件——按钩子→铺垫→升级→爆点→余波节奏链设计，'
+        '每个场景行之后单独跟一行"设计N：本场景功能(建立/铺垫/升级/转折/爆点/余波)+具体情节(谁做了什么、引发什么后果——禁止只写功能标签没有情节)+给哪个场景蓄力或回收什么+本场景最出彩的爆点/落点在哪"（独立标签行像拆书分析的字段行，禁止混进概述），设计方法遵循下方【作家风格卡】\n'
         '5.若提供【素材】块：素材内容必须有机融入场景剧情（自然带出，禁止生硬堆砌）\n'
         '6.场景编号从N=$nextNum起连续递增，不要跳号\n'
         '7.禁止解释性文字、小标题、markdown；概述内的对白用引号直接写具体台词\n'
@@ -3997,8 +3999,8 @@ return true;
     if (arcObj != null && !_closedArcGuard(state, arcObj)) return;
     final entry = state.worldBook!.entries[entryKey]!;
     // v1034：先收集去重——AI稿偶发把同一场景写两遍，同号只保留最后一个
-    // v1043：独立编排行——场景行后紧跟"编排N："行一并捕获（像拆书的编排策略
-    // 独立成块，写进条目为"编排："行，不混进概述）
+    // v1043：独立设计行——场景行后紧跟"设计N："行一并捕获（v1218原"编排N："，
+    // 像拆书分析的字段行独立成块，写进条目为"设计："行，不混进概述）
     final parsed = <int, (String, String, String)>{}; // sceneNum -> (name, brief, choreo)
     final order = <int>[];
     final lines = source.split('\n');
@@ -4012,7 +4014,7 @@ return true;
       var choreo = '';
       if (i + 1 < lines.length) {
         final cm =
-            RegExp(r'^编排\d*[：:](.+)$').firstMatch(lines[i + 1].trim());
+            RegExp(r'^(设计|编排)\d*[：:](.+)$').firstMatch(lines[i + 1].trim()); // v1218：行名"设计N："（原"编排N："），存量草稿兼容
         if (cm != null) choreo = cm.group(1)!.trim();
       }
       if (parsed.containsKey(sceneNum)) {
@@ -4033,8 +4035,8 @@ return true;
     for (final sceneNum in order) {
       final (name, brief, choreo) = parsed[sceneNum]!;
       var block = '场景$sceneNum：$name\n概述：$brief';
-      // v1043：编排行独立落库（场景块内第三行，创作AI可读的菜单设计逻辑）
-      if (choreo.isNotEmpty) block = '$block\n编排：$choreo';
+      // v1043：设计行独立落库（场景块内第三行，创作AI可读的菜单设计逻辑）
+      if (choreo.isNotEmpty) block = '$block\n设计：$choreo'; // v1218：行名"设计："（原"编排："），存量条目不受影响
       final span = _sceneBlockSpan(entry.content, sceneNum);
       if (span != null) {
         entry.content = entry.content.replaceRange(span.$1, span.$2, block);
@@ -4066,7 +4068,7 @@ return true;
     _addLog('🤖 场景规划落地中（设想→条目草稿/完善补充/剔除毒点）…');
     final sys = '你是网文续写主编。任务：把输入的场景规划（可能是初步设想要点，也可能是完整场景行）'
         '落地为规范场景条目规划。规则：\n'
-        '1.落地输出：每个场景两行"场景N：名称｜概述"+"编排N：编排说明"，场景编号从输入推断连续递增\n'
+        '1.落地输出：每个场景两行"场景N：名称｜概述"+"设计N：设计说明"，场景编号从输入推断连续递增\n'
         '2.逐场景完善：时间地点/人物动机/因果衔接，补充让场景立得住的必要细节\n'
         '3.剔除毒点：与语料设定冲突、逻辑硬伤、主角降智、人物OOC、跳出衔接锚点的情节——直接修正或删掉该情节；'
           '全知穿帮一并修正（角色不该知道的事不能知道/不能说，没被介绍认识的角色不能被叫出名字）\n'
@@ -4076,7 +4078,7 @@ return true;
     '只点缀三五字原话（如冷哼"聒噪"），不展开台词交锋与动作细节——交锋回合的具体台词归分镜/正文创作，少用比喻\n'
         '6.若提供【素材】块：素材内容必须有机融入场景剧情（自然带出，禁止生硬堆砌），同时照常剔除毒点\n'
         '7.只输出场景行，禁止解释性文字、小标题、markdown\n'
-        '8.**编排说明（v1054）**：每个场景行之后单独跟一行"编排N：本场景功能(建立/铺垫/升级/转折/爆点/余波)+具体情节(谁做了什么、引发什么后果——禁止只写功能标签没有情节)+给哪个场景蓄力或回收什么+本场景最出彩的爆点/落点在哪"——独立标签行像拆书的编排策略，禁止混进概述；这是给创作AI的菜单设计逻辑，不是菜单本身\n'
+        '8.**设计说明（v1054，v1218原"编排说明"）**：每个场景行之后单独跟一行"设计N：本场景功能(建立/铺垫/升级/转折/爆点/余波)+具体情节(谁做了什么、引发什么后果——禁止只写功能标签没有情节)+给哪个场景蓄力或回收什么+本场景最出彩的爆点/落点在哪"——独立标签行像拆书分析的字段行，禁止混进概述；这是给创作AI的菜单设计逻辑，不是菜单本身\n'
         '${PromptBuilder.eventDrivenRule}';
     final _ek = _arcEntryKey(state, arcKey);
     final arcEntry = _ek == null
@@ -4085,7 +4087,7 @@ return true;
     final usr = '【本弧线规划（弧线$arcKey条目——终审时概述/人设/矛盾/伏笔/情绪曲线/脑洞以此为准）】\n${_arcEntryHeaderBlock(arcEntry)}\n\n'
         '【续写语料（锚点/本弧线零件/已规划场景/前情概述/未回收伏笔/人物基准——人物与设定以此为准）】\n${state.continueCorpus(arcKey)}\n\n'
         '${_matBlock(state, arcKey)}'
-        '${failReason == null ? '' : '【⚠️ 上一稿被编排自审否决——必须针对以下问题推翻重做】\n$failReason\n\n'}'
+        '${failReason == null ? '' : '【⚠️ 上一稿被设计自审否决——必须针对以下问题推翻重做】\n$failReason\n\n'}'
         '${state.writerStyleBlock.isEmpty ? '' : '${state.writerStyleBlock}\n\n'}'
         '【待落地的场景规划（初步设想或完整规划，落地为场景条目草稿）】\n$source';
     final okSend = await PromptPreview.maybePreview(
@@ -4198,7 +4200,7 @@ return true;
       }
       // v805：弧线条目不再生成场景清单（用户定稿：场景规划唯一入口=场景续写页工作台，
       // 避免条目清单与工作台规划两套数据乱套）
-      // v1039：作家编排能力强调+闭合点明确规划（从什么状态不可逆到什么状态）
+      // v1039：作家设计能力强调+闭合点明确规划（从什么状态不可逆到什么状态）
       final sys = '你是操盘过千万字连载的资深网文主编（原著续写作家）。世界书=原样原著（全原名）。'
           '任务：为长篇规划一条全新的续写弧线，'
           '输出该弧线的世界书总结条目内容（无分镜结构，场景走自由创作）。\n'
@@ -4206,9 +4208,9 @@ return true;
           '⚠️【续写方向】是要点式底稿：你要把每条要点展开构建成完整弧线零件（下述各块缺一不可）——'
           '方向只给骨架，零件补全血肉（阻碍怎么挡、应对怎么破、关系怎么变、得到什么失去什么），但守住弧线级概括纪律不写台词动作细节，禁止把要点照抄当概述。格式：\n'
           '弧线N：标题（N=$newNum）\n'
-          '【弧线概述】：150-300字（承接当前剧情，本弧线主角处境变化轨迹，收束在明确变化上；纯剧情线，编排内容不写这里）\n'
-          '【弧线内编排】：只写大方向策略（v1123用户裁决，不分段不列功能链）：两三句话概括本弧线的推进策略——先什么后什么、重点拉扯/爽点集中在哪、情绪基调怎么走（v1125对齐审核端：点明喂什么情绪/价值需求、主要角色目标方向与关系变化走向、困难逐级加码、朝闭合点收束）；'
-          '⚠️禁止把具体场景情节写进来（每段谁做了什么、功能标签序列钩子铺垫升级之类都是场景层的事，场景规划在场景续写页单独进行）；编排方法严格遵循作家档案的风格\n'
+          '【弧线概述】：150-300字（承接当前剧情，本弧线主角处境变化轨迹，收束在明确变化上；纯剧情线，设计内容不写这里）\n'
+          '【弧线内设计】：只写大方向策略（v1123用户裁决，不分段不列功能链）：两三句话概括本弧线的推进策略——先什么后什么、重点拉扯/爽点集中在哪、情绪基调怎么走（v1125对齐审核端：点明喂什么情绪/价值需求、主要角色目标方向与关系变化走向、困难逐级加码、朝闭合点收束）；'
+          '⚠️禁止把具体场景情节写进来（每段谁做了什么、功能标签序列钩子铺垫升级之类都是场景层的事，场景规划在场景续写页单独进行）；设计方法严格遵循作家档案的风格\n'
           // v1041：文言开关——关=通俗白话
           '${state.promptWenyan ? "【文言规则】：概述/零件各块叙述用浅近文言（信息密度高省上下文），对白台词仍用白话写进引号，人名地名照旧，AI按义理解不按字面\\n" : "【行文规则】：概述/零件各块用通俗白话叙述（不用文言腔），对白台词白话写进引号，人名地名照旧\\n"}'
           '【人设】：本弧线登场角色——每角色：姓名+身份+定位+性格特征+与主角关系+本弧线状态（登场时的处境与诉求），全部沿用原著原名与既有性格\n'
@@ -4217,8 +4219,8 @@ return true;
           '【伏笔】：本弧线种下/回收的伏笔\n'
           '【情绪曲线】：如「低谷→希望→兴奋→满足」\n'
           '【作者脑洞】：本弧线的核心幻想点2-3条\n'
-          '【作家编排要求】：弧线不是孤立事件，是承上启下的编排件——\n'
-          '1.节奏链：开篇承接上一弧线收束余波并引入新变量（钩子），中段2-3波层层升级（铺垫→升级），尾段收束爆发（爆点）+余波——节奏链单独写进【弧线内编排】标签，禁止混进概述\n'
+          '【作家设计要求】：弧线不是孤立事件，是承上启下的设计件——\n'
+          '1.节奏链：开篇承接上一弧线收束余波并引入新变量（钩子），中段2-3波层层升级（铺垫→升级），尾段收束爆发（爆点）+余波——节奏链单独写进【弧线内设计】标签，禁止混进概述\n'
           '2.弧线闭合必须规划清晰：【弧线概述】末尾明确写出闭合点——主角从「什么状态」不可逆地变化到「什么状态」（修为/身份/关系/格局任一维度），全弧线剧情都朝这个变化收束，禁止写到一半悬置\n'
           '3.上一弧线未回收的伏笔优先在本弧线安排回收或实质推进；新种伏笔要与闭合点挂钩\n'
           '⚠️ 禁止输出任何场景清单（场景规划在场景续写页单独进行）\n'
@@ -4229,7 +4231,7 @@ return true;
       final usr = '【续写方向（要点式底稿——据此展开构建弧线零件，禁止照抄当概述）】\n${_continueReqSource(state).isEmpty ? '（未填写，按故事逻辑自然推进）' : _continueReqSource(state)}\n\n'
           '$prevCtx\n\n'
           '【续写语料（本弧线零件/前情概述/未回收伏笔/人物基准——人物与设定以此为准，禁止另起炉灶）】\n${state.continueCorpus('$newNum', includeAnchor: false)}\n\n'
-          '${failReason == null ? '' : '【⚠️ 上一稿被编排自审否决——必须针对以下问题推翻重做】\n$failReason\n\n'}'
+          '${failReason == null ? '' : '【⚠️ 上一稿被设计自审否决——必须针对以下问题推翻重做】\n$failReason\n\n'}'
           '【新弧线编号】N=$newNum';
       // v783：词链检查（wbPromptPreview开启时弹预览确认）
       final okSend = await PromptPreview.maybePreview(
@@ -4276,7 +4278,7 @@ return true;
           _normalizeArcDraft(content); // v1094：JSON壳净化
       state.saveWorldBook();
       _writtenDraftKeys.remove('arc_entry_$newNum'); // v1089：新稿重置已写入标记
-      // v1048/v1052：编排自审——不合格推翻重做（failReason非空=第二稿不再审防循环）
+      // v1048/v1052：设计自审——不合格推翻重做（failReason非空=第二稿不再审防循环）
       if (state.choreoSelfReview && failReason == null) {
         final v2 = await _choreoSelfReview(
           state,
@@ -4406,7 +4408,7 @@ return true;
               '场景${i + 1}：${e.name}',
               if (e.summary.isNotEmpty) e.summary,
               if (e.changes.isNotEmpty) '变化：${e.changes}',
-              if (e.choreo.isNotEmpty) '编排：${e.choreo}',
+              if (e.choreo.isNotEmpty) '交手回合：${e.choreo}',
             ];
             sb2.writeln(parts.join('｜'));
           }
@@ -4419,7 +4421,7 @@ return true;
         progress: _continueProgressAll(state, _getAllArcs(state)),
         lastArcEntry: lastArcEntry,
         sceneParts: sceneParts,
-      ); // v1098：剔除v1097分镜事件链注入（上一弧线条目已含编排块，再注
+      ); // v1098：剔除v1097分镜事件链注入（上一弧线条目已含交手回合块，再注
       // 分镜链输入爆炸——用户词链实测点名剔除）
       // v783：词链检查
       final okSend = await PromptPreview.maybePreview(
@@ -4896,12 +4898,12 @@ return true;
     final config = state.getApiConfig('wb');
     setState(() => _isGenerating = true);
     try {
-      _addLog('🤖 编排自审中（改编$kind）…');
+      _addLog('🤖 设计自审中（改编$kind）…');
       final sys = '你是资深网文主编，对刚生成的改编$kind做终审。逐条审核（任一不过=FAIL）：\n'
           '1.事件驱动：内容以角色行动/对话交锋/角色互动/势力矛盾关系的演变推进——'
           '把笔墨放在微表情/手指动作/静态环境外貌上=FAIL\n'
           '角色活动与互动细节充分：关键交锋/协作/试探/对抗要有具体的动作、具体台词、来回回合的展开（至少2-3个回合），一笔带过、只给结论、直接跳过过程=FAIL\n'
-          '2.具体情节：概述/编排/分镜维度落到"谁做了什么、引发什么后果"——纯功能标签堆砌=FAIL\n'
+          '2.具体情节：概述/设计/分镜维度落到"谁做了什么、引发什么后果"——纯功能标签堆砌=FAIL\n'
           '3.符合作家风格卡特征\n'          '3b.${PromptBuilder.addictionCheckRule}\n'
           '3c.场景五要素：各主要角色（不限主角）各自有目标、阻力（可多层）、应对行动、矛盾关系变化、特质体现——只有一方推进其余主要角色当背景板=FAIL；特质必须由台词与行动顺便带出，直接声明性格或叙述概括=FAIL\n'
           '3d.角色OOC（硬伤，v1109强化）：逐角色核对言行与世界书人设/原著既有形象是否相符（性格/说话方式/立场/身份/能力边界），符合当下信息边界——性格立场崩坏=FAIL\n'
@@ -4941,7 +4943,7 @@ return true;
         final parsed = _parseSelfReviewOut(out);
         if (parsed != null && parsed.key == 'PASS') {
           _addLog(round == 1
-              ? '✅ 编排自审通过（$kind）'
+              ? '✅ 设计自审通过（$kind）'
               : '✅ 复审通过（$kind第$round轮）');
           return cur;
         }
@@ -4951,7 +4953,7 @@ return true;
           return cur;
         }
         final reason = parsed.value;
-        _addLog('⛔ 编排自审不合格（$kind第$round轮）——带意见修订');
+        _addLog('⛔ 设计自审不合格（$kind第$round轮）——带意见修订');
         if (reason.isNotEmpty) _addLog('自审意见：$reason');
         final reviseUsr = '$contextBlock\n\n【待修订$kind】\n$cur\n\n'
             '【审核意见（必须逐条修正）】\n$reason';
@@ -4964,7 +4966,7 @@ return true;
         if (!revised.isSuccess) {
           // v1103：修订失败=报错终止让用户重试，不静默回退
           _addLog('⛔ 修订请求失败——本轮终止，请重试');
-          throw Exception('编排自审不合格且修订失败——请重试');
+          throw Exception('设计自审不合格且修订失败——请重试');
         }
         final body = TextCleaner.stripQuotedFragment(
           TextCleaner.decodeLiteralNewlines(
@@ -4978,12 +4980,12 @@ return true;
         ).trim();
         if (body.length < cur.length ~/ 3) {
           _addLog('⛔ 修订稿异常偏短——本轮终止，请重试');
-          throw Exception('编排自审修订稿异常偏短——请重试');
+          throw Exception('设计自审修订稿异常偏短——请重试');
         }
         cur = body;
       }
       _addLog('⛔ 自审连续5轮不合格——终止，请重试');
-      throw Exception('编排自审连续5轮不合格——请重试');
+      throw Exception('设计自审连续5轮不合格——请重试');
     } finally {
       if (mounted) setState(() => _isGenerating = false);
     }
@@ -8282,7 +8284,7 @@ return true;
       // v227：世界观facts（阶段A生成【世界观设定】的数据源——
       // 此前漏传，AI手里没有facts只能全写"本弧线未涉及"）
       'worldbuilding_facts': analysis?.metadata?['worldbuilding_facts'] ?? [],
-      // v924：编排策略进条目生成数据（三层表述层）
+      // v924：交手回合进条目生成数据（三层表述层）
       'arc_choreo': analysis?.metadata?['arc_choreo'] ?? '',
       'scene_choreos': analysis?.metadata?['scene_choreos'] ?? '',
     };
@@ -8324,7 +8326,7 @@ return true;
       // 出现两次，第二次空块紧跟），只保留首次出现，后续重复行及其空块
       // （到下一个标记/文末）整段删除；若首块为空则保留内容完整的那个块
       entry.content = _dedupeStructSections(entry.content);
-      // v935：编排总纲代码级兜底——prompt规定了【弧线目的】段但
+      // v935：弧线目的总纲代码级兜底（v1218原"编排总纲"措辞）——prompt规定了【弧线目的】段但
       // AI实测会漏写（用户实测条目里没有）；机器能查的走代码：条目无此段
       // 且metadata有arc_choreo时，由代码把原文拼进条目（拼在【世界观设定】前，
       // 与九件套段并列；弧线目的=弧线级总纲，落库后场景/分镜层都读它；v1209）
@@ -8337,7 +8339,7 @@ return true;
         entry.content = m == null
             ? '${entry.content.trimRight()}\n$block'
             : '${entry.content.substring(0, m.start)}$block${entry.content.substring(m.start)}';
-        _addLog('↩ 弧线$arcNumber：AI漏写编排总纲，代码级补入（${choreo.length}字）');
+        _addLog('↩ 弧线$arcNumber：AI漏写弧线目的总纲，代码级补入（${choreo.length}字）');
       }
       entry.arcKey = arcNumber.toString();
       entry.uid =

@@ -193,12 +193,12 @@ class AppState extends ChangeNotifier {
   // v469对齐：各功能预览开关（scene/shot/wb/detect）
   bool scenePromptPreview = false;
   bool shotPromptPreview = false;
-  bool scanPromptPreview = false; // v1157：弧线页词链开关（分组/零件提取/编排共用）
+  bool scanPromptPreview = false; // v1157：弧线页词链开关（分组/零件提取/目的分析共用）
   bool wbPromptPreview = false;
   bool detectPromptPreview = false;
   // v1041：概述/规划文言文开关（用户实测文言阅读困难，关=通俗白话）
   bool promptWenyan = true;
-  // v1048：编排自审开关——生成草稿后独立AI审核编排是否落实为符合作家风格的
+  // v1048：设计自审开关——生成草稿后独立AI审核设计是否落实为符合作家风格的（v1218原"编排自审"）
   // 具体情节，不合格推翻重来（默认开，关=零API成本）
   bool choreoSelfReview = true;
   // v1147：三tab独立温度组——弧线续写/场景续写/分镜续写各自独立
@@ -900,7 +900,7 @@ class AppState extends ChangeNotifier {
 
     // v1209：弧线分析换代——旧模板（v1205状态账格式）存量一次性清空
     // （用户2026-10-18定稿：arc_choreo=弧线目的，scene_choreos=逐场景目的/水文）。
-    // 书级标记文件防重复清；场景内分镜编排Scene.choreo保留不动
+    // 书级标记文件防重复清；场景交手回合Scene.choreo保留不动（v1218改名）
     final choreoWipeFlag = '${p}choreo_wiped_v1209.txt';
     if (storage.readFile(choreoWipeFlag) == null) {
       var wiped = 0;
@@ -920,7 +920,7 @@ class AppState extends ChangeNotifier {
       if (arcAnalyses.isNotEmpty) saveArcAnalyses();
       storage.writeFile(choreoWipeFlag, 'v1205');
       if (wiped > 0) {
-        apiLog('↻ v1205编排换代：已清空旧版弧线编排存量（$wiped条弧线+分析metadata）——重新跑弧线目的分析即按新模板生成');
+        apiLog('↻ v1205编排换代：已清空旧版弧线目的存量（v1218统一叫"目的"）（$wiped条弧线+分析metadata）——重新跑弧线目的分析即按新模板生成');
       }
     }
 
@@ -1108,7 +1108,7 @@ class AppState extends ChangeNotifier {
     // v1041：文言开关（默认true保持原行为，用户可关）
     promptWenyan =
         storage.readFile('${p}prompt_wenyan.flag') != 'false';
-    // v1048：编排自审开关（默认开）
+    // v1048：设计自审开关（默认开，v1218原"编排自审"）
     choreoSelfReview =
         storage.readFile('${p}choreo_self_review.flag') != 'false';
     // v1136：帮想/草稿独立温度（默认关=用API温度；值默认1.8）

@@ -24,7 +24,7 @@ const String agentToolDoc = '''
 5. {"tool":"query_worldbook","args":{"keyword":"关键词"}} —— 世界书条目检索（返回命中条目名与摘要）
 6. {"tool":"start_batch_shots"} —— 启动批量拆分镜（全部已划分未拆场景；需用户确认；长任务，去分镜页盯终端进度）
 7. {"tool":"write_scene","args":{"arc":1,"scene":1}} —— 创作指定弧线第N个场景的续写正文（需用户确认；前提：世界书已有该场景条目；长任务，正文写到创作页）
-8. {"tool":"verify_data","args":{"target":"choreo","arc":210}} —— 数据诊断（只读）：target=choreo查编排字段落库情况（弧线总纲+逐场景统计，可带arc过滤单条弧线）；target=trick查手法维度（已拆分镜中trick非空的镜数统计，可带arc过滤）——用于验证新版本功能是否落库。注意：choreo/trick分别是"生成弧线(分组)"和"拆分镜"步骤的产物，重扫场景不会产生它们；choreo缺失应重新分组，trick缺失应重拆分镜
+8. {"tool":"verify_data","args":{"target":"choreo","arc":210}} —— 数据诊断（只读）：target=choreo查交手回合字段落库情况（弧线总纲+逐场景统计，可带arc过滤单条弧线）；target=trick查手法维度（已拆分镜中trick非空的镜数统计，可带arc过滤）——用于验证新版本功能是否落库。注意：choreo/trick分别是"生成弧线(分组)"和"拆分镜"步骤的产物，重扫场景不会产生它们；choreo缺失应重新分组，trick缺失应重拆分镜
 9. {"tool":"get_styles","args":{"name":"作家名"}} —— 个人风格档案（只读）：无name=列全部档案清单；有name=返回该档案全文。档案=某位"作家"的写作风格记忆（文风/句式/trick偏好/讲法习惯），创作/改编/二创页可选用来注入
 10. {"tool":"collect_style"} —— 汇总当前书表述层语料（只读）：弧线目的样本+逐场景目的样本+trick维度样本+文风DNA+用户全局要求（v1205）——供你总结/完善风格档案的素材
 11. {"tool":"update_style","args":{"name":"作家名","content":"档案markdown全文","mode":"append|overwrite|delete"}} —— 风格档案写入（需用户确认）。mode=append(默认,追加合并,新名=新建)/overwrite(整篇覆盖——用户说"修改/重写/精简某档案"用)/delete(删除档案,content可空)。追加时先get_styles读旧档再拼全文；overwrite时content即新档案全文（可基于旧档修改）
@@ -148,14 +148,14 @@ Future<AgentToolResult> runTool(AppState state, String tool,
             totalScenes++;
             if (sc.choreo.isNotEmpty) withChoreo++;
           }
-          lines.add('  场景编排: ${scenes.where((s2) => s2.choreo.isNotEmpty).length}/${scenes.length}个场景有');
+          lines.add('  交手回合: ${scenes.where((s2) => s2.choreo.isNotEmpty).length}/${scenes.length}个场景有');
         }
         if (lines.isEmpty) {
           return AgentToolResult(tool, true,
               '未找到弧线${arcFilter ?? ""}（get_arcs核对编号）');
         }
         return AgentToolResult(tool, true,
-            '编排落库诊断：$totalScenes个场景中$withChoreo个有choreo\n${lines.join('\n')}');
+            '交手回合落库诊断：$totalScenes个场景中$withChoreo个有choreo\n${lines.join('\n')}');
       }
       if (target == 'trick') {
         var withTrick = 0, totalShots = 0;
@@ -227,7 +227,7 @@ Future<AgentToolResult> runTool(AppState state, String tool,
           choreoN++;
         }
       }
-      // 场景编排+trick样本（取前4条）
+      // 交手回合+trick样本（取前4条）
       var sampleN = 0;
       for (final a in state.allArcs) {
         if (sampleN >= 4) break;
@@ -235,7 +235,7 @@ Future<AgentToolResult> runTool(AppState state, String tool,
         for (final sc in an?.scenes ?? const <Scene>[]) {
           if (sampleN >= 4) break;
           if (sc.choreo.isNotEmpty) {
-            buf.add('【场景编排样本】弧线${a.number}${sc.name}：${sc.choreo.length > 200 ? sc.choreo.substring(0, 200) : sc.choreo}');
+            buf.add('【交手回合样本】弧线${a.number}${sc.name}：${sc.choreo.length > 200 ? sc.choreo.substring(0, 200) : sc.choreo}');
             sampleN++;
           }
           for (final sh in sc.shots) {
@@ -261,7 +261,7 @@ Future<AgentToolResult> runTool(AppState state, String tool,
       }
       if (buf.isEmpty) {
         return AgentToolResult(tool, true,
-            '当前书暂无表述层语料（编排/trick/文风DNA均空）——先拆分镜或跑分析编排');
+            '当前书暂无表述层语料（交手回合/trick/文风DNA均空）——先拆分镜或跑交手回合分析');
       }
       return AgentToolResult(tool, true,
           '语料汇总（${buf.length}段，供总结风格档案）：\n${buf.join('\n\n')}');

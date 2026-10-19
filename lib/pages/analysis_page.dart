@@ -114,9 +114,9 @@ class _AnalysisPageState extends State<AnalysisPage>
   // 展开的场景分镜 key: "arcKey_sceneIdx"（持久化到ui_state，重启恢复）
   Set<String> _expandedShots = {};
   final Set<String> _sceneListOpen = {}; // v1168：场景列表折叠头（分镜页对齐弧线页v1023样式）
-  // v1006：场景内分镜编排策略折叠态（默认折叠，持久化到ui_state）
+  // v1006：场景交手回合记录折叠态（默认折叠，持久化到ui_state）
   Set<String> _choreoExpanded = {};
-  // v1020：编排块标题行Key表——折叠/展开后锚定视线用
+  // v1020：交手回合块标题行Key表——折叠/展开后锚定视线用
   final Map<String, GlobalKey> _choreoHeaderKeys = {};
   GlobalKey _choreoKey(String k) =>
       _choreoHeaderKeys.putIfAbsent(k, () => GlobalKey());
@@ -311,7 +311,7 @@ class _AnalysisPageState extends State<AnalysisPage>
         shotCount += s.shots.length;
       }
     });
-    // v1032：补编排/拆解进度——分镜数场景数+已拆X/Y+已编排X/Y（A方案流水线对账用）
+    // v1032：补交手回合/拆解进度——分镜数场景数+已拆X/Y+已交手回合X/Y（A方案流水线对账用；v1218"已编排"改名"已交手回合"）
     var broken = 0, choreoed = 0;
     state.arcAnalyses.forEach((_, a) {
       for (final s in a.scenes) {
@@ -320,7 +320,7 @@ class _AnalysisPageState extends State<AnalysisPage>
       }
     });
     return '$arcCount弧线 · $sceneCount场景 · $shotCount分镜 · '
-        '已拆$broken/$sceneCount · 已编排$choreoed/$sceneCount';
+        '已拆$broken/$sceneCount · 已交手回合$choreoed/$sceneCount';
   }
 
   @override
@@ -529,7 +529,7 @@ class _AnalysisPageState extends State<AnalysisPage>
 
 
 
-  /// v919：场景内分镜编排策略显示块（标题+边框+四要素分行）
+  /// v919：场景交手回合记录显示块（标题+边框+四要素分行）
   /// v1006：默认折叠——点标题行展开/收起，状态持久化（对齐分镜折叠v947b）
   List<Widget> _buildSceneChoreoBlock(Scene scene, String foldKey) {
     final paras = scene.choreo
@@ -587,7 +587,7 @@ class _AnalysisPageState extends State<AnalysisPage>
                         )),
                     const SizedBox(width: 4),
                     const Expanded(
-                      child: Text('🎞 场景内分镜编排策略',
+                      child: Text('🎞 场景交手回合记录',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -760,7 +760,7 @@ class _AnalysisPageState extends State<AnalysisPage>
     final totalShots = hasAnalysis
         ? analysis.scenes.fold<int>(0, (n, s) => n + s.shots.length)
         : 0;
-    // v1033：本弧线编排进度徽章——choreo非空场景数/总场景数（A方案流水线对账，v1209内容=逐场景目的）
+    // v1033：本弧线交手回合进度徽章——choreo非空场景数/总场景数（A方案流水线对账，v1209内容=逐场景目的）
     final choreoedScenes = hasAnalysis
         ? analysis.scenes.where((s) => s.choreo.isNotEmpty).length
         : 0;
@@ -845,10 +845,10 @@ class _AnalysisPageState extends State<AnalysisPage>
                         V469Style.complete,
                         V469Style.completeBg,
                       ),
-                    // v1033：编排进度徽章（金色——与弧线内编排策略块同色系）
+                    // v1218：徽章改名（原"已编排"——v1209定稿内容=场景交手回合记录，与账本快照区分）
                     if (hasAnalysis && totalScenes > 0)
                       V469Style.badge(
-                        '🧠 已编排($choreoedScenes/$totalScenes)',
+                        '🧠 已交手回合($choreoedScenes/$totalScenes)',
                         const Color(0xFFB45309),
                         const Color(0x14B45309),
                       ),
@@ -1124,7 +1124,7 @@ class _AnalysisPageState extends State<AnalysisPage>
 
   List<Widget> _buildArcParts(ArcAnalysis? analysis) => ArcParts.build(analysis);
 
-  /// v901：场景内分镜编排策略分析（独立按键——拆分镜后才能跑）
+  /// v901：场景交手回合记录分析（独立按键——拆分镜后才能跑）
   Future<void> _analyzeSceneChoreo(
     AppState state,
     String arcKey,
@@ -1155,7 +1155,7 @@ class _AnalysisPageState extends State<AnalysisPage>
     final isExpanded = _expandedShots.contains(foldKey);
 
     // v1019：场景卡细边框+加大卡间距——场景边界一眼可辨（用户裁决）
-    // v1021：边框换金棕（浅灰在米底上看不清）+顶部间距（与上方编排块贴死）
+    // v1021：边框换金棕（浅灰在米底上看不清）+顶部间距（与上方交手回合块贴死）
     return Container(
       margin: const EdgeInsets.only(left: 12, right: 8, bottom: 12, top: 12),
       padding: const EdgeInsets.all(8),
@@ -1263,7 +1263,7 @@ class _AnalysisPageState extends State<AnalysisPage>
                 ),
               ),
               const SizedBox(width: 6),
-              // v901：分析编排（场景内分镜编排策略——拆分镜后才能跑）
+              // v901：分析交手回合（场景交手回合记录——拆分镜后才能跑）
               SizedBox(
                 height: 26,
                 child: FilledButton.tonal(
@@ -1277,7 +1277,7 @@ class _AnalysisPageState extends State<AnalysisPage>
                   onPressed: analyzedScene == null || analyzedScene!.shots.isEmpty
                       ? null
                       : () => _analyzeSceneChoreo(state, arcKey, analyzedScene!),
-                  child: const Text('🧠分析编排'),
+                  child: const Text('🧠分析交手回合'),
                 ),
               ),
               const SizedBox(width: 6),
@@ -1305,7 +1305,7 @@ class _AnalysisPageState extends State<AnalysisPage>
                 ),
             ],
           ),
-   // v919：场景概述在前，编排策略在后（用户布局裁决）
+   // v919：场景概述在前，交手回合策略在后（用户布局裁决）
           // 场景概述
           if (analyzedScene?.summary.isNotEmpty == true)
             Padding(
@@ -1365,7 +1365,7 @@ class _AnalysisPageState extends State<AnalysisPage>
                 ],
               ),
             ),
-          // v919：场景内分镜编排策略（🧠分析编排产出，标题+边框+四要素分行）
+          // v919：场景交手回合记录（🧠分析交手回合产出，标题+边框+四要素分行）
           if (analyzedScene?.choreo.isNotEmpty == true) ...[
             ..._buildSceneChoreoBlock(analyzedScene!, '${foldKey}_choreo'),
           ],
@@ -1720,7 +1720,7 @@ class _AnalysisPageState extends State<AnalysisPage>
         '弧线${an.arcNumber}概述：${an.arcSummary.isNotEmpty ? an.arcSummary : arc.summary}',
       );
       sb.writeln();
-      // v1084：弧线级编排对齐分镜页（分镜页有"弧线目的"弧线级折叠块（v1205））
+      // v1084：弧线级目的对齐分镜页（分镜页有"弧线目的"弧线级折叠块（v1205））
       final arcChoreoTxt = (arc.arcChoreo.isNotEmpty
               ? arc.arcChoreo
               : (an.metadata?['arc_choreo']?.toString() ?? ''))
@@ -1734,10 +1734,10 @@ class _AnalysisPageState extends State<AnalysisPage>
           '场景${an.scenes.indexOf(sc) + 1}：${sc.name}（${sc.chapterRange}）',
         );
         if (sc.summary.isNotEmpty) sb.writeln('概述：${sc.summary}');
-        // v1084：场景级编排——标签对齐分镜页（场景内分镜编排策略），
+        // v1084：场景级交手回合——标签对齐分镜页（场景交手回合记录），
         // 多行合并单行（按行解析的第二行起会掉进分镜折叠）
         if (sc.choreo.isNotEmpty) {
-          sb.writeln('场景内分镜编排策略：${sc.choreo.trim().replaceAll('\n', ' ')}');
+          sb.writeln('场景交手回合记录：${sc.choreo.trim().replaceAll('\n', ' ')}');
         }
         for (var i = 0; i < sc.shots.length; i++) {
           final sh = sc.shots[i];
@@ -1932,7 +1932,7 @@ class _AnalysisPageState extends State<AnalysisPage>
         '弧线${an.arcNumber}概述：${an.arcSummary.isNotEmpty ? an.arcSummary : arc.summary}',
       );
       sb.writeln();
-      // v1084：弧线级编排对齐分镜页（分镜页有"弧线目的"弧线级折叠块（v1205））
+      // v1084：弧线级目的对齐分镜页（分镜页有"弧线目的"弧线级折叠块（v1205））
       final arcChoreoTxt = (arc.arcChoreo.isNotEmpty
               ? arc.arcChoreo
               : (an.metadata?['arc_choreo']?.toString() ?? ''))
@@ -1946,10 +1946,10 @@ class _AnalysisPageState extends State<AnalysisPage>
           '场景${an.scenes.indexOf(sc) + 1}：${sc.name}（${sc.chapterRange}）',
         );
         if (sc.summary.isNotEmpty) sb.writeln('概述：${sc.summary}');
-        // v1084：场景级编排——标签对齐分镜页（场景内分镜编排策略），
+        // v1084：场景级交手回合——标签对齐分镜页（场景交手回合记录），
         // 多行合并单行（按行解析的第二行起会掉进分镜折叠）
         if (sc.choreo.isNotEmpty) {
-          sb.writeln('场景内分镜编排策略：${sc.choreo.trim().replaceAll('\n', ' ')}');
+          sb.writeln('场景交手回合记录：${sc.choreo.trim().replaceAll('\n', ' ')}');
         }
         for (var i = 0; i < sc.shots.length; i++) {
           final sh = sc.shots[i];
@@ -2344,10 +2344,10 @@ class _AnalysisPageState extends State<AnalysisPage>
         scene.shots = shotsJson
             .map((e) => Shot.fromJson(e as Map<String, dynamic>))
             .toList();
-        // v1015：重拆分镜=旧编排策略作废，清空choreo——增量编排分析据此
-        // 识别"有分镜没编排"的场景重新分析（不清空=旧编排残留且被增量跳过）
+        // v1015：重拆分镜=旧交手回合策略作废，清空choreo——增量交手回合分析据此
+        // 识别"有分镜没交手回合"的场景重新分析（不清空=旧交手回合残留且被增量跳过）
         scene.choreo = '';
-        // v901：choreo已拆到独立按键（拆分镜纯骨架+镜级维度，编排策略
+        // v901：choreo已拆到独立按键（拆分镜纯骨架+镜级维度，交手回合策略
         // 单独分析保质量）——Scene.choreo由analyzeSceneChoreo写入，此处不再赋值
           // v363：镜级切片物化（尽力而为）——从scene.text链式定位每镜end_text。
           // 失败→该镜text留空，创作端回退场景切片，绝不影响拆解落库（与场景
@@ -2382,7 +2382,7 @@ class _AnalysisPageState extends State<AnalysisPage>
           if (analysis.scenes.isEmpty) analysis.scenes = scenes;
           if (sceneIdx < analysis.scenes.length) {
             analysis.scenes[sceneIdx].shots = scene.shots; // 覆盖对应场景分镜（统一格式相互覆盖）
-            analysis.scenes[sceneIdx].choreo = scene.choreo; // v1015：同步清空旧编排
+            analysis.scenes[sceneIdx].choreo = scene.choreo; // v1015：同步清空旧交手回合
           }
           state.saveArcAnalyses();
           // v210：两步拆解补已拆解标记——此前只有一步拆解markArcAnalyzed，
@@ -2393,12 +2393,12 @@ class _AnalysisPageState extends State<AnalysisPage>
             _addLog('分镜字段：${scene.shots.first.toJson().keys.join(', ')}');
           }
           state.refresh();
-          // v1007：编排策略自动分析（用户裁决：单场景拆完分镜后自动跑，
+          // v1007：交手回合策略自动分析（用户裁决：单场景拆完分镜后自动跑，
           // 批量路径在批量完成后统一自动跑，此处!batch防双重）
           if (!batch) {
-            _addLog('━━ 【场景内分镜编排策略】自动分析开始…');
+            _addLog('━━ 【场景交手回合记录】自动分析开始…');
             await analyzeSceneChoreo(state: state, scene: scene, log: _addLog);
-            _addLog('✅ 场景内分镜编排策略完成');
+            _addLog('✅ 场景交手回合记录完成');
           }
           return true;
       } else {
@@ -2424,12 +2424,12 @@ class _AnalysisPageState extends State<AnalysisPage>
     }
   }
 
-  /// v1023c：编排增量清扫——扫描'有分镜没choreo'的场景补跑编排分析。
+  /// v1023c：交手回合增量清扫——扫描'有分镜没choreo'的场景补跑交手回合分析（v1218"编排"改名"交手回合"）。
   /// v1028：A方案流水线——onlyArcNumber非空=弧线级清扫（该弧线拆完分镜立刻
   /// 清扫本弧线，中断时弧线内自洽）；空=全书清扫（无未拆场景早退时的存量补齐）
   Future<void> _runChoreoSweep(AppState state, {int? onlyArcNumber}) async {
     final scope = onlyArcNumber != null ? '弧线$onlyArcNumber' : '全书';
-    _addLog('━━ 【场景内分镜编排策略】增量分析开始（$scope扫描：只跑有分镜没编排的场景）…');
+    _addLog('━━ 【场景交手回合记录】增量分析开始（$scope扫描：只跑有分镜没交手回合的场景）…');
     var choreoDone = 0;
     var skipped = 0;
     for (final arc in state.allArcs) {
@@ -2441,7 +2441,7 @@ class _AnalysisPageState extends State<AnalysisPage>
         if (scene.shots.isEmpty) continue;
         if (scene.choreo.isNotEmpty) {
           skipped++;
-          continue; // 已有编排分析→增量跳过
+          continue; // 已有交手回合分析→增量跳过
         }
         await analyzeSceneChoreo(
           state: state,
@@ -2452,7 +2452,7 @@ class _AnalysisPageState extends State<AnalysisPage>
       }
     }
     state.saveArcScenes();
-    _addLog('✅ 【场景内分镜编排策略】增量分析完成（$scope）：新分析$choreoDone个，已有跳过$skipped个');
+    _addLog('✅ 【场景交手回合记录】增量分析完成（$scope）：新分析$choreoDone个，已有跳过$skipped个');
   }
 
   /// 智能分发拆解（v469 analyzeSingleArc语义）：
@@ -2571,9 +2571,9 @@ class _AnalysisPageState extends State<AnalysisPage>
     if (toAnalyze.isEmpty) {
       _addLog(stoppedByIncomplete
           ? '⛔ 未闭合弧线之后的分镜未拆（先闭合该弧线）'
-          : '没有需要拆解的场景——转入编排增量清扫');
-      // v1023c：没有未拆场景≠没事干——'已拆但没编排分析'的存量场景
-      // 在这里补跑编排增量（此前直接return=批量永远碰不到它们，用户实测）
+          : '没有需要拆解的场景——转入交手回合增量清扫');
+      // v1023c：没有未拆场景≠没事干——'已拆但没交手回合分析'的存量场景
+      // 在这里补跑交手回合增量（此前直接return=批量永远碰不到它们，用户实测）
       if (!stoppedByIncomplete) {
         setState(() => _isAnalyzing = true);
         try {
@@ -2650,7 +2650,7 @@ class _AnalysisPageState extends State<AnalysisPage>
         final pending = entry.value;
         setState(() => _statusText = '批量拆分镜：$done/$totalArcs弧线');
         _addLog('━━ 弧线$arcKey（$done/$totalArcs）：${pending.length}个场景待拆');
-        // v1028 A方案：弧线号预取——本弧线拆完立刻清扫本弧线的编排
+        // v1028 A方案：弧线号预取——本弧线拆完立刻清扫本弧线的交手回合
         final arcNumber = int.tryParse(arcKey);
         for (final si in pending) {
           if (state.api.isAborted || state.userAborted) {
@@ -2667,7 +2667,7 @@ class _AnalysisPageState extends State<AnalysisPage>
             break;
           }
         }
-        // v1028 A方案流水线：本弧线分镜全拆完→立刻清扫本弧线的编排
+        // v1028 A方案流水线：本弧线分镜全拆完→立刻清扫本弧线的交手回合
         // （拆解abort/终止时清扫同样跳过——终止语义保持一致）
         if (arcNumber != null &&
             !state.api.isAborted &&
@@ -2680,7 +2680,7 @@ class _AnalysisPageState extends State<AnalysisPage>
       // v998：补齐global_scenes落盘——分镜写在globalScenes共享实例上，
       // 不落盘=重启重绑用旧global_scenes.json覆盖=分镜全丢（用户实测）
       state.saveGlobalScenes();
-      // v903/v1015/v1022/v1023c：批量拆完后全书编排增量清扫（抽方法复用）
+      // v903/v1015/v1022/v1023c：批量拆完后全书交手回合增量清扫（抽方法复用）
       if (!state.api.isAborted && !state.userAborted) {
         await _runChoreoSweep(state);
       }

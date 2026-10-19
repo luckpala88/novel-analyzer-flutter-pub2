@@ -11,7 +11,7 @@ class SceneCardItem extends StatelessWidget {
   final VoidCallback? onView; // 切片查看
   final VoidCallback? onCutResume; // v462：从此场景剪断重扫
   final VoidCallback? onRegenSummary; // v819：单场景概述重生成（切片重喂，边界/弧线不动）
-  final VoidCallback? onAnalyzeChoreo; // v901：场景内分镜编排策略分析（拆分镜后可用）
+  final VoidCallback? onAnalyzeChoreo; // v901：场景内分镜交手回合分析（拆分镜后可用，v1218原"编排"）
   final VoidCallback? onShots; // v981：点分镜徽章查看该场景全部分镜完整内容
   final Widget? trailing; // 行1右侧自定义区（默认分镜状态徽章）
   final String scenePurpose; // v1211：场景目的（弧线页从scene_choreos提取传入，空不显示）
@@ -160,7 +160,7 @@ class SceneCardItem extends StatelessWidget {
               ),
             ),
           ],
-          // v882：编排标注（分组产出，逐场景功能+蓄力）
+          // v882：逐场景目的标注（分组产出，v1218原"编排"名）
           // v1017：默认折叠——点标题展开+底部收起键（对齐分镜页v1006）
           if (scene.choreo.isNotEmpty) ...[
             _ChoreoFoldSection(choreo: scene.choreo),
@@ -176,14 +176,14 @@ class SceneCardItem extends StatelessWidget {
                     fontSize: 10, color: V469Style.textMuted),
               ),
               const Spacer(),
-              // v901：编排策略分析（拆分镜后可用）
+              // v901：交手回合分析（拆分镜后可用，v1218原"编排"）
               if (onAnalyzeChoreo != null && hasShots)
                 GestureDetector(
                   onTap: onAnalyzeChoreo,
                   child: const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 5),
                     child: Text(
-                      '🧠 编排',
+                      '🧠 交手回合',
                       style: TextStyle(
                         fontSize: 10,
                         color: Color(0xFFB45309),
@@ -230,7 +230,7 @@ class SceneCardItem extends StatelessWidget {
 }
 
 
-/// v1017：场景卡编排折叠区——默认折叠，点标题行展开，底部'▲收起'
+/// v1017：场景卡交手回合折叠区——默认折叠，点标题行展开，底部'▲收起'
 /// （场景页+弧线页共用，本地内存态；卡多时默认收起=浏览清爽）
 class _ChoreoFoldSection extends StatefulWidget {
   final String choreo;
@@ -298,7 +298,7 @@ class _ChoreoFoldSectionState extends State<_ChoreoFoldSection> {
                   )),
               const SizedBox(width: 4),
               const Expanded(
-                child: Text('🎞 分镜编排（场景内分镜编排策略）',
+                child: Text('🎞 交手回合（场景交手回合记录）',
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w700,

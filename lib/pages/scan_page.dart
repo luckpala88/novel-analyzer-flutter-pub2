@@ -41,7 +41,7 @@ class _ScanPageState extends State<ScanPage>
     with AutomaticKeepAliveClientMixin {
   // v1007：弧线目的折叠态——默认折叠，per-arc key=弧线号（内存态；v1209）
   final Set<String> _arcChoreoOpen = {};
-  // v1020：编排块标题Key表——折叠/展开后锚定视线
+  // v1020：弧线目的块标题Key表——折叠/展开后锚定视线（v1218原"编排块"）
   final Map<String, GlobalKey> _choreoHeaderKeys = {};
   GlobalKey _choreoKey(String k) =>
       _choreoHeaderKeys.putIfAbsent(k, () => GlobalKey());
@@ -437,7 +437,7 @@ class _ScanPageState extends State<ScanPage>
                       ),
                     ),
                   ),
-                  // v1157：恢复弧线页词链开关（分组/零件提取/编排发前弹预览）
+                  // v1157：恢复弧线页词链开关（分组/零件提取/目的分析发前弹预览）
                   const SizedBox(width: 6),
                   MiniButton(
                     label: '词链',
@@ -689,7 +689,7 @@ class _ScanPageState extends State<ScanPage>
                                           const Color(0xFF0369A1),
                                           const Color(0x140369A1),
                                         ),
-                                        // v1189：编排徽章（全景提取产出arc_choreo）
+                                        // v1189：弧线目的徽章（全景提取产出arc_choreo，v1218"编排"改名"目的"）
                                         Builder(builder: (ctx) {
                                           final ch = state
                                               .arcAnalyses[arc.number
@@ -698,12 +698,12 @@ class _ScanPageState extends State<ScanPage>
                                               ?.toString();
                                           return (ch == null || ch.isEmpty)
                                               ? V469Style.badge(
-                                                  '🎼 无编排',
+                                                  '🎯 无弧线目的',
                                                   const Color(0xFFB45309),
                                                   const Color(0x14B45309),
                                                 )
                                               : V469Style.badge(
-                                                  '🎼 编排',
+                                                  '🎯 弧线目的',
                                                   const Color(0xFF7C3AED),
                                                   const Color(0x147C3AED),
                                                 );
@@ -1119,7 +1119,7 @@ const SizedBox(height: 8),
                                         ],
                                       ),
                                       // v1167：弧线页直显零件区（用户需求：不切分镜页查看；
-                                      // 只渲染零件，不含分镜编排/分镜内容）
+                                      // 只渲染零件，不含交手回合/分镜内容）
                                       Padding(
                                           padding: const EdgeInsets.only(top: 8),
                                           child: Builder(builder: (_) {
@@ -1256,8 +1256,8 @@ const SizedBox(height: 8),
         state.saveArcScan();
         state.saveArcAnalyses();
         state.saveArcScenes();
-        // v1175：剪断点之后的场景分镜/编排产物随弧线作废（弧线边界变了，
-        // 旧编排基于旧弧线上下文——残留会让分镜页误显示已拆/已编排）
+        // v1175：剪断点之后的场景分镜/交手回合产物随弧线作废（弧线边界变了，
+        // 旧交手回合基于旧弧线上下文——残留会让分镜页误显示已拆/已分析）
         for (var i = cutIdx; i < state.globalScenes.length; i++) {
           state.globalScenes[i].shots = [];
           state.globalScenes[i].choreo = '';
@@ -1268,7 +1268,7 @@ const SizedBox(height: 8),
         state.rollbackLedgerToLatestSnapshot();
         final keptEnd = state.globalGroupedUpTo;
         _addLog(
-          '✂ 已剪断重分点：删除$removed条弧线，保留${kept.length}条（平铺到场景$keptEnd），剪断点后的分镜/编排产物已清——点批量→"生成弧线（从场景${keptEnd + 1}继续）"',
+          '✂ 已剪断重分点：删除$removed条弧线，保留${kept.length}条（平铺到场景$keptEnd），剪断点后的分镜/交手回合产物已清——点批量→"生成弧线（从场景${keptEnd + 1}继续）"',
         );
       } catch (e) {
         _addLog('⛔ 剪断重分异常：$e');
@@ -1316,13 +1316,13 @@ const SizedBox(height: 8),
       // v1173：重分必清账本——漏清则弧线1对账拿旧全书账本当"上一版"照抄（用户实测漏报）
       state.stateLedger.clear();
       state.saveStateLedger();
-      // v1175：重分同时清场景上的分镜拆解+编排产物——旧记录残留会让分镜页
-      // 误显示"已拆/已编排"（清理清单写于v878分镜字段存在之前，数据演进后漏更新）
+      // v1175：重分同时清场景上的分镜拆解+交手回合产物——旧记录残留会让分镜页
+      // 误显示"已拆/已交手回合"（清理清单写于v878分镜字段存在之前，数据演进后漏更新）
       for (final sc in state.globalScenes) {
         sc.shots = [];
         sc.choreo = '';
       }
-      _addLog('分组已清空+账本已清空+场景分镜/编排产物已清空，自动从头重新生成弧线（含逐弧线零件提取）');
+      _addLog('分组已清空+账本已清空+场景分镜/交手回合产物已清空，自动从头重新生成弧线（含逐弧线零件提取）');
       try {
         await groupArcsFromScenes(state: state, log: _addLog);
       } catch (e) {

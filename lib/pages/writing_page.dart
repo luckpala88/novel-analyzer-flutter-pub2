@@ -1770,7 +1770,7 @@ class _WritingPageState extends State<WritingPage>
     }
     for (final c in choreos.take(2)) {
       n++;
-      buf.writeln('$n. [场景编排] $c');
+      buf.writeln('$n. [交手回合] $c');
     }
     return n == 0 ? '' : buf.toString().trim();
   }
