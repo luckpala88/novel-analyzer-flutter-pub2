@@ -239,7 +239,6 @@ class ApiService {
         ? baseUrl.substring(0, 40)
         : baseUrl;
     _log('API -> $model [$apiType] @ $baseUrlShort');
-    _log('温度$temperature｜max_tokens$maxTokens'); // v1140：每次调用终端显示实际温度（覆盖无task名的直接调用）
     _startTimer();
     _startGen('正在生成中...');
 
@@ -320,6 +319,11 @@ class ApiService {
         }
       }
 
+      // v1220：参数日志=实际发送值（组装完body后从body读，防"设置≠发送"漂移——用户裁决）
+      _log(
+        '发送参数：模型${body['model']}｜温度${body['temperature']}'
+        '｜max_tokens${body['max_tokens']}${body['stream'] == true ? '｜流式' : '｜整包'}',
+      );
       _log('发送请求...');
       // 传输模式分流（v175对齐HTML版）：
       // - json模式/Claude：流式（Gemini thinking防CF 524；Claude原生流）

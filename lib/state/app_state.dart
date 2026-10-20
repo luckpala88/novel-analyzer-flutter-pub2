@@ -1992,8 +1992,8 @@ class AppState extends ChangeNotifier {
         // 右列新名禁收卫兵始终生效防二次映射
         forbiddenNames: _mapRightColumnNames(),
       ),
-      temperature: 0.3,
-      maxTokens: 4000,
+      temperature: config.temperature, // v1220：跟随API面板（此前写死0.3绕开面板配置）
+      maxTokens: config.maxTokens,
     );
     var response = await nmCall();
     var nmRetry = 0;

@@ -1302,8 +1302,8 @@ return true;
         model: apiConfig.effectiveModel,
         systemPrompt: sysPrompt,
         userPrompt: userPrompt,
-        temperature: 0.4,
-        maxTokens: 8000,
+        temperature: apiConfig.temperature, // v1220：跟随API面板（此前写死0.4）
+        maxTokens: apiConfig.maxTokens,
       );
       var raw = response.content.trim();
       raw = apiConfig.formatMode == 'json'
@@ -4766,8 +4766,8 @@ return true;
         model: apiConfig.effectiveModel,
         systemPrompt: sysPrompt,
         userPrompt: userPrompt,
-        temperature: 0.4,
-        maxTokens: 8000,
+        temperature: apiConfig.temperature, // v1220：跟随API面板（此前写死0.4）
+        maxTokens: apiConfig.maxTokens,
       );
       // v256：声明输出按API模式分支——声明prompt要求纯文本，但json模式
       // 的response_format会把输出包装成{"content":"…"}（且\n为转义），
