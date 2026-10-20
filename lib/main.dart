@@ -58,7 +58,7 @@ class NovelAnalyzerApp extends StatelessWidget {
             centerTitle: false,
             elevation: 0,
             backgroundColor: Color(0xFFFFFFFF),
-            foregroundColor: Color(0xFF2C1810),
+            foregroundColor: Color(0xFF000000), // v1219纯黑（AppBar前景）
           ),
           navigationBarTheme: NavigationBarThemeData(
             backgroundColor: const Color(0xFFFFFFFF),
@@ -83,7 +83,7 @@ class NovelAnalyzerApp extends StatelessWidget {
             margin: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           ),
           textTheme: const TextTheme(
-            bodyMedium: TextStyle(color: Color(0xFF2C1810)),
+            bodyMedium: TextStyle(color: Color(0xFF000000)), // v1219纯黑
             bodySmall: TextStyle(color: Color(0xFF6B5D54)),
             labelSmall: TextStyle(color: Color(0xFF9A8B80)),
           ),

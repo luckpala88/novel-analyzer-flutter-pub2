@@ -4862,7 +4862,7 @@ class _WritingPageState extends State<WritingPage>
               style: TextStyle(
                 fontSize: fontSize,
                 height: 1.8,
-                color: const Color(0xFF2C1810),
+                color: const Color(0xFF000000), // v1219纯黑
                 textBaseline: TextBaseline.ideographic,
               ),
               textAlign: TextAlign.justify,
@@ -4960,7 +4960,7 @@ class _WritingPageState extends State<WritingPage>
                 style: TextStyle(
                   fontSize: fontSize,
                   height: 1.8,
-                  color: const Color(0xFF2C1810),
+                  color: const Color(0xFF000000), // v1219纯黑
                   textBaseline: TextBaseline.ideographic,
                 ),
                 textAlign: TextAlign.justify,
@@ -4985,7 +4985,7 @@ class _WritingPageState extends State<WritingPage>
             style: TextStyle(
               fontSize: fontSize,
               height: 1.8,
-              color: const Color(0xFF2C1810),
+              color: const Color(0xFF000000), // v1219纯黑
               textBaseline: TextBaseline.ideographic,
             ),
             textAlign: TextAlign.justify,

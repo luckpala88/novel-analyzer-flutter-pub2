@@ -26,7 +26,7 @@ class V469Style {
   static const incompleteBg = Color(0xFFFBEAE8);
   static const surface = Color(0xFFFFFFFF);
   static const surfaceAlt = Color(0xFFF5F0E8); // 暖灰
-  static const textMain = Color(0xFF2C1810);
+  static const textMain = Color(0xFF000000); // v1219：纯黑（用户裁决，原深棕0xFF2C1810——4K屏可读性）
   static const textSec = Color(0xFF6B5D54);
   static const textMuted = Color(0xFF9A8B80);
   static const border = Color(0xFFE8E0D5);

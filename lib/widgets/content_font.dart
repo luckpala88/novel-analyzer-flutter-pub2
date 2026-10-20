@@ -8,7 +8,7 @@ import 'v119_ui.dart';
 /// 实现：内容区包MediaQuery textScaler子树等比缩放；顶栏按钮在子树外不受影响
 class ContentFont {
   static const double min = 0.8;
-  static const double max = 1.6;
+  static const double max = 2.2; // v1219：上限1.6→2.2（用户裁决：4K显示器需要更大字号）
   static const double step = 0.1;
 
   static Future<double> load(String pageKey) async {

@@ -65,6 +65,10 @@ class ApiService {
   // v213的call()入口自清_aborted让下一请求照发=循环停不下来
   void Function()? onUserAbort;
   bool _busy = false; // 全局忙锁：同时只允许一个生成任务（禁止并行，数据安全）
+  // v1219：流式无首字看门狗总开关（默认开；AppState持久化，API设置面板可切）
+  bool noFirstByteRetryEnabled = true;
+  bool _noFirstByteFired = false; // 看门狗已触发（90秒零内容chunk强制断连）
+  int _clientGen = 0; // 客户端代际：看门狗防误伤后续请求的新连接
 
   // ===== 滑动窗口限流（中转站RPM限制）=====
   final List<DateTime> _recentCalls = [];
@@ -129,6 +133,7 @@ class ApiService {
 
   /// 新建带强制断连能力的client（所有请求统一走这里）
   IOClient _newClient() {
+    _clientGen++; // 每个新client一代：旧看门狗到期按代际失效（防误关新连接）
     final inner = dart_io.HttpClient()
       ..connectionTimeout = const Duration(seconds: 60);
     final client = IOClient(inner);
@@ -356,6 +361,43 @@ class ApiService {
               elapsed: stopwatch.elapsed,
             );
           }
+          // v1219：流式90秒无首字（中转SSE挂起/CDN掐思考期）——自动断开已由
+          // _fetchStream看门狗完成（statusCode 599），这里换模型重试一次：
+          // 名字带-high后缀→去掉（思考链短命中快），否则原模型重连（常命中快路径）
+          if (result.statusCode == 599 &&
+              noFirstByteRetryEnabled &&
+              !_aborted &&
+              useStream) {
+            final origModel = (body['model'] as String?) ?? '';
+            final altModel = origModel.endsWith('-high')
+                ? origModel.substring(0, origModel.length - 5)
+                : origModel;
+            body['model'] = altModel;
+            _log(
+              altModel != origModel
+                  ? '⚠️ 90秒无首字（中转挂起/思考期被掐），自动换模型重试：$altModel'
+                  : '⚠️ 90秒无首字（中转挂起），自动重试一次（重连常命中快路径）...',
+            );
+            _resetAbort();
+            final r2 = await _fetchStream(
+              url,
+              headers,
+              body,
+              isClaude,
+              onChunk,
+              stopwatch,
+            );
+            if (r2.statusCode == 599 && !_aborted) {
+              return ApiResult(
+                content: '',
+                error:
+                    '连续2次90秒无首字（中转SSE挂起）：建议换中转或换不带思考链的模型',
+                statusCode: 599,
+                elapsed: stopwatch.elapsed,
+              );
+            }
+            return r2;
+          }
           return result;
         }
         final waitSec = emptyOk ? 5 : 8 * (attempt + 1);
@@ -380,6 +422,15 @@ class ApiService {
           content: '',
           error: '用户中断',
           statusCode: 0,
+          elapsed: stopwatch.elapsed,
+        );
+      }
+      // v1219：看门狗强制断连引发的ClientException——交599给上层换模型重试
+      if (_noFirstByteFired) {
+        return ApiResult(
+          content: '',
+          error: '90秒无首字（中转SSE挂起）',
+          statusCode: 599,
           elapsed: stopwatch.elapsed,
         );
       }
@@ -414,6 +465,22 @@ class ApiService {
 
     final client = _newClient(); // abort可force close
     _activeClient = client;
+    // v1219：无首字看门狗——90秒没收到任何内容chunk就强制断连（防中转SSE
+    // 挂起假死：HTTP 200后服务端一个字节不吐，用户只能干等再手动终止）。
+    // 实证：gcli中转00:29:37发出→00:30:23收到200→166秒零字节被迫手动中断。
+    // 代际校验防误伤：本请求提前结束后，到期看门狗不得关掉后续请求的新连接
+    var gotFirst = false;
+    _noFirstByteFired = false;
+    final myGen = _clientGen;
+    // 不持有Timer引用：代际+gotFirst+_aborted三重守卫保证到期自动失效
+    Timer(const Duration(seconds: 90), () {
+      if (gotFirst || _aborted || myGen != _clientGen) return;
+      _noFirstByteFired = true;
+      _log('⚠️ 90秒无首字，主动断开（中转SSE挂起/CDN掐思考期）...');
+      try {
+        _activeInner?.close(force: true);
+      } catch (_) {}
+    });
     final response = await client.send(request);
 
     _log('收到响应: HTTP ${response.statusCode}');
@@ -478,6 +545,7 @@ class ApiService {
             if (parsed['type'] == 'content_block_delta' &&
                 parsed['delta']?['text'] != null) {
               final text = parsed['delta']['text'] as String;
+              gotFirst = true; // v1219：首字已到，看门狗失效
               buffer.write(text);
               onChunk?.call(text);
             }
@@ -496,11 +564,13 @@ class ApiService {
               final choice = choices[0] as Map<String, dynamic>;
               if (choice['delta']?['content'] != null) {
                 final text = choice['delta']['content'] as String;
+                gotFirst = true; // v1219：首字已到，看门狗失效
                 buffer.write(text);
                 onChunk?.call(text);
               }
               if (choice['message']?['content'] != null) {
                 final text = choice['message']['content'] as String;
+                gotFirst = true; // v1219：首字已到，看门狗失效
                 buffer.write(text);
                 onChunk?.call(text);
               }
@@ -521,6 +591,17 @@ class ApiService {
       }
     }
 
+    // v1219：流被正常结束但看门狗已触发（close后stream走done不走error的路径）——
+    // 此时零内容，不能当正常完成返回，交599给callApi换模型重试
+    if (_noFirstByteFired) {
+      _stopTimer();
+      return ApiResult(
+        content: '',
+        error: '90秒无首字（中转SSE挂起）',
+        statusCode: 599,
+        elapsed: stopwatch.elapsed,
+      );
+    }
     _log('SSE流结束, 内容${buffer.length}字');
     // 处理rawBuffer中可能残留的最后一行（不以\n结尾的情况）
     if (rawBuffer.trim().isNotEmpty) {

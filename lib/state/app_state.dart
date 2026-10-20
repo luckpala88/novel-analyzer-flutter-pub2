@@ -265,6 +265,8 @@ class AppState extends ChangeNotifier {
   /// v224：用户主动终止标志（终端abort按钮）——页面级批量循环统一检查，
   /// 任任务启动时清零。终端按钮此前只断当前请求，循环继续发下一请求
   bool userAborted = false;
+  // v1219：流式90秒无首字自动断开+换模型重试一次（全局机制，烧API故开关化默认开）
+  bool sseFirstByteRetry = true;
   final ValueNotifier<double> apiTimerSeconds = ValueNotifier(0);
   // 生成状态（前台服务）
   int generationCount = 0;
@@ -1085,6 +1087,10 @@ class AppState extends ChangeNotifier {
         storage.readFile('${p}writing_free_continue.flag') == 'true'; // v792
     writingXuFree =
         storage.readFile('${p}writing_xu_free.flag') == 'true'; // v1063
+    // v1219：流式无首字看门狗开关（全局机制，默认开——旧装无flag文件保持开启）
+    sseFirstByteRetry =
+        storage.readFile('sse_first_byte_retry.flag') != 'false';
+    api.noFirstByteRetryEnabled = sseFirstByteRetry;
     writingLastSceneSample =
         storage.readFile('${p}writing_last_scene_sample.flag') == 'true'; // v1067
     // v592：精简分镜开关
@@ -1824,6 +1830,14 @@ class AppState extends ChangeNotifier {
       '${storage.bookPath}writing_plagiarism_check.flag',
       v ? 'true' : 'false',
     );
+    notifyListeners();
+  }
+
+  /// v1219：流式无首字看门狗开关持久化（全局机制，不分书）
+  void setSseFirstByteRetry(bool v) {
+    sseFirstByteRetry = v;
+    api.noFirstByteRetryEnabled = v;
+    storage.writeFile('sse_first_byte_retry.flag', v ? 'true' : 'false');
     notifyListeners();
   }
 
