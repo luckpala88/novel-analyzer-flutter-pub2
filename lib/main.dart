@@ -84,8 +84,8 @@ class NovelAnalyzerApp extends StatelessWidget {
           ),
           textTheme: const TextTheme(
             bodyMedium: TextStyle(color: Color(0xFF000000)), // v1219纯黑
-            bodySmall: TextStyle(color: Color(0xFF6B5D54)),
-            labelSmall: TextStyle(color: Color(0xFF9A8B80)),
+            bodySmall: TextStyle(color: Color(0xFF000000)), // v1222纯黑（与原textSec同款=大量内容渲染层）
+            labelSmall: TextStyle(color: Color(0xFF9A8B80)), // v1222保持原色（用户裁决：只改最大量内容色）
           ),
           // 文字按钮描边（不加尺寸）：让它看起来是按键而不是纯文字
           textButtonTheme: TextButtonThemeData(
