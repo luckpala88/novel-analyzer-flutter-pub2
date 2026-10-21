@@ -54,6 +54,35 @@ String _httpErrorMessage(int statusCode, String errShort, String requestBody) {
   return 'HTTP $statusCode: $errShort';
 }
 
+/// v1221：朱雀AI浓度检测结果（腾讯EdgeOne Makers @makers/zhuque-text）
+class ZhuqueSeg {
+  final String text;
+  final int label; // 0=人工 1=AI 2=疑似AI
+  final double conf;
+  final List<int> position;
+  ZhuqueSeg({
+    required this.text,
+    required this.label,
+    required this.conf,
+    required this.position,
+  });
+}
+
+class ZhuqueResult {
+  final double human, ai, suspect; // labels_ratio三占比（0人工/1AI/2疑似）
+  final double softmax; // 整体置信度，越大越像AI
+  final List<ZhuqueSeg> segments;
+  final int usedTokens; // makers_models_usage.total_tokens=实扣免费额度
+  ZhuqueResult({
+    required this.human,
+    required this.ai,
+    required this.suspect,
+    required this.softmax,
+    required this.segments,
+    required this.usedTokens,
+  });
+}
+
 /// API服务 — 统一HTTP客户端
 /// 支持: OpenAI兼容格式, Claude原生格式
 class ApiService {
@@ -150,6 +179,65 @@ class ApiService {
   /// 公开重置中断状态（新任务开始前调用，清除上次abort残留）
   void clearAbort() {
     _aborted = false;
+  }
+
+  /// v1221：朱雀AI浓度检测（腾讯EdgeOne Makers @makers/zhuque-text）
+  /// 独立POST不走忙锁不占生成通道（查询型请求）；返回null=失败（error为null时看日志）
+  Future<ZhuqueResult?> zhuqueClassify({
+    required String apiKey,
+    required String text,
+  }) async {
+    try {
+      final resp = await http
+          .post(
+            Uri.parse(
+              'https://ai-gateway.edgeone.link/v1/providers/zhuque-text/classify',
+            ),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $apiKey',
+            },
+            body: jsonEncode({'text': text, 'is_merge': false}),
+          )
+          .timeout(const Duration(seconds: 60));
+      if (resp.statusCode != 200) {
+        _log('朱雀检测失败：HTTP ${resp.statusCode} ${resp.body.length > 200 ? resp.body.substring(0, 200) : resp.body}');
+        return null;
+      }
+      final d = jsonDecode(resp.body) as Map<String, dynamic>;
+      if (d['status'] != 'success') {
+        _log('朱雀检测失败：${d['msg'] ?? d['status']}');
+        return null;
+      }
+      final ratio = (d['labels_ratio'] as Map<String, dynamic>? ?? {});
+      final segs = <ZhuqueSeg>[];
+      for (final s in (d['segment_labels'] as List? ?? const [])) {
+        final m = s as Map<String, dynamic>;
+        segs.add(ZhuqueSeg(
+          text: (m['text'] as String?) ?? '',
+          label: (m['label'] as num?)?.toInt() ?? 0,
+          conf: (m['conf'] as num?)?.toDouble() ?? 0,
+          position: ((m['position'] as List?) ?? const [])
+              .map((e) => (e as num).toInt())
+              .toList(),
+        ));
+      }
+      return ZhuqueResult(
+        human: (ratio['0'] as num?)?.toDouble() ?? 0,
+        ai: (ratio['1'] as num?)?.toDouble() ?? 0,
+        suspect: (ratio['2'] as num?)?.toDouble() ?? 0,
+        softmax: (d['softmax_confidence'] as num?)?.toDouble() ?? 0,
+        segments: segs,
+        usedTokens:
+            ((d['makers_models_usage'] as Map<String, dynamic>? ?? {})['total_tokens']
+                    as num?)
+                ?.toInt() ??
+            0,
+      );
+    } catch (e) {
+      _log('朱雀检测异常：$e');
+      return null;
+    }
   }
 
   bool get isAborted => _aborted;

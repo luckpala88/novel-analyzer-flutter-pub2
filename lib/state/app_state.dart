@@ -267,6 +267,8 @@ class AppState extends ChangeNotifier {
   bool userAborted = false;
   // v1219：流式90秒无首字自动断开+换模型重试一次（全局机制，烧API故开关化默认开）
   bool sseFirstByteRetry = true;
+  // v1221：朱雀AI浓度检测Key（腾讯EdgeOne Makers，手动按钮触发非自动烧）
+  String zhuqueKey = '';
   final ValueNotifier<double> apiTimerSeconds = ValueNotifier(0);
   // 生成状态（前台服务）
   int generationCount = 0;
@@ -1074,6 +1076,8 @@ class AppState extends ChangeNotifier {
         storage.readFile('${p}writing_imitate_author.flag') == 'true';
     // v952：选中作家风格持久化（全局styles.json里的档案名；''=不启用）
     selectedWriterStyle = storage.readFile('writer_style.selected') ?? '';
+    // v1221：朱雀AI浓度检测Key（全局，独立于LLM提供商；腾讯EdgeOne Makers）
+    zhuqueKey = storage.readFile('zhuque.key') ?? '';
     // v755：防抄袭检测开关（默认开——旧装无flag文件时保持开启）
     writingPlagiarismCheck =
         storage.readFile('${p}writing_plagiarism_check.flag') != 'false';
@@ -1838,6 +1842,13 @@ class AppState extends ChangeNotifier {
     sseFirstByteRetry = v;
     api.noFirstByteRetryEnabled = v;
     storage.writeFile('sse_first_byte_retry.flag', v ? 'true' : 'false');
+    notifyListeners();
+  }
+
+  /// v1221：朱雀检测Key持久化（全局）
+  void setZhuqueKey(String v) {
+    zhuqueKey = v.trim();
+    storage.writeFile('zhuque.key', zhuqueKey);
     notifyListeners();
   }
 
