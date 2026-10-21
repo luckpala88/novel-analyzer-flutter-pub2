@@ -198,31 +198,36 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
   bool _zhuqueBusy = false;
 
   /// v1222：朱雀浓度检测（正文页手动触发，烧朱雀免费额度非LLM积分）
-  /// v1222b：已有结果直接重开统计卡（不烧token），复测走卡内「🔄复测」
-  Future<void> _zhuqueCheck({bool force = false}) async {
+  /// v1223：只检测纯正文（剥头部[模型:…]备注行，着色偏移同步平移）；去掉结果
+  /// 弹层（用户裁决：正文着色就是结果），统计走SnackBar一行+终端日志
+  Future<void> _zhuqueCheck() async {
     final state = context.read<AppState>();
     if (state.zhuqueKey.isEmpty) {
       _showZhuqueKeySheet(state);
       return;
     }
     final ch = widget.chapters[_currentIndex];
-    if (ch.content.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('本章正文为空'), duration: Duration(seconds: 1)));
-      return;
-    }
     if (_scrollEditing) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('先退出编辑态再检测'), duration: Duration(seconds: 1)));
       return;
     }
-    if (!force && _zhuqueResults[_currentIndex] != null) {
-      _showZhuqueResultCard(_zhuqueResults[_currentIndex]!, ch.content.length);
+    // 只检测纯正文：剥头部[模型:…]备注行及后随空行（备注行不计入AI浓度）
+    var text = ch.content;
+    var baseOffset = 0;
+    final head = RegExp(r'^\s*\[[^\]]*\]\s*').firstMatch(text);
+    if (head != null) {
+      baseOffset = head.end;
+      text = text.substring(head.end);
+    }
+    if (text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('本章无纯正文可检测'), duration: Duration(seconds: 1)));
       return;
     }
     setState(() => _zhuqueBusy = true);
     final r = await state.api
-        .zhuqueClassify(apiKey: state.zhuqueKey, text: ch.content);
+        .zhuqueClassify(apiKey: state.zhuqueKey, text: text);
     if (!mounted) return;
     setState(() => _zhuqueBusy = false);
     if (r == null) {
@@ -230,85 +235,24 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
           content: Text('检测失败（终端看原因）'), duration: Duration(seconds: 2)));
       return;
     }
-    setState(() => _zhuqueResults[_currentIndex] = r.segments);
-    _showZhuqueResultCard(r.segments, ch.content.length,
-        human: r.human, ai: r.ai, suspect: r.suspect, softmax: r.softmax, usedTokens: r.usedTokens);
-  }
-
-  /// v1222：结果统计卡（三占比+图例；正文段落已同步着色，详见正文红/橙/绿底）
-  /// v1222b：有缓存时点「测浓度」直接重开本卡；「🔄复测」才真正重新检测烧token
-  void _showZhuqueResultCard(List<ZhuqueSeg> segs, int totalLen,
-      {double? human, double? ai, double? suspect, double? softmax, int? usedTokens}) {
-    // 有实数=刚检测完；无实数=从缓存重开（占比从段落数粗算，仅展示用）
-    final h = human ?? _ratioFromSegs(segs, 0);
-    final a = ai ?? _ratioFromSegs(segs, 1);
-    final s = suspect ?? _ratioFromSegs(segs, 2);
-    showV119Sheet(
-      context,
-      title: '朱雀AI浓度 · ${widget.chapters[_currentIndex].title}',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Expanded(flex: (h * 100).round().clamp(1, 100), child: Container(height: 14, color: const Color(0xFF2E7D32))),
-            Expanded(flex: (s * 100).round().clamp(1, 100), child: Container(height: 14, color: const Color(0xFFEF6C00))),
-            Expanded(flex: (a * 100).round().clamp(1, 100), child: Container(height: 14, color: const Color(0xFFC62828))),
-          ]),
-          const SizedBox(height: 6),
-          Text('人工${(h * 100).toStringAsFixed(1)}% ｜ 疑似AI ${(s * 100).toStringAsFixed(1)}% ｜ AI ${(a * 100).toStringAsFixed(1)}%',
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-          Text(
-            softmax != null
-                ? '整体置信度${softmax.toStringAsFixed(4)} · ${totalLen}字 · 实扣${usedTokens}token'
-                : '统计自上次检测结果 · ${totalLen}字（点「🔄复测」重新检测）',
-            style: const TextStyle(fontSize: 11, color: Colors.grey),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-                color: const Color(0xFFF5F0E8),
-                borderRadius: BorderRadius.circular(6)),
-            child: const Text(
-              '正文段落已着色（滚动模式）：🟥红底=AI段  🟧橙底=疑似AI  🟩绿底=人工——点「编辑」可直接改，改完「🔄复测」',
-              style: TextStyle(fontSize: 11.5, height: 1.5),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(children: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _zhuqueCheck(force: true);
-              },
-              child: const Text('🔄复测', style: TextStyle(fontSize: 13)),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('关闭', style: TextStyle(fontSize: 13)),
-            ),
-          ]),
-        ],
-      ),
-    );
-  }
-
-  /// v1222b：从段落标签粗算占比（缓存重开时展示用，非官方labels_ratio）
-  double _ratioFromSegs(List<ZhuqueSeg> segs, int label) {
-    var hit = 0;
-    for (final s in segs) {
-      if (s.position.length >= 2 && s.label == label) {
-        hit += (s.position[1] - s.position[0]).clamp(0, 100000);
-      }
-    }
-    var total = 0;
-    for (final s in segs) {
-      if (s.position.length >= 2) {
-        total += (s.position[1] - s.position[0]).clamp(0, 100000);
-      }
-    }
-    return total == 0 ? 0 : hit / total;
+    // 着色偏移平移：检测文本剥了头部，着色基于原content——position整体+baseOffset
+    final shifted = r.segments
+        .map((s) => ZhuqueSeg(
+              text: s.text,
+              label: s.label,
+              conf: s.conf,
+              position: s.position.length >= 2
+                  ? [s.position[0] + baseOffset, s.position[1] + baseOffset]
+                  : s.position,
+            ))
+        .toList();
+    setState(() => _zhuqueResults[_currentIndex] = shifted);
+    AppState.instance.apiLog(
+        '🔬 朱雀·${ch.title}：人工${(r.human * 100).toStringAsFixed(0)}%｜疑似AI ${(r.suspect * 100).toStringAsFixed(0)}%｜AI ${(r.ai * 100).toStringAsFixed(0)}%（纯正文${text.length}字，实扣${r.usedTokens}token）');
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+            '正文已着色：🟥AI${(r.ai * 100).toStringAsFixed(0)}% 🟧疑似${(r.suspect * 100).toStringAsFixed(0)}% 🟩人工${(r.human * 100).toStringAsFixed(0)}%'),
+        duration: const Duration(seconds: 4)));
   }
 
   /// v1222：朱雀Key配置弹层（全局持久化）

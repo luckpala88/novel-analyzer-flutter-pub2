@@ -60,7 +60,6 @@ class _WritingPageState extends State<WritingPage>
   double _viewerFontSize = 15;
   bool _viewerEditing = false;
   final TextEditingController _viewerCtrl = TextEditingController();
-  final FocusNode _viewerFocus = FocusNode(); // v1221：朱雀靶子段落定位聚焦
 
   // 单分镜操作：编辑中的分镜key（wkey_shotIdx）+生成中标志
   String? _shotEditKey;
@@ -4206,184 +4205,6 @@ class _WritingPageState extends State<WritingPage>
     );
   }
 
-  /// v1221：朱雀AI浓度检测——手动按钮触发（烧的是朱雀免费额度非LLM积分）
-  Future<void> _zhuqueCheck(AppState state, WritingItem w) async {
-    final text = _viewerEditing ? _viewerCtrl.text : w.content;
-    if (text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('当前正文为空'), duration: Duration(seconds: 1)));
-      return;
-    }
-    if (state.zhuqueKey.isEmpty) {
-      _showZhuqueKeySheet(state);
-      return;
-    }
-    _addLog('🔬 朱雀浓度检测中（${text.length}字）…');
-    final r = await state.api
-        .zhuqueClassify(apiKey: state.zhuqueKey, text: text);
-    if (!mounted) return;
-    if (r == null) {
-      _addLog('⛔ 朱雀检测失败（终端看原因）');
-      return;
-    }
-    _addLog('🔬 人工${(r.human * 100).toStringAsFixed(0)}%｜疑似AI ${(r.suspect * 100).toStringAsFixed(0)}%｜AI ${(r.ai * 100).toStringAsFixed(0)}%（实扣${r.usedTokens}token）');
-    if (!mounted) return;
-    showV119Sheet(context, title: '朱雀AI浓度检测 · ${w.sceneName.isEmpty ? "正文" : w.sceneName}',
-      child: _zhuqueResultBody(r, text.length, state, w));
-  }
-
-  /// v1221：靶子段落定位——关结果弹层→正文进编辑态→光标选中该段（聚焦自动滚动），
-  /// 用户直接在编辑器里改，改完可再点「测浓度」复测
-  void _locateSeg(WritingItem w, String segText) {
-    Navigator.pop(context);
-    final text = _viewerEditing ? _viewerCtrl.text : w.content;
-    var pos = text.indexOf(segText);
-    if (pos < 0) {
-      // 正文与检测时已不一致：按段首12字模糊找
-      final probe = segText.length > 12 ? segText.substring(0, 12) : segText;
-      pos = text.indexOf(probe);
-    }
-    if (pos < 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('定位不到该段（正文已变化），请手动查找'),
-          duration: Duration(seconds: 2)));
-      return;
-    }
-    if (!_viewerEditing) {
-      _viewerCtrl.text = w.content;
-      setState(() => _viewerEditing = true);
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final end = (pos + segText.length).clamp(0, _viewerCtrl.text.length);
-      _viewerCtrl.value = TextEditingValue(
-        text: _viewerCtrl.text,
-        selection: TextSelection(baseOffset: pos, extentOffset: end),
-      );
-      _viewerFocus.requestFocus();
-    });
-  }
-
-  /// v1221：结果卡主体——三占比条+整体置信度+靶子段落卡（🔥红卡全文展示+✎改正文定位）
-  Widget _zhuqueResultBody(dynamic r, int totalLen, AppState state, WritingItem w) {
-    final hot = r.segments.where((s) => s.label == 1 || (s.label == 2 && s.conf >= 0.5)).toList()
-      ..sort((a, b) => b.conf.compareTo(a.conf));
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // 三占比（横条）：绿=人工/橙=疑似/红=AI
-        Row(children: [
-          Expanded(flex: (r.human * 100).round().clamp(1, 100), child: Container(height: 14, color: const Color(0xFF2E7D32))),
-          Expanded(flex: (r.suspect * 100).round().clamp(1, 100), child: Container(height: 14, color: const Color(0xFFEF6C00))),
-          Expanded(flex: (r.ai * 100).round().clamp(1, 100), child: Container(height: 14, color: const Color(0xFFC62828))),
-        ]),
-        const SizedBox(height: 6),
-        Text('人工${(r.human * 100).toStringAsFixed(1)}% ｜ 疑似AI ${(r.suspect * 100).toStringAsFixed(1)}% ｜ AI ${(r.ai * 100).toStringAsFixed(1)}%',
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-        Text('整体置信度${r.softmax.toStringAsFixed(4)}（越大越像AI）· 正文${totalLen}字 · 实扣${r.usedTokens}token（月额度50万）',
-          style: const TextStyle(fontSize: 11, color: V469Style.textMuted)),
-        const SizedBox(height: 8),
-        Text(hot.isEmpty ? '没有浓度偏高的段落，整体人工感良好' : '去AI味靶子（${hot.length}段，按浓度降序）——点「✎改正文」直接定位修改，改完复测',
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 6),
-        SizedBox(
-          height: 270,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final s in hot)
-                  Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.only(bottom: 6),
-                    padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFCEFEF),
-                      border: Border.all(color: const Color(0xFFE5BDBD)),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(children: [
-                          Text(
-                            '${s.conf >= 0.8 ? "🔥" : "⚠️"} ${s.label == 2 ? "疑似" : "AI"} ${(s.conf * 100).toStringAsFixed(0)}%',
-                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFFC62828)),
-                          ),
-                          const Spacer(),
-                          MiniButton(
-                            compact: true,
-                            label: '✎改正文',
-                            onTap: () => _locateSeg(w, s.text),
-                          ),
-                        ]),
-                        const SizedBox(height: 3),
-                        Text(
-                          s.text,
-                          style: const TextStyle(fontSize: 11.5, height: 1.45, color: Color(0xFF7A4A4A)),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (hot.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text('其余${r.segments.length - hot.length}段为人工感（略）',
-                      style: const TextStyle(fontSize: 10.5, color: V469Style.textMuted)),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// v1221：朱雀Key首次配置弹层（全局持久化，点测浓度时无Key自动引出）
-  void _showZhuqueKeySheet(AppState state) {
-    final ctrl = TextEditingController(text: state.zhuqueKey);
-    showV119Sheet(
-      context,
-      title: '🔑 配置朱雀检测Key',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('腾讯云 EdgeOne 控制台 → Makers → Models → API Key 创建（免费额度50万token/月）',
-            style: TextStyle(fontSize: 11.5, color: V469Style.textSec)),
-          const SizedBox(height: 10),
-          TextField(
-            controller: ctrl,
-            obscureText: true,
-            decoration: const InputDecoration(
-              hintText: 'sk-…',
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              FilledButton(
-                onPressed: () {
-                  state.setZhuqueKey(ctrl.text);
-                  Navigator.pop(context);
-                  _addLog('🔑 朱雀Key已保存（${state.zhuqueKey.length}字符）');
-                },
-                child: const Text('保存'),
-              ),
-              const SizedBox(width: 8),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('取消'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 
   /// inline正文浏览卡（v469单页样式）：标题全显+A-/A+/✎编辑/✕关闭+穿插渲染+编辑保存同步txt
   Widget _buildInlineViewer(AppState state, WritingItem w) {
@@ -4461,17 +4282,6 @@ class _WritingPageState extends State<WritingPage>
                         padding: const EdgeInsets.symmetric(horizontal: 5),
                       ),
                       child: const Text('A+', style: TextStyle(fontSize: 12)),
-                    ),
-                    // v1221：朱雀AI浓度检测（手动触发烧朱雀额度非LLM积分）
-                    TextButton(
-                      onPressed: () => _zhuqueCheck(state, w),
-                      style: TextButton.styleFrom(
-                        minimumSize: const Size(30, 26),
-                        padding: const EdgeInsets.symmetric(horizontal: 5),
-                      ),
-                      child: const Text('🔬测浓度',
-                          style: TextStyle(
-                              fontSize: 12, color: Color(0xFF8D6E63))),
                     ),
                     readOnly
                         ? const SizedBox.shrink()
@@ -4616,7 +4426,6 @@ class _WritingPageState extends State<WritingPage>
                     padding: const EdgeInsets.all(10),
                     child: TextField(
                       controller: _viewerCtrl,
-                      focusNode: _viewerFocus, // v1221：靶子定位聚焦自动滚动
                       maxLines: null,
                       expands: true,
                       textAlign: TextAlign.start,
