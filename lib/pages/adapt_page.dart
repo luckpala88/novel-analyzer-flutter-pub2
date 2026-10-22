@@ -8593,6 +8593,28 @@ class _CollapseReqFieldState extends State<_CollapseReqField> {
   bool _expanded = false;
   late double _fontSize;
   static double? _globalFontSize; // 会话内跨实例共享
+  // v1226：内部稳定controller——弧线/场景AI优化要求等调用点传inline新建
+  // controller（每次rebuild换实例），输入/删除一字光标即失焦（用户实测三tab全犯）。
+  // 内部持有稳定实例；didUpdateWidget只在内部text≠外部text（AI生成填充/清空）
+  // 时同步，用户输入中外部落库值==内部值不打断光标
+  TextEditingController? _ownCtrl;
+
+  TextEditingController get _ctrl =>
+      _ownCtrl ??= TextEditingController(text: widget.controller.text);
+
+  @override
+  void didUpdateWidget(covariant _CollapseReqField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_ownCtrl != null && widget.controller.text != _ownCtrl!.text) {
+      _ownCtrl!.text = widget.controller.text;
+    }
+  }
+
+  @override
+  void dispose() {
+    _ownCtrl?.dispose();
+    super.dispose();
+  }
 
   String _flagPath(AppState st, String name) =>
       '${st.storage.bookPath}req_field_$name.flag';
@@ -8662,7 +8684,7 @@ class _CollapseReqFieldState extends State<_CollapseReqField> {
         ),
         const SizedBox(height: 2),
         TextField(
-          controller: widget.controller,
+          controller: _ctrl, // v1226：内部稳定实例（见_ownCtrl注释）
           style: TextStyle(fontSize: _fontSize, height: 1.4),
           // v705：展开=maxLines null自适应全部内容高度；折叠=1行
           maxLines: _expanded ? null : 1,
