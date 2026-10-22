@@ -332,7 +332,9 @@ class ApiService {
 
     try {
       final isClaude = apiType == 'claude';
-      final url = isClaude ? '$baseUrl/messages' : '$baseUrl/chat/completions';
+      // 尾斜杠规范化：fetchModels剥过但这里漏了——baseUrl带/拼成//chat/completions必404（openrouter实证）
+      final base = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
+      final url = isClaude ? '$base/messages' : '$base/chat/completions';
 
       // v838：vision图片——openai=content数组image_url(data URI)；claude=base64 source块
       final userContent = images.isEmpty

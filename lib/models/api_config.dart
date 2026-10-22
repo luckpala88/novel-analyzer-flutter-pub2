@@ -128,17 +128,53 @@ class ApiConfig {
       : (customSlot == 'custom2' ? custom2Model : customModel);
 
   /// 内置提供商官方端点（v469 BUILTIN_PROVIDERS对齐+Gemini官方OpenAI兼容层）
+  /// v1224：+硅基流动/OpenRouter/公益站×3（公益站默认base相同，允许修改）
   static const Map<String, String> builtinBases = {
     'zhipu': 'https://open.bigmodel.cn/api/paas/v4',
     'deepseek': 'https://api.deepseek.com/v1',
     'gemini': 'https://generativelanguage.googleapis.com/v1beta/openai',
+    'siliconflow': 'https://api.siliconflow.cn/v1',
+    'openrouter': 'https://openrouter.ai/api/v1',
+    'gyz1': 'https://gcli.ggchan.dev/',
+    'gyz2': 'https://gcli.ggchan.dev/',
+    'gyz3': 'https://gcli.ggchan.dev/',
   };
+
+  /// baseUrl允许修改的内置提供商（公益站）：修改值存builtinStash[provider]['baseUrl']
+  static const Set<String> editableBaseProviders = {'gyz1', 'gyz2', 'gyz3'};
+
+  /// 内置提供商显示名（单一事实源：面板chips/摘要/标签统一引用）
+  static const Map<String, String> providerLabels = {
+    'zhipu': '智谱',
+    'deepseek': 'DeepSeek',
+    'gemini': 'Gemini',
+    'siliconflow': '硅基流动',
+    'openrouter': 'OpenRouter',
+    'gyz1': '公益站1',
+    'gyz2': '公益站2',
+    'gyz3': '公益站3',
+  };
+
+  /// 读取指定内置提供商的可编辑baseUrl（公益站用），空=未改过
+  String stashBaseUrl(String pid) {
+    final saved = builtinStash[pid];
+    if (saved is Map) {
+      final b = saved['baseUrl'];
+      if (b is String && b.isNotEmpty) return b;
+    }
+    return '';
+  }
 
   String get effectiveApiBase {
     if (useCustom && customSlot == 'custom2') {
       return custom2ApiBase.isNotEmpty ? custom2ApiBase : apiBase;
     }
     if (useCustom && apiBase.isNotEmpty) return apiBase;
+    if (editableBaseProviders.contains(provider)) {
+      // 公益站：改过用改的，没改用默认（builtinBases）
+      final custom = stashBaseUrl(provider);
+      return custom.isNotEmpty ? custom : builtinBases[provider]!;
+    }
     if (builtinBases.containsKey(provider)) return builtinBases[provider]!;
     return apiBase;
   }

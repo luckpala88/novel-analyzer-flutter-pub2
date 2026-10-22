@@ -37,6 +37,8 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
   final _custom2KeyCtrl = TextEditingController();
   final _custom2ModelCtrl = TextEditingController();
   final _modelCtrl = TextEditingController();
+  // v1224：公益站baseUrl可编辑（默认gcli.ggchan.dev，改值存builtinStash[provider]['baseUrl']）
+  final _gyzBaseCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -62,18 +64,14 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
     _custom2KeyCtrl.dispose();
     _custom2ModelCtrl.dispose();
     _modelCtrl.dispose();
+    _gyzBaseCtrl.dispose();
     _autoFetchDebounce?.cancel();
     super.dispose();
   }
 
-  /// 内置提供商显示名（v469对齐+Gemini官方）
+  /// 内置提供商显示名（v469对齐+Gemini官方；v1224统一引用ApiConfig.providerLabels单一事实源）
   String get _providerLabel =>
-      const {
-        'zhipu': '智谱',
-        'deepseek': 'DeepSeek',
-        'gemini': 'Gemini',
-      }[_config.provider] ??
-      '智谱';
+      ApiConfig.providerLabels[_config.provider] ?? '智谱';
 
   /// 模型名不预填写死（官方模型迭代快），填Key后自动从/models拉取真实列表
 
@@ -110,6 +108,7 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
       _config.apiType = 'openai'; // 内置提供商恒为openai（stash可能残留claude）
       _apiKeyCtrl.text = _config.apiKey;
       _modelCtrl.text = _config.model;
+      _gyzBaseCtrl.text = _config.effectiveApiBase; // v1224：公益站baseUrl随provider切换刷新
       _fetchStatus = '';
       _fetchedModels = [];
     });
@@ -135,6 +134,9 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
     if (_custom2ModelCtrl.text != _config.custom2Model)
       _custom2ModelCtrl.text = _config.custom2Model;
     if (_modelCtrl.text != _config.model) _modelCtrl.text = _config.model;
+    // v1224：公益站baseUrl控制器同步（effective值=改过用改的/没改用默认）
+    final gyzBase = _config.effectiveApiBase;
+    if (_gyzBaseCtrl.text != gyzBase) _gyzBaseCtrl.text = gyzBase;
   }
 
   @override
@@ -338,17 +340,12 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 const Text('服务提供商:'),
-                ...['zhipu', 'deepseek', 'gemini'].map(
+                ...['zhipu', 'deepseek', 'gemini', 'siliconflow', 'openrouter',
+                  'gyz1', 'gyz2', 'gyz3'].map(
                   (k) => Padding(
                     padding: const EdgeInsets.only(left: 4),
                     child: ChoiceChip(
-                      label: Text(
-                        const {
-                          'zhipu': '智谱',
-                          'deepseek': 'DeepSeek',
-                          'gemini': 'Gemini',
-                        }[k]!,
-                      ),
+                      label: Text(ApiConfig.providerLabels[k]!),
                       selected: !_config.useCustom && _config.provider == k,
                       onSelected: (_) => _switchBuiltin(k),
                     ),
@@ -418,6 +415,31 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
                 },
               ),
               const SizedBox(height: 4),
+              // v1224：公益站baseUrl允许修改（改值存stash随provider走）
+              if (ApiConfig.editableBaseProviders.contains(_config.provider))
+                Column(
+                  children: [
+                    TextField(
+                      decoration: InputDecoration(
+                        labelText: 'API Base URL（${_providerLabel}）',
+                        hintText: ApiConfig.builtinBases[_config.provider],
+                        border: const OutlineInputBorder(),
+                        helperText: '留空=使用默认地址；填到站点根路径即可，程序自动拼接/chat/completions和/models',
+                      ),
+                      controller: _gyzBaseCtrl,
+                      onChanged: (v) {
+                        final s = _config.builtinStash.putIfAbsent(
+                          _config.provider,
+                          () => <String, dynamic>{},
+                        );
+                        if (s is Map) s['baseUrl'] = v.trim();
+                        _saveNow();
+                        _scheduleAutoFetch();
+                      },
+                    ),
+                    const SizedBox(height: 4),
+                  ],
+                ),
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
@@ -940,7 +962,7 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
                       dense: true,
                       title: Text(p.name, style: const TextStyle(fontSize: 14)),
                       subtitle: Text(
-                        '${p.useCustom ? "自定义" : const {'zhipu': '智谱', 'deepseek': 'DeepSeek', 'gemini': 'Gemini'}[p.provider] ?? '智谱'} · ${p.useCustom ? p.customModel : p.model}',
+                        '${p.useCustom ? "自定义" : ApiConfig.providerLabels[p.provider] ?? '智谱'} · ${p.useCustom ? p.customModel : p.model}',
                         style: const TextStyle(fontSize: 11),
                       ),
                       trailing: IconButton(
