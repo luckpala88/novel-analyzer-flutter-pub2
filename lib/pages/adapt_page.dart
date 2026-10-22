@@ -5871,6 +5871,11 @@ return true;
                         state.worldBook!.arcRequirementsAI[arcKey] = v;
                         state.saveWorldBook();
                       },
+                      // v1225：清空按键对齐场景改编页同款（v1046模式）
+                      onClear: () => _clearField(null, (v) {
+                        state.worldBook!.arcRequirementsAI[arcKey] = v;
+                        state.saveWorldBook();
+                      }),
                     ),
                     const SizedBox(height: 6),
                   ],

@@ -17,7 +17,7 @@ import '../state/app_state.dart';
 import '../models/writing.dart';
 import '../models/arc.dart'; // v792
 import '../models/api_config.dart';
-import '../services/api_service.dart' show ApiResult;
+import '../services/api_service.dart' show ApiResult, ZhuqueSeg;
 import '../utils/prompt_builder.dart';
 import '../widgets/v_scroll_bar.dart'; // v792
 import '../utils/prompt_preview.dart';
@@ -60,6 +60,10 @@ class _WritingPageState extends State<WritingPage>
   double _viewerFontSize = 15;
   bool _viewerEditing = false;
   final TextEditingController _viewerCtrl = TextEditingController();
+  // v1225：朱雀检测迁入正文Tab（v1222-v1223放阅读器=测原著无意义，用户纠偏）
+  // key=_viewerKey；着色走行文本匹配（渲染层text2经修复与content偏移不对齐）
+  final Map<String, List<ZhuqueSeg>> _zhuqueResults = {};
+  bool _zhuqueBusy = false;
 
   // 单分镜操作：编辑中的分镜key（wkey_shotIdx）+生成中标志
   String? _shotEditKey;
@@ -4372,6 +4376,20 @@ class _WritingPageState extends State<WritingPage>
                         style: TextStyle(fontSize: 12.5),
                       ),
                     ),
+                    // v1225：朱雀AI浓度检测（只测纯正文，结果直接着色正文段落）
+                    TextButton(
+                      onPressed: (_zhuqueBusy || _viewerEditing)
+                          ? null
+                          : () => _zhuqueCheck(w, state),
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(40, 28),
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                      ),
+                      child: Text(
+                        _zhuqueBusy ? '⏳检测中' : '🔬测浓度',
+                        style: const TextStyle(fontSize: 12.5),
+                      ),
+                    ),
                     // v268：补缺失分镜按钮（结构在正文空的分镜逐个
                     // 增量生成——逐镜停机/中止后续写入口）
                     Builder(
@@ -4953,6 +4971,9 @@ class _WritingPageState extends State<WritingPage>
       {
         final raw2 = TextCleaner.stripWrapQuotes(raw);
         if (!identical(raw2, raw) && raw2 != raw) {
+          // v1225：朱雀着色（行级文本匹配）
+          final zc = _zhuqueLineColor(
+              raw2, _viewerKey == null ? null : _zhuqueResults[_viewerKey]);
           widgets.add(
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -4962,6 +4983,7 @@ class _WritingPageState extends State<WritingPage>
                   fontSize: fontSize,
                   height: 1.8,
                   color: const Color(0xFF000000), // v1219纯黑
+                  backgroundColor: zc,
                   textBaseline: TextBaseline.ideographic,
                 ),
                 textAlign: TextAlign.justify,
@@ -4987,6 +5009,9 @@ class _WritingPageState extends State<WritingPage>
               fontSize: fontSize,
               height: 1.8,
               color: const Color(0xFF000000), // v1219纯黑
+              // v1225：朱雀着色（行级文本匹配）
+              backgroundColor: _zhuqueLineColor(
+                  raw, _viewerKey == null ? null : _zhuqueResults[_viewerKey]),
               textBaseline: TextBaseline.ideographic,
             ),
             textAlign: TextAlign.justify,
@@ -5019,6 +5044,113 @@ class _WritingPageState extends State<WritingPage>
         children: children,
       ),
     );
+  }
+
+  // v1225：朱雀浓度检测（迁自阅读器v1222-v1223，落位正文Tab测创作产物）
+  // 只测纯正文：剥头部[模型:…]备注行；结果直接着色正文段落（去弹层裁决）
+  Future<void> _zhuqueCheck(WritingItem w, AppState state) async {
+    if (_zhuqueBusy) return;
+    if (state.zhuqueKey.isEmpty) {
+      _showZhuqueKeySheet();
+      return;
+    }
+    if (_viewerEditing) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('先退出编辑态再检测'), duration: Duration(seconds: 1)));
+      return;
+    }
+    // 只检测纯正文：剥头部[模型:…]备注行及后随空行（备注行不计入AI浓度）
+    var text = _viewContent(w, state);
+    final head = RegExp(r'^\s*\[[^\]]*\]\s*').firstMatch(text);
+    if (head != null) text = text.substring(head.end);
+    // 结构行不送检（分镜N｜维度行是创作管线结构，混入污染浓度）
+    text = TextCleaner.stripShotHeaders(text).trim();
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('无纯正文可检测'), duration: Duration(seconds: 1)));
+      return;
+    }
+    setState(() => _zhuqueBusy = true);
+    final r = await state.api.zhuqueClassify(apiKey: state.zhuqueKey, text: text);
+    if (!mounted) return;
+    setState(() => _zhuqueBusy = false);
+    if (r == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('检测失败（终端看原因）'), duration: Duration(seconds: 2)));
+      return;
+    }
+    final key = '${w.arcKey}_${w.sceneIdx}_${w.version}';
+    setState(() => _zhuqueResults[key] = r.segments);
+    AppState.instance.apiLog(
+        '🔬 朱雀·${w.sceneName.isNotEmpty ? w.sceneName : key}：人工${(r.human * 100).toStringAsFixed(0)}%｜疑似AI ${(r.suspect * 100).toStringAsFixed(0)}%｜AI ${(r.ai * 100).toStringAsFixed(0)}%（纯正文${text.length}字，实扣${r.usedTokens}token）');
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+            '正文已着色：🟥AI${(r.ai * 100).toStringAsFixed(0)}% 🟧疑似${(r.suspect * 100).toStringAsFixed(0)}% 🟩人工${(r.human * 100).toStringAsFixed(0)}%'),
+        duration: const Duration(seconds: 4)));
+  }
+
+  /// v1225：朱雀Key配置弹层（全局持久化）
+  void _showZhuqueKeySheet() {
+    final state = context.read<AppState>();
+    final ctrl = TextEditingController(text: state.zhuqueKey);
+    showV119Sheet(
+      context,
+      title: '🔑 配置朱雀检测Key',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('腾讯云 EdgeOne 控制台 → Makers → Models → API Key 创建（免费额度50万token/月）',
+            style: TextStyle(fontSize: 11.5, color: Colors.grey)),
+          const SizedBox(height: 10),
+          TextField(
+            controller: ctrl,
+            obscureText: true,
+            decoration: const InputDecoration(
+              hintText: 'sk-…',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(children: [
+            FilledButton(
+              onPressed: () {
+                state.setZhuqueKey(ctrl.text);
+                Navigator.pop(context);
+              },
+              child: const Text('保存'),
+            ),
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('取消'),
+            ),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  /// v1225：朱雀行级底色——seg.text与行文本匹配判定。
+  /// 不用position偏移：渲染层text2经去重/修复/插换行与content偏移不对齐，
+  /// 文本匹配避漂移；短行（<8字）与短seg不判，防误染结构行。
+  Color? _zhuqueLineColor(String line, List<ZhuqueSeg>? segs) {
+    if (segs == null || segs.isEmpty) return null;
+    final t = line.trim();
+    if (t.length < 8) return null;
+    for (final s in segs) {
+      final st = s.text.trim();
+      if (st.length < 8) continue;
+      if (st.contains(t) || t.contains(st)) {
+        return s.label == 1
+            ? const Color(0xFFFFCDD2) // 红=AI
+            : s.label == 2
+                ? const Color(0xFFFFE0B2) // 橙=疑似
+                : const Color(0xFFC8E6C9); // 绿=人工
+      }
+    }
+    return null;
   }
 
   void _viewWriting(BuildContext context, WritingItem w) {

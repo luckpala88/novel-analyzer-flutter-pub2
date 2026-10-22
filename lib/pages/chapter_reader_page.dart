@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/chapter.dart';
-import '../services/api_service.dart' show ZhuqueSeg; // v1222：朱雀段落着色
 import '../state/app_state.dart';
 import '../utils/v469_style.dart';
 import '../widgets/v119_ui.dart'; // v1222：showV119Sheet结果卡
@@ -193,109 +192,7 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
   int _ttsReadOffset = 0;
   int _ttsHlStart = -1;
   int _ttsHlEnd = -1;
-  // v1222：朱雀浓度检测——按章节存段落标签（红=AI/橙=疑似/绿=人工直接着色正文）
-  final Map<int, List<ZhuqueSeg>> _zhuqueResults = {};
-  bool _zhuqueBusy = false;
 
-  /// v1222：朱雀浓度检测（正文页手动触发，烧朱雀免费额度非LLM积分）
-  /// v1223：只检测纯正文（剥头部[模型:…]备注行，着色偏移同步平移）；去掉结果
-  /// 弹层（用户裁决：正文着色就是结果），统计走SnackBar一行+终端日志
-  Future<void> _zhuqueCheck() async {
-    final state = context.read<AppState>();
-    if (state.zhuqueKey.isEmpty) {
-      _showZhuqueKeySheet(state);
-      return;
-    }
-    final ch = widget.chapters[_currentIndex];
-    if (_scrollEditing) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('先退出编辑态再检测'), duration: Duration(seconds: 1)));
-      return;
-    }
-    // 只检测纯正文：剥头部[模型:…]备注行及后随空行（备注行不计入AI浓度）
-    var text = ch.content;
-    var baseOffset = 0;
-    final head = RegExp(r'^\s*\[[^\]]*\]\s*').firstMatch(text);
-    if (head != null) {
-      baseOffset = head.end;
-      text = text.substring(head.end);
-    }
-    if (text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('本章无纯正文可检测'), duration: Duration(seconds: 1)));
-      return;
-    }
-    setState(() => _zhuqueBusy = true);
-    final r = await state.api
-        .zhuqueClassify(apiKey: state.zhuqueKey, text: text);
-    if (!mounted) return;
-    setState(() => _zhuqueBusy = false);
-    if (r == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('检测失败（终端看原因）'), duration: Duration(seconds: 2)));
-      return;
-    }
-    // 着色偏移平移：检测文本剥了头部，着色基于原content——position整体+baseOffset
-    final shifted = r.segments
-        .map((s) => ZhuqueSeg(
-              text: s.text,
-              label: s.label,
-              conf: s.conf,
-              position: s.position.length >= 2
-                  ? [s.position[0] + baseOffset, s.position[1] + baseOffset]
-                  : s.position,
-            ))
-        .toList();
-    setState(() => _zhuqueResults[_currentIndex] = shifted);
-    AppState.instance.apiLog(
-        '🔬 朱雀·${ch.title}：人工${(r.human * 100).toStringAsFixed(0)}%｜疑似AI ${(r.suspect * 100).toStringAsFixed(0)}%｜AI ${(r.ai * 100).toStringAsFixed(0)}%（纯正文${text.length}字，实扣${r.usedTokens}token）');
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(
-            '正文已着色：🟥AI${(r.ai * 100).toStringAsFixed(0)}% 🟧疑似${(r.suspect * 100).toStringAsFixed(0)}% 🟩人工${(r.human * 100).toStringAsFixed(0)}%'),
-        duration: const Duration(seconds: 4)));
-  }
-
-  /// v1222：朱雀Key配置弹层（全局持久化）
-  void _showZhuqueKeySheet(AppState state) {
-    final ctrl = TextEditingController(text: state.zhuqueKey);
-    showV119Sheet(
-      context,
-      title: '🔑 配置朱雀检测Key',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('腾讯云 EdgeOne 控制台 → Makers → Models → API Key 创建（免费额度50万token/月）',
-            style: TextStyle(fontSize: 11.5, color: Colors.grey)),
-          const SizedBox(height: 10),
-          TextField(
-            controller: ctrl,
-            obscureText: true,
-            decoration: const InputDecoration(
-              hintText: 'sk-…',
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(children: [
-            FilledButton(
-              onPressed: () {
-                state.setZhuqueKey(ctrl.text);
-                Navigator.pop(context);
-              },
-              child: const Text('保存'),
-            ),
-            const SizedBox(width: 8),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('取消'),
-            ),
-          ]),
-        ],
-      ),
-    );
-  }
   // 翻页模式
   int _currentPagedViewStart = 0;
   List<String> _pagedPageTexts = [];
@@ -597,13 +494,6 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
                   style: _btnStyle(),
                   child: const Text('目录', style: TextStyle(fontSize: 13)),
                 ),
-                // v1222：朱雀AI浓度检测（手动触发；滚动模式正文段落着色）
-                TextButton(
-                  onPressed: _zhuqueBusy ? null : _zhuqueCheck,
-                  style: _btnStyle(),
-                  child: Text(_zhuqueBusy ? '检测中' : '测浓度',
-                      style: const TextStyle(fontSize: 13)),
-                ),
                 // v193：章节标题+页码（目录右边，更小字号，信息行不占正文空间）
                 const SizedBox(width: 4),
                 Text(
@@ -691,7 +581,6 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
               editing: _scrollEditing,
               onContentChanged: (text) =>
                   _saveChapterContent(idxForSave, text),
-              zhuqueSegs: _zhuqueResults[_currentIndex], // v1222：朱雀段落着色
             ),
             ),
     );
@@ -962,7 +851,6 @@ class _ScrollChapterView extends StatefulWidget {
   // v417：就地编辑——editing=true时正文变TextField，onChange防抖后onContentChanged
   final bool editing;
   final void Function(String newText)? onContentChanged;
-  final List<ZhuqueSeg>? zhuqueSegs; // v1222：朱雀段落标签（红=AI/橙=疑似/绿=人工底色）
 
   const _ScrollChapterView({
     super.key,
@@ -976,7 +864,6 @@ class _ScrollChapterView extends StatefulWidget {
     this.initialScrollPx = 0,
     this.editing = false,
     this.onContentChanged,
-    this.zhuqueSegs,
   });
 
   @override
@@ -1057,88 +944,27 @@ class _ScrollChapterViewState extends State<_ScrollChapterView> {
     super.dispose();
   }
 
-  /// 构建正文TextSpan：v1222朱雀段落底色（红=AI/橙=疑似/绿=人工）+ TTS当前句高亮
-  /// 区间合并切分：重叠时TTS高亮优先（朗读跟随不能被底色盖掉）
+  /// 构建正文TextSpan：TTS当前句高亮（朱雀着色v1225迁正文Tab写作页，测原著无意义）
   TextSpan _buildContentSpan(String content, TextStyle style) {
-    final segs = widget.zhuqueSegs;
     final hasHl = widget.hlStart >= 0 &&
         widget.hlEnd > widget.hlStart &&
         widget.hlStart < content.length;
-    if ((segs == null || segs.isEmpty) && !hasHl) {
+    if (!hasHl) {
       return TextSpan(text: content, style: style);
     }
-    // 收集有色区间：(start, end, color, isHl)
-    final zones = <(int, int, Color, bool)>[];
-    if (segs != null) {
-      for (final s in segs) {
-        if (s.position.length < 2) continue;
-        final st = s.position[0].clamp(0, content.length);
-        final en = s.position[1].clamp(st, content.length);
-        if (en <= st) continue;
-        final c = s.label == 1
-            ? const Color(0xFFFFCDD2) // 红=AI
-            : s.label == 2
-                ? const Color(0xFFFFE0B2) // 橙=疑似
-                : const Color(0xFFC8E6C9); // 绿=人工
-        zones.add((st, en, c, false));
-      }
-    }
-    if (hasHl) {
-      zones.add((widget.hlStart, widget.hlEnd.clamp(0, content.length),
-          const Color(0xFFFFE082), true)); // TTS高亮优先
-    }
-    zones.sort((a, b) => a.$1.compareTo(b.$1));
-    // 切分成互斥子区间
-    final children = <InlineSpan>[];
-    var cursor = 0;
-    for (final z in zones) {
-      if (z.$1 < cursor) {
-        // 与前区间重叠：缩短到未覆盖部分（TTS区间起点可能落在着色段中间——
-        // 简化：重叠部分让位给已写入的区间，TTS优先级靠排序后仍可能被吞，
-        // 所以TTS区间单独二次写入）
-        if (z.$4) {
-          // TTS高亮重叠段：直接覆盖底色拆开写
-          final st = z.$1.clamp(cursor, content.length);
-          if (z.$2 > st) {
-            if (st > cursor) {
-              children.add(TextSpan(text: content.substring(cursor, st)));
-            }
-            children.add(WidgetSpan(
-              child: Container(
-                key: _hlKey,
-                color: z.$3,
-                child: Text(content.substring(st, z.$2), style: style),
-              ),
-            ));
-            cursor = z.$2;
-          }
-        }
-        continue;
-      }
-      if (z.$1 > cursor) {
-        children.add(TextSpan(text: content.substring(cursor, z.$1)));
-      }
-      final en = z.$2.clamp(z.$1, content.length);
-      if (z.$4) {
-        children.add(WidgetSpan(
-          child: Container(
-            key: _hlKey,
-            color: z.$3,
-            child: Text(content.substring(z.$1, en), style: style),
-          ),
-        ));
-      } else {
-        children.add(TextSpan(
-          text: content.substring(z.$1, en),
-          style: style.copyWith(backgroundColor: z.$3),
-        ));
-      }
-      cursor = en;
-    }
-    if (cursor < content.length) {
-      children.add(TextSpan(text: content.substring(cursor)));
-    }
-    return TextSpan(style: style, children: children);
+    final hlSt = widget.hlStart.clamp(0, content.length);
+    final hlEn = widget.hlEnd.clamp(hlSt, content.length);
+    return TextSpan(style: style, children: [
+      if (hlSt > 0) TextSpan(text: content.substring(0, hlSt)),
+      WidgetSpan(
+        child: Container(
+          key: _hlKey,
+          color: const Color(0xFFFFE082),
+          child: Text(content.substring(hlSt, hlEn), style: style),
+        ),
+      ),
+      if (hlEn < content.length) TextSpan(text: content.substring(hlEn)),
+    ]);
   }
 
   @override
