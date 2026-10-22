@@ -5135,14 +5135,21 @@ class _WritingPageState extends State<WritingPage>
   /// v1225：朱雀行级底色——seg.text与行文本匹配判定。
   /// 不用position偏移：渲染层text2经去重/修复/插换行与content偏移不对齐，
   /// 文本匹配避漂移；短行（<8字）与短seg不判，防误染结构行。
+  /// v1226b：粒度兜底——朱雀is_merge=false返回句级seg，一段含多seg时
+  /// 整行vs单句互不contains=漏染无色（用户实测中间描写段全白）；改用
+  /// 行前16字/seg前16字片段包含判定，命中即上色
   Color? _zhuqueLineColor(String line, List<ZhuqueSeg>? segs) {
     if (segs == null || segs.isEmpty) return null;
     final t = line.trim();
     if (t.length < 8) return null;
+    final tHead = t.substring(0, t.length < 16 ? t.length : 16);
     for (final s in segs) {
       final st = s.text.trim();
       if (st.length < 8) continue;
-      if (st.contains(t) || t.contains(st)) {
+      final stHead = st.substring(0, st.length < 16 ? st.length : 16);
+      if (st.contains(t) ||
+          t.contains(st) ||
+          (tHead.length >= 8 && (st.contains(tHead) || t.contains(stHead)))) {
         return s.label == 1
             ? const Color(0xFFFFCDD2) // 红=AI
             : s.label == 2
