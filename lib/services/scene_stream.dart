@@ -328,9 +328,25 @@ Future<void> runGlobalSceneScan({
         }
         if (failMsg != null) {
           if (winRetries < 1) {
+            if (state.userAborted) {
+              log('已终止场景扫描（已保留${state.globalScenes.length}场景）');
+              break;
+            }
             winRetries++;
             log('↻ $failMsg——等60秒后自动重试本窗口（1/1）……');
-            await Future.delayed(const Duration(seconds: 60));
+            // v1230b：等待可中断——10秒一段检查终止标志，手动终止立即退出
+            var aborted = false;
+            for (var i = 0; i < 6; i++) {
+              await Future.delayed(const Duration(seconds: 10));
+              if (state.userAborted) {
+                aborted = true;
+                break;
+              }
+            }
+            if (aborted) {
+              log('已终止场景扫描（已保留${state.globalScenes.length}场景）');
+              break;
+            }
             continue;
           }
           log(
@@ -386,9 +402,25 @@ Future<void> runGlobalSceneScan({
           // v1230：分界句定位失败纳入窗口级重试（AI引述不准重发本窗口
           // 重新输出end_text，第二次机会通常能过）
           if (winRetries < 1) {
+            if (state.userAborted) {
+              log('已终止场景扫描（已保留${state.globalScenes.length}场景）');
+              break;
+            }
             winRetries++;
             log('↻ 分界句定位失败——等60秒后自动重试本窗口（1/1）……');
-            await Future.delayed(const Duration(seconds: 60));
+            // v1230b：等待可中断——10秒一段检查终止标志
+            var aborted = false;
+            for (var i = 0; i < 6; i++) {
+              await Future.delayed(const Duration(seconds: 10));
+              if (state.userAborted) {
+                aborted = true;
+                break;
+              }
+            }
+            if (aborted) {
+              log('已终止场景扫描（已保留${state.globalScenes.length}场景）');
+              break;
+            }
             continue;
           }
           log('⛔ 分界句定位失败自动重试仍不匹配——已暂停，点"扫描场景"续跑本窗口');
@@ -1593,11 +1625,27 @@ Future<bool> extractArcParts({
     }
     if (full != null) break;
     if (attempt < 3) {
+      if (state.userAborted) {
+        log('已终止——弧线${arc.number}全景提取不再重试');
+        return false;
+      }
       // v1229：中转连续请求冷却实证（11:22-11:30日志）——首发完成后90秒内重发
       // 必挂（重试1/2连续90秒无首字），隔2.5分钟再发即成功。重试前等60秒
       // （+90秒超时≈2.5分钟间隔）躲开冷却期
       log('↻ 弧线${arc.number}全景提取重试（$attempt/2）——等60秒躲中转冷却……');
-      await Future.delayed(const Duration(seconds: 60));
+      // v1230b：等待可中断——10秒一段检查终止标志，手动终止立即退出
+      var aborted = false;
+      for (var i = 0; i < 6; i++) {
+        await Future.delayed(const Duration(seconds: 10));
+        if (state.userAborted) {
+          aborted = true;
+          break;
+        }
+      }
+      if (aborted) {
+        log('已终止——弧线${arc.number}全景提取不再重试');
+        return false;
+      }
     }
   }
   if (full == null) {
