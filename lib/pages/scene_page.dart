@@ -607,9 +607,20 @@ const Spacer(), // ⚙API推到最右
         _addLog('✅ 场景流+旧拆解容器+旧弧线分组已清空（${state.chapters.length}章），启动重扫：步进${state.sceneStepSize}章/批');
         // v450：await+catch——同步段异常此前被then吞掉（清空后扫描没启动、
         // UI没刷新=用户看到的"只有清除功能还要重启生效"）
+        // v1232：重扫入口补传词链预览——此前只有"扫描场景"菜单入口传了
+        // previewHook，重扫入口漏传=重扫永远不弹预览（用户实测发现）
         await runGlobalSceneScan(
           state: state,
           log: _addLog,
+          previewHook: state.scenePromptPreview
+              ? (sys, user) => PromptPreview.maybePreview(
+                    context,
+                    sysPrompt: sys,
+                    userPrompt: user,
+                    title: '场景扫描词链预览',
+                    enabled: true,
+                  )
+              : null,
         );
       } catch (e) {
         _addLog('⛔ 重扫启动异常：$e');
