@@ -248,6 +248,9 @@ Future<void> runGlobalSceneScan({
           : '继续场景扫描：从第$from章起${useAnchor ? "（字符级续切：自剪断锚点偏移${state.sceneResumeOffset}）" : ""}（已完成${state.globalScenes.length}场景）',
     );
     try {
+      // v1230：窗口级重试计数——成功推进后清零；previewShown防重试时预览重复弹
+      var winRetries = 0;
+      var previewShown = false;
       while (from <= totalChapters) {
         if (state.userAborted) {
           log('已终止场景扫描（已保留${state.globalScenes.length}场景）');
@@ -292,8 +295,10 @@ Future<void> runGlobalSceneScan({
 
         // v465：词链预览（仅首批走——后续窗口内容重复预览意义小）
         if (previewHook != null &&
+            !previewShown &&
             from == wFrom &&
             state.globalSceneScannedUpTo == 0) {
+          previewShown = true;
           final shouldContinue = await previewHook(systemPrompt, userPrompt);
           if (!shouldContinue) {
             log('用户在预览后终止');
@@ -302,42 +307,34 @@ Future<void> runGlobalSceneScan({
           }
         }
 
-        // v1228：中转SSE挂起/解析失败自动重试一次（用户裁决：重试一次，再失败才暂停）——
-        // 90秒无首字callApi返回isSuccess=false，原逻辑直接break等手动续跑，
-        // gcli中转偶发挂起会让1030章长跑每批都可能断；间隔5秒自动重试本窗口
-        final scenesJson = <dynamic>[];
+        // v1230：窗口级统一重试——请求失败/解析失败/分界句定位失败三种失败
+        // 都等60秒重发本窗口一次（v1228内层请求重试删除，统一到窗口级；
+        // 60秒=躲中转冷却期，v1229实证90秒内重发必挂）
         String? failMsg;
-        for (var attempt = 1; attempt <= 2; attempt++) {
-          if (attempt == 2) {
-            // v1229：重试间隔5秒→60秒——90秒超时+5秒≈95秒仍撞中转冷却期
-            //（全景提取实证：完成90秒后重发必挂，隔2.5分钟才恢复）
-            log('↻ 自动重试本窗口（1/1）——等60秒躲中转冷却……');
-            await Future.delayed(const Duration(seconds: 60));
-          }
-          final config = state.getApiConfig('scene');
-          final result = await state.api.callApi(
-            task: '场景流扫描',  // v824任务级反馈
-            systemPrompt: systemPrompt,
-            userPrompt: userPrompt,
-            apiConfig: config,
-          );
-          if (!result.isSuccess) {
-            failMsg = '场景扫描请求失败：${result.error}';
-            continue;
-          }
+        List<dynamic> scenesJson = const [];
+        final config = state.getApiConfig('scene');
+        final result = await state.api.callApi(
+          task: '场景流扫描',  // v824任务级反馈
+          systemPrompt: systemPrompt,
+          userPrompt: userPrompt,
+          apiConfig: config,
+        );
+        if (!result.isSuccess) {
+          failMsg = '场景扫描请求失败：${result.error}';
+        } else {
           final parsed = JsonRepair.parseResponse(result.content);
-          final js = parsed?['scenes'] as List? ?? const [];
-          if (js.isEmpty) {
-            failMsg = '场景扫描解析失败（无场景返回）';
-            continue;
-          }
-          scenesJson.addAll(js);
-          failMsg = null;
-          break;
+          scenesJson = parsed?['scenes'] as List? ?? const [];
+          if (scenesJson.isEmpty) failMsg = '场景扫描解析失败（无场景返回）';
         }
         if (failMsg != null) {
+          if (winRetries < 1) {
+            winRetries++;
+            log('↻ $failMsg——等60秒后自动重试本窗口（1/1）……');
+            await Future.delayed(const Duration(seconds: 60));
+            continue;
+          }
           log(
-            '⛔ $failMsg——已暂停（已完成${state.globalScenes.length}场景，进度第$wFrom章），稍后点"扫描场景"续跑',
+            '⛔ $failMsg——自动重试仍失败，已暂停（已完成${state.globalScenes.length}场景，进度第$wFrom章），稍后点"扫描场景"续跑',
           );
           break;
         }
@@ -385,7 +382,18 @@ Future<void> runGlobalSceneScan({
           winScenes[i].text = windowText.substring(searchFrom, endPos);
           searchFrom = endPos;
         }
-        if (matFail) break;
+        if (matFail) {
+          // v1230：分界句定位失败纳入窗口级重试（AI引述不准重发本窗口
+          // 重新输出end_text，第二次机会通常能过）
+          if (winRetries < 1) {
+            winRetries++;
+            log('↻ 分界句定位失败——等60秒后自动重试本窗口（1/1）……');
+            await Future.delayed(const Duration(seconds: 60));
+            continue;
+          }
+          log('⛔ 分界句定位失败自动重试仍不匹配——已暂停，点"扫描场景"续跑本窗口');
+          break;
+        }
         // v535b：切片纯正文——剔除窗口家具（章标记+标题行）。家具是窗口喂
         // 文的定位设施，不该进切片：创作范文/arc.text拼接/剪断锚点全在消费
         // scene.text。用精确构造的家具串整串替换，章界接缝保留双换行
@@ -440,6 +448,7 @@ Future<void> runGlobalSceneScan({
         state.sceneResumeChapIdx = -1;
         state.sceneResumeOffset = 0;
         from = wTo + 1;
+        winRetries = 0;
       }
       {
         log(
