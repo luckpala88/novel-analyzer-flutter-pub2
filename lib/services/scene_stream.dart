@@ -754,6 +754,9 @@ Future<void> groupArcsFromScenes({
         }
       }
 
+      // v1241：自然跑完标志——中途失败/终止跳出时不跑全量覆盖对账
+      //（32场景只分了10个跑对账=22个"未覆盖"全是还没分到的，纯误报吓人18:41实证）
+      var groupCompleted = false;
       while (cursor < gs.length) {
         if (state.userAborted) {
           log('⛔ 用户终止——分组已停止（已完成${arcs.length}条弧线）');
@@ -834,13 +837,36 @@ Future<void> groupArcsFromScenes({
             '以下是场景$cursor+1-$to的序列：\n\n$sb\n\n'
             '请将场景${cursor + 1}-$to归组。scene_from/scene_to用全局场景序号（1-based）';
         final config = state.getApiConfig('arc');
-        final result = await state.api.callApi(
+        // v1241：分组请求失败自动重试一次（90秒无首字中转挂起实证18:40日志
+        // ——直接break暂停等手动续跑，中转冷却期内连发全灭）——等60秒躲冷却
+        // 重发本批，再失败才暂停；等待可中断（10秒一段查终止标志）
+        var result = await state.api.callApi(
           systemPrompt: systemPrompt,
           userPrompt: userPrompt,
           apiConfig: config,
         );
+        if (!result.isSuccess && !state.userAborted) {
+          log('↻ 分组请求失败（${result.error}）——等60秒躲中转冷却后自动重试（1/1）……');
+          var aborted = false;
+          for (var i = 0; i < 6; i++) {
+            await Future.delayed(const Duration(seconds: 10));
+            if (state.userAborted) {
+              aborted = true;
+              break;
+            }
+          }
+          if (!aborted) {
+            result = await state.api.callApi(
+              systemPrompt: systemPrompt,
+              userPrompt: userPrompt,
+              apiConfig: config,
+            );
+          }
+        }
         if (!result.isSuccess) {
-          log('⛔ 分组请求失败：${result.error}——已暂停，稍后重试');
+          log(state.userAborted
+              ? '⛔ 用户终止——分组已停止'
+              : '⛔ 分组请求失败：${result.error}——自动重试仍失败，已暂停，成果已落盘，稍后点"批量"续跑');
           break;
         }
         if (state.userAborted) {
@@ -1122,7 +1148,8 @@ Future<void> groupArcsFromScenes({
         state.saveGlobalScenes();
         log('分组进度：$cursor/${gs.length}场景，共${arcs.length}弧线');
       }
-      if (arcs.isNotEmpty) {
+      groupCompleted = true;
+      if (arcs.isNotEmpty && groupCompleted) {
         // v492最终对账（用户裁决：章节序号不连贯=中断告警）——保存前校验场景+章并集覆盖
         final auditFail = auditArcCoverage(
           arcs,
