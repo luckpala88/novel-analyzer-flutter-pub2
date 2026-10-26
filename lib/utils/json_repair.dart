@@ -68,6 +68,20 @@ class JsonRepair {
       // 继续修复
     }
 
+    // 4.5 v1240：值内裸引号修复重试——Claude爱在中文值里用"强调词"，
+    // 英文双引号直接截断JSON字符串=解析炸（v1239 offset定位实证）。
+    // 判定：in-string遇引号，仅当后面是结构续接（"}、,接键名/}］）才算
+    // 结构闭引号，否则=内容引号替换为中文引号（交替开闭）
+    final unquoted = _escapeInnerQuotes(s);
+    if (unquoted != s) {
+      try {
+        return jsonDecode(unquoted) as Map<String, dynamic>;
+      } catch (e) {
+        lastDecodeError = e.toString();
+        s = unquoted; // 后续截断修复基于净化后的串
+      }
+    }
+
     // 4. 提取最外层JSON对象
     final objMatch = RegExp(r'\{[\s\S]*\}').firstMatch(s);
     if (objMatch != null) {
@@ -100,6 +114,64 @@ class JsonRepair {
     }
 
     return null;
+  }
+
+  /// v1240：修复字符串值内未转义的英文双引号
+  static String _escapeInnerQuotes(String s) {
+    final out = StringBuffer();
+    var inStr = false;
+    var esc = false;
+    var alt = 0;
+    for (var i = 0; i < s.length; i++) {
+      final c = s[i];
+      if (esc) {
+        out.write(c);
+        esc = false;
+        continue;
+      }
+      if (inStr && c == '\\') {
+        out.write(c);
+        esc = true;
+        continue;
+      }
+      if (c != '"') {
+        out.write(c);
+        continue;
+      }
+      if (!inStr) {
+        inStr = true;
+        alt = 0;
+        out.write(c);
+        continue;
+      }
+      // in-string 遇引号——看后面是否结构续接
+      var j = i + 1;
+      while (j < s.length &&
+          (s[j] == ' ' || s[j] == '\t' || s[j] == '\n' || s[j] == '\r')) {
+        j++;
+      }
+      final next = j < s.length ? s[j] : '';
+      var k = j < s.length ? j + 1 : j;
+      while (k < s.length &&
+          (s[k] == ' ' || s[k] == '\t' || s[k] == '\n' || s[k] == '\r')) {
+        k++;
+      }
+      final next2 = k < s.length ? s[k] : '';
+      // 结构闭引号：后跟}]}、键名闭引号后跟:、逗号后接新键名/收尾
+      // （python等价验证：病灶样本/正常输出零改动/嵌套结构四形态全过）
+      final structural = next == '}' ||
+          next == ']' ||
+          next == ':' ||
+          (next == ',' && (next2 == '"' || next2 == '}' || next2 == ']'));
+      if (structural) {
+        inStr = false;
+        out.write(c);
+      } else {
+        alt++;
+        out.write(alt.isOdd ? '\u201C' : '\u201D');
+      }
+    }
+    return out.toString();
   }
 
   /// 修复JSON字符串值中的字面控制字符

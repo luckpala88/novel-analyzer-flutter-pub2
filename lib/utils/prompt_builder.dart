@@ -3102,7 +3102,8 @@ class PromptBuilder {
         // 都在，但格式行此前没这个键=AI靠脑补输出，弱模型漏标则跨窗续场
         // 被当新场景落库；summary描述补"与上场切换"对应要求第4条
         '只输出纯JSON：{"scenes": [{"name": "场景名", "summary": "视角人物:事件+结果；与上一场景的切换点", "changes": "关键变化/得失", "chapter_range": "第X-Y章", "end_text": "分界原句", "continuation": false}]}\n'
-        'continuation说明：本批第一个场景若与衔接提示中的末场景直接延续（同一动作/对话进行到一半被切走）才为true，其余场景一律false；无衔接提示的窗口全部false。\n\n';
+        'continuation说明：本批第一个场景若与衔接提示中的末场景直接延续（同一动作/对话进行到一半被切走）才为true，其余场景一律false；无衔接提示的窗口全部false。\n'
+        '所有字符串值内一律用中文引号""，禁止英文双引号"（强调词、专有名词引用都用中文引号）——英文引号会截断JSON。\n\n';
   }
 
   static String buildGlobalSceneUserPrompt({
