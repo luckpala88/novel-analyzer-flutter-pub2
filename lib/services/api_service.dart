@@ -277,6 +277,7 @@ class ApiService {
       formatMode: apiConfig.formatMode,
       onChunk: onChunk,
       images: images,
+      task: task, // v1242：透传任务名——全景提取类重任务首字看门狗放宽180秒
     );
     if (task.isNotEmpty) {
       final mins = (sw.elapsed.inSeconds / 60).toStringAsFixed(1);
@@ -302,6 +303,7 @@ class ApiService {
     String formatMode = 'compatible',
     void Function(String chunk)? onChunk,
     List<({String mime, String base64})> images = const [], // v838：vision图片
+    String task = '', // v1242：重任务（全景提取）首字看门狗放宽到180秒
   }) async {
     // 全局忙锁：已有任务在跑→拒绝（禁止并行生成，防止多任务乱序写盘脏数据）
     if (_busy) {
@@ -421,6 +423,9 @@ class ApiService {
       // CF系错误自动重试：524=首字节>100s被掐（Gemini thinking阶段常见，
       // 上游往往仍在跑，重试第二次通常命中快路径）；520/522/525/527同类
       final useStream = isClaude || formatMode == 'json';
+      // v1242：重任务首字看门狗放宽——全景提取类思考期长（四件套大输出），
+      // 90秒常误杀；其它任务维持90秒快速判死
+      final firstByteTimeout = task.contains('全景提取') ? 180 : 90;
       const cfRetryCodes = [520, 522, 524, 525, 527];
       // v427：取消CF系自动重试（用户裁决：API拥堵不重试，失败即告警暂停）
       const maxRetries = 0;
@@ -434,6 +439,7 @@ class ApiService {
                 isClaude,
                 onChunk,
                 stopwatch,
+                firstByteTimeoutSec: firstByteTimeout,
               )
             : await _fetchJson(
                 url,
@@ -469,8 +475,8 @@ class ApiService {
             body['model'] = altModel;
             _log(
               altModel != origModel
-                  ? '⚠️ 90秒无首字（中转挂起/思考期被掐），自动换模型重试：$altModel'
-                  : '⚠️ 90秒无首字（中转挂起），自动重试一次（重连常命中快路径）...',
+                  ? '⚠️ ${firstByteTimeout}秒无首字（中转挂起/思考期被掐），自动换模型重试：$altModel'
+                  : '⚠️ ${firstByteTimeout}秒无首字（中转挂起），自动重试一次（重连常命中快路径）...',
             );
             _resetAbort();
             final r2 = await _fetchStream(
@@ -480,12 +486,13 @@ class ApiService {
               isClaude,
               onChunk,
               stopwatch,
+              firstByteTimeoutSec: firstByteTimeout,
             );
             if (r2.statusCode == 599 && !_aborted) {
               return ApiResult(
                 content: '',
                 error:
-                    '连续2次90秒无首字（中转SSE挂起）：建议换中转或换不带思考链的模型',
+                    '连续2次${firstByteTimeout}秒无首字（中转SSE挂起）：建议换中转或换不带思考链的模型',
                 statusCode: 599,
                 elapsed: stopwatch.elapsed,
               );
@@ -550,8 +557,9 @@ class ApiService {
     Map<String, dynamic> body,
     bool isClaude,
     void Function(String chunk)? onChunk,
-    Stopwatch stopwatch,
-  ) async {
+    Stopwatch stopwatch, {
+    int firstByteTimeoutSec = 90, // v1242：重任务（全景提取）放宽到180秒
+  }) async {
     _log('SSE流式请求...');
     final request = http.Request('POST', Uri.parse(url));
     request.headers.addAll(headers);
@@ -563,14 +571,17 @@ class ApiService {
     // 挂起假死：HTTP 200后服务端一个字节不吐，用户只能干等再手动终止）。
     // 实证：gcli中转00:29:37发出→00:30:23收到200→166秒零字节被迫手动中断。
     // 代际校验防误伤：本请求提前结束后，到期看门狗不得关掉后续请求的新连接
+    // v1242：全景提取类重任务（四件套8千-1.2万字输出）思考期长，flash-high
+    // 首字常超90秒=被误杀挂起（19:34/22:44两实证，Claude同任务4.5分钟成功）
+    // ——按task放宽到180秒，小任务维持90秒快速判死
     var gotFirst = false;
     _noFirstByteFired = false;
     final myGen = _clientGen;
     // 不持有Timer引用：代际+gotFirst+_aborted三重守卫保证到期自动失效
-    Timer(const Duration(seconds: 90), () {
+    Timer(Duration(seconds: firstByteTimeoutSec), () {
       if (gotFirst || _aborted || myGen != _clientGen) return;
       _noFirstByteFired = true;
-      _log('⚠️ 90秒无首字，主动断开（中转SSE挂起/CDN掐思考期）...');
+      _log('⚠️ $firstByteTimeoutSec秒无首字，主动断开（中转SSE挂起/CDN掐思考期）...');
       try {
         _activeInner?.close(force: true);
       } catch (_) {}
