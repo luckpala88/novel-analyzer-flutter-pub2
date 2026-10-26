@@ -3097,7 +3097,12 @@ class PromptBuilder {
         // v1234：删focus键——Scene.fromJson不解析此键（models/scene.dart无focus
         // 字段），视角统一由summary开头"XX视角："前缀承担（与重概述prompt一致），
         // 幽灵字段纯烧token且诱使AI漏写summary前缀
-        '只输出纯JSON：{"scenes": [{"name": "场景名", "summary": "视角人物:事件+结果", "changes": "关键变化/得失", "chapter_range": "第X-Y章", "end_text": "分界原句"}]}\n\n';
+        // v1235：格式行补continuation键——user prompt衔接提示要求AI判定
+        // continuation=true（跨窗续场），消费端Scene.fromJson+落库合并全链
+        // 都在，但格式行此前没这个键=AI靠脑补输出，弱模型漏标则跨窗续场
+        // 被当新场景落库；summary描述补"与上场切换"对应要求第4条
+        '只输出纯JSON：{"scenes": [{"name": "场景名", "summary": "视角人物:事件+结果；与上一场景的切换点", "changes": "关键变化/得失", "chapter_range": "第X-Y章", "end_text": "分界原句", "continuation": false}]}\n'
+        'continuation说明：本批第一个场景若与衔接提示中的末场景直接延续（同一动作/对话进行到一半被切走）才为true，其余场景一律false；无衔接提示的窗口全部false。\n\n';
   }
 
   static String buildGlobalSceneUserPrompt({
