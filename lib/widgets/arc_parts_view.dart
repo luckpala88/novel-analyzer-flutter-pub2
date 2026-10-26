@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../models/scene.dart';
@@ -247,7 +249,13 @@ class ArcParts {
       for (final c in conflicts) {
         final m = _asMap(c);
         final type = m != null ? _asStr(m['type']) : '';
-        final desc = m != null ? _asStr(m['description']) : _asStr(c);
+        var desc = m != null ? _asStr(m['description']) : _asStr(c);
+        // v1244：键名漂移兜底——type/description都取不到时显示原始形态
+        // （不再静默空白条目63084截图实证；写侧_normalizeConflicts已归一化）
+        if (m != null && type.isEmpty && desc.isEmpty) {
+          desc = jsonEncode(c);
+          if (desc.length > 120) desc = desc.substring(0, 120);
+        }
         widgets.add(
           _metaItem([
             if (type.isNotEmpty) ...[

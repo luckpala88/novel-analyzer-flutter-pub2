@@ -1408,6 +1408,43 @@ void sanitizeParts(Map<String, dynamic> m) {
   }
 }
 
+/// v1244：conflicts条目归一化——对象条目按候选键序取值压平成渲染端认识的
+/// 字符串条目（prompt定义=三段箭头文本，渲染兜底显示原始形态供排障）
+List<String> _normalizeConflicts(List raw) {
+  const typeKeys = ['type', 'conflict_type', '冲突类型', '类型'];
+  const descKeys = [
+    'description', 'desc', 'conflict', 'content', 'text',
+    '内容', '描述', '详情', 'summary',
+  ];
+  String firstNonEmpty(Map m, List<String> keys) {
+    for (final k in keys) {
+      final v = (m[k] ?? '').toString().trim();
+      if (v.isNotEmpty) return v;
+    }
+    return '';
+  }
+
+  final out = <String>[];
+  for (final c in raw) {
+    if (c is Map) {
+      final type = firstNonEmpty(c, typeKeys);
+      final desc = firstNonEmpty(c, descKeys);
+      if (type.isEmpty && desc.isEmpty) {
+        // 键全不匹配——jsonEncode整条保留（渲染兜底可见，不再静默空白）
+        out.add(jsonEncode(c));
+      } else {
+        out.add(type.isEmpty ? desc : '$type｜$desc');
+      }
+    } else if (c is List) {
+      out.add(c.map((e) => e.toString()).where((s) => s.trim().isNotEmpty).join('｜'));
+    } else {
+      final s = c.toString().trim();
+      if (s.isNotEmpty) out.add(s);
+    }
+  }
+  return out;
+}
+
 /// v1154：世界状态对账（零件提取第四任务）——上一版账本+本弧线零件→增量更新。
 /// 账本=实体状态单一事实源（AppState.stateLedger），每弧线快照进metadata可回溯
 /// v1172：返回true=账本已滚动更新；false=对账失败（账本保留上一版，零件不落盘）
@@ -1720,6 +1757,11 @@ Future<bool> extractArcParts({
     if (full[k] != null) merged[k] = full[k];
   }
   sanitizeParts(merged); // v1163：AI粘连带净化（💎不可逆变化切出归还）
+  // v1244：conflicts条目归一化——AI偶发输出对象形态且键名漂移（渲染端
+  // arc_parts_view只认type/description，键名不匹配=空条目63084截图实证）
+  if (merged['conflicts'] is List) {
+    merged['conflicts'] = _normalizeConflicts(merged['conflicts'] as List);
+  }
   // v486b用户裁决：概述两次生成各归其位——第一次（分组时基于场景摘要）放弧线页，
   // 第二次（零件提取时基于原文切片，更细）只进分析层放分镜页展示，不写回覆盖弧线页
   // v488：详细概述存metadata['arc_summary_detailed']独立字段（场景页拆解链与零件提取链
