@@ -325,8 +325,24 @@ Future<void> runGlobalSceneScan({
           failMsg = '场景扫描请求失败：${result.error}';
         } else {
           final parsed = JsonRepair.parseResponse(result.content);
-          scenesJson = parsed?['scenes'] as List? ?? const [];
-          if (scenesJson.isEmpty) failMsg = '场景扫描解析失败（无场景返回）';
+          if (parsed == null) {
+            // v1237：解析彻底失败——dump原始输出首尾，排障不靠猜
+            //（Claude等模型输出形态与Gemini不同：说明文+JSON/键名漂移/多块JSON）
+            failMsg = '场景扫描解析失败（JSON不可解析）';
+            final c = result.content;
+            log('↓ 原始输出头250字：${c.length > 250 ? c.substring(0, 250) : c}');
+            if (c.length > 120) {
+              log('↓ 原始输出尾120字：${c.substring(c.length - 120)}');
+            }
+          } else {
+            final js = parsed['scenes'];
+            scenesJson = js is List ? js : const [];
+            if (scenesJson.isEmpty) {
+              // v1237：scenes缺失/为空——dump顶层键名，一眼看出键名漂移
+              failMsg = '场景扫描解析失败（无scenes或为空）';
+              log('↓ 解析出的顶层键：${parsed.keys.join(",")}');
+            }
+          }
         }
         if (failMsg != null) {
           if (winRetries < 1) {
