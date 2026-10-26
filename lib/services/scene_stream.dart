@@ -334,6 +334,19 @@ Future<void> runGlobalSceneScan({
             if (c.length > 120) {
               log('↓ 原始输出尾120字：${c.substring(c.length - 120)}');
             }
+            // v1239：透出解码报错+offset，dump出错位置前后各60字——
+            // 中段语法错误（如值内未转义英文引号）一次命中
+            final err = JsonRepair.lastDecodeError ?? '';
+            log('↓ 解码错误：$err');
+            final offM = RegExp(r'offset (\d+)').firstMatch(err);
+            if (offM != null) {
+              final off = int.tryParse(offM.group(1)!) ?? -1;
+              if (off >= 0 && off <= c.length) {
+                final st = (off - 60).clamp(0, c.length);
+                final en = (off + 60).clamp(0, c.length);
+                log('↓ 错误位置($off)附近：…${c.substring(st, en)}…');
+              }
+            }
           } else {
             final js = parsed['scenes'];
             scenesJson = js is List ? js : const [];

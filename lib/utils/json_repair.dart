@@ -22,7 +22,12 @@ class JsonRepair {
     }
   }
 
+  /// v1239：最近一次jsonDecode失败原因（含offset）——供调用方dump排障
+  ///（此前所有catch静默吞掉，AI输出中段语法错误如值内未转义英文引号无从定位）
+  static String? lastDecodeError;
+
   static Map<String, dynamic>? parseResponse(String text) {
+    lastDecodeError = null;
     var s = text.trim();
 
     // 0. 剥离JSON前的思考文本（Gemini pro等思考型模型会把"让我分析…"
@@ -59,6 +64,7 @@ class JsonRepair {
     try {
       return jsonDecode(s) as Map<String, dynamic>;
     } catch (e) {
+      lastDecodeError = e.toString(); // v1239：透出报错含offset
       // 继续修复
     }
 
