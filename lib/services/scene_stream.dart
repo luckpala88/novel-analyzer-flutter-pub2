@@ -302,25 +302,40 @@ Future<void> runGlobalSceneScan({
           }
         }
 
-        final config = state.getApiConfig('scene');
-        final result = await state.api.callApi(
-          task: '场景流扫描',  // v824任务级反馈
-          systemPrompt: systemPrompt,
-          userPrompt: userPrompt,
-          apiConfig: config,
-        );
-        if (!result.isSuccess) {
-          log(
-            '⛔ 场景扫描请求失败：${result.error}——已暂停（已完成${state.globalScenes.length}场景，进度第$wFrom章），稍后点"扫描场景"续跑',
+        // v1228：中转SSE挂起/解析失败自动重试一次（用户裁决：重试一次，再失败才暂停）——
+        // 90秒无首字callApi返回isSuccess=false，原逻辑直接break等手动续跑，
+        // gcli中转偶发挂起会让1030章长跑每批都可能断；间隔5秒自动重试本窗口
+        final scenesJson = <dynamic>[];
+        String? failMsg;
+        for (var attempt = 1; attempt <= 2; attempt++) {
+          if (attempt == 2) {
+            log('↻ 自动重试本窗口（1/1）……');
+            await Future.delayed(const Duration(seconds: 5));
+          }
+          final config = state.getApiConfig('scene');
+          final result = await state.api.callApi(
+            task: '场景流扫描',  // v824任务级反馈
+            systemPrompt: systemPrompt,
+            userPrompt: userPrompt,
+            apiConfig: config,
           );
+          if (!result.isSuccess) {
+            failMsg = '场景扫描请求失败：${result.error}';
+            continue;
+          }
+          final parsed = JsonRepair.parseResponse(result.content);
+          final js = parsed?['scenes'] as List? ?? const [];
+          if (js.isEmpty) {
+            failMsg = '场景扫描解析失败（无场景返回）';
+            continue;
+          }
+          scenesJson.addAll(js);
+          failMsg = null;
           break;
         }
-        final parsed = JsonRepair.parseResponse(result.content);
-        final scenesJson =
-            parsed?['scenes'] as List? ?? const [];
-        if (scenesJson.isEmpty) {
+        if (failMsg != null) {
           log(
-            '⛔ 场景扫描解析失败（无场景返回）——已暂停，点"扫描场景"重试本窗口',
+            '⛔ $failMsg——已暂停（已完成${state.globalScenes.length}场景，进度第$wFrom章），稍后点"扫描场景"续跑',
           );
           break;
         }
