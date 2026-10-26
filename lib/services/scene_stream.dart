@@ -293,11 +293,12 @@ Future<void> runGlobalSceneScan({
               : null,
         );
 
-        // v465：词链预览（仅首批走——后续窗口内容重复预览意义小）
+        // v1232b：词链预览每次扫描会话首窗必弹——v465限定"仅scannedUpTo==0弹"
+        // 导致续扫永远不弹（用户实测：继续扫描场景没预览直接烧API）；
+        // previewShown防会话内重试重复弹
         if (previewHook != null &&
             !previewShown &&
-            from == wFrom &&
-            state.globalSceneScannedUpTo == 0) {
+            from == wFrom) {
           previewShown = true;
           final shouldContinue = await previewHook(systemPrompt, userPrompt);
           if (!shouldContinue) {
