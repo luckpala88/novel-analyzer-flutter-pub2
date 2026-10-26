@@ -32,6 +32,10 @@ class JsonRepair {
       s = s.substring(firstBrace);
     }
 
+    // v1237b：开头的```json被上面首{截断剥掉后，结尾的裸```残留挂在}]后
+    //（Claude整包输出=围栏包裹，Gemini不带围栏所以此前没暴露）——剥尾部裸围栏
+    s = s.replaceFirst(RegExp(r'```\s*$'), '').trim();
+
     // 1. 去除markdown代码块
     final closedMd = RegExp(r'```(?:json)?\s*([\s\S]*?)```').firstMatch(s);
     if (closedMd != null) {
