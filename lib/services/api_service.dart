@@ -94,8 +94,8 @@ class ApiService {
   // v213的call()入口自清_aborted让下一请求照发=循环停不下来
   void Function()? onUserAbort;
   bool _busy = false; // 全局忙锁：同时只允许一个生成任务（禁止并行，数据安全）
-  // v1219：流式无首字看门狗总开关（默认开；AppState持久化，API设置面板可切）
-  bool noFirstByteRetryEnabled = true;
+  // v1242用户裁决：call内换模型重试废除+对应开关删除——看门狗断开保留，
+  // 失败交上层任务级重试接力（等60秒躲冷却重发）
   bool _noFirstByteFired = false; // 看门狗已触发（90秒零内容chunk强制断连）
   int _clientGen = 0; // 客户端代际：看门狗防误伤后续请求的新连接
 
@@ -461,44 +461,8 @@ class ApiService {
               elapsed: stopwatch.elapsed,
             );
           }
-          // v1219：流式90秒无首字（中转SSE挂起/CDN掐思考期）——自动断开已由
-          // _fetchStream看门狗完成（statusCode 599），这里换模型重试一次：
-          // 名字带-high后缀→去掉（思考链短命中快），否则原模型重连（常命中快路径）
-          if (result.statusCode == 599 &&
-              noFirstByteRetryEnabled &&
-              !_aborted &&
-              useStream) {
-            final origModel = (body['model'] as String?) ?? '';
-            final altModel = origModel.endsWith('-high')
-                ? origModel.substring(0, origModel.length - 5)
-                : origModel;
-            body['model'] = altModel;
-            _log(
-              altModel != origModel
-                  ? '⚠️ ${firstByteTimeout}秒无首字（中转挂起/思考期被掐），自动换模型重试：$altModel'
-                  : '⚠️ ${firstByteTimeout}秒无首字（中转挂起），自动重试一次（重连常命中快路径）...',
-            );
-            _resetAbort();
-            final r2 = await _fetchStream(
-              url,
-              headers,
-              body,
-              isClaude,
-              onChunk,
-              stopwatch,
-              firstByteTimeoutSec: firstByteTimeout,
-            );
-            if (r2.statusCode == 599 && !_aborted) {
-              return ApiResult(
-                content: '',
-                error:
-                    '连续2次${firstByteTimeout}秒无首字（中转SSE挂起）：建议换中转或换不带思考链的模型',
-                statusCode: 599,
-                elapsed: stopwatch.elapsed,
-              );
-            }
-            return r2;
-          }
+          // v1242用户裁决：换模型重试废除——90秒无首字断开后直接返回失败，
+          // 由上层任务级重试接力（等60秒躲中转冷却后重发，比同链路秒级重发有效）
           return result;
         }
         final waitSec = emptyOk ? 5 : 8 * (attempt + 1);

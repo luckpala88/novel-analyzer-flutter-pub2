@@ -855,25 +855,7 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
                   ],
                 ),
 
-                // v1219：流式无首字看门狗（全局机制）——90秒零内容自动断开+换模型
-                // 重试一次；烧API故按2026-09-25裁决开关化（默认开，全局持久化）
-                Row(
-                  children: [
-                    const Text('无首字重试(90s):'),
-                    const SizedBox(width: 8),
-                    MiniButton(
-                      label: context
-                              .watch<AppState>()
-                              .sseFirstByteRetry
-                          ? '开'
-                          : '关',
-                      onTap: () {
-                        final st = context.read<AppState>();
-                        st.setSseFirstByteRetry(!st.sseFirstByteRetry);
-                      },
-                    ),
-                  ],
-                ),
+                // v1242用户裁决：无首字换模型重试开关废除（机制已删，失败交上层任务级重试）
 
             const SizedBox(height: 12),
 
