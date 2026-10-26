@@ -309,8 +309,10 @@ Future<void> runGlobalSceneScan({
         String? failMsg;
         for (var attempt = 1; attempt <= 2; attempt++) {
           if (attempt == 2) {
-            log('↻ 自动重试本窗口（1/1）……');
-            await Future.delayed(const Duration(seconds: 5));
+            // v1229：重试间隔5秒→60秒——90秒超时+5秒≈95秒仍撞中转冷却期
+            //（全景提取实证：完成90秒后重发必挂，隔2.5分钟才恢复）
+            log('↻ 自动重试本窗口（1/1）——等60秒躲中转冷却……');
+            await Future.delayed(const Duration(seconds: 60));
           }
           final config = state.getApiConfig('scene');
           final result = await state.api.callApi(
@@ -1581,7 +1583,13 @@ Future<bool> extractArcParts({
       }
     }
     if (full != null) break;
-    if (attempt < 3) log('↻ 弧线${arc.number}全景提取重试（$attempt/2）…');
+    if (attempt < 3) {
+      // v1229：中转连续请求冷却实证（11:22-11:30日志）——首发完成后90秒内重发
+      // 必挂（重试1/2连续90秒无首字），隔2.5分钟再发即成功。重试前等60秒
+      // （+90秒超时≈2.5分钟间隔）躲开冷却期
+      log('↻ 弧线${arc.number}全景提取重试（$attempt/2）——等60秒躲中转冷却……');
+      await Future.delayed(const Duration(seconds: 60));
+    }
   }
   if (full == null) {
     log('⛔ 弧线${arc.number}全景提取三次尝试均不完整——增量续跑可从本弧线重来');
