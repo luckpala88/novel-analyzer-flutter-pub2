@@ -1189,6 +1189,10 @@ const SizedBox(height: 8),
       // v1173：重分必清账本——漏清则弧线1对账拿旧全书账本当"上一版"照抄（用户实测漏报）
       state.stateLedger.clear();
       state.saveStateLedger();
+      // v1251b：伏笔账本同款清空（v1251漏此处——清空重分是手写清理不走
+      // clearArcCascade；漏清则弧线1快照含全书旧伏笔，各弧线都是总账本）
+      state.foreshadowLedger.clear();
+      state.saveForeshadowLedger();
       // v1175：重分同时清场景上的分镜拆解+交手回合产物——旧记录残留会让分镜页
       // 误显示"已拆/已交手回合"（清理清单写于v878分镜字段存在之前，数据演进后漏更新）
       for (final sc in state.globalScenes) {
