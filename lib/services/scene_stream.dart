@@ -1455,6 +1455,13 @@ Future<bool> reconcileStateLedger({
   required void Function(String msg) log,
 }) async {
   final prevLedger = state.stateLedger.isEmpty ? '' : jsonEncode(state.stateLedger);
+  // v1245：上一版伏笔账本编号清单（F1/F2…未回收条目）——对账AI顺带判回收
+  final openFore = state.foreshadowLedger
+      .where((e) => (e['status'] ?? 'open').toString() != 'paid')
+      .toList();
+  final prevForeshadow = openFore.isEmpty
+      ? ''
+      : [for (var i = 0; i < openFore.length; i++) 'F${i + 1}. ${openFore[i]['content']}（${openFore[i]['plantedAt'] ?? ''}种下）'].join('\n');
   final pb = StringBuffer();
   final ov = parts['arc_summary']?.toString() ?? '';
   if (ov.isNotEmpty) pb.writeln('【本弧线概述】\n$ov');
@@ -1478,6 +1485,7 @@ Future<bool> reconcileStateLedger({
           arcNum: arc.number,
           prevLedger: prevLedger,
           partBlock: pb.toString(),
+          prevForeshadow: prevForeshadow, // v1245
         ),
         apiConfig: config,
       );
@@ -1569,6 +1577,63 @@ Future<bool> reconcileStateLedger({
   }
   state.stateLedger = newLedger;
   state.saveStateLedger();
+  // ===== v1245：伏笔账本顺带滚动（独立降级——更新失败只警告，不影响零件/实体账本）=====
+  final fsRaw = out?['foreshadow'];
+  if (fsRaw is Map) {
+    var dirty = false;
+    final paidList = (fsRaw['paid'] as List?) ?? const [];
+    final addedList = (fsRaw['added'] as List?) ?? const [];
+    // paid：按编号更新未回收条目（where必须含回收位置=第X章/场景+回收情况）
+    for (final p in paidList) {
+      if (p is! Map) continue;
+      final id = p['id'];
+      final idx = (id is int)
+          ? id - 1
+          : (int.tryParse(id.toString()) ?? 0) - 1;
+      if (idx < 0 || idx >= openFore.length) continue; // 编号越界丢弃（防AI幻觉）
+      final where = (p['where'] ?? '').toString().trim();
+      if (where.isEmpty) continue;
+      final entry = openFore[idx];
+      entry['status'] = 'paid';
+      entry['payoff'] = where; // 回收位置+情况（第X章回收：…）
+      entry['paidArc'] = arc.number;
+      dirty = true;
+    }
+    // added：新种下伏笔入账（id顺延，plantedArc=本弧线，plantedAt=AI给的章位）
+    for (final a0 in addedList) {
+      if (a0 is! Map) continue;
+      final content = (a0['content'] ?? '').toString().trim();
+      if (content.isEmpty) continue;
+      final maxId = state.foreshadowLedger.isEmpty
+          ? 0
+          : state.foreshadowLedger
+              .map((e) => (e['id'] as num?)?.toInt() ?? 0)
+              .reduce((a, b) => a > b ? a : b);
+      state.foreshadowLedger.add({
+        'id': maxId + 1,
+        'content': content,
+        'plantedAt': (a0['plantedAt'] ?? '').toString().trim(),
+        'plantedArc': arc.number,
+        'status': 'open',
+        'payoff': '',
+      });
+      dirty = true;
+    }
+    if (dirty) {
+      state.saveForeshadowLedger();
+      final fkey = arc.number.toString();
+      final fanalysis = state.arcAnalyses[fkey];
+      if (fanalysis != null) {
+        fanalysis.metadata = {
+          ...?fanalysis.metadata,
+          'foreshadow_ledger_snapshot': List.of(state.foreshadowLedger), // 快照可回溯
+        };
+        state.saveArcAnalyses();
+      }
+      final openCnt = state.foreshadowLedger.where((e) => (e['status'] ?? 'open').toString() != 'paid').length;
+      log('✓ 弧线${arc.number}伏笔账本已更新（回收${paidList.length}条，新增${addedList.length}条，未回收$openCnt）');
+    }
+  }
   final key = arc.number.toString();
   final analysis = state.arcAnalyses[key];
   if (analysis != null) {
@@ -1673,7 +1738,7 @@ Future<bool> extractArcParts({
       : arc.closeType == 'pseudo'
           ? '边界已闭合（伪闭合）——本弧线叙事段在此完整结束并切线，正文切片是完整叙事段，按已闭合规则提取'
           : '边界已闭合（真闭合）——本弧线正文在此收束，正文切片是完整叙事段，按已闭合规则提取';
-  final userFull = PromptBuilder.buildArcPartsUserPrompt(
+  var userFull = PromptBuilder.buildArcPartsUserPrompt(
     arcTitle: arc.title,
     arcSummary: arc.summary,
     arcText: arc.text,
@@ -1681,6 +1746,15 @@ Future<bool> extractArcParts({
     boundaryStatus: boundaryStatus,
     fullMode: true,
   );
+  // v1245：未回收伏笔账本注入（唯一事实源——防跨弧线伏笔漏判回收/重复登记）
+  final openFore = state.foreshadowLedger
+      .where((e) => (e['status'] ?? 'open').toString() != 'paid')
+      .toList();
+  if (openFore.isNotEmpty) {
+    userFull += '\n\n【未回收伏笔账本（此前弧线种下，唯一事实源）】\n'
+        '${[for (var i = 0; i < openFore.length; i++) 'F${i + 1}. ${openFore[i]['content']}（${openFore[i]['plantedAt'] ?? ''}种下）'].join('\n')}'
+        '\n（本弧线正文若回收了其中某条，对应伏笔条目payoff写明"第X章回收：回收情况"；正文没回收的不要硬判回收；与清单重复的伏笔不要重复登记）';
+  }
   // v1157：词链预览（全景提取=提取主链唯一调用，发前弹，取消即中止）
   if (previewHook != null) {
     final ok = await previewHook!(sysFull, userFull);

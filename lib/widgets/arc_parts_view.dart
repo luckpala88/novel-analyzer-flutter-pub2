@@ -340,7 +340,63 @@ class ArcParts {
       }
     }
 
-    // 7. 弧线功能
+    // 7. 伏笔账本（v1245：全局滚动账本快照——未回收红/已回收绿+回收位置）
+    final foreSnap = _asList(md['foreshadow_ledger_snapshot']);
+    if (foreSnap.isNotEmpty) {
+      final openCnt = foreSnap
+          .where((e) => e is Map && ((e['status'] ?? 'open').toString() != 'paid'))
+          .length;
+      widgets.add(_metaTitle('📒 伏笔账本（未回收$openCnt/共${foreSnap.length}）'));
+      for (final f in foreSnap) {
+        final m = _asMap(f);
+        if (m == null) continue;
+        final content = _asStr(m['content']);
+        if (content.isEmpty) continue;
+        final plantedAt = _asStr(m['plantedAt']);
+        final paid = (m['status'] ?? 'open').toString() == 'paid';
+        final payoff = _asStr(m['payoff']);
+        widgets.add(
+          _metaItem([
+            TextSpan(
+              text: paid ? '✅ ' : '🔍 ',
+              style: const TextStyle(fontSize: 11),
+            ),
+            TextSpan(
+              text: content,
+              style: TextStyle(
+                fontSize: 12,
+                color: paid ? V469Style.textSec : V469Style.textMain,
+                decoration: paid ? TextDecoration.lineThrough : null,
+              ),
+            ),
+            if (plantedAt.isNotEmpty)
+              TextSpan(
+                text: ' ($plantedAt种下)',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: V469Style.textMuted,
+                ),
+              ),
+            if (paid && payoff.isNotEmpty) ...[
+              const TextSpan(
+                text: ' → ',
+                style: TextStyle(fontSize: 12, color: V469Style.textSec),
+              ),
+              TextSpan(
+                text: payoff, // 回收位置+情况（第X章回收：…）
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: V469Style.complete,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ]),
+        );
+      }
+    }
+
+    // 8. 弧线功能
     final functions = _asList(md['arc_functions']);
     if (functions.isNotEmpty) {
       widgets.add(_metaTitle('🧩 弧线功能'));

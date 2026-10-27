@@ -154,6 +154,7 @@ class AppState extends ChangeNotifier {
   // ===== 弧线分析（分镜） =====
   Map<String, ArcAnalysis> arcAnalyses = {}; // key: arc number
   List<Map<String, dynamic>> stateLedger = []; // v1154：世界状态账本（实体状态单一事实源，滚动对账）
+  List<Map<String, dynamic>> foreshadowLedger = []; // v1245：独立伏笔账本（种下→回收跨弧线生命周期，对账顺带滚动）
   bool isAnalyzing = false;
   // 分析元数据：跟踪哪些弧线已拆解
   Map<String, dynamic> reportMeta = {}; // {analyzedArcNumbers: []}
@@ -719,6 +720,7 @@ class AppState extends ChangeNotifier {
         arcScenes = {};
         arcAnalyses = {};
         stateLedger = [];
+        foreshadowLedger = []; // v1245：独立伏笔账本同步清
         worldBook = null;
         writings = {};
       }
@@ -940,6 +942,22 @@ class AppState extends ChangeNotifier {
       }
     } else {
       stateLedger = [];
+    }
+
+    // v1245：独立伏笔账本（条目：id/content/plantedAt/plantedArc/status/payoff）
+    final foreJson = storage.readFile('${p}foreshadow_ledger.json');
+    if (foreJson != null && foreJson.isNotEmpty) {
+      try {
+        final list = jsonDecode(foreJson) as List;
+        foreshadowLedger = list
+            .whereType<Map>()
+            .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+            .toList();
+      } catch (e) {
+        foreshadowLedger = [];
+      }
+    } else {
+      foreshadowLedger = [];
     }
 
     // v916：场景数据单一事实源——重绑analysis.scenes为globalScenes子列表
@@ -1645,6 +1663,12 @@ class AppState extends ChangeNotifier {
   void saveStateLedger() {
     final p = storage.bookPath;
     storage.writeFile('${p}state_ledger.json', jsonEncode(stateLedger));
+  }
+
+  /// v1245：保存独立伏笔账本
+  void saveForeshadowLedger() {
+    final p = storage.bookPath;
+    storage.writeFile('${p}foreshadow_ledger.json', jsonEncode(foreshadowLedger));
   }
 
   /// 保存世界书
@@ -2515,6 +2539,7 @@ class AppState extends ChangeNotifier {
   static const List<String> bookDataFiles = [
     'chapters.json', 'arc_scan.json', 'arc_analyses.json',
     'state_ledger.json', // v1154：世界状态账本
+    'foreshadow_ledger.json', // v1245：独立伏笔账本
     'global_scenes.json', // v431：全局场景流
     'arc_scenes.json', 'narrative_lines.json',
     'report.md', 'report_meta.json', 'worldbook.json',

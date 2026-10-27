@@ -3314,13 +3314,18 @@ class PromptBuilder {
         '- v1162如实原则：实体状态按正文实际进度登记——弧线未闭合时登记进行中状态（如"重伤昏迷中（弧线N未完）"），不要求收束落定，禁止臆测后续发展\n'
         '- 只依据给出的信息更新，禁止臆测补充\n'
         '- 上一版账本为空时：所有实体都进added（changed/removed留空数组）\n'
-        '输出纯JSON（不要markdown）：{"changed": [{"category": "角色", "name": "张三", "state": "重伤——弧线3被伏击", "lastArc": 3}], "added": [], "removed": []}\n\n';
+        'v1245伏笔账本（与实体账本同批顺带输出）：给定上一版"伏笔账本"（编号F1/F2…，种下未回收的伏笔清单）与本弧线信息，输出foreshadow区：\n'
+        '- paid：本弧线正文中确实被回收的伏笔，每条输出{"id":编号,"where":"第X章回收：回收情况一句话"}——where必须写明回收位置（第几章或第几个场景）+回收情况，禁止只写编号；正文里没被回收的伏笔不要硬判回收（顺带提及不算回收）\n'
+        '- added：本弧线新种下的伏笔（正文明确铺垫"埋钩子"的，概括性总结不算），每条输出{"content":"伏笔内容","plantedAt":"第X章"}\n'
+        '- 与上一版账本重复的伏笔不要进added（防重复登记）；正文没有伏笔动态时foreshadow输出{"paid":[],"added":[]}\n'
+        '输出纯JSON（不要markdown）：{"changed": [{"category": "角色", "name": "张三", "state": "重伤——弧线3被伏击", "lastArc": 3}], "added": [], "removed": [], "foreshadow": {"paid": [{"id": 1, "where": "第12章回收：匕首现身刺穿黑衣人"}], "added": [{"content": "玉佩裂纹的秘密", "plantedAt": "第10章"}]}}\n\n';
   }
 
   static String buildLedgerReconcileUserPrompt({
     required int arcNum,
     required String prevLedger,
     required String partBlock,
+    String prevForeshadow = '', // v1245：上一版伏笔账本（编号清单，对账顺带滚动）
   }) {
     final sb = StringBuffer();
     sb.writeln('刚完成弧线$arcNum的零件提取，更新世界状态账本：');
@@ -3331,6 +3336,14 @@ class PromptBuilder {
       sb.writeln();
     } else {
       sb.writeln('（上一版账本为空——按本弧线信息新建账本）');
+      sb.writeln();
+    }
+    if (prevForeshadow.isNotEmpty) {
+      sb.writeln('【上一版伏笔账本（种下未回收）】');
+      sb.writeln(prevForeshadow);
+      sb.writeln();
+    } else {
+      sb.writeln('（上一版伏笔账本为空——只按本弧线信息新增伏笔）');
       sb.writeln();
     }
     sb.writeln('【弧线$arcNum信息】');
