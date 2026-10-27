@@ -341,17 +341,39 @@ class ArcParts {
     }
 
     // 7. 伏笔账本（v1245：全局滚动账本快照——未回收红/已回收绿+回收位置）
+    // v1253：本弧线新种的条目折叠成一行计数（与上方伏笔块重复显示，纯显示去重，
+    // 数据不动）——只平铺前弧线遗留条目；plantedArc缺失的条目保守平铺不隐藏
     final foreSnap = _asList(md['foreshadow_ledger_snapshot']);
     if (foreSnap.isNotEmpty) {
       final openCnt = foreSnap
           .where((e) => e is Map && ((e['status'] ?? 'open').toString() != 'paid'))
           .length;
+      final ownCnt = foreSnap.where((e) {
+        if (e is! Map) return false;
+        return (int.tryParse('${e['plantedArc']}') ?? -1) == analysis!.arcNumber;
+      }).length;
       widgets.add(_metaTitle('📒 伏笔账本（未回收$openCnt/共${foreSnap.length}）'));
+      if (ownCnt > 0) {
+        widgets.add(
+          _metaItem([
+            TextSpan(
+              text: '⋯ 本弧线新种$ownCnt条见上方🌱伏笔块（已折叠）',
+              style: const TextStyle(
+                fontSize: 11,
+                color: V469Style.textMuted,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ]),
+        );
+      }
       for (final f in foreSnap) {
         final m = _asMap(f);
         if (m == null) continue;
         final content = _asStr(m['content']);
         if (content.isEmpty) continue;
+        final plantedArc = int.tryParse('${m['plantedArc']}') ?? -1;
+        if (plantedArc == analysis!.arcNumber) continue; // v1253：本弧线新种不重复平铺
         final plantedAt = _asStr(m['plantedAt']);
         final paid = (m['status'] ?? 'open').toString() == 'paid';
         final payoff = _asStr(m['payoff']);
