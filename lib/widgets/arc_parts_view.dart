@@ -341,80 +341,71 @@ class ArcParts {
     }
 
     // 7. 伏笔账本（v1245：全局滚动账本快照——未回收红/已回收绿+回收位置）
-    // v1253：本弧线新种的条目折叠成一行计数（与上方伏笔块重复显示，纯显示去重，
-    // 数据不动）——只平铺前弧线遗留条目；plantedArc缺失的条目保守平铺不隐藏
+    // v1254：本弧线新种的条目默认折叠、点击可展开（v1253纯折叠用户要求可展开）；
+    // 前弧线遗留条目照旧平铺；plantedArc缺失的条目保守平铺不隐藏；数据不动
     final foreSnap = _asList(md['foreshadow_ledger_snapshot']);
     if (foreSnap.isNotEmpty) {
       final openCnt = foreSnap
           .where((e) => e is Map && ((e['status'] ?? 'open').toString() != 'paid'))
           .length;
-      final ownCnt = foreSnap.where((e) {
-        if (e is! Map) return false;
-        return (int.tryParse('${e['plantedArc']}') ?? -1) == analysis!.arcNumber;
-      }).length;
       widgets.add(_metaTitle('📒 伏笔账本（未回收$openCnt/共${foreSnap.length}）'));
-      if (ownCnt > 0) {
-        widgets.add(
-          _metaItem([
-            TextSpan(
-              text: '⋯ 本弧线新种$ownCnt条见上方🌱伏笔块（已折叠）',
-              style: const TextStyle(
-                fontSize: 11,
-                color: V469Style.textMuted,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ]),
-        );
-      }
-      for (final f in foreSnap) {
-        final m = _asMap(f);
-        if (m == null) continue;
+      Widget foreItem(Map<String, dynamic> m) {
         final content = _asStr(m['content']);
-        if (content.isEmpty) continue;
-        final plantedArc = int.tryParse('${m['plantedArc']}') ?? -1;
-        if (plantedArc == analysis!.arcNumber) continue; // v1253：本弧线新种不重复平铺
         final plantedAt = _asStr(m['plantedAt']);
         final paid = (m['status'] ?? 'open').toString() == 'paid';
         final payoff = _asStr(m['payoff']);
-        widgets.add(
-          _metaItem([
+        return _metaItem([
+          TextSpan(
+            text: paid ? '✅ ' : '🔍 ',
+            style: const TextStyle(fontSize: 11),
+          ),
+          TextSpan(
+            text: content,
+            style: TextStyle(
+              fontSize: 12,
+              color: paid ? V469Style.textSec : V469Style.textMain,
+              decoration: paid ? TextDecoration.lineThrough : null,
+            ),
+          ),
+          if (plantedAt.isNotEmpty)
             TextSpan(
-              text: paid ? '✅ ' : '🔍 ',
-              style: const TextStyle(fontSize: 11),
+              text: ' ($plantedAt种下)',
+              style: const TextStyle(
+                fontSize: 11,
+                color: V469Style.textMuted,
+              ),
+            ),
+          if (paid && payoff.isNotEmpty) ...[
+            const TextSpan(
+              text: ' → ',
+              style: TextStyle(fontSize: 12, color: V469Style.textSec),
             ),
             TextSpan(
-              text: content,
-              style: TextStyle(
+              text: payoff, // 回收位置+情况（第X章回收：…）
+              style: const TextStyle(
                 fontSize: 12,
-                color: paid ? V469Style.textSec : V469Style.textMain,
-                decoration: paid ? TextDecoration.lineThrough : null,
+                color: V469Style.complete,
+                fontWeight: FontWeight.w500,
               ),
             ),
-            if (plantedAt.isNotEmpty)
-              TextSpan(
-                text: ' ($plantedAt种下)',
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: V469Style.textMuted,
-                ),
-              ),
-            if (paid && payoff.isNotEmpty) ...[
-              const TextSpan(
-                text: ' → ',
-                style: TextStyle(fontSize: 12, color: V469Style.textSec),
-              ),
-              TextSpan(
-                text: payoff, // 回收位置+情况（第X章回收：…）
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: V469Style.complete,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ]),
-        );
+          ],
+        ]);
+      }
+
+      final ownItems = <Widget>[];
+      for (final f in foreSnap) {
+        final m = _asMap(f);
+        if (m == null) continue;
+        if (_asStr(m['content']).isEmpty) continue;
+        final plantedArc = int.tryParse('${m['plantedArc']}') ?? -1;
+        if (plantedArc == analysis!.arcNumber) {
+          ownItems.add(foreItem(m)); // v1254：本弧线新种→折叠区
+          continue;
+        }
+        widgets.add(foreItem(m));
+      }
+      if (ownItems.isNotEmpty) {
+        widgets.add(_ForeOwnCollapsible(items: ownItems));
       }
     }
 
@@ -518,5 +509,40 @@ class ArcParts {
     }
 
     return widgets;
+  }
+}
+
+/// v1254：伏笔账本"本弧线新种"折叠区（默认收起一行，点击展开平铺条目）
+class _ForeOwnCollapsible extends StatefulWidget {
+  final List<Widget> items;
+  const _ForeOwnCollapsible({required this.items});
+  @override
+  State<_ForeOwnCollapsible> createState() => _ForeOwnCollapsibleState();
+}
+
+class _ForeOwnCollapsibleState extends State<_ForeOwnCollapsible> {
+  bool _open = false;
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: () => setState(() => _open = !_open),
+          child: Padding(
+            padding: const EdgeInsets.only(left: 14, top: 3, bottom: 3),
+            child: Text(
+              '${_open ? '▾' : '▸'} 本弧线新种${widget.items.length}条（点${_open ? '收起' : '开'}查看）',
+              style: const TextStyle(
+                fontSize: 11,
+                color: V469Style.textMuted,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+        ),
+        if (_open) ...widget.items,
+      ],
+    );
   }
 }
