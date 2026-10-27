@@ -1477,17 +1477,19 @@ Future<bool> reconcileStateLedger({
     }
     if (dirty) {
       state.saveForeshadowLedger();
-      final fkey = arc.number.toString();
-      final fanalysis = state.arcAnalyses[fkey];
-      if (fanalysis != null) {
-        fanalysis.metadata = {
-          ...?fanalysis.metadata,
-          'foreshadow_ledger_snapshot': List.of(state.foreshadowLedger), // 快照可回溯
-        };
-        state.saveArcAnalyses();
-      }
       final openCnt = state.foreshadowLedger.where((e) => (e['status'] ?? 'open').toString() != 'paid').length;
       log('✓ 弧线${arc.number}伏笔账本已更新（回收${paidList.length}条，新增${addedList.length}条，未回收$openCnt）');
+    }
+    // v1251：快照总是落（无动态也继承当前账态）——每弧线都有独立"截至本弧线"
+    // 的账单时点（最后弧线=总账单），且剪断回滚不缺中间锚点
+    final fkey = arc.number.toString();
+    final fanalysis = state.arcAnalyses[fkey];
+    if (fanalysis != null) {
+      fanalysis.metadata = {
+        ...?fanalysis.metadata,
+        'foreshadow_ledger_snapshot': List.of(state.foreshadowLedger), // 快照可回溯
+      };
+      state.saveArcAnalyses();
     }
   }
   final key = arc.number.toString();

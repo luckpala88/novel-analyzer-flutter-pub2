@@ -1526,6 +1526,8 @@ class AppState extends ChangeNotifier {
       arcAnalyses.clear();
       arcScenes.clear();
       stateLedger.clear();
+      foreshadowLedger.clear(); // v1251：伏笔账本与实体账本同步清
+      saveForeshadowLedger();
     } else {
       // v651：闭包显式(Arc a)——?.链上未标类型的闭包被推成(dynamic)=>dynamic,
       // 运行期撞List<Arc>的test校验抛subtype异常(v647同款,剪断重分必炸)
@@ -1548,17 +1550,27 @@ class AppState extends ChangeNotifier {
 
   /// v1175：全局账本回滚到剩余最新弧线快照（从clearArcCascade提取公共——
   /// 剪断重分不走cascade，同样需要回滚，防"未来状态"残留倒灌增量重提）
+  /// v1251：伏笔账本同步回滚（找剩余最新foreshadow_ledger_snapshot，两账本
+  /// 快照弧线可能不同——某弧线可能只更新了其中一个）
   void rollbackLedgerToLatestSnapshot() {
     var bestN = -1;
     String? bestKey;
+    var bestF = -1;
+    String? bestFKey;
     for (final k in arcAnalyses.keys) {
       final n = int.tryParse(k);
-      if (n != null &&
-          n > bestN &&
+      if (n == null) continue;
+      if (n > bestN &&
           (arcAnalyses[k]!.metadata?['state_ledger_snapshot'] as List? ?? [])
               .isNotEmpty) {
         bestN = n;
         bestKey = k;
+      }
+      if (n > bestF &&
+          (arcAnalyses[k]!.metadata?['foreshadow_ledger_snapshot'] as List? ?? [])
+              .isNotEmpty) {
+        bestF = n;
+        bestFKey = k;
       }
     }
     if (bestKey != null) {
@@ -1572,6 +1584,18 @@ class AppState extends ChangeNotifier {
       stateLedger.clear();
     }
     saveStateLedger();
+    // v1251：伏笔账本回滚（快照含全量条目，直接采用）
+    if (bestFKey != null) {
+      final fsnap = arcAnalyses[bestFKey]!
+              .metadata!['foreshadow_ledger_snapshot'] as List;
+      foreshadowLedger = fsnap
+          .whereType<Map>()
+          .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+          .toList();
+    } else {
+      foreshadowLedger.clear();
+    }
+    saveForeshadowLedger();
   }
 
   /// v431：保存全局场景流
