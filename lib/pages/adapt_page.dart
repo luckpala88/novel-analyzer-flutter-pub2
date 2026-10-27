@@ -204,38 +204,24 @@ class _AdaptPageState extends State<AdaptPage>
     return out.join('\n');
   }
 
-  /// v937：从scene_choreos整串提取"场景N:"段落（v900概念：扫描阶段逐场景
-  /// 落点存metadata整串、不写Scene.choreo——Scene.choreo专属拆分镜详版）
-  String _choreoFromAll(String all, int sceneIdx) {
-    if (all.trim().isEmpty) return '';
-    final m = RegExp('场景\\s*${sceneIdx + 1}\\s*[:：]([\\s\\S]*?)(?=场景\\s*\\d+\\s*[:：]|\$)')
-        .firstMatch(all);
-    return m?.group(1)?.trim() ?? '';
-  }
-
-  /// v936/v937：场景交手回合段代码级兜底（v1218原"编排段"）——数据源两级：Scene.choreo
-  /// （拆分镜详版，改编场景阶段通常为空）→ scene_choreos整串按场景号提取段；
-  /// 终端自检日志全链可见（v937用户要求）：两个来源字数+提取结果字数，
-  /// 兜底触发/不触发都有据可查
+  /// v936：场景交手回合段代码级兜底（v1218原"编排段"）——v1249：scene_choreos串源
+  /// 废除（目的层删），唯一数据源=Scene.choreo（拆分镜详版）
   String _ensureSceneChoreo(String frameContent, String sceneChoreo,
-      int sceneIdx, String sceneChoreosAll) {
-    final fromScene = sceneChoreo.trim();
-    final fromAll = _choreoFromAll(sceneChoreosAll, sceneIdx);
-    _addLog(
-        '🔍 交手回合自检｜场景${sceneIdx + 1}｜Scene.choreo=${fromScene.length}字｜scene_choreos串=${sceneChoreosAll.trim().length}字｜本场景段提取=${fromAll.length}字');
-    final c = fromScene.isNotEmpty ? fromScene : fromAll;
+      int sceneIdx) {
+    final c = sceneChoreo.trim();
     // v1218：AI按新prompt写"交手回合："段，存量路径兼容"编排："
     if (frameContent.contains('交手回合：') || frameContent.contains('编排：')) {
       _addLog('🔍 交手回合自检｜AI已写交手回合段，无需兜底');
       return frameContent;
     }
     if (c.isEmpty) {
-      _addLog('⛔ 交手回合自检｜两个来源皆空——该弧线无交手回合数据（先跑"分析交手回合"或重新扫描）');
+      _addLog('⛔ 交手回合自检｜Scene.choreo为空——该场景无交手回合数据（先跑"分析交手回合"或重新扫描）');
       return frameContent;
     }
-    _addLog('↩ 场景${sceneIdx + 1}：AI漏写交手回合段，代码级补入（${c.length}字，来源：${fromScene.isNotEmpty ? "Scene.choreo" : "scene_choreos串"}）');
+    _addLog('↩ 场景${sceneIdx + 1}：AI漏写交手回合段，代码级补入（${c.length}字，来源：Scene.choreo）');
     return '${frameContent.trimRight()}\n交手回合：$c';
   }
+
 
   /// 弧线条目content追加场景框架（插到九件套【世界观设定】前）
   bool _appendSceneToArcEntry(
@@ -7477,9 +7463,7 @@ return true;
         }
         // 删除旧条目，解析弧线总结条目
         state.worldBook!.entries.removeWhere((k, e) => e.arcKey == arcKey);
-        var sumOk = _parseWBResponse(state, sumResult.content, arc.number,
-            arcChoreo: (arcItem['analysis']?['arc']?['arc_choreo'] ?? '')
-                .toString());
+        var sumOk = _parseWBResponse(state, sumResult.content, arc.number);
         if (sumOk <= 0) {
           state.worldBook!.arcStatus[arcKey] = 'failed';
           _addLog('弧线${arc.number} 弧线总结解析失败');
@@ -7707,9 +7691,7 @@ return true;
             _ensureSceneChoreo(
                 frameContent,
                 (scene.choreo ?? '').toString(),
-                si,
-                (arcItem['analysis']?['arc']?['scene_choreos'] ?? '')
-                    .toString()),
+                si),
           );
           if (!mergedFrame) {
             _addLog('❌ 场景${si + 1}框架追加失败（弧线条目未找到）——停机');
@@ -8150,9 +8132,7 @@ return true;
             _ensureSceneChoreo(
                 frameContent,
                 (scenes[sceneIdx].choreo ?? '').toString(),
-                sceneIdx,
-                (arcItem['analysis']?['arc']?['scene_choreos'] ?? '')
-                    .toString()));
+                sceneIdx));
         if (!mergedFrame) {
           _addLog('❌ 场景${sceneIdx + 1}框架追加失败，终止');
           return;
@@ -8289,9 +8269,7 @@ return true;
       // v227：世界观facts（阶段A生成【世界观设定】的数据源——
       // 此前漏传，AI手里没有facts只能全写"本弧线未涉及"）
       'worldbuilding_facts': analysis?.metadata?['worldbuilding_facts'] ?? [],
-      // v924：交手回合进条目生成数据（三层表述层）
-      'arc_choreo': analysis?.metadata?['arc_choreo'] ?? '',
-      'scene_choreos': analysis?.metadata?['scene_choreos'] ?? '',
+      // v1249：arc_choreo/scene_choreos键废除（目的层删；Scene.choreo交手回合由Scene模型直接取）
     };
 
     return {
@@ -8301,8 +8279,7 @@ return true;
   }
 
   /// 解析世界书API响应，返回添加的条目数
-  int _parseWBResponse(AppState state, String content, int arcNumber,
-      {String? arcChoreo}) {
+  int _parseWBResponse(AppState state, String content, int arcNumber) {
     final json = JsonRepair.parseResponse(content);
     if (json == null) {
       _addLog('世界书JSON解析失败');
@@ -8331,21 +8308,7 @@ return true;
       // 出现两次，第二次空块紧跟），只保留首次出现，后续重复行及其空块
       // （到下一个标记/文末）整段删除；若首块为空则保留内容完整的那个块
       entry.content = _dedupeStructSections(entry.content);
-      // v935：弧线目的总纲代码级兜底（v1218原"编排总纲"措辞）——prompt规定了【弧线目的】段但
-      // AI实测会漏写（用户实测条目里没有）；机器能查的走代码：条目无此段
-      // 且metadata有arc_choreo时，由代码把原文拼进条目（拼在【世界观设定】前，
-      // 与九件套段并列；弧线目的=弧线级总纲，落库后场景/分镜层都读它；v1209）
-      final choreo = (arcChoreo ?? '').trim();
-      if (choreo.isNotEmpty &&
-          !entry.content.contains('弧线目的')) {
-        final insertRe = RegExp(r'【世界观设定】');
-        final m = insertRe.firstMatch(entry.content);
-        final block = '\n【弧线目的】\n$choreo\n';
-        entry.content = m == null
-            ? '${entry.content.trimRight()}\n$block'
-            : '${entry.content.substring(0, m.start)}$block${entry.content.substring(m.start)}';
-        _addLog('↩ 弧线$arcNumber：AI漏写弧线目的总纲，代码级补入（${choreo.length}字）');
-      }
+      // v1249：弧线目的总纲代码级兜底废除（目的层删）
       entry.arcKey = arcNumber.toString();
       entry.uid =
           '${arcNumber}_${DateTime.now().millisecondsSinceEpoch}_$added';

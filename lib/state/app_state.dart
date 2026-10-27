@@ -2724,17 +2724,7 @@ class AppState extends ChangeNotifier {
       sb.writeln(core);
       sb.writeln();
     }
-    // v894/v918：弧线目的进语料——总纲+逐场景目的（新场景与状态
-    // 变化序列衔接、朝闭合落点推进；v1205编排改状态账）
-    final an = arcAnalyses[arcKey];
-    final choreo = an?.metadata?['arc_choreo']?.toString() ?? '';
-    final scCh = an?.metadata?['scene_choreos']?.toString() ?? '';
-    if (choreo.isNotEmpty || scCh.isNotEmpty) {
-      sb.writeln('【弧线目的（规划新场景时必须服务弧线目的）】');
-      if (choreo.isNotEmpty) sb.writeln('总纲：$choreo');
-      if (scCh.isNotEmpty) sb.writeln('逐场景目的：$scCh');
-      sb.writeln();
-    }
+    // v1249：弧线目的/逐场景目的语料块废除（目的层删，因果链概述承担编排策略）
     final cur = _continueEntryOf(myNum);
     if (cur != null && cur.isNotEmpty) {
       final lines = RegExp(r'^(场景\d+：[^\n]*)(\n概述：[^\n]*)?', multiLine: true)

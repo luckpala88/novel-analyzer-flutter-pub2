@@ -138,17 +138,14 @@ Future<AgentToolResult> runTool(AppState state, String tool,
         var withChoreo = 0, totalScenes = 0;
         for (final a in state.allArcs) {
           if (arcFilter != null && a.number != arcFilter) continue;
-          // v917：权威存储=analysis.metadata['arc_choreo']
-          final ch = state.arcAnalyses[a.number.toString()]?.metadata?['arc_choreo']?.toString() ?? a.arcChoreo;
-          lines.add(
-              '弧线${a.number}「${a.title}」总纲: ${ch.isEmpty ? "（空）" : ch}');
+          // v1249：弧线总纲行废除（目的层删）——编排策略由弧线概述因果链承担
           final an = state.arcAnalyses[a.number.toString()];
           final scenes = an?.scenes ?? const [];
           for (final sc in scenes) {
             totalScenes++;
             if (sc.choreo.isNotEmpty) withChoreo++;
           }
-          lines.add('  交手回合: ${scenes.where((s2) => s2.choreo.isNotEmpty).length}/${scenes.length}个场景有');
+          lines.add('弧线${a.number}「${a.title}」交手回合: ${scenes.where((s2) => s2.choreo.isNotEmpty).length}/${scenes.length}个场景有');
         }
         if (lines.isEmpty) {
           return AgentToolResult(tool, true,
@@ -214,19 +211,7 @@ Future<AgentToolResult> runTool(AppState state, String tool,
       return AgentToolResult(tool, true, '【${hit['name']}】\n${hit['content']}');
     case 'collect_style': // v951：表述层语料汇总（总结风格档案的素材）
       final buf = <String>[];
-      // 弧线目的（取前3条样本）
-      var choreoN = 0;
-      for (final a in state.allArcs) {
-        if (choreoN >= 3) break;
-        final ch = state.arcAnalyses[a.number.toString()]
-                ?.metadata?['arc_choreo']
-                ?.toString() ??
-            '';
-        if (ch.isNotEmpty) {
-          buf.add('【弧线${a.number}总目的】${ch.length > 300 ? ch.substring(0, 300) : ch}');
-          choreoN++;
-        }
-      }
+      // v1249：弧线目的样本块废除（目的层删）
       // 交手回合+trick样本（取前4条）
       var sampleN = 0;
       for (final a in state.allArcs) {

@@ -14,7 +14,8 @@ class SceneCardItem extends StatelessWidget {
   final VoidCallback? onAnalyzeChoreo; // v901：场景内分镜交手回合分析（拆分镜后可用，v1218原"编排"）
   final VoidCallback? onShots; // v981：点分镜徽章查看该场景全部分镜完整内容
   final Widget? trailing; // 行1右侧自定义区（默认分镜状态徽章）
-  final String scenePurpose; // v1211：场景目的（弧线页从scene_choreos提取传入，空不显示）
+  // v1249：scenePurpose参数废除（逐场景目的删，因果链概述承担）——字段保留兼容既有调用签名
+  final String scenePurpose;
 
   const SceneCardItem({
     super.key,
@@ -139,28 +140,7 @@ class SceneCardItem extends StatelessWidget {
                 color: V469Style.textSec,
               ),
             ),
-          // v1211：场景目的（分散展示，紧跟概述；"无"也如实显示）
-          if (scenePurpose.isNotEmpty) ...[
-            const SizedBox(height: 5),
-            const Text(
-              '🎯 场景目的',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF7C3AED),
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              scenePurpose,
-              style: const TextStyle(
-                fontSize: 11.5,
-                height: 1.5,
-                color: V469Style.textSec,
-              ),
-            ),
-          ],
-          // v882：逐场景目的标注（分组产出，v1218原"编排"名）
+          // v1249：场景目的展示块废除（逐场景目的删）；v882：逐场景目的标注（分组产出，v1218原"编排"名）
           // v1017：默认折叠——点标题展开+底部收起键（对齐分镜页v1006）
           if (scene.choreo.isNotEmpty) ...[
             _ChoreoFoldSection(choreo: scene.choreo),

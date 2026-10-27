@@ -740,7 +740,6 @@ Future<void> groupArcsFromScenes({
           // 漏查会让账本缺的弧线直接跳过，主循环hasSnap检查永远轮不到（弧线64实证）
           final md = state.arcAnalyses[a.number.toString()]?.metadata;
           if ((md?['arc_summary_detailed'] ?? '').toString().isNotEmpty && // v1183：判非空防空串脏数据误跳
-              (md?['arc_choreo'] ?? '').toString().isNotEmpty &&
               (md?['state_ledger_snapshot'] as List? ?? []).isNotEmpty) {
             extractedArcs.add(a.number);
           }
@@ -827,10 +826,8 @@ Future<void> groupArcsFromScenes({
             '- **闭合判定看下一场景**：处理到场景M时，场景M+1仍是本弧线主角/叙事延续→继续；切到别的角色/线→本场景收束（伪闭合）；主角发生不可逆变化（真闭合）→也可在此收束\n'
             '- focus=视角主角\n'
             '- 最后一条弧线若叙事未收束（书未读完的中间态），status=incomplete\n\n'
-            '- ⚠️ arc_choreo与scene_choreos为**必填字段**（v886实测：模型常只给arc_choreo漏scene_choreos=输出不完整）\n'
-            '- arc_choreo（弧线目的）：${PromptBuilder.arcChoreoTemplate}\n'
-            '- scene_choreos（逐场景目的，**本弧线每个场景都必须有一项**）：${PromptBuilder.scenePurposeTemplate}\n'
-            '只输出纯JSON：{"arcs": [{"title": "...", "summary": "...", "focus": "...", "close_type": "real/pseudo", "status": "complete/incomplete", "scene_from": 起始场景序号, "scene_to": 结束场景序号, "closure_reason": "闭合依据(a)落定在哪个场景(b)为什么不是前一场景(c)提前闭合会怎样", "arc_choreo": "弧线目的", "scene_choreos": "场景N:目的内容；场景M:无"}]}';
+            '- ⚠️ summary（弧线概述）为**必填字段**，v1249因果链纪律：跨场景因果递推——上一场景的**结果**如何成为下一场景的**因子**（角色行动/配角帮助/环境/前因余波/性格皆可为因子），环环相扣推进到本弧线落定的不可逆变化；禁止把各场景概述压缩拼接成流水账并列（"经过A、B、C"式罗列=错误形态），每一环必须交代"因为上一环的什么结果，才有了这一环"\n'
+            '只输出纯JSON：{"arcs": [{"title": "...", "summary": "...", "focus": "...", "close_type": "real/pseudo", "status": "complete/incomplete", "scene_from": 起始场景序号, "scene_to": 结束场景序号, "closure_reason": "闭合依据(a)落定在哪个场景(b)为什么不是前一场景(c)提前闭合会怎样"}]}';
         final userPrompt =
             '${openArc == null ? '上文弧线均已闭合，请从本批第一个场景开始新弧线' : '已分组上文的未闭合弧线：$openDesc（延续它时title保持一致，必要时加"·续"）'}\n\n'
             '以下是场景$cursor+1-$to的序列：\n\n$sb\n\n'
@@ -958,30 +955,11 @@ Future<void> groupArcsFromScenes({
           final seg = gs.sublist(from2, to2 + 1);
           if (seg.isEmpty) continue;
           prevTo = to2 + 1;
-          // v900概念定稿：scene_choreos=弧线目的的**逐场景目的判定**（v1209改）
-          // （弧线层结构数据）——存arcAnalyses.metadata，不再写Scene.choreo
-          // （Scene.choreo专属"场景交手回合记录"（v1218改名）=拆分镜详版，字段分家防覆盖）
-          final scChoreos = m['scene_choreos']?.toString() ?? '';
-          String scChoreosSaved = ''; // v900：延后到analysis创建后落库
-          // v1177：-1=AI未输出；>=0=输出且为落点数——日志延到arcNum赋值后
-          // （v1086教训：先算新值再打日志。首条弧线曾误报"弧线0"——log在arcNum+1之前打）
-          int choreoCount = -1;
-          if (scChoreos.isNotEmpty) {
-            scChoreosSaved = scChoreos;
-            choreoCount =
-                RegExp(r'(\d+)\s*[:：]').allMatches(scChoreos).length;
-          }
-          final arcChoreoV = m['arc_choreo']?.toString() ?? '';
+          // v1249：arc_choreo/scene_choreos（弧线目的/逐场景目的）废除——
+          // 弧线功能已覆盖目的分析+因果链概述自然显编排策略（用户裁决）
           final isContinuation = openArc != null &&
               (m['title']?.toString() ?? '').contains(openArc.title);
           arcNum = isContinuation ? openArc!.number : arcNum + 1;
-          if (scChoreos.isEmpty) {
-            log('⚠️ 弧线$arcNum AI未输出scene_choreos字段（arc_choreo=${m['arc_choreo'] != null ? "有" : "无"}）');
-          } else if (choreoCount == 0) {
-            log('⚠️ 弧线$arcNum scene_choreos格式未解析出任何场景（原文头80字：${scChoreos.substring(0, scChoreos.length > 80 ? 80 : scChoreos.length)}）');
-          } else {
-            log('✓ 目的落库：弧线$arcNum $choreoCount个场景状态变化');
-          }
           // v492b：前段场景分析层——必须在分支处理前抓取（处理后openArc可能被置null）
           final prevAnalysis = isContinuation
               ? state.arcAnalyses[openArc!.number.toString()]
@@ -1040,12 +1018,9 @@ Future<void> groupArcsFromScenes({
           analysis.arcTitle = arc.title;
           analysis.arcSummary = arc.summary;
           analysis.scenes = [...?prevAnalysis?.scenes, ...seg];
-          // v900/v917：弧线层策略数据统一存analysis.metadata（语料/条目唯一读取源）
-          // arc_choreo总目的+scene_choreos逐场景目的——分组即落，不等重提零件
-          final newMeta = <String, dynamic>{...?analysis.metadata};
-          if (scChoreosSaved.isNotEmpty) newMeta['scene_choreos'] = scChoreosSaved;
-          if (arcChoreoV.isNotEmpty) newMeta['arc_choreo'] = arcChoreoV;
-          analysis.metadata = newMeta;
+          // v900/v917：弧线层策略数据存analysis.metadata（v1249：目的层已废除，
+          // 弧线概述因果链化后由弧线功能+概述承担编排策略）
+          analysis.metadata = {...?analysis.metadata};
           state.arcAnalyses[arc.number.toString()] = analysis;
         }
         // v491批尾检查：AI最后一条弧线没覆盖到批尾→中断告警（不静默兜底）
@@ -1058,55 +1033,26 @@ Future<void> groupArcsFromScenes({
         // 本批新闭合的弧线立即提取零件，不用等全部组完
         for (final a in arcs) {
           if (a.status == 'complete' && !extractedArcs.contains(a.number)) {
-            // v1164：零件/目的分别判缺补跑——零件齐的不重烧零件API，只补目的
+            // v1164：零件判缺补跑；v1249：目的层废除（弧线功能+因果链概述承担编排策略）
             final md = state.arcAnalyses[a.number.toString()]?.metadata;
             var hasParts =
                 (md?['arc_summary_detailed'] ?? '').toString().isNotEmpty; // v1183：判非空
-            final hasChoreo =
-                (md?['arc_choreo'] ?? '').toString().isNotEmpty;
             // v1185：零件或账本快照不齐——整条弧线重新提取（用户裁决：零件含账本，
             // 不齐减掉重来；分组边界保留不影响其他弧线）。配合各任务3次重试抗网络抖动
             final hasSnap =
                 (md?['state_ledger_snapshot'] as List? ?? []).isNotEmpty;
             if (hasParts && !hasSnap) {
-              log('↻ 弧线${a.number}账本快照缺失——清零件记录整条重新提取（目的保留）');
+              log('↻ 弧线${a.number}账本快照缺失——清零件记录整条重新提取');
               state.arcAnalyses[a.number.toString()]!.metadata
-                  ?.remove('arc_summary_detailed'); // 只清零件判据，目的字段保留
+                  ?.remove('arc_summary_detailed'); // 只清零件判据
               hasParts = false; // 重置后走下方完整提取分支
             }
-            if (hasParts) {
-              log('ℹ 弧线${a.number}零件已有——补跑目的分析');
-            } else {
+            if (!hasParts) {
               final ok = await extractArcParts(state: state, arc: a, log: log);
               // v1172：报错即终止——保存分组成果断点，增量续跑从本弧线重来
               if (!ok) {
                 log('⛔ 弧线${a.number}零件提取失败——批量生成弧线终止（已保存${arcs.length}条弧线分组，成果已落盘）');
                 log('ℹ 修复API配置后重新「批量」——从弧线${a.number}增量继续');
-                if (state.arcScan == null || state.arcScan!.arcs.length < arcs.length) {
-                  state.arcScan = ArcScan(
-                    arcs: List.of(arcs),
-                    scannedChapterCount: (gs.last.endChapter as num).toInt(),
-                    overallSummary: '',
-                  );
-                } else {
-                  state.arcScan!.arcs = List.of(arcs);
-                }
-                state.saveArcScan();
-                state.saveArcAnalyses();
-                // v1179：断点=已分组弧线尾而非cursor——cursor在提取循环后才推进，
-                // 此刻还是上一批的值，弧线尾>账面断点会触发卫兵级联清空（断点续跑失效实测）
-                state.globalGroupedUpTo =
-                    arcs.last.sceneTo.clamp(0, gs.length);
-                state.saveGlobalScenes();
-                return;
-              }
-            }
-            // v903：目的分析自动化（滚动模式同步）
-            if (!hasChoreo) {
-              log('▶ 弧线${a.number}【弧线目的】分析开始');
-              final okC = await analyzeArcChoreo(state: state, arc: a, log: log);
-              if (!okC) {
-                log('⛔ 弧线${a.number}目的分析失败——批量生成弧线终止（零件已落盘，目的增量补跑）');
                 if (state.arcScan == null || state.arcScan!.arcs.length < arcs.length) {
                   state.arcScan = ArcScan(
                     arcs: List.of(arcs),
@@ -1193,18 +1139,17 @@ Future<void> groupArcsFromScenes({
             log('⛔ 用户终止——零件提取已停止');
             break;
           }
-          // v1164：零件/目的分别判缺补跑（与主循环同规则）
+          // v1164：零件判缺补跑（与主循环同规则）；v1249：目的层废除
           final md = state.arcAnalyses[a.number.toString()]?.metadata;
           var hasParts =
               (md?['arc_summary_detailed'] ?? '').toString().isNotEmpty; // v1183：判非空
-          final hasChoreo = (md?['arc_choreo'] ?? '').toString().isNotEmpty;
           // v1185：账本快照缺=整条重新提取（用户裁决：零件含账本，不齐减掉重来）
           final hasSnap =
               (md?['state_ledger_snapshot'] as List? ?? []).isNotEmpty;
           if (hasParts && !hasSnap) {
-            log('↻ 弧线${a.number}账本快照缺失——清零件记录整条重新提取（目的保留）');
+            log('↻ 弧线${a.number}账本快照缺失——清零件记录整条重新提取');
             state.arcAnalyses[a.number.toString()]!.metadata
-                ?.remove('arc_summary_detailed'); // 只清零件判据，目的字段保留
+                ?.remove('arc_summary_detailed'); // 只清零件判据
             hasParts = false; // 重置后走下方完整提取分支
           }
           if (!hasParts) {
@@ -1214,16 +1159,8 @@ Future<void> groupArcsFromScenes({
               return;
             }
           }
-          if (!hasChoreo) {
-            log('▶ 弧线${a.number}【弧线目的】分析开始');
-            final okC = await analyzeArcChoreo(state: state, arc: a, log: log);
-            if (!okC) {
-              log('⛔ 弧线${a.number}目的分析失败——兜底提取终止（零件已落盘，目的增量补跑）');
-              return;
-            }
-          }
           done++;
-          log('零件+目的提取进度：$done/${arcs.length}');
+          log('零件提取进度：$done/${arcs.length}');
         }
         log('=== 弧线零件提取完成 ===');
         // v824：任务完成总汇报——结果规模/章覆盖/耗时/提取完整度
@@ -1294,88 +1231,7 @@ Future<void> analyzeSceneChoreo({
   log('✓ 场景${scene.globalIndex + 1}【场景交手回合记录】已落库（${choreo.length}字）');
 }
 
-/// v901：弧线目的分析（独立按键——骨架/表述分离，单任务保质量；v1209总目的）
-/// v1172：返回true=成功落库；false=失败（批量报错即终止，增量续跑从该弧线重来）
-Future<bool> analyzeArcChoreo({
-  required AppState state,
-  required Arc arc,
-  required void Function(String msg) log,
-  Future<bool> Function(String sys, String user)? previewHook, // v1157：词链预览
-}) async {
-  if (arc.text.isEmpty) {
-    log('⚠ 弧线${arc.number}无正文切片，跳过目的分析');
-    return false;
-  }
-  final gsAll = state.globalScenes;
-  final sceneList = (arc.sceneFrom >= 1 && gsAll.length >= arc.sceneTo)
-      ? [
-          for (var i = arc.sceneFrom; i <= arc.sceneTo && i <= gsAll.length; i++)
-            '场景$i：${gsAll[i - 1].name}｜${gsAll[i - 1].summary.length > 60 ? gsAll[i - 1].summary.substring(0, 60) : gsAll[i - 1].summary}',
-        ].join('\n')
-      : '';
-  final systemPrompt = PromptBuilder.buildArcChoreoSystemPrompt();
-  final userPrompt = PromptBuilder.buildArcPartsUserPrompt(
-    arcTitle: arc.title,
-    arcSummary: arc.summary,
-    arcText: arc.text,
-    sceneList: sceneList,
-    choreoMode: true,
-  );
-  // v1157：词链预览（目的任务发前弹，取消即中止）
-  if (previewHook != null) {
-    final ok = await previewHook!(systemPrompt, userPrompt);
-    if (!ok) {
-      log('⛔ 弧线${arc.number}目的分析已取消（词链预览）');
-      return false;
-    }
-  }
-  final config = state.getApiConfig('arc');
-  final result = await state.api.callApi(
-    task: '弧线目的分析', // v824任务级反馈；v1165改名——原与分镜级analyzeSceneChoreo重名致日志混淆
-
-    systemPrompt: systemPrompt,
-    userPrompt: userPrompt,
-    apiConfig: config,
-  );
-  if (!result.isSuccess) {
-    log('⛔ 弧线${arc.number}目的分析失败：${result.error}');
-    return false; // v1172：报错即失败（重试一次）
-  }
-  // v1185：最多3次尝试
-  var parts = JsonRepair.parseResponse(result.content);
-  for (var attempt = 1; parts == null && attempt <= 2; attempt++) {
-    log('↻ 弧线${arc.number}目的解析失败，重试（$attempt/2）…');
-    final r = await state.api.callApi(
-      task: '弧线目的分析',
-      systemPrompt: systemPrompt,
-      userPrompt: userPrompt,
-      apiConfig: config,
-    );
-    parts = r.isSuccess ? JsonRepair.parseResponse(r.content) : null;
-  }
-  if (parts == null) {
-    log('⛔ 弧线${arc.number}目的分析两次尝试均失败——增量续跑可从本弧线重来');
-    return false;
-  }
-  // 总纲：Arc+metadata双写（显示+语料两个消费端）
-  final arcChoreoV = parts['arc_choreo']?.toString() ?? '';
-  final scChoreos = parts['scene_choreos']?.toString() ?? '';
-  if (scChoreos.isEmpty) {
-    log('⛔ 弧线${arc.number}目的输出缺scene_choreos——视为失败，增量续跑可从本弧线重来');
-    return false;
-  }
-  final analysis = state.arcAnalyses[arc.number.toString()];
-  if (analysis != null) {
-    analysis.metadata = {
-      ...?analysis.metadata,
-      'arc_choreo': arcChoreoV,
-      'scene_choreos': scChoreos,
-    };
-    state.saveArcAnalyses();
-  }
-  log('✓ 弧线${arc.number}【弧线目的】已落库（总目的${arcChoreoV.length}字+逐场景目的${scChoreos.length}字）');
-  return true;
-}
+// v1249：analyzeArcChoreo（弧线目的分析）已废除——弧线功能+因果链概述承担编排策略（用户裁决）
 
 
 /// v1163：零件输出净化——AI格式漂移把"💎 不可逆变化+内容"粘进其他字段值
@@ -1781,11 +1637,10 @@ Future<bool> extractArcParts({
         final chars = p['characters'];
         final noChars = chars is! List || chars.isEmpty;
         final noFacts = p['worldbuilding_facts'] is! List;
-        final noChoreo = (p['scene_choreos'] ?? '').toString().trim().isEmpty;
-        if (noSummary || noChars || noFacts || noChoreo) {
+        if (noSummary || noChars || noFacts) {
           log('⚠ 弧线${arc.number}全景提取缺核心键'
               '${noSummary ? "（无概述）" : ""}${noChars ? "（无人设）" : ""}'
-              '${noFacts ? "（无facts）" : ""}${noChoreo ? "（无逐场景目的）" : ""}，输出${r.content.length}字');
+              '${noFacts ? "（无facts）" : ""}，输出${r.content.length}字');
         } else {
           full = p;
         }
@@ -1822,7 +1677,6 @@ Future<bool> extractArcParts({
   }
   // 目的+零件+facts+脑洞文风统一落merged（原三任务键集不变，目的两键新增）
   for (final k in [
-    'arc_choreo', 'scene_choreos',
     'arc_summary', 'characters', 'conflicts', 'foreshadowing',
     'arc_functions', 'irreversible_changes', 'emotional_curve',
     'worldbuilding_facts', 'author_fantasy', 'ink_hobby', 'style_dna',
@@ -1851,11 +1705,9 @@ Future<bool> extractArcParts({
   final key = arc.number.toString();
   final old = state.arcAnalyses[key];
   final analysis = old ?? ArcAnalysis(arcNumber: arc.number, arcTitle: arc.title);
-  // v1186：目的随全景提取一并落库（analyzeArcChoreo降级为旧数据兜底补跑）
+  // v1249：arc_choreo/scene_choreos不再落库（目的层废除）
   analysis.metadata = {
     ...?analysis.metadata,
-    'arc_choreo': merged['arc_choreo'],
-    'scene_choreos': merged['scene_choreos'],
     'arc_summary_detailed': newSummary,
     'characters': merged['characters'],
     'conflicts': merged['conflicts'],

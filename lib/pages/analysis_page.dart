@@ -634,111 +634,7 @@ class _AnalysisPageState extends State<AnalysisPage>
 
   /// v894/v918：弧线目的显示块——边框容器+分行（段间距；v1209总目的）
   /// v1016：默认折叠——点标题行展开/收起+底部收起键，状态持久化（对齐场景块v1006）
-  List<Widget> _buildArcChoreoBlock(String fromMeta, String fromArc, String arcKey) {
-    final v = fromMeta.isNotEmpty ? fromMeta : fromArc;
-    if (v.isEmpty) return [];
-    final foldKey = '${arcKey}_arc';
-    final isExpanded = _choreoExpanded.contains(foldKey);
-    final paras = v
-        .split('\n')
-        .map((p) => p.trim())
-        .where((p) => p.isNotEmpty)
-        .toList();
-    return [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-        child: ReadableWidth(
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFB45309).withOpacity(0.06),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: const Color(0xFFB45309).withOpacity(0.35),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    setState(() {
-                      if (isExpanded) {
-                        _choreoExpanded.remove(foldKey);
-                      } else {
-                        _choreoExpanded.add(foldKey);
-                      }
-                    });
-                    _saveUiState();
-                    // v1020：折叠/展开后视线锚回标题行（防跳到内容底部）
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      final hctx = _choreoKey(foldKey).currentContext;
-                      if (hctx != null) {
-                        Scrollable.ensureVisible(hctx,
-                            alignment: 0.0,
-                            duration: const Duration(milliseconds: 150));
-                      }
-                    });
-
-                  },
-                  child: KeyedSubtree(key: _choreoKey(foldKey), child: Row(
-                    children: [
-                      Text(isExpanded ? '▾' : '▸',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFFB45309),
-                          )),
-                      const SizedBox(width: 4),
-                      const Expanded(
-                        child: Text('🎬 弧线目的',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFFB45309),
-                            )),
-                      ),
-                    ],
-                  ),),                ),
-                if (isExpanded) ...[
-                  const SizedBox(height: 6),
-                  // v918：四要素分行渲染（模板输出按\n分段），段间距4
-                  for (var i = 0; i < paras.length; i++) ...[
-                    if (i > 0) const SizedBox(height: 4),
-                    Text(paras[i],
-                        style: const TextStyle(
-                          fontSize: 12,
-                          height: 1.5,
-                          color: V469Style.textSec,
-                        )),
-                  ],
-                  // v1016：长内容底部收起键
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      setState(() => _choreoExpanded.remove(foldKey));
-                      _saveUiState();
-                    },
-                    child: const Padding(
-                      padding: EdgeInsets.only(top: 6),
-                      child: Text('▲ 收起',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFFB45309),
-                          )),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    ];
-  }
+  // v1249：_buildArcChoreoBlock（弧线目的块）已废除——目的层删，弧线功能+因果链概述承担
 
   Widget _buildArcCard(
     BuildContext context,
@@ -926,17 +822,7 @@ class _AnalysisPageState extends State<AnalysisPage>
                 ],
               ),
             ),
-            // v894：弧线目的显示（重提零件/分组产出，独立于概述块）
-            if (hasAnalysis)
-              ..._buildArcChoreoBlock(
-                analysis!.metadata?['arc_choreo']?.toString() ?? '',
-                state.allArcs
-                    .where((a) => a.number.toString() == arcKey)
-                    .map((a) => a.arcChoreo)
-                    .firstWhere((c) => c.isNotEmpty, orElse: () => ''),
-                arcKey,
-              ),
-            // 弧线目的在概述前（v1211用户裁决）
+            // v1249：弧线目的显示块废除（目的层删，弧线功能+因果链概述承担）
             // v488：弧线概述两次生成各归其位——分镜页优先展示零件提取详细版
             // （detailed），无则退回分组/场景划分概述（analysis.arcSummary）
             // ❌旧逻辑（v469，直读arcSummary与弧线页同一字段=两页概述一模一样，已废弃）：
