@@ -142,9 +142,10 @@ class SceneCardItem extends StatelessWidget {
             ),
           // v1249：场景目的展示块废除（逐场景目的删）；v882：逐场景目的标注（分组产出，v1218原"编排"名）
           // v1017：默认折叠——点标题展开+底部收起键（对齐分镜页v1006）
-          if (scene.choreo.isNotEmpty) ...[
-            _ChoreoFoldSection(choreo: scene.choreo),
-          ],
+          // v1272：交手回合展示废除（分析已停，存量数据不再显示；回滚=解注释）
+          // if (scene.choreo.isNotEmpty) ...[
+          //   _ChoreoFoldSection(choreo: scene.choreo),
+          // ],
           ],
           // 行3：章节范围+剪断重扫键
           const SizedBox(height: 6),

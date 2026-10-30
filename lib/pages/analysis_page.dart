@@ -1011,14 +1011,15 @@ class _AnalysisPageState extends State<AnalysisPage>
   List<Widget> _buildArcParts(ArcAnalysis? analysis) => ArcParts.build(analysis);
 
   /// v901：场景交手回合记录分析（独立按键——拆分镜后才能跑）
-  Future<void> _analyzeSceneChoreo(
-    AppState state,
-    String arcKey,
-    Scene scene,
-  ) async {
-    await analyzeSceneChoreo(state: state, scene: scene, log: _addLog);
-    if (mounted) setState(() {});
-  }
+  /// v1272用户裁决：交手回合分析废除——包装函数注释封存（回滚=解注释）
+  // Future<void> _analyzeSceneChoreo(
+  //   AppState state,
+  //   String arcKey,
+  //   Scene scene,
+  // ) async {
+  //   await analyzeSceneChoreo(state: state, scene: scene, log: _addLog);
+  //   if (mounted) setState(() {});
+  // }
 
   Widget _buildSceneCard(
     BuildContext context,
@@ -1160,10 +1161,11 @@ class _AnalysisPageState extends State<AnalysisPage>
                     backgroundColor: const Color(0xFFB45309),
                     foregroundColor: Colors.white,
                   ),
-                  onPressed: analyzedScene == null || analyzedScene!.shots.isEmpty
-                      ? null
-                      : () => _analyzeSceneChoreo(state, arcKey, analyzedScene!),
-                  child: const Text('🧠分析交手回合'),
+                  onPressed: null, // v1272：交手回合分析废除——按键禁用封存
+                  // onPressed: analyzedScene == null || analyzedScene!.shots.isEmpty
+                  //     ? null
+                  //     : () => _analyzeSceneChoreo(state, arcKey, analyzedScene!),
+                  child: const Text('🧠分析交手回合（已废除）'),
                 ),
               ),
               const SizedBox(width: 6),
@@ -2279,13 +2281,12 @@ class _AnalysisPageState extends State<AnalysisPage>
             _addLog('分镜字段：${scene.shots.first.toJson().keys.join(', ')}');
           }
           state.refresh();
-          // v1007：交手回合策略自动分析（用户裁决：单场景拆完分镜后自动跑，
-          // 批量路径在批量完成后统一自动跑，此处!batch防双重）
-          if (!batch) {
-            _addLog('━━ 【场景交手回合记录】自动分析开始…');
-            await analyzeSceneChoreo(state: state, scene: scene, log: _addLog);
-            _addLog('✅ 场景交手回合记录完成');
-          }
+          // v1007：交手回合策略自动分析——v1272用户裁决废除（韩编主导后六项账目冗余）
+          // if (!batch) {
+          //   _addLog('━━ 【场景交手回合记录】自动分析开始…');
+          //   await analyzeSceneChoreo(state: state, scene: scene, log: _addLog);
+          //   _addLog('✅ 场景交手回合记录完成');
+          // }
           return true;
       } else {
         scene.shots = oldShots;
@@ -2325,16 +2326,19 @@ class _AnalysisPageState extends State<AnalysisPage>
       for (final scene in scenes) {
         if (state.api.isAborted || state.userAborted) break;
         if (scene.shots.isEmpty) continue;
+        // v1272：交手回合批量分析废除——循环保留结构，直接continue（回滚=解注释下面调用）
         if (scene.choreo.isNotEmpty) {
           skipped++;
           continue; // 已有交手回合分析→增量跳过
         }
-        await analyzeSceneChoreo(
-          state: state,
-          scene: scene,
-          log: _addLog,
-        );
-        choreoDone++;
+        skipped++; // v1272：未分析的也跳过（不再新增分析）
+        continue;
+        // await analyzeSceneChoreo(
+        //   state: state,
+        //   scene: scene,
+        //   log: _addLog,
+        // );
+        // choreoDone++;
       }
     }
     state.saveArcScenes();

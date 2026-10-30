@@ -1754,10 +1754,11 @@ class _WritingPageState extends State<WritingPage>
   /// 续写/开新书没有逐镜范文时这是"同命题优秀解法"的注入通道
   String _buildStrategyBlock(AppState state, String arcKey, int si) {
     final tricks = <String>[];
-    final choreos = <String>[];
+    // v1272：交手回合样本注入废除（分析已停，不再消耗存量choreo；回滚=解注释choreos段）
+    final choreos = <String>[]; // v1272：恒空
     state.arcAnalyses.forEach((k, an) {
       for (final sc in an.scenes) {
-        if (sc.choreo.isNotEmpty) choreos.add(sc.choreo);
+        // if (sc.choreo.isNotEmpty) choreos.add(sc.choreo);
         for (final sh in sc.shots) {
           if (sh.trick.isNotEmpty) tricks.add(sh.trick);
         }
@@ -1772,10 +1773,10 @@ class _WritingPageState extends State<WritingPage>
       n++;
       buf.writeln('$n. [镜级手法] $t');
     }
-    for (final c in choreos.take(2)) {
-      n++;
-      buf.writeln('$n. [交手回合] $c');
-    }
+    // for (final c in choreos.take(2)) {
+    //   n++;
+    //   buf.writeln('$n. [交手回合] $c');
+    // }
     return n == 0 ? '' : buf.toString().trim();
   }
 

@@ -507,13 +507,15 @@ const Spacer(), // ⚙API推到最右
                                     _regenSceneSummary(state, i),
                                 onShots: () => _showSceneShots(
                                     context, state.globalScenes[i], i + 1),
-                                onAnalyzeChoreo: () => analyzeSceneChoreo(
-                                  state: state,
-                                  scene: state.globalScenes[i],
-                                  log: _addLog,
-                                ).then((_) {
-                                  if (mounted) setState(() {});
-                                }),
+                                // v1272：交手回合分析废除——回调置空封存（回滚=解注释）
+                                // onAnalyzeChoreo: () => analyzeSceneChoreo(
+                                //   state: state,
+                                //   scene: state.globalScenes[i],
+                                //   log: _addLog,
+                                // ).then((_) {
+                                //   if (mounted) setState(() {});
+                                // }),
+                                onAnalyzeChoreo: null,
                               ),
                             ),
                             Positioned(

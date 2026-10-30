@@ -1187,52 +1187,51 @@ Future<void> groupArcsFromScenes({
 /// v474：逐弧线零件提取——分组定边界后，啃该弧线原文切片（场景切片拼接）
 /// 提取全套弧线零件写arcAnalyses（对齐旧版"划分即提取"信息量）
 /// v901：场景交手回合记录分析（场景页/分镜页共用——拆分镜后才能跑）
-Future<void> analyzeSceneChoreo({
-  required AppState state,
-  required Scene scene,
-  required void Function(String msg) log,
-}) async {
-  if (scene.shots.isEmpty) {
-    log('⛔ 场景无分镜——先拆分镜，交手回合策略基于分镜序列分析');
-    return;
-  }
-  if (scene.text.isEmpty) {
-    log('⛔ 场景无锚定切片（旧数据）——无法分析交手回合');
-    return;
-  }
-  final skeleton = [
-    for (var i = 0; i < scene.shots.length; i++)
-      '分镜${i + 1}：焦点=${scene.shots[i].focus}｜意图=${scene.shots[i].intent}',
-  ].join('\n');
-  // v1030：改读'analysis'——交手回合分析在分镜页触发，用户在分镜页⚙API设的就是它；
-  // 原读'shot'（历史遗留旧section）=用户设gemini拆解却用deepseek跑交手回合的根因
-  final config = state.getApiConfig('analysis');
-  state.api.clearAbort();
-  final result = await state.api.callApi(
-    task: '场景交手回合记录分析',
-    systemPrompt: PromptBuilder.buildSceneChoreoSystemPrompt(),
-    userPrompt: '【场景原文切片】\n${scene.text}\n\n【分镜骨架清单】\n$skeleton',
-    apiConfig: config,
-  );
-  if (!result.isSuccess) {
-    log('⚠ 交手回合分析失败：${result.error}');
-    return;
-  }
-  final parts = JsonRepair.parseResponse(result.content);
-  final choreo = parts?['choreo']?.toString() ?? '';
-  if (choreo.isEmpty) {
-    log('⚠ 交手回合分析解析失败（无choreo字段）');
-    return;
-  }
-  // 双容器写（重载后两实例独立）
-  scene.choreo = choreo;
-  if (scene.globalIndex >= 0 && scene.globalIndex < state.globalScenes.length) {
-    state.globalScenes[scene.globalIndex].choreo = choreo;
-  }
-  state.saveArcAnalyses();
-  state.saveGlobalScenes();
-  log('✓ 场景${scene.globalIndex + 1}【场景交手回合记录】已落库（${choreo.length}字）');
-}
+/// v1272用户裁决：交手回合分析废除（韩编主导后六项账目冗余）——分析入口+消费注释封存，
+/// 数据模型/JSON序列化/旧条目解析保留（存量数据兼容），回滚=解注释本函数
+// Future<void> analyzeSceneChoreo({
+//   required AppState state,
+//   required Scene scene,
+//   required void Function(String msg) log,
+// }) async {
+//   if (scene.shots.isEmpty) {
+//     log('⛔ 场景无分镜——先拆分镜，交手回合策略基于分镜序列分析');
+//     return;
+//   }
+//   if (scene.text.isEmpty) {
+//     log('⛔ 场景无锚定切片（旧数据）——无法分析交手回合');
+//     return;
+//   }
+//   final skeleton = [
+//     for (var i = 0; i < scene.shots.length; i++)
+//       '分镜${i + 1}：焦点=${scene.shots[i].focus}｜意图=${scene.shots[i].intent}',
+//   ].join('\n');
+//   final config = state.getApiConfig('analysis');
+//   state.api.clearAbort();
+//   final result = await state.api.callApi(
+//     task: '场景交手回合记录分析',
+//     systemPrompt: PromptBuilder.buildSceneChoreoSystemPrompt(),
+//     userPrompt: '【场景原文切片】\n${scene.text}\n\n【分镜骨架清单】\n$skeleton',
+//     apiConfig: config,
+//   );
+//   if (!result.isSuccess) {
+//     log('⚠ 交手回合分析失败：${result.error}');
+//     return;
+//   }
+//   final parts = JsonRepair.parseResponse(result.content);
+//   final choreo = parts?['choreo']?.toString() ?? '';
+//   if (choreo.isEmpty) {
+//     log('⚠ 交手回合分析解析失败（无choreo字段）');
+//     return;
+//   }
+//   scene.choreo = choreo;
+//   if (scene.globalIndex >= 0 && scene.globalIndex < state.globalScenes.length) {
+//     state.globalScenes[scene.globalIndex].choreo = choreo;
+//   }
+//   state.saveArcAnalyses();
+//   state.saveGlobalScenes();
+//   log('✓ 场景${scene.globalIndex + 1}【场景交手回合记录】已落库（${choreo.length}字）');
+// }
 
 // v1249：analyzeArcChoreo（弧线目的分析）已废除——弧线功能+因果链概述承担编排策略（用户裁决）
 
