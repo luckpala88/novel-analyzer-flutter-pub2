@@ -4701,10 +4701,15 @@ return true;
     final arcReq = state.worldBook?.combinedReq(arc.number.toString()) ?? '';
     final combined = [globalReq, arcReq].where((s) => s.isNotEmpty).join('\n');
     // 弧线分析数据（含场景）
+    // v1269b：summary优先arc_summary_detailed（六维演进版）——改编AI输入用最全概述
     final analysis = state.arcAnalyses[arc.number.toString()];
+    final _detailSum =
+        ((analysis?.metadata?['arc_summary_detailed'] ?? '') as String?) ?? '';
     final arcItem = {
       'title': arc.title,
-      'summary': analysis?.arcSummary ?? arc.summary,
+      'summary': _detailSum.trim().isNotEmpty
+          ? _detailSum.trim()
+          : (analysis?.arcSummary ?? arc.summary),
       'scenes':
           analysis?.scenes
               .map((s) => {'name': s.name, 'summary': s.summary})
@@ -5599,10 +5604,16 @@ return true;
     int layer = 0,
   }) {
     // v202：概述优先拆解结果（与分镜页同源arcAnalyses），无拆解回落扫描概述
+    // v1269b：与弧线页/分镜页统一同源——优先arc_summary_detailed（六维演进版v1268），
+    // 旧arcSummary字段是场景页拆解链写入的（无六维），detail非空优先
     final _analysis = state.arcAnalyses[arc.number.toString()];
-    final _arcSummary = (_analysis?.arcSummary.isNotEmpty == true)
-        ? _analysis!.arcSummary
-        : arc.summary;
+    final _detail =
+        ((_analysis?.metadata?['arc_summary_detailed'] ?? '') as String?) ?? '';
+    final _arcSummary = _detail.trim().isNotEmpty
+        ? _detail.trim()
+        : (_analysis?.arcSummary.isNotEmpty == true)
+            ? _analysis!.arcSummary
+            : arc.summary;
     final arcKey = arc.number.toString();
     final status = state.worldBook?.arcStatus[arcKey] ?? '';
     final isExpanded = _expandedArcs.contains(arcKey);
@@ -8253,9 +8264,16 @@ return true;
       'status': arc.status,
       'chapter_range': arc.chapterRange,
       // v202：概述优先拆解结果（阶段A弧线总结条目用优质概述生成）
-      'summary': (analysis?.arcSummary.isNotEmpty == true)
-          ? analysis!.arcSummary
-          : arc.summary,
+      // v1269b：优先arc_summary_detailed（六维演进版）——条目生成输入用最全概述
+      'summary': (() {
+        final d = ((analysis?.metadata?['arc_summary_detailed'] ?? '') as String?)
+            ?.trim() ??
+            '';
+        if (d.isNotEmpty) return d;
+        return (analysis?.arcSummary.isNotEmpty == true)
+            ? analysis!.arcSummary
+            : arc.summary;
+      })(),
       'scenes': scenes.map((s) => s.toJson()).toList(),
       'characters': analysis?.metadata?['characters'] ?? [],
       'conflicts': analysis?.metadata?['conflicts'] ?? [],
