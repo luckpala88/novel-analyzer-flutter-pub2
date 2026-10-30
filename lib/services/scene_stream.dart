@@ -825,6 +825,8 @@ Future<void> groupArcsFromScenes({
             '## 规则\n'
             '- 场景必须全部归入弧线，按顺序连续，不得跳过/重叠\n'
             '- **闭合判定看下一场景**：处理到场景M时，场景M+1仍是本弧线主角/叙事延续→继续；切到别的角色/线→本场景收束（伪闭合）；主角发生不可逆变化（真闭合）→也可在此收束\n'
+            '- **本批场景范围只是输入窗口，不是叙事边界**：禁止因为"本批场景用完了"而收束弧线——批内没有出现闭合信号（视角切换到别的角色线/主角不可逆变化）就必须让弧线保持未闭合延续到下一批（status=incomplete），由后续批次续接\n'
+            '- **弧线粒度=一个完整的"欲望→压力阶梯→不可逆落点"单元**，通常跨越多个批次、包含多个事件环；判断延续还是新开，看的是叙事连续性（同一欲望线/同一冲突链/同一成长段），不是批次大小；拿不准时倾向延续\n'
             '- focus=视角主角\n'
             '- 最后一条弧线若叙事未收束（书未读完的中间态），status=incomplete\n\n'
             '- ⚠️ summary（弧线概述）为**必填字段**，v1249因果链纪律：跨场景因果递推——上一场景的**结果**如何成为下一场景的**因子**（角色行动/配角帮助/环境/前因余波/性格皆可为因子），环环相扣推进到本弧线落定的不可逆变化；禁止把各场景概述压缩拼接成流水账并列（"经过A、B、C"式罗列=错误形态），每一环必须交代"因为上一环的什么结果，才有了这一环"\n'
@@ -1585,99 +1587,122 @@ Future<bool> extractArcParts({
   final config = state.getApiConfig('arc');
   final merged = <String, dynamic>{};
   // v1191：旧预览段删除（v1186全景提取前已有previewHook，此段残留致双弹+旧prompt）
-  // v1186：四任务合一"弧线全景提取"（用户裁决：200弧线×5次API太慢）——
-  // 目的+剧情零件+facts+脑洞文风一次调用（输入高度重叠输出约8k字）；
+  // v1186：四任务合一"弧线全景提取"（200弧线×5次API太慢）——
+  // v1269用户裁决推翻：质量优先，批量生成允许分任务增加API请求次数——
+  // 拆回三任务：①概述+剧情零件（主链，previewHook弹这次）②facts ③脑洞文风；
   // 对账仍独立（输出2-3万字账本链，混入长输出砍尾=污染单一事实源）
-  final sysFull = PromptBuilder.buildArcFullExtractSystemPrompt();
-  // v1193：边界状态注入——分组器已判闭合的弧线禁用"弧线未闭合"句式
-  // （防AI再判一遍与分组器打架，弧线85实证：✅完整但不可逆变化写"弧线未闭合"）
   final boundaryStatus = arc.status != 'complete'
       ? '边界未闭合（待续）——正文切片是进行中片段，按未闭合句式如实提取'
       : arc.closeType == 'pseudo'
           ? '边界已闭合（伪闭合）——本弧线叙事段在此完整结束并切线，正文切片是完整叙事段，按已闭合规则提取'
           : '边界已闭合（真闭合）——本弧线正文在此收束，正文切片是完整叙事段，按已闭合规则提取';
-  var userFull = PromptBuilder.buildArcPartsUserPrompt(
-    arcTitle: arc.title,
-    arcSummary: arc.summary,
-    arcText: arc.text,
-    sceneList: sceneList,
-    boundaryStatus: boundaryStatus,
-    fullMode: true,
-  );
-  // v1245：未回收伏笔账本注入（唯一事实源——防跨弧线伏笔漏判回收/重复登记）
-  final openFore = state.foreshadowLedger
-      .where((e) => (e['status'] ?? 'open').toString() != 'paid')
-      .toList();
-  if (openFore.isNotEmpty) {
-    userFull += '\n\n【未回收伏笔账本（此前弧线种下，唯一事实源）】\n'
-        '${[for (var i = 0; i < openFore.length; i++) 'F${i + 1}. ${openFore[i]['content']}（${openFore[i]['plantedAt'] ?? ''}种下）'].join('\n')}'
-        '\n（本弧线正文若回收了其中某条，对应伏笔条目payoff写明"第X章回收：回收情况"；正文没回收的不要硬判回收；与清单重复的伏笔不要重复登记）';
+  String buildTaskUser(String taskText, {bool withFore = false}) {
+    var u = PromptBuilder.buildArcPartsUserPrompt(
+      arcTitle: arc.title,
+      arcSummary: arc.summary,
+      arcText: arc.text,
+      sceneList: sceneList,
+      boundaryStatus: boundaryStatus,
+      taskOverride: taskText,
+    );
+    // v1245：未回收伏笔账本注入（唯一事实源——防跨弧线伏笔漏判回收/重复登记）
+    if (withFore) {
+      final openFore = state.foreshadowLedger
+          .where((e) => (e['status'] ?? 'open').toString() != 'paid')
+          .toList();
+      if (openFore.isNotEmpty) {
+        u += '\n\n【未回收伏笔账本（此前弧线种下，唯一事实源）】\n'
+            '${[for (var i = 0; i < openFore.length; i++) 'F${i + 1}. ${openFore[i]['content']}（${openFore[i]['plantedAt'] ?? ''}种下）'].join('\n')}'
+            '\n（本弧线正文若回收了其中某条，对应伏笔条目payoff写明"第X章回收：回收情况"；正文没回收的不要硬判回收；与清单重复的伏笔不要重复登记）';
+      }
+    }
+    return u;
   }
-  // v1157：词链预览（全景提取=提取主链唯一调用，发前弹，取消即中止）
+
+  final taskDefs = <(String, String, String, List<String>)>[
+    (
+      '弧线概述与剧情零件',
+      PromptBuilder.buildArcStoryPartsSystemPrompt(),
+      buildTaskUser('请生成高质量弧线概述（六维演进+因果链两段式）并提取全套弧线零件（按系统提示的JSON格式输出）', withFore: true),
+      ['arc_summary', 'characters'],
+    ),
+    (
+      '世界观facts',
+      PromptBuilder.buildArcFactsSystemPrompt(),
+      buildTaskUser('请提取这条弧线的世界观facts零件（按系统提示的JSON格式输出）'),
+      ['worldbuilding_facts'],
+    ),
+    (
+      '脑洞与文风',
+      PromptBuilder.buildArcFantasyStyleSystemPrompt(),
+      buildTaskUser('请提取这条弧线的作者脑洞与文风零件（按系统提示的JSON格式输出）'),
+      ['author_fantasy'],
+    ),
+  ];
+  // v1157：词链预览（主链=任务①，发前弹，取消即中止）
   if (previewHook != null) {
-    final ok = await previewHook!(sysFull, userFull);
+    final ok = await previewHook!(taskDefs[0].$2, taskDefs[0].$3);
     if (!ok) {
       log('⛔ 弧线${arc.number}全景提取已取消（词链预览）');
       return false;
     }
   }
-  Map<String, dynamic>? full;
-  for (var attempt = 1; attempt <= 3; attempt++) {
-    final r = await state.api.callApi(
-      task: '弧线全景提取（目的+零件+facts+脑洞）',
-      systemPrompt: sysFull,
-      userPrompt: userFull,
-      apiConfig: config,
-    );
-    if (!r.isSuccess) {
-      log('⚠ 弧线${arc.number}全景提取请求失败：${r.error}');
-    } else {
-      final p = JsonRepair.parseResponse(r.content);
-      if (p == null) {
-        log('⚠ 弧线${arc.number}全景提取解析失败（输出${r.content.length}字）');
+  for (final t in taskDefs) {
+    Map<String, dynamic>? part;
+    for (var attempt = 1; attempt <= 3; attempt++) {
+      final r = await state.api.callApi(
+        task: '弧线${arc.number}${t.$1}',
+        systemPrompt: t.$2,
+        userPrompt: t.$3,
+        apiConfig: config,
+      );
+      if (!r.isSuccess) {
+        log('⚠ 弧线${arc.number}${t.$1}请求失败：${r.error}');
       } else {
-        final noSummary = (p['arc_summary'] ?? '').toString().trim().isEmpty;
-        final chars = p['characters'];
-        final noChars = chars is! List || chars.isEmpty;
-        final noFacts = p['worldbuilding_facts'] is! List;
-        if (noSummary || noChars || noFacts) {
-          log('⚠ 弧线${arc.number}全景提取缺核心键'
-              '${noSummary ? "（无概述）" : ""}${noChars ? "（无人设）" : ""}'
-              '${noFacts ? "（无facts）" : ""}，输出${r.content.length}字');
+        final p = JsonRepair.parseResponse(r.content);
+        if (p == null) {
+          log('⚠ 弧线${arc.number}${t.$1}解析失败（输出${r.content.length}字）');
         } else {
-          full = p;
+          final missing = t.$4
+              .where((k) => (p[k] ?? '').toString().trim().isEmpty && p[k] is! List)
+              .toList();
+          if (missing.isNotEmpty) {
+            log('⚠ 弧线${arc.number}${t.$1}缺核心键$missing，输出${r.content.length}字');
+          } else {
+            part = p;
+          }
         }
       }
-    }
-    if (full != null) break;
-    if (attempt < 3) {
-      if (state.userAborted) {
-        log('已终止——弧线${arc.number}全景提取不再重试');
-        return false;
-      }
-      // v1229：中转连续请求冷却实证（11:22-11:30日志）——首发完成后90秒内重发
-      // 必挂（重试1/2连续90秒无首字），隔2.5分钟再发即成功。重试前等60秒
-      // （+90秒超时≈2.5分钟间隔）躲开冷却期
-      log('↻ 弧线${arc.number}全景提取重试（$attempt/2）——等60秒躲中转冷却……');
-      // v1230b：等待可中断——10秒一段检查终止标志，手动终止立即退出
-      var aborted = false;
-      for (var i = 0; i < 6; i++) {
-        await Future.delayed(const Duration(seconds: 10));
+      if (part != null) break;
+      if (attempt < 3) {
         if (state.userAborted) {
-          aborted = true;
-          break;
+          log('已终止——弧线${arc.number}${t.$1}不再重试');
+          return false;
+        }
+        // v1229：中转连续请求冷却实证——重试前等60秒（+90秒超时≈2.5分钟间隔）躲开冷却期
+        log('↻ 弧线${arc.number}${t.$1}重试（$attempt/2）——等60秒躲中转冷却……');
+        var aborted = false;
+        for (var i = 0; i < 6; i++) {
+          await Future.delayed(const Duration(seconds: 10));
+          if (state.userAborted) {
+            aborted = true;
+            break;
+          }
+        }
+        if (aborted) {
+          log('已终止——弧线${arc.number}${t.$1}不再重试');
+          return false;
         }
       }
-      if (aborted) {
-        log('已终止——弧线${arc.number}全景提取不再重试');
-        return false;
-      }
     }
+    if (part == null) {
+      // v1172产物原子性：三任务没齐不落盘（对账快照读analysis，半落盘被增量误跳=缺口永久化）
+      log('⛔ 弧线${arc.number}${t.$1}三次尝试均不完整——增量续跑可从本弧线重来');
+      return false;
+    }
+    merged.addAll(part);
   }
-  if (full == null) {
-    log('⛔ 弧线${arc.number}全景提取三次尝试均不完整——增量续跑可从本弧线重来');
-    return false;
-  }
+  final full = merged;
   // 目的+零件+facts+脑洞文风统一落merged（原三任务键集不变，目的两键新增）
   for (final k in [
     'arc_summary', 'characters', 'conflicts', 'foreshadowing',

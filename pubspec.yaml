@@ -1,7 +1,7 @@
 name: novel_analyzer
 description: "网文拆解器 - Flutter版"
 publish_to: 'none'
-version: 1.0.1268+1268
+version: 1.0.1269+1269
 
 environment:
   sdk: ^3.13.0

@@ -737,25 +737,45 @@ class _ScanPageState extends State<ScanPage>
                                         CrossAxisAlignment.start,
                                     children: [
 const SizedBox(height: 8),
-                                      if (arc.summary.isNotEmpty) ...[
-                                        Text(
-                                          '📝 弧线概述',
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w700,
-                                            color: const Color(0xFF475569),
-                                          ),
-                                        ),
-                                        Text(
-                                          arc.summary,
-                                          style: const TextStyle(
-                                            fontSize: 12.5,
-                                            height: 1.5,
-                                            color: V469Style.textSec,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                      ],
+                                      // v1269：概述分层显示改版——优先详细概述（arc_summary_detailed六维演进版，v1268），无则回落分组概述
+                                      Builder(builder: (_) {
+                                        final meta = state
+                                            .arcAnalyses[arc.number.toString()]
+                                            ?.metadata;
+                                        final detail =
+                                            (meta?['arc_summary_detailed'] ?? '')
+                                                .toString();
+                                        final ov = detail.trim().isNotEmpty
+                                            ? detail.trim()
+                                            : arc.summary;
+                                        return Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            if (ov.isNotEmpty) ...[
+                                              Text(
+                                                detail.trim().isNotEmpty
+                                                    ? '📋 弧线概述（六维演进）'
+                                                    : '📝 弧线概述',
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: const Color(0xFF475569),
+                                                ),
+                                              ),
+                                              Text(
+                                                ov,
+                                                style: const TextStyle(
+                                                  fontSize: 12.5,
+                                                  height: 1.5,
+                                                  color: V469Style.textSec,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                            ],
+                                          ],
+                                        );
+                                      }),
                                       if (arc.closureEvent != null &&
                                           arc.closureEvent!.isNotEmpty) ...[
                                         Text(

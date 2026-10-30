@@ -3360,6 +3360,7 @@ class PromptBuilder {
     // 分组器已判闭合的弧线禁用"弧线未闭合"句式（防AI再判一遍与分组器打架）
 
     bool fullMode = false, // v1186：全景提取模式（概述+零件+facts+脑洞四合一）
+    String taskOverride = '', // v1269：三任务拆分时自定义任务文案（facts/脑洞任务复用原文切片输入）
   }) {
     final listBlock = sceneList.isEmpty
         ? ''
@@ -3367,7 +3368,9 @@ class PromptBuilder {
     final bndBlock = boundaryStatus.isEmpty
         ? ''
         : '\n\n【弧线边界状态】$boundaryStatus';
-    final task = fullMode
+    final task = taskOverride.isNotEmpty
+        ? taskOverride
+        : fullMode
         ? '请完成这条弧线的全景提取：因果链弧线概述+剧情零件+世界观facts+脑洞文风（按系统提示的JSON格式一次输出全部键，禁止省略任何键）'
         : '请生成高质量弧线概述并提取全套弧线零件（按系统提示的JSON格式输出）';
     return '弧线「$arcTitle」的原文切片如下，$task：\n\n$arcText$listBlock$bndBlock';
