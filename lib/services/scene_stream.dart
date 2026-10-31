@@ -1137,7 +1137,10 @@ Future<void> groupArcsFromScenes({
         // v495：兜底提取（滚动提取漏掉的——如最后批才闭合的续弧线）
         var done = 0;
         for (final a in arcs) {
-          if (extractedArcs.contains(a.number)) continue;
+          if (extractedArcs.contains(a.number)) {
+            done++; // v1284：已提取弧线计入进度（增量续跑实证：恢复弧线被跳过不计数=进度1/2误导"任务完成"）
+            continue;
+          }
           if (state.userAborted) {
             log('⛔ 用户终止——零件提取已停止');
             break;
