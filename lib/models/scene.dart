@@ -41,10 +41,10 @@ class Shot {
 
   factory Shot.fromJson(Map<String, dynamic> json) {
     return Shot(
-      focus: json['focus'] ?? '',
+      focus: (json['focus'] ?? json['field'] ?? '') as String, // v1312：field=字段分镜标注（v1307键名断层实锤——prompt输出field键但fromJson只认focus=全空）
       shotType: json['shot_type'] ?? json['shotType'] ?? '',
       pov: json['pov'] ?? '',
-      info: json['info'] ?? '',
+      info: (json['info'] ?? json['how'] ?? '') as String, // v1312：how=字段内容一句
       intent: json['intent'] ?? '',
       transition: json['transition'] ?? '',
       length: json['length'] ?? '',
