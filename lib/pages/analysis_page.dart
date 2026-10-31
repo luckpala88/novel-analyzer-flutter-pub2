@@ -1443,10 +1443,10 @@ class _AnalysisPageState extends State<AnalysisPage>
             ],
           ),
           // 全部分行维度：9维度一行一个，与世界书推演条目格式对齐
-          dimLine('🧩', '字段/Field', shot.focus, const Color(0xFF1E40AF)),
+          dimLine('🧩', '字段/Field', shot.fieldLabel, const Color(0xFF1E40AF)),
           dimLine('🎬', '镜头类型/Shot Type', shot.shotType, typeColor),
           dimLine('👁', '视角/POV', shot.pov, const Color(0xFF3730A3)),
-          dimLine('📝', '内容/How', shot.info, const Color(0xFF475569)),
+          dimLine('📝', '内容/How', shot.howLabel, const Color(0xFF475569)),
           dimLine('💡', '作者意图/Intent', shot.intent, const Color(0xFF92400E)),
           // v889：手法/Trick显示（细节策略四问——拆分镜产出，创作AI的讲法规格）
           if (shot.trick.isNotEmpty)
@@ -1621,9 +1621,9 @@ class _AnalysisPageState extends State<AnalysisPage>
           final sh = sc.shots[i];
           // v1307：字段分镜一行制——"分镜N：意外1"（旧九维度行废除，空维度
           // 行在新定义下全是垃圾行；旧维度有值的存量条目兼容显示）
-          sb.write('分镜${i + 1}：${sh.focus}');
+          sb.write('分镜${i + 1}：${sh.fieldLabel}');
           if (sh.shotType.isNotEmpty) sb.write('｜镜头类型：${sh.shotType}');
-          if (sh.info.isNotEmpty) sb.write('｜内容：${sh.info}');
+          if (sh.info.isNotEmpty) sb.write('｜内容：${sh.howLabel}');
           if (sh.intent.isNotEmpty) sb.write('｜意图：${sh.intent}');
           if (sh.transition.isNotEmpty) sb.write('｜转场：${sh.transition}');
           if (sh.length.isNotEmpty) sb.write('｜篇幅：${sh.length}');
@@ -1862,9 +1862,9 @@ class _AnalysisPageState extends State<AnalysisPage>
         for (var i = 0; i < sc.shots.length; i++) {
           final sh = sc.shots[i];
           // v1307：字段分镜一行制（同直写条目）
-          sb.write('分镜${i + 1}：${sh.focus}');
+          sb.write('分镜${i + 1}：${sh.fieldLabel}');
           if (sh.shotType.isNotEmpty) sb.write('｜镜头类型：${sh.shotType}');
-          if (sh.info.isNotEmpty) sb.write('｜内容：${sh.info}');
+          if (sh.info.isNotEmpty) sb.write('｜内容：${sh.howLabel}');
           if (sh.intent.isNotEmpty) sb.write('｜意图：${sh.intent}');
           if (sh.transition.isNotEmpty) sb.write('｜转场：${sh.transition}');
           if (sh.length.isNotEmpty) sb.write('｜篇幅：${sh.length}');

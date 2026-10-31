@@ -3,10 +3,12 @@ import '../utils/chinese_number.dart';
 
 /// 叙事分镜模型
 class Shot {
-  String focus; // 聚焦点（内容层：原著具体内容）
+  String field; // v1313：字段标注（字段分镜新定义——"意外1"/"对策2"/"触底反弹"）
+  String focus; // 聚焦点（内容层：原著具体内容；旧版分镜语义，新拆解为空）
   String shotType; // 镜头类型: 特写/近景/中景/远景/全景
   String pov; // 视角: 主角/配角/旁白/上帝视角
-  String info; // 信息量: 补充/揭示/误导/回响（内容层）
+  String how; // v1313：字段内容（该字段实例具体内容一句，原著专名）
+  String info; // 信息量: 补充/揭示/误导/回响（内容层；旧版分镜语义，新拆解为空）
   String intent; // 意图: 铺垫/推进/高潮/过渡/收束
   String transition; // 转场: 直接/时间跳/空间转/意识流
   String length; // 篇幅: 一句话/短/中/长/超长
@@ -21,6 +23,8 @@ class Shot {
   String text; // v363：镜级锚定切片（拆解后按end_text链式物化；空=未物化回退场景切片）
 
   Shot({
+    this.field = '',
+    this.how = '',
     this.focus = '',
     this.shotType = '',
     this.pov = '',
@@ -41,10 +45,12 @@ class Shot {
 
   factory Shot.fromJson(Map<String, dynamic> json) {
     return Shot(
-      focus: (json['focus'] ?? json['field'] ?? '') as String, // v1312：field=字段分镜标注（v1307键名断层实锤——prompt输出field键但fromJson只认focus=全空）
+      field: json['field'] ?? '',
+      focus: json['focus'] ?? '',
       shotType: json['shot_type'] ?? json['shotType'] ?? '',
       pov: json['pov'] ?? '',
-      info: (json['info'] ?? json['how'] ?? '') as String, // v1312：how=字段内容一句
+      how: json['how'] ?? '',
+      info: json['info'] ?? '',
       intent: json['intent'] ?? '',
       transition: json['transition'] ?? '',
       length: json['length'] ?? '',
@@ -60,7 +66,13 @@ class Shot {
     );
   }
 
+  /// v1313：显示值——新拆解读field/how，旧存量fallback旧键（渲染/序列化统一入口）
+  String get fieldLabel => field.isNotEmpty ? field : focus;
+  String get howLabel => how.isNotEmpty ? how : info;
+
   Map<String, dynamic> toJson() => {
+    if (field.isNotEmpty) 'field': field,
+    if (how.isNotEmpty) 'how': how,
     'focus': focus,
     'shot_type': shotType,
     'pov': pov,
