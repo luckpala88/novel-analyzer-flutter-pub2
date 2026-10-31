@@ -1745,7 +1745,18 @@ class _AnalysisPageState extends State<AnalysisPage>
       writeBlock('情绪曲线', md['emotional_curve']);
       writeBlock('作者脑洞', md['author_fantasy']);
       // v1291：伏笔账本入世界书（用户裁决——未回收伏笔随条目流转，创作AI可见）
-      writeBlock('伏笔账本', md['foreshadow_ledger_snapshot']);
+      // v1293：旧版零件提取无快照——兜底用当前全局账本过滤plantedArc<=本弧线
+      //（回收状态为当前值，轻微时点后移可接受；弧线重提零件后以快照为准）
+      var foreLedger = md['foreshadow_ledger_snapshot'];
+      if (foreLedger is! List || foreLedger.isEmpty) {
+        foreLedger = state.foreshadowLedger
+            .where((e) => ((e['plantedArc'] as num?)?.toInt() ?? 0) <= an.arcNumber)
+            .toList();
+        if (foreLedger.isNotEmpty) {
+          _addLog('ℹ️ 弧线${an.arcNumber}无账本快照（旧版零件提取）——已按当前账本兜底写入，重提零件后以快照为准');
+        }
+      }
+      writeBlock('伏笔账本', foreLedger);
 
       entries[uid.toString()] = _stEntry(
         uid++,
@@ -1875,15 +1886,69 @@ class _AnalysisPageState extends State<AnalysisPage>
         sb.writeln();
       }
       final md = an.metadata ?? {};
+      // v1293：直写条目格式化对齐fmtItem（v1291改错对象——fmtItem在另一条链，
+      // 直写此writeBlock仍Map join('，')=人设键值串/facts旧括号格式，用户截图实锤）
+      String partItem(dynamic item) {
+        if (item is! Map) return item.toString();
+        String g(String k) => item[k]?.toString().trim() ?? '';
+        if (item.containsKey('plantedArc') || item.containsKey('planted_at')) {
+          // 伏笔账本条目：F编号+内容（X种下）+回收状态
+          final paid = g('status') == 'paid';
+          final payoff = g('payoff');
+          return 'F${g('id').isNotEmpty ? g('id') : '?'}（${g('plantedAt').isNotEmpty ? g('plantedAt') : g('planted_at')}种下）${g('content')}｜${paid ? '已回收${payoff.isNotEmpty ? '：$payoff' : ''}' : '未回收'}';
+        }
+        if (item.containsKey('name')) {
+          String g3(String a, String b, String c) {
+            if (g(a).isNotEmpty) return g(a);
+            if (g(b).isNotEmpty) return g(b);
+            return g(c);
+          }
+          final tr = g3('traits', '性格特征', '');
+          final rel = g3('relation', '与主角的关系', '与主角关系');
+          final st = g3('arcState', '本弧线状态变化', '本弧线状态');
+          var out =
+              '${g('name')}${g('identity').isNotEmpty ? '，${g('identity')}' : ''}${g('role').isNotEmpty ? '，定位=${g('role')}' : ''}${tr.isNotEmpty ? '，$tr' : ''}${rel.isNotEmpty ? '，与主角=$rel' : ''}${st.isNotEmpty ? '，本弧线=$st' : ''}';
+          if (g('values').isNotEmpty) {
+            var vals = g('values')
+                .replaceAll('{', '')
+                .replaceAll('}', '')
+                .replaceAll('‘', '')
+                .replaceAll('’', '')
+                .replaceAll('“', '')
+                .replaceAll('”', '');
+            for (final kk in ['世界观', '人生观', '价值观', '作者的理想人格']) {
+              vals = vals
+                  .replaceAll('，$kk：', '；$kk：')
+                  .replaceAll('，$kk:', '；$kk：')
+                  .replaceAll(',$kk：', '；$kk：')
+                  .replaceAll(',$kk:', '；$kk：');
+            }
+            vals = vals.replaceAll('。，', '。').replaceAll('，。', '。');
+            out += '，三观与理想人格：$vals';
+          }
+          return out;
+        }
+        if (item.containsKey('text') || item.containsKey('rule')) {
+          final rule = g('rule').isNotEmpty ? g('rule') : g('text');
+          final func = g('function');
+          final sysName = g('system');
+          return sysName.isNotEmpty
+              ? '[$sysName] $rule${func.isNotEmpty ? '\n功能：$func' : ''}'
+              : rule;
+        }
+        return item.entries
+            .where((e) => e.value != null && e.value.toString().isNotEmpty)
+            .map((e) => '${e.key}=${e.value}')
+            .join('，');
+      }
+
       void writeBlock(String label, dynamic v) {
         if (v == null || v.toString().isEmpty || v.toString() == '[]') return;
         sb.writeln('【$label】');
         if (v is List) {
           for (final item in v) {
             if (item is Map) {
-              sb.writeln(
-                '- ${item.entries.map((e) => '${e.value}').join('，')}',
-              );
+              sb.writeln('- ${partItem(item)}');
             } else {
               sb.writeln('- $item');
             }
@@ -1895,16 +1960,11 @@ class _AnalysisPageState extends State<AnalysisPage>
 
       final wbFacts = md['worldbuilding_facts'];
       if (wbFacts is List && wbFacts.isNotEmpty) {
+        // v1293：[体系]打头+功能独立行（partItem对齐分镜页——旧括号格式废除）
         sb.writeln('【世界观设定】');
         for (final f in wbFacts) {
           if (f is! Map) continue;
-          final rule = f['rule']?.toString() ?? '';
-          final func = f['function']?.toString() ?? '';
-          final sysName = f['system']?.toString() ?? '其他';
-          sb.writeln(
-            '- ${rule.isNotEmpty ? rule : f['text']?.toString() ?? ''}'
-            '${func.isNotEmpty ? '（$sysName：$func）' : sysName.isNotEmpty ? '（$sysName）' : ''}',
-          );
+          sb.writeln('- ${partItem(f)}');
         }
         sb.writeln();
       }
@@ -1916,7 +1976,18 @@ class _AnalysisPageState extends State<AnalysisPage>
       writeBlock('情绪曲线', md['emotional_curve']);
       writeBlock('作者脑洞', md['author_fantasy']);
       // v1291：伏笔账本入世界书（用户裁决——未回收伏笔随条目流转，创作AI可见）
-      writeBlock('伏笔账本', md['foreshadow_ledger_snapshot']);
+      // v1293：旧版零件提取无快照——兜底用当前全局账本过滤plantedArc<=本弧线
+      //（回收状态为当前值，轻微时点后移可接受；弧线重提零件后以快照为准）
+      var foreLedger = md['foreshadow_ledger_snapshot'];
+      if (foreLedger is! List || foreLedger.isEmpty) {
+        foreLedger = state.foreshadowLedger
+            .where((e) => ((e['plantedArc'] as num?)?.toInt() ?? 0) <= an.arcNumber)
+            .toList();
+        if (foreLedger.isNotEmpty) {
+          _addLog('ℹ️ 弧线${an.arcNumber}无账本快照（旧版零件提取）——已按当前账本兜底写入，重提零件后以快照为准');
+        }
+      }
+      writeBlock('伏笔账本', foreLedger);
 
       final uid = 'orig_wb_${an.arcNumber}';
       wb.entries[uid] = WBEntry(
