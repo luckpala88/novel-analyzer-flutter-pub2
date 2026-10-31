@@ -578,7 +578,7 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
       );
       // 场景概述（常显，不折叠——对齐分析页：场景头下紧跟概述）
       // v946：标签独立一行+内容换行跟（用户要求：概述改为场景概述）
-      final overview = (sc['overview'] as String?) ?? '';
+      final overview = (sc['overviewLines'] as List<String>).join('\n');
       if (overview.isNotEmpty) {
         widgets.add(
           Padding(
