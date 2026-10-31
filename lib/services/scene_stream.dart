@@ -1622,7 +1622,7 @@ Future<bool> extractArcParts({
     (
       '弧线概述与剧情零件',
       PromptBuilder.buildArcStoryPartsSystemPrompt(),
-      buildTaskUser('请生成高质量弧线概述（六维演进+因果链两段式）并提取全套弧线零件（按系统提示的JSON格式输出）', withFore: true),
+      buildTaskUser('请生成高质量弧线概述（七维演进+因果链两段式）并提取全套弧线零件（按系统提示的JSON格式输出）', withFore: true),
       ['arc_summary', 'characters'],
     ),
     (

@@ -763,13 +763,11 @@ const SizedBox(height: 8),
                                                   color: const Color(0xFF475569),
                                                 ),
                                               ),
-                                              Text(
-                                                ov,
-                                                style: const TextStyle(
-                                                  fontSize: 12.5,
-                                                  height: 1.5,
-                                                  color: V469Style.textSec,
-                                                ),
+                                              FieldColoredText(
+                                                text: ov,
+                                                fontSize: 12.5,
+                                                height: 1.5,
+                                                baseColor: V469Style.textSec,
                                               ),
                                               const SizedBox(height: 8),
                                             ],

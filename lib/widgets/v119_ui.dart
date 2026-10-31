@@ -378,3 +378,72 @@ Widget writerStyleButton(BuildContext context, dynamic state) {
     },
   );
 }
+
+/// v1279：七字段彩色渲染——【字段头】按字段语义配色加粗，字段内容正文色
+/// 数据层纯文本零emoji原则不变：颜色只在浏览层渲染，不进数据
+class FieldColoredText extends StatelessWidget {
+  final String text;
+  final double fontSize;
+  final double height;
+  final Color baseColor;
+
+  const FieldColoredText({
+    super.key,
+    required this.text,
+    required this.fontSize,
+    required this.height,
+    required this.baseColor,
+  });
+
+  /// 字段头→颜色映射（场景七字段+弧线七字段；未知【】用金棕兜底）
+  static Color fieldColor(String tag) {
+    const map = <String, Color>{
+      '【异常】': Color(0xFFDC2626), // 红：异常=叙事引爆点
+      '【异常开场】': Color(0xFFDC2626),
+      '【外在期望】': Color(0xFFB45309), // 金棕：表层驱动力
+      '【期望演进】': Color(0xFFB45309),
+      '【深层动机】': Color(0xFF7C3AED), // 紫：藏在水面下
+      '【动机演变】': Color(0xFF7C3AED),
+      '【压力阶梯】': Color(0xFFC2410C), // 橙红：逐级加码升温
+      '【隐藏信息】': Color(0xFF2563EB), // 蓝：信息差
+      '【信息差演进】': Color(0xFF2563EB),
+      '【B故事补偿】': Color(0xFF059669), // 绿：温情支点
+      '【B线轨迹】': Color(0xFF059669),
+      '【推进驱动】': Color(0xFF0D9488), // 青：引擎动力
+    };
+    return map[tag] ?? const Color(0xFFB45309); // 未知字段金棕兜底
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final spans = <TextSpan>[];
+    final reg = RegExp(r'【[^】]{1,12}】');
+    int last = 0;
+    for (final m in reg.allMatches(text)) {
+      if (m.start > last) {
+        spans.add(TextSpan(
+          text: text.substring(last, m.start),
+          style: TextStyle(fontSize: fontSize, height: height, color: baseColor),
+        ));
+      }
+      final tag = m.group(0)!;
+      spans.add(TextSpan(
+        text: tag,
+        style: TextStyle(
+          fontSize: fontSize,
+          height: height,
+          color: fieldColor(tag),
+          fontWeight: FontWeight.w700,
+        ),
+      ));
+      last = m.end;
+    }
+    if (last < text.length) {
+      spans.add(TextSpan(
+        text: text.substring(last),
+        style: TextStyle(fontSize: fontSize, height: height, color: baseColor),
+      ));
+    }
+    return RichText(text: TextSpan(children: spans));
+  }
+}

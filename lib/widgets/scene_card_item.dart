@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'v119_ui.dart';
 
 import '../models/scene.dart';
 import '../utils/v469_style.dart';
@@ -132,13 +133,11 @@ class SceneCardItem extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 2),
-            Text(
-              scene.summary,
-              style: const TextStyle(
-                fontSize: 11.5,
-                height: 1.5,
-                color: V469Style.textSec,
-              ),
+            FieldColoredText(
+              text: scene.summary,
+              fontSize: 11.5,
+              height: 1.5,
+              baseColor: V469Style.textSec,
             ),
           // v1249：场景目的展示块废除（逐场景目的删）；v882：逐场景目的标注（分组产出，v1218原"编排"名）
           // v1017：默认折叠——点标题展开+底部收起键（对齐分镜页v1006）
