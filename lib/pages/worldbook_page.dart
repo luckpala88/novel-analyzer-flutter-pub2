@@ -544,17 +544,35 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
     final widgets = <Widget>[];
     // 头部（弧线概述等）
     if (head.any((l) => l.trim().isNotEmpty)) {
-      widgets.add(
-        SelectionArea(
-          child: FieldColoredText(
-            text: head.join('\n'),
-            fontSize: 11,
-            height: 1.4,
-            baseColor: V469Style.textMain,
-            variant: 'arc',
-          ),
-        ),
-      );
+      // v1296：orig条目弧线概述从analysis数据直取（与分镜页同源）——
+      // content里的概述是直写时点快照，弧线重拆/重概述后会过期不同步
+      Widget headChild;
+      if (isOrigEntry && origAn != null) {
+        final detail =
+            (origAn.metadata?['arc_summary_detailed']?.toString() ?? '')
+                .trim();
+        final sum = detail.isNotEmpty
+            ? detail
+            : (origAn.arcSummary.trim().isNotEmpty
+                ? origAn.arcSummary.trim()
+                : head.join('\n'));
+        headChild = FieldColoredText(
+          text: sum.startsWith('弧线') ? sum : '弧线$ak0概述：\n$sum',
+          fontSize: 11,
+          height: 1.4,
+          baseColor: V469Style.textMain,
+          variant: 'arc',
+        );
+      } else {
+        headChild = FieldColoredText(
+          text: head.join('\n'),
+          fontSize: 11,
+          height: 1.4,
+          baseColor: V469Style.textMain,
+          variant: 'arc',
+        );
+      }
+      widgets.add(SelectionArea(child: headChild));
     }
     // 场景块
     for (var si = 0; si < scenes.length; si++) {

@@ -875,6 +875,7 @@ class _AnalysisPageState extends State<AnalysisPage>
                         fontSize: 13,
                         height: 1.6,
                         baseColor: V469Style.textSec,
+                        variant: 'arc',
                       ),
                     ],
                   ),
@@ -1229,13 +1230,12 @@ class _AnalysisPageState extends State<AnalysisPage>
                       ],
                     ),
                   const SizedBox(height: 2),
-                  Text(
-                    analyzedScene!.summary,
-                    style: const TextStyle(
-                      fontSize: 11.5,
-                      height: 1.5,
-                      color: V469Style.textSec,
-                    ),
+                  FieldColoredText(
+                    text: analyzedScene!.summary,
+                    fontSize: 11.5,
+                    height: 1.5,
+                    baseColor: V469Style.textSec,
+                    variant: 'scene',
                   ),
                 ],
               ),
