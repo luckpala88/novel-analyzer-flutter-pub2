@@ -408,6 +408,51 @@ class FieldColoredText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final spans = <TextSpan>[];
+    // v1302：按行预处理——行首[体系名]紫标签/行首「功能：」灰字（世界书
+    // head区facts样式对齐分镜页），行内再跑【】字段逻辑
+    final lineReg = RegExp(r'^\[([^\]\n]{1,10})\]\s*');
+    for (final line in text.split('\n')) {
+      final lm = lineReg.firstMatch(line);
+      if (lm != null) {
+        spans.add(TextSpan(
+          text: '[${lm.group(1)}] ',
+          style: TextStyle(
+            fontSize: fontSize,
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF8B5CF6), // 紫：体系标签（分镜页同款）
+          ),
+        ));
+        spans.add(TextSpan(
+          text: line.substring(lm.end),
+          style: TextStyle(
+              fontSize: fontSize, height: height, color: baseColor),
+        ));
+        spans.add(const TextSpan(text: '\n'));
+        continue;
+      }
+      if (line.startsWith('功能：') || line.startsWith('功能:')) {
+        spans.add(TextSpan(
+          text: '　$line',
+          style: TextStyle(
+            fontSize: fontSize - 0.5,
+            height: height,
+            color: baseColor.withOpacity(0.75), // 灰：功能说明行
+          ),
+        ));
+        spans.add(const TextSpan(text: '\n'));
+        continue;
+      }
+      _buildLineSpans(line, spans, fontSize, height, baseColor, variant);
+    }
+    return RichText(
+      textScaler: MediaQuery.textScalerOf(context),
+      text: TextSpan(children: spans),
+    );
+  }
+
+  /// 单行内【字段】标签切分（v1279逻辑抽出）
+  void _buildLineSpans(String text, List<TextSpan> spans, double fontSize,
+      double height, Color baseColor, String variant) {
     // v1291：弧线N概述：标签行也按variant色渲染（世界书head区）
     final reg = RegExp(r'弧线\d+概述：|【[^】]{1,12}】');
     int last = 0;
@@ -436,9 +481,5 @@ class FieldColoredText extends StatelessWidget {
         style: TextStyle(fontSize: fontSize, height: height, color: baseColor),
       ));
     }
-    return RichText(
-      textScaler: MediaQuery.textScalerOf(context), // v1279b：跟随ContentFont.area的textScaler缩放（RichText不自动继承，v1279漏接=字号调整只有标题生效）
-      text: TextSpan(children: spans),
-    );
   }
 }
