@@ -399,11 +399,12 @@ class _AnalysisPageState extends State<AnalysisPage>
                       label: '账本',
                       onTap: () => showStateLedger(context, state),
                     ),
-                    // v782：故事圣经——按弧线分步迭代世界书故事圣经条目（v787移到分镜页）
-                    MiniButton(
-                      label: '圣经',
-                      onTap: () => _showBibleDialog(state),
-                    ),
+                    // v1294：故事圣经屏蔽（用户裁决：没什么用——迭代逻辑保留，
+                    // 恢复=解注释本块；story_bible条目数据不删）
+                    // MiniButton(
+                    //   label: '圣经',
+                    //   onTap: () => _showBibleDialog(state),
+                    // ),
                     MiniButton(
                       label: '导出ST',
                       onTap: () => _exportOriginalST(state),

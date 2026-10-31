@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
+import '../models/scene.dart';
 import '../models/world_book.dart';
 import '../utils/text_cleaner.dart';
 import '../utils/name_map.dart';
@@ -14,6 +15,7 @@ import '../utils/v469_style.dart';
 import '../widgets/api_config_panel.dart';
 import '../widgets/v_scroll_bar.dart'; // v771
 import '../widgets/v119_ui.dart';
+import '../widgets/arc_parts_view.dart';
 import '../widgets/content_font.dart';
 
 /// 世界书页 — 照抄v468 worldbook-card
@@ -215,7 +217,8 @@ class _WorldBookPageState extends State<WorldBookPage>
   Widget build(BuildContext context) {
     super.build(context); // AutomaticKeepAlive必须
     final state = context.watch<AppState>();
-    final entries = state.worldBook?.entries.values.toList() ?? [];
+    // v1294：故事圣经屏蔽——列表不显示story_bible条目（数据保留，导出不受影响）
+    final entries = state.worldBook?.entries.values.where((e) => e.uid != 'story_bible').toList() ?? [];
 
     return Scaffold(
       body: SafeArea(
@@ -469,6 +472,17 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
   /// 解析content文本按"场景N："行切块，每块=场景头（常显可点击）+分镜明细（可折叠）
   /// 纯显示层——ST导出用entry.content原文，此处仅渲染拆分
   Widget _sceneFoldableContent(WBEntry entry) {
+    // v1294：直写条目镜像分镜页——orig_wb_条目且对应弧线分析存在时，零件区
+    // 直接用ArcParts.build渲染（用户裁决：一套组件两处复用，不再维护两套
+    // 解析渲染导致样式漂移）；content文本仍写入，只留给ST导出
+    final isOrigEntry = entry.uid.startsWith('orig_wb_');
+    ArcAnalysis? origAn;
+    if (isOrigEntry) {
+      final ak = entry.arcKey ?? '';
+      origAn = ak.isNotEmpty
+          ? context.read<AppState>().arcAnalyses[ak]
+          : null;
+    }
     // v702：换名预览开启时显示层套映射表（数据/ST导出仍entry.content原文）
     final displayText = _mapPreview
         ? NameMap.applyMapping(
@@ -851,15 +865,29 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
         }
       }
       flush();
-      widgets.add(
-        Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: tailWidgets,
+      // v1294：orig条目镜像分镜页——零件区用ArcParts.build（数据同源），
+      // tail文本解析渲染跳过（content文本只留给ST导出）
+      if (isOrigEntry && origAn != null) {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: ArcParts.build(origAn),
+            ),
           ),
-        ),
-      );
+        );
+      } else {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: tailWidgets,
+            ),
+          ),
+        );
+      }
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
