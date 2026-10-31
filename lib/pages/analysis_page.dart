@@ -311,16 +311,15 @@ class _AnalysisPageState extends State<AnalysisPage>
         shotCount += s.shots.length;
       }
     });
-    // v1032：补交手回合/拆解进度——分镜数场景数+已拆X/Y+已交手回合X/Y（A方案流水线对账用；v1218"已编排"改名"已交手回合"）
-    var broken = 0, choreoed = 0;
+    // v1032：补拆解进度——分镜数场景数+已拆X/Y（A方案流水线对账用）；v1285：交手回合废除（v1272分析已停），统计行不再显示
+    var broken = 0;
     state.arcAnalyses.forEach((_, a) {
       for (final s in a.scenes) {
         if (s.shots.isNotEmpty) broken++;
-        if (s.choreo.isNotEmpty) choreoed++;
       }
     });
     return '$arcCount弧线 · $sceneCount场景 · $shotCount分镜 · '
-        '已拆$broken/$sceneCount · 已交手回合$choreoed/$sceneCount';
+        '已拆$broken/$sceneCount';
   }
 
   @override
@@ -656,11 +655,6 @@ class _AnalysisPageState extends State<AnalysisPage>
     final totalShots = hasAnalysis
         ? analysis.scenes.fold<int>(0, (n, s) => n + s.shots.length)
         : 0;
-    // v1033：本弧线交手回合进度徽章——choreo非空场景数/总场景数（A方案流水线对账，v1209内容=逐场景目的）
-    final choreoedScenes = hasAnalysis
-        ? analysis.scenes.where((s) => s.choreo.isNotEmpty).length
-        : 0;
-
     // v469：已拆解=complete绿左边条，未拆解=incomplete红左边条
     final cardColor = hasAnalysis ? V469Style.complete : V469Style.incomplete;
     return Container(
@@ -741,13 +735,7 @@ class _AnalysisPageState extends State<AnalysisPage>
                         V469Style.complete,
                         V469Style.completeBg,
                       ),
-                    // v1218：徽章改名（原"已编排"——v1209定稿内容=场景交手回合记录，与账本快照区分）
-                    if (hasAnalysis && totalScenes > 0)
-                      V469Style.badge(
-                        '🧠 已交手回合($choreoedScenes/$totalScenes)',
-                        const Color(0xFFB45309),
-                        const Color(0x14B45309),
-                      ),
+                    // v1285：已交手回合徽章废除（v1272交手回合分析已停，存量不再显示）
                   ],
                 ),
                 const SizedBox(height: 4),
