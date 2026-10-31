@@ -96,7 +96,7 @@ class ApiService {
   bool _busy = false; // 全局忙锁：同时只允许一个生成任务（禁止并行，数据安全）
   // v1242用户裁决：call内换模型重试废除+对应开关删除——看门狗断开保留，
   // 失败交上层任务级重试接力（等60秒躲冷却重发）
-  bool _noFirstByteFired = false; // 看门狗已触发（90秒零内容chunk强制断连）
+  bool _noFirstByteFired = false; // 看门狗已触发（首字超时零内容chunk强制断连）
   int _clientGen = 0; // 客户端代际：看门狗防误伤后续请求的新连接
 
   // ===== 滑动窗口限流（中转站RPM限制）=====
@@ -423,9 +423,10 @@ class ApiService {
       // CF系错误自动重试：524=首字节>100s被掐（Gemini thinking阶段常见，
       // 上游往往仍在跑，重试第二次通常命中快路径）；520/522/525/527同类
       final useStream = isClaude || formatMode == 'json';
-      // v1242：重任务首字看门狗放宽——全景提取类思考期长（四件套大输出），
-      // 90秒常误杀；其它任务维持90秒快速判死
-      final firstByteTimeout = task.contains('全景提取') ? 180 : 90;
+      // v1299b：首字看门狗统一180秒（用户裁决17:23——分镜拆解90秒被掐
+      // 实证1.5分钟白烧，全景提取类此前已放宽；思考期长是常态，90秒判死
+      // 弊大于利，全部放宽到180秒）
+      final firstByteTimeout = 180;
       const cfRetryCodes = [520, 522, 524, 525, 527];
       // v427：取消CF系自动重试（用户裁决：API拥堵不重试，失败即告警暂停）
       const maxRetries = 0;
@@ -494,7 +495,7 @@ class ApiService {
       if (_noFirstByteFired) {
         return ApiResult(
           content: '',
-          error: '90秒无首字（中转SSE挂起）',
+          error: '180秒无首字（中转SSE挂起）',
           statusCode: 599,
           elapsed: stopwatch.elapsed,
         );
@@ -522,7 +523,7 @@ class ApiService {
     bool isClaude,
     void Function(String chunk)? onChunk,
     Stopwatch stopwatch, {
-    int firstByteTimeoutSec = 90, // v1242：重任务（全景提取）放宽到180秒
+    int firstByteTimeoutSec = 180, // v1299b：统一180秒（用户裁决——重任务思考期长，90秒判死弊大于利）
   }) async {
     _log('SSE流式请求...');
     final request = http.Request('POST', Uri.parse(url));
@@ -666,7 +667,7 @@ class ApiService {
       _stopTimer();
       return ApiResult(
         content: '',
-        error: '90秒无首字（中转SSE挂起）',
+        error: '$firstByteTimeoutSec秒无首字（中转SSE挂起）',
         statusCode: 599,
         elapsed: stopwatch.elapsed,
       );
