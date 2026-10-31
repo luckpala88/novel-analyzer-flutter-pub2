@@ -444,6 +444,9 @@ class FieldColoredText extends StatelessWidget {
         style: TextStyle(fontSize: fontSize, height: height, color: baseColor),
       ));
     }
-    return RichText(text: TextSpan(children: spans));
+    return RichText(
+      textScaler: MediaQuery.textScalerOf(context), // v1279b：跟随ContentFont.area的textScaler缩放（RichText不自动继承，v1279漏接=字号调整只有标题生效）
+      text: TextSpan(children: spans),
+    );
   }
 }
