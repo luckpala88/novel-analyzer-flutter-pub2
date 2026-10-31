@@ -448,6 +448,10 @@ class FieldColoredText extends StatelessWidget {
         continue;
       }
       _buildLineSpans(line, spans, fontSize, height, baseColor, variant);
+      // v1304b：行间换行补回——v1302按行重构时普通行没补\n=旧数据换行全丢（用户实测实证）
+      if (line != fixedText.split('\n').last) {
+        spans.add(const TextSpan(text: '\n'));
+      }
     }
     return RichText(
       textScaler: MediaQuery.textScalerOf(context),
