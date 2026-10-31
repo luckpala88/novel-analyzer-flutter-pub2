@@ -1442,7 +1442,7 @@ class _AnalysisPageState extends State<AnalysisPage>
             ],
           ),
           // 全部分行维度：9维度一行一个，与世界书推演条目格式对齐
-          dimLine('🧩', '字段/Field', shot.focus, const Color(0xFF1E40AF)),
+          dimLine('🎯', '焦点/Focus', shot.focus, const Color(0xFF1E40AF)),
           dimLine('🎬', '镜头类型/Shot Type', shot.shotType, typeColor),
           dimLine('👁', '视角/POV', shot.pov, const Color(0xFF3730A3)),
           dimLine('📋', '投放信息/Info', shot.info, const Color(0xFF475569)),
