@@ -2616,10 +2616,15 @@ return true;
                     color: const Color(0xFF2C5E8E))),
           if (an == null && arc.status == 'generated')
             // v783：AI规划弧线——概述从arcScan.summary（条目同步时落库）显示
-            SelectableText(
-              _brief(arc.summary, 250),
-              style: TextStyle(
-                  fontSize: _cf(11.5), color: const Color(0xFF5B7A99), height: 1.4),
+            // v1297b：字段彩色（弧线靛蓝）
+            SelectionArea(
+              child: FieldColoredText(
+                text: _brief(arc.summary, 250),
+                fontSize: 11.5,
+                height: 1.4,
+                baseColor: const Color(0xFF5B7A99),
+                variant: 'arc',
+              ),
             )
           else if (an == null)
             Text(
@@ -2627,10 +2632,15 @@ return true;
               style: TextStyle(fontSize: _cf(11), color: const Color(0xFFB0682A)),
             )
           else
-            SelectableText(
-              overview.isEmpty ? '（无概述）' : overview,
-              style: TextStyle(
-                  fontSize: _cf(11.5), color: const Color(0xFF5B7A99), height: 1.4),
+            // v1297b：字段彩色（弧线靛蓝）
+            SelectionArea(
+              child: FieldColoredText(
+                text: overview.isEmpty ? '（无概述）' : overview,
+                fontSize: 11.5,
+                height: 1.4,
+                baseColor: const Color(0xFF5B7A99),
+                variant: 'arc',
+              ),
             ),
         ],
       ),
@@ -2728,11 +2738,14 @@ return true;
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Align(
                     alignment: Alignment.centerLeft,
-                    child: SelectableText(arc.summary,
-                        style: TextStyle(
-                            fontSize: _cf(11),
-                            color: const Color(0xFF5B7A99),
-                            height: 1.4)),
+                    // v1297b：字段彩色（弧线靛蓝）
+                    child: FieldColoredText(
+                      text: arc.summary,
+                      fontSize: 11,
+                      height: 1.4,
+                      baseColor: const Color(0xFF5B7A99),
+                      variant: 'arc',
+                    ),
                   ),
                 ),
               ..._plannedScenesFromEntry(state, arc.number.toString()).map(
@@ -2774,12 +2787,13 @@ return true;
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: SelectableText(
-                      overview.isEmpty ? '（无概述）' : overview,
-                      style: TextStyle(
-                          fontSize: _cf(11),
-                          color: const Color(0xFF5B7A99),
-                          height: 1.4),
+                    // v1297b：字段彩色（弧线靛蓝）
+                    child: FieldColoredText(
+                      text: overview.isEmpty ? '（无概述）' : overview,
+                      fontSize: 11,
+                      height: 1.4,
+                      baseColor: const Color(0xFF5B7A99),
+                      variant: 'arc',
                     ),
                   ),
                   if (overview.isNotEmpty)
@@ -3010,12 +3024,15 @@ return true;
                         fontWeight: FontWeight.w700,
                         color: const Color(0xFF2C5E8E))),
                 const SizedBox(height: 2),
-                SelectableText(
-                  _brief(arc.summary, 400),
-                  style: TextStyle(
-                      fontSize: _cf(11),
-                      color: const Color(0xFF5B7A99),
-                      height: 1.4),
+                // v1297b：字段彩色（弧线靛蓝）
+                SelectionArea(
+                  child: FieldColoredText(
+                    text: _brief(arc.summary, 400),
+                    fontSize: 11,
+                    height: 1.4,
+                    baseColor: const Color(0xFF5B7A99),
+                    variant: 'arc',
+                  ),
                 ),
                 const SizedBox(height: 6),
               ],
@@ -6066,16 +6083,15 @@ return true;
                                         ),
                                       ),
                                     ),
-                                    // v970：概述独占全宽（分行布局）
+                                    // v1297b：概述字段彩色（场景金棕系）
                                     Align(
                                       alignment: Alignment.centerLeft,
-                                      child: Text(
-                                        scene.summary,
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          height: 1.4,
-                                          color: V469Style.textSec,
-                                        ),
+                                      child: FieldColoredText(
+                                        text: scene.summary,
+                                        fontSize: 11,
+                                        height: 1.4,
+                                        baseColor: V469Style.textSec,
+                                        variant: 'scene',
                                       ),
                                     ),
                                   ],
