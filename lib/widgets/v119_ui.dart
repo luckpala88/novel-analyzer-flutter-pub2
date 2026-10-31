@@ -408,7 +408,8 @@ class FieldColoredText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final spans = <TextSpan>[];
-    final reg = RegExp(r'【[^】]{1,12}】');
+    // v1291：弧线N概述：标签行也按variant色渲染（世界书head区）
+    final reg = RegExp(r'弧线\d+概述：|【[^】]{1,12}】');
     int last = 0;
     for (final m in reg.allMatches(text)) {
       if (m.start > last) {

@@ -1592,9 +1592,10 @@ class _AnalysisPageState extends State<AnalysisPage>
       final sb = StringBuffer();
       // v1287：弧线概述优先detailed七字段版（【异常开场】…【内容概述】）——分组概述无七字段，直写条目缺字段（用户实测）
       final arcDetail = (an.metadata?['arc_summary_detailed']?.toString() ?? '').trim();
-      sb.writeln(
-        '弧线${an.arcNumber}概述：${arcDetail.isNotEmpty ? arcDetail : (an.arcSummary.isNotEmpty ? an.arcSummary : arc.summary)}',
-      );
+      final arcSum = arcDetail.isNotEmpty ? arcDetail : (an.arcSummary.isNotEmpty ? an.arcSummary : arc.summary);
+      // v1291：标签独行（【异常开场】与弧线N概述标签之间换行——用户裁决）
+      sb.writeln('弧线${an.arcNumber}概述：');
+      sb.writeln(arcSum);
       sb.writeln();
       // v1084：弧线级目的对齐分镜页（分镜页有"弧线目的"弧线级折叠块（v1205））
       final arcChoreoTxt = (arc.arcChoreo.isNotEmpty
@@ -1660,7 +1661,24 @@ class _AnalysisPageState extends State<AnalysisPage>
               if (st.isNotEmpty) '本弧线=$st',
               if (g('values').isNotEmpty) '三观与理想人格=${g('values')}',
             ];
-            return '${g('name')}${parts.isNotEmpty ? '：${parts.join('，')}' : ''}';
+            var out = '${g('name')}${parts.isNotEmpty ? '：${parts.join('，')}' : ''}';
+            // v1291：三观清洗——去{}/引号包裹、键间逗号改分号、句号后逗号（用户：人设卡多余标点）
+            out = out
+                .replaceAll('{', '')
+                .replaceAll('}', '')
+                .replaceAll('‘', '')
+                .replaceAll('’', '')
+                .replaceAll('“', '')
+                .replaceAll('”', '');
+            for (final k in ['世界观', '人生观', '价值观', '作者的理想人格']) {
+              out = out
+                  .replaceAll('，$k：', '；$k：')
+                  .replaceAll('，$k:', '；$k：')
+                  .replaceAll(',$k：', '；$k：')
+                  .replaceAll(',$k:', '；$k：');
+            }
+            out = out.replaceAll('。，', '。').replaceAll('，。', '。');
+            return out;
           }
           if (item.containsKey('description')) {
             return '${g('type').isNotEmpty ? '[${g('type')}] ' : ''}${g('description')}';
@@ -1672,7 +1690,11 @@ class _AnalysisPageState extends State<AnalysisPage>
             final rule = g('rule');
             final func = g('function');
             final sysName = g('system');
-            return '${rule.isNotEmpty ? rule : g('text')}${func.isNotEmpty ? '（$sysName：$func）' : sysName.isNotEmpty ? '（$sysName）' : ''}';
+            // v1291：体系名打头[体系]标签+功能独立行（对齐分镜页样式——用户裁决：体系名不跑到功能说明里）
+            final ruleTxt = rule.isNotEmpty ? rule : g('text');
+            return sysName.isNotEmpty
+                ? '[$sysName] $ruleTxt${func.isNotEmpty ? '\n功能：$func' : ''}'
+                : ruleTxt;
           }
           return item.entries
               .where((e) => e.value != null && e.value.toString().isNotEmpty)
@@ -1722,6 +1744,8 @@ class _AnalysisPageState extends State<AnalysisPage>
       writeBlock('不可逆变化', md['irreversible_changes']);
       writeBlock('情绪曲线', md['emotional_curve']);
       writeBlock('作者脑洞', md['author_fantasy']);
+      // v1291：伏笔账本入世界书（用户裁决——未回收伏笔随条目流转，创作AI可见）
+      writeBlock('伏笔账本', md['foreshadow_ledger_snapshot']);
 
       entries[uid.toString()] = _stEntry(
         uid++,
@@ -1806,9 +1830,10 @@ class _AnalysisPageState extends State<AnalysisPage>
       final sb = StringBuffer();
       // v1287：弧线概述优先detailed七字段版（【异常开场】…【内容概述】）——分组概述无七字段，直写条目缺字段（用户实测）
       final arcDetail = (an.metadata?['arc_summary_detailed']?.toString() ?? '').trim();
-      sb.writeln(
-        '弧线${an.arcNumber}概述：${arcDetail.isNotEmpty ? arcDetail : (an.arcSummary.isNotEmpty ? an.arcSummary : arc.summary)}',
-      );
+      final arcSum = arcDetail.isNotEmpty ? arcDetail : (an.arcSummary.isNotEmpty ? an.arcSummary : arc.summary);
+      // v1291：标签独行（【异常开场】与弧线N概述标签之间换行——用户裁决）
+      sb.writeln('弧线${an.arcNumber}概述：');
+      sb.writeln(arcSum);
       sb.writeln();
       // v1084：弧线级目的对齐分镜页（分镜页有"弧线目的"弧线级折叠块（v1205））
       final arcChoreoTxt = (arc.arcChoreo.isNotEmpty
@@ -1890,6 +1915,8 @@ class _AnalysisPageState extends State<AnalysisPage>
       writeBlock('不可逆变化', md['irreversible_changes']);
       writeBlock('情绪曲线', md['emotional_curve']);
       writeBlock('作者脑洞', md['author_fantasy']);
+      // v1291：伏笔账本入世界书（用户裁决——未回收伏笔随条目流转，创作AI可见）
+      writeBlock('伏笔账本', md['foreshadow_ledger_snapshot']);
 
       final uid = 'orig_wb_${an.arcNumber}';
       wb.entries[uid] = WBEntry(
