@@ -497,14 +497,21 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
     for (final raw in lines) {
       final t = raw.trim();
       if (sceneRe.hasMatch(t)) {
-        scenes.add({'header': t, 'overview': '', 'choreo': '', 'lines': <String>[]});
+        scenes.add({'header': t, 'overviewLines': <String>[], 'choreo': '', 'lines': <String>[]});
       } else if (scenes.isEmpty) {
         // 场景前的概述/改编说明进head（条目头部常显）
         head.add(raw);
       } else if (scenes.isNotEmpty) {
-        // 概述行单独提取常显（不折进分镜明细）
+        // v1287：概述行+七字段行提取常显（不折进分镜明细）——直写条目场景概述是
+        // 七字段多行（【异常】…【内容概述】），旧解析只认概述单行=其余行
+        // 全部掉进分镜折叠区（用户实测截图实锤）
+        final sceneFieldRe = RegExp(
+          r'^[^\u4e00-\u9fa5\n]*【(异常|外在期望|深层动机|压力阶梯|隐藏信息|B故事补偿|推进驱动|内容概述)】',
+        );
         if (overviewRe.hasMatch(t) && scenes.last['inTail'] != true) {
-          scenes.last['overview'] = t.replaceFirst(overviewRe, '').trim();
+          (scenes.last['overviewLines'] as List<String>).add(t.trim());
+        } else if (sceneFieldRe.hasMatch(t) && scenes.last['inTail'] != true) {
+          (scenes.last['overviewLines'] as List<String>).add(t.trim());
         } else if (choreoRe.hasMatch(t) && scenes.last['inTail'] != true) {
           // v938：编排行单独提取常显（场景级表述层核心数据，不折叠）
           scenes.last['choreo'] = t.replaceFirst(choreoRe, '').trim();
@@ -523,9 +530,13 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
     // 头部（弧线概述等）
     if (head.any((l) => l.trim().isNotEmpty)) {
       widgets.add(
-        SelectableText.rich(
-          TextSpan(
-            children: V469Style.contentSpans(head.join('\n'), fontSize: 11),
+        SelectionArea(
+          child: FieldColoredText(
+            text: head.join('\n'),
+            fontSize: 11,
+            height: 1.4,
+            baseColor: V469Style.textMain,
+            variant: 'arc',
           ),
         ),
       );
@@ -584,13 +595,14 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
                     backgroundColor: Color(0xFFDBEAFE),
                   ),
                 ),
-                Text(
-                  overview.replaceFirst(RegExp(r'^概[述说][：:]\s*'), ''),
-                  style: const TextStyle(
-                    fontSize: 11,
-                    height: 1.4,
-                    color: V469Style.textMain,
-                  ),
+                FieldColoredText(
+                  text: (sc['overviewLines'] as List<String>)
+                      .join('\n')
+                      .replaceFirst(RegExp(r'^概[述说][：:]\s*'), ''),
+                  fontSize: 11,
+                  height: 1.4,
+                  baseColor: V469Style.textMain,
+                  variant: 'scene',
                 ),
               ],
             ),

@@ -1590,8 +1590,10 @@ class _AnalysisPageState extends State<AnalysisPage>
         orElse: () => arcs.isNotEmpty ? arcs.first : arcs.first,
       );
       final sb = StringBuffer();
+      // v1287：弧线概述优先detailed七字段版（【异常开场】…【内容概述】）——分组概述无七字段，直写条目缺字段（用户实测）
+      final arcDetail = (an.metadata?['arc_summary_detailed']?.toString() ?? '').trim();
       sb.writeln(
-        '弧线${an.arcNumber}概述：${an.arcSummary.isNotEmpty ? an.arcSummary : arc.summary}',
+        '弧线${an.arcNumber}概述：${arcDetail.isNotEmpty ? arcDetail : (an.arcSummary.isNotEmpty ? an.arcSummary : arc.summary)}',
       );
       sb.writeln();
       // v1084：弧线级目的对齐分镜页（分镜页有"弧线目的"弧线级折叠块（v1205））
@@ -1802,8 +1804,10 @@ class _AnalysisPageState extends State<AnalysisPage>
       // v1078：自家orig_wb条目=覆盖刷新（世界书内容与分镜页当前数据一致，
       // 重拆后直接点直写即可刷新，不再要求先删旧条目）
       final sb = StringBuffer();
+      // v1287：弧线概述优先detailed七字段版（【异常开场】…【内容概述】）——分组概述无七字段，直写条目缺字段（用户实测）
+      final arcDetail = (an.metadata?['arc_summary_detailed']?.toString() ?? '').trim();
       sb.writeln(
-        '弧线${an.arcNumber}概述：${an.arcSummary.isNotEmpty ? an.arcSummary : arc.summary}',
+        '弧线${an.arcNumber}概述：${arcDetail.isNotEmpty ? arcDetail : (an.arcSummary.isNotEmpty ? an.arcSummary : arc.summary)}',
       );
       sb.writeln();
       // v1084：弧线级目的对齐分镜页（分镜页有"弧线目的"弧线级折叠块（v1205））

@@ -386,6 +386,8 @@ class FieldColoredText extends StatelessWidget {
   final double fontSize;
   final double height;
   final Color baseColor;
+  /// v1287：渲染变体——'scene'=场景概述字段统一金棕 / 'arc'=弧线概述字段统一靛蓝
+  final String variant;
 
   const FieldColoredText({
     super.key,
@@ -393,26 +395,15 @@ class FieldColoredText extends StatelessWidget {
     required this.fontSize,
     required this.height,
     required this.baseColor,
+    this.variant = 'scene',
   });
 
-  /// 字段头→颜色映射（场景七字段+弧线七字段；未知【】用金棕兜底）
-  static Color fieldColor(String tag) {
-    const map = <String, Color>{
-      '【异常】': Color(0xFFDC2626), // 红：异常=叙事引爆点
-      '【异常开场】': Color(0xFFDC2626),
-      '【外在期望】': Color(0xFFB45309), // 金棕：表层驱动力
-      '【期望演进】': Color(0xFFB45309),
-      '【深层动机】': Color(0xFF7C3AED), // 紫：藏在水面下
-      '【动机演变】': Color(0xFF7C3AED),
-      '【压力阶梯】': Color(0xFFC2410C), // 橙红：逐级加码升温
-      '【隐藏信息】': Color(0xFF2563EB), // 蓝：信息差
-      '【信息差演进】': Color(0xFF2563EB),
-      '【B故事补偿】': Color(0xFF059669), // 绿：温情支点
-      '【B线轨迹】': Color(0xFF059669),
-      '【推进驱动】': Color(0xFF0D9488), // 青：引擎动力
-      '【内容概述】': Color(0xFF92400E), // 深金棕：七维综合叙事
-    };
-    return map[tag] ?? const Color(0xFFB45309); // 未知字段金棕兜底
+  /// v1287：字段头色按变体统一——弧线级靛蓝/场景级金棕（用户裁决：弧线八字段一色、场景八字段另一色）
+  static Color fieldColor(String variant) {
+    return variant == 'arc'
+        ? const Color(0xFF1D4ED8) // 靛蓝：弧线级编排字段
+        : const Color(0xFFB45309); // 金棕：场景级字段（暖主题）
+  }
   }
 
   @override
@@ -433,7 +424,7 @@ class FieldColoredText extends StatelessWidget {
         style: TextStyle(
           fontSize: fontSize,
           height: height,
-          color: fieldColor(tag),
+          color: fieldColor(variant),
           fontWeight: FontWeight.w700,
         ),
       ));
