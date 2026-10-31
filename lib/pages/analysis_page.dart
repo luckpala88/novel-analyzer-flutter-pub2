@@ -1443,7 +1443,7 @@ class _AnalysisPageState extends State<AnalysisPage>
             ],
           ),
           // 全部分行维度：9维度一行一个，与世界书推演条目格式对齐
-          dimLine('🎯', '焦点/Focus', shot.focus, const Color(0xFF1E40AF)),
+          dimLine('🧩', '字段/Field', shot.focus, const Color(0xFF1E40AF)),
           dimLine('🎬', '镜头类型/Shot Type', shot.shotType, typeColor),
           dimLine('👁', '视角/POV', shot.pov, const Color(0xFF3730A3)),
           dimLine('📋', '投放信息/Info', shot.info, const Color(0xFF475569)),
@@ -1619,22 +1619,15 @@ class _AnalysisPageState extends State<AnalysisPage>
         }
         for (var i = 0; i < sc.shots.length; i++) {
           final sh = sc.shots[i];
-          sb.writeln('分镜${i + 1}：');
-          sb.writeln('焦点(Focus)：${sh.focus}');
-          sb.writeln('镜头类型(Shot Type)：${sh.shotType}');
-          sb.writeln('视角(POV)：${sh.pov}');
-          sb.writeln('投放信息(Info)：${sh.info}');
-          sb.writeln('作者意图(Intent)：${sh.intent}');
-          if (sh.trick.isNotEmpty) sb.writeln('手法(Trick)：${sh.trick}'); // v878
-          sb.writeln('转场手法(Transition)：${sh.transition}');
-          sb.writeln('篇幅(Length)：${sh.length}');
-          sb.writeln('文笔节奏(Prose Style)：${sh.proseStyle}');
-          if (sh.voice.isNotEmpty)
-            sb.writeln('语感(Voice)：${sh.voice}');
-          if (sh.style.isNotEmpty) sb.writeln('文风(Style)：${sh.style}');
-          if (sh.ink.isNotEmpty) sb.writeln('笔墨(Ink)：${sh.ink}');
-          if (sh.abstraction.isNotEmpty)
-            sb.writeln('功能抽象(Abstract)：${sh.abstraction}');
+          // v1307：字段分镜一行制——"分镜N：意外1"（旧九维度行废除，空维度
+          // 行在新定义下全是垃圾行；旧维度有值的存量条目兼容显示）
+          sb.write('分镜${i + 1}：${sh.focus}');
+          if (sh.shotType.isNotEmpty) sb.write('｜镜头类型：${sh.shotType}');
+          if (sh.info.isNotEmpty) sb.write('｜投放：${sh.info}');
+          if (sh.intent.isNotEmpty) sb.write('｜意图：${sh.intent}');
+          if (sh.transition.isNotEmpty) sb.write('｜转场：${sh.transition}');
+          if (sh.length.isNotEmpty) sb.write('｜篇幅：${sh.length}');
+          sb.writeln();
         }
         sb.writeln();
       }
@@ -1868,19 +1861,14 @@ class _AnalysisPageState extends State<AnalysisPage>
         }
         for (var i = 0; i < sc.shots.length; i++) {
           final sh = sc.shots[i];
-          sb.writeln('分镜${i + 1}：');
-          sb.writeln('焦点(Focus)：${sh.focus}');
-          sb.writeln('镜头类型(Shot Type)：${sh.shotType}');
-          sb.writeln('视角(POV)：${sh.pov}');
-          sb.writeln('投放信息(Info)：${sh.info}');
-          sb.writeln('作者意图(Intent)：${sh.intent}');
-          if (sh.trick.isNotEmpty) sb.writeln('手法(Trick)：${sh.trick}'); // v878
-          sb.writeln('转场手法(Transition)：${sh.transition}');
-          sb.writeln('篇幅(Length)：${sh.length}');
-          sb.writeln('文笔节奏(Prose Style)：${sh.proseStyle}');
-          if (sh.voice.isNotEmpty) sb.writeln('语感(Voice)：${sh.voice}');
-          if (sh.style.isNotEmpty) sb.writeln('文风(Style)：${sh.style}');
-          if (sh.ink.isNotEmpty) sb.writeln('笔墨(Ink)：${sh.ink}');
+          // v1307：字段分镜一行制（同直写条目）
+          sb.write('分镜${i + 1}：${sh.focus}');
+          if (sh.shotType.isNotEmpty) sb.write('｜镜头类型：${sh.shotType}');
+          if (sh.info.isNotEmpty) sb.write('｜投放：${sh.info}');
+          if (sh.intent.isNotEmpty) sb.write('｜意图：${sh.intent}');
+          if (sh.transition.isNotEmpty) sb.write('｜转场：${sh.transition}');
+          if (sh.length.isNotEmpty) sb.write('｜篇幅：${sh.length}');
+          sb.writeln();
           if (sh.abstraction.isNotEmpty)
             sb.writeln('功能抽象(Abstract)：${sh.abstraction}');
         }
