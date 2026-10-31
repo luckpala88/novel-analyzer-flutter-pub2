@@ -410,6 +410,7 @@ class FieldColoredText extends StatelessWidget {
       '【B故事补偿】': Color(0xFF059669), // 绿：温情支点
       '【B线轨迹】': Color(0xFF059669),
       '【推进驱动】': Color(0xFF0D9488), // 青：引擎动力
+      '【内容概述】': Color(0xFF92400E), // 深金棕：七维综合叙事
     };
     return map[tag] ?? const Color(0xFFB45309); // 未知字段金棕兜底
   }
