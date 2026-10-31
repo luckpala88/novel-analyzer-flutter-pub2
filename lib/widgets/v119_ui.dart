@@ -408,10 +408,15 @@ class FieldColoredText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final spans = <TextSpan>[];
+    // v1304：换行兜底——AI输出字段头前无换行（【期望演进】粘在上行尾部）
+    // 组件级统一修复：所有页面（分镜/场景/世界书/改编）一次生效
+    final fixedText = text
+        .replaceAll(RegExp('([^\\n])【'), '\$1\n【')
+        .replaceAll(RegExp('(弧线\\d+概述[：:])(?=[^\\n])'), '\$1\n');
     // v1302：按行预处理——行首[体系名]紫标签/行首「功能：」灰字（世界书
     // head区facts样式对齐分镜页），行内再跑【】字段逻辑
     final lineReg = RegExp(r'^\[([^\]\n]{1,10})\]\s*');
-    for (final line in text.split('\n')) {
+    for (final line in fixedText.split('\n')) {
       final lm = lineReg.firstMatch(line);
       if (lm != null) {
         spans.add(TextSpan(
