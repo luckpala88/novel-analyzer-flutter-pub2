@@ -475,15 +475,15 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
     // v1294：直写条目镜像分镜页——零件区直接用ArcParts.build渲染（用户裁决：
     // 一套组件两处复用，不再维护两套解析渲染导致样式漂移）；content文本仍
     // 写入，只留给ST导出
-    // v1295：镜像条件放宽——凡有arcKey且对应弧线分析存在的条目都镜像（改编
-    // 条目/续写弧线条目同样生效，数据源=arcAnalyses改编后数据）；无arcKey或
-    // 无分析数据的条目（手写/自定义/未拆解）保持文本解析渲染
+    // v1296b：镜像收回orig_wb_前缀（v1295放宽实证错误：改编条目arcKey也命中
+    // 但arcAnalyses存的是原著分析≠改编条目content的改编数据=显示错数据）
+    // 改编条目走文本渲染（生成端facts已同步[体系]打头新格式，紫标签命中）
     ArcAnalysis? origAn;
     final ak0 = entry.arcKey ?? '';
-    if (ak0.isNotEmpty) {
+    final isOrigEntry = entry.uid.startsWith('orig_wb_');
+    if (isOrigEntry && ak0.isNotEmpty) {
       origAn = context.read<AppState>().arcAnalyses[ak0];
     }
-    final isOrigEntry = origAn != null;
     // v702：换名预览开启时显示层套映射表（数据/ST导出仍entry.content原文）
     final displayText = _mapPreview
         ? NameMap.applyMapping(
