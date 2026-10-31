@@ -781,6 +781,18 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
                 ),
               ),
             );
+          } else if (!isItem &&
+              (t.startsWith('功能：') || t.startsWith('功能:'))) {
+            // v1292：facts功能行灰字缩进（对齐分镜页样式——用户截图需求）
+            spans.add(const TextSpan(text: '\n　'));
+            spans.add(TextSpan(
+              text: t,
+              style: const TextStyle(
+                fontSize: 10.5,
+                color: V469Style.textSec,
+                height: 1.5,
+              ),
+            ));
           } else if (isItem &&
               currentTitle != null &&
               (currentTitle.contains('人设') || currentTitle.contains('角色'))) {
