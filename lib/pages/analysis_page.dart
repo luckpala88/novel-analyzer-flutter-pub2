@@ -867,15 +867,13 @@ class _AnalysisPageState extends State<AnalysisPage>
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        analysis.metadata?['arc_summary_detailed']
+                      FieldColoredText(
+                        text: analysis.metadata?['arc_summary_detailed']
                                 ?.toString() ??
                             analysis.arcSummary,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          height: 1.6,
-                          color: V469Style.textSec,
-                        ),
+                        fontSize: 13,
+                        height: 1.6,
+                        baseColor: V469Style.textSec,
                       ),
                     ],
                   ),
