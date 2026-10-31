@@ -404,7 +404,6 @@ class FieldColoredText extends StatelessWidget {
         ? const Color(0xFF1D4ED8) // 靛蓝：弧线级编排字段
         : const Color(0xFFB45309); // 金棕：场景级字段（暖主题）
   }
-  }
 
   @override
   Widget build(BuildContext context) {
