@@ -462,6 +462,26 @@ class FieldColoredText extends StatelessWidget {
   /// 单行内【字段】标签切分（v1279逻辑抽出）
   void _buildLineSpans(String text, List<TextSpan> spans, double fontSize,
       double height, Color baseColor, String variant) {
+    // v1306：行首人设名字着色（改编条目人设行"魏索，主角，…"——世界书
+    // head区走本组件，tail的v1163高亮不触发）——行首≤6字+分隔符=名字
+    final nameRe = RegExp(r'^([^，,：:]{1,6})[，,：:]\s*(.*)$');
+    final nm = nameRe.firstMatch(text);
+    if (nm != null && !text.startsWith('【') && !text.startsWith('[')) {
+      spans.add(TextSpan(
+        text: '${nm.group(1)}，',
+        style: TextStyle(
+          fontSize: fontSize,
+          fontWeight: FontWeight.w700,
+          color: const Color(0xFFB45309), // 金棕：角色名
+        ),
+      ));
+      spans.add(TextSpan(
+        text: nm.group(2),
+        style: TextStyle(
+            fontSize: fontSize, height: height, color: baseColor),
+      ));
+      return;
+    }
     // v1291：弧线N概述：标签行也按variant色渲染（世界书head区）
     final reg = RegExp(r'弧线\d+概述：|【[^】]{1,12}】');
     int last = 0;
