@@ -493,7 +493,11 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
         : TextCleaner.decodeLiteralNewlines(
             TextCleaner.repairJsonDimLines(entry.content),
           ); // v703：JSON壳维度行修复 + v725：字面\n解码（存量圣经显示兜底）
-    final lines = displayText.split('\n');
+    // v1303：换行兜底——AI把多段挤成一坨（【标记】前无换行/概述标签后无换行）
+    final fixed = displayText
+        .replaceAll(RegExp('([^\\n])【'), '\n【')
+        .replaceAll(RegExp('(弧线\\d+概述[：:])(?=[^\\n])'), '\$1\n');
+    final lines = fixed.split('\n');
     // 切块：头块 / 场景块s / 尾块
     final head = <String>[];
     final scenes = <Map<String, dynamic>>[]; // {header, overview, lines:[]}
