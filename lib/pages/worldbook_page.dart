@@ -472,17 +472,18 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
   /// 解析content文本按"场景N："行切块，每块=场景头（常显可点击）+分镜明细（可折叠）
   /// 纯显示层——ST导出用entry.content原文，此处仅渲染拆分
   Widget _sceneFoldableContent(WBEntry entry) {
-    // v1294：直写条目镜像分镜页——orig_wb_条目且对应弧线分析存在时，零件区
-    // 直接用ArcParts.build渲染（用户裁决：一套组件两处复用，不再维护两套
-    // 解析渲染导致样式漂移）；content文本仍写入，只留给ST导出
-    final isOrigEntry = entry.uid.startsWith('orig_wb_');
+    // v1294：直写条目镜像分镜页——零件区直接用ArcParts.build渲染（用户裁决：
+    // 一套组件两处复用，不再维护两套解析渲染导致样式漂移）；content文本仍
+    // 写入，只留给ST导出
+    // v1295：镜像条件放宽——凡有arcKey且对应弧线分析存在的条目都镜像（改编
+    // 条目/续写弧线条目同样生效，数据源=arcAnalyses改编后数据）；无arcKey或
+    // 无分析数据的条目（手写/自定义/未拆解）保持文本解析渲染
     ArcAnalysis? origAn;
-    if (isOrigEntry) {
-      final ak = entry.arcKey ?? '';
-      origAn = ak.isNotEmpty
-          ? context.read<AppState>().arcAnalyses[ak]
-          : null;
+    final ak0 = entry.arcKey ?? '';
+    if (ak0.isNotEmpty) {
+      origAn = context.read<AppState>().arcAnalyses[ak0];
     }
+    final isOrigEntry = origAn != null;
     // v702：换名预览开启时显示层套映射表（数据/ST导出仍entry.content原文）
     final displayText = _mapPreview
         ? NameMap.applyMapping(
