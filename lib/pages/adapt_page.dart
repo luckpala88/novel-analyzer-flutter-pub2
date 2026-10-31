@@ -5755,14 +5755,14 @@ return true;
                               ),
                             ),
                           ),
-                          // v193：概述完整显示独占全宽
-                          Text(
-                            _arcSummary,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey,
-                              height: 1.4,
-                            ),
+                          // v1297：概述字段彩色渲染（弧线靛蓝——对齐分镜页
+                          // 弧线概述卡；原Colors.grey浅灰=用户截图点名）
+                          FieldColoredText(
+                            text: _arcSummary,
+                            fontSize: 11,
+                            height: 1.4,
+                            baseColor: V469Style.textSec,
+                            variant: 'arc',
                           ),
                         ],
                       ),
