@@ -1138,25 +1138,7 @@ class _AnalysisPageState extends State<AnalysisPage>
                 ),
               ),
               const SizedBox(width: 6),
-              // v901：分析交手回合（场景交手回合记录——拆分镜后才能跑）
-              SizedBox(
-                height: 26,
-                child: FilledButton.tonal(
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    textStyle: const TextStyle(fontSize: 11),
-                    visualDensity: VisualDensity.compact,
-                    backgroundColor: const Color(0xFFB45309),
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: null, // v1272：交手回合分析废除——按键禁用封存
-                  // onPressed: analyzedScene == null || analyzedScene!.shots.isEmpty
-                  //     ? null
-                  //     : () => _analyzeSceneChoreo(state, arcKey, analyzedScene!),
-                  child: const Text('🧠分析交手回合（已废除）'),
-                ),
-              ),
-              const SizedBox(width: 6),
+              // v1328：分析交手回合按钮删除（v1272废除，v1249理论封存——壳按钮也清掉）
               // 单场景拆分镜（v236：从场景页搬来的就地拆解，v234搬迁时漏掉）
               SizedBox(
                 height: 26,
