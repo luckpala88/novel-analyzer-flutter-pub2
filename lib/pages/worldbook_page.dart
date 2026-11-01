@@ -525,7 +525,7 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
         // 七字段多行（【异常】…【内容概述】），旧解析只认概述单行=其余行
         // 全部掉进分镜折叠区（用户实测截图实锤）
         final sceneFieldRe = RegExp(
-          r'^[^\u4e00-\u9fa5\n]*【(异常|外在期望|深层动机|压力阶梯|隐藏信息|B故事补偿|推进驱动|内容概述)】',
+          r'^[^\u4e00-\u9fa5\n]*【(异常|开场|外在期望|深层动机|压力阶梯|隐藏信息|B故事补偿|推进驱动|内容概述)】',
         );
         if (overviewRe.hasMatch(t) && scenes.last['inTail'] != true) {
           (scenes.last['overviewLines'] as List<String>).add(t.trim());

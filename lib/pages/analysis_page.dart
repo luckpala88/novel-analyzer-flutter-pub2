@@ -1591,10 +1591,10 @@ class _AnalysisPageState extends State<AnalysisPage>
         orElse: () => arcs.isNotEmpty ? arcs.first : arcs.first,
       );
       final sb = StringBuffer();
-      // v1287：弧线概述优先detailed七字段版（【异常开场】…【内容概述】）——分组概述无七字段，直写条目缺字段（用户实测）
+      // v1287：弧线概述优先detailed七字段版（【开端】…【内容概述】）——分组概述无七字段，直写条目缺字段（用户实测）
       final arcDetail = (an.metadata?['arc_summary_detailed']?.toString() ?? '').trim();
       final arcSum = arcDetail.isNotEmpty ? arcDetail : (an.arcSummary.isNotEmpty ? an.arcSummary : arc.summary);
-      // v1291：标签独行（【异常开场】与弧线N概述标签之间换行——用户裁决）
+      // v1291：标签独行（【开端】与弧线N概述标签之间换行——用户裁决）
       sb.writeln('弧线${an.arcNumber}概述：');
       sb.writeln(arcSum);
       sb.writeln();
@@ -1833,10 +1833,10 @@ class _AnalysisPageState extends State<AnalysisPage>
       // v1078：自家orig_wb条目=覆盖刷新（世界书内容与分镜页当前数据一致，
       // 重拆后直接点直写即可刷新，不再要求先删旧条目）
       final sb = StringBuffer();
-      // v1287：弧线概述优先detailed七字段版（【异常开场】…【内容概述】）——分组概述无七字段，直写条目缺字段（用户实测）
+      // v1287：弧线概述优先detailed七字段版（【开端】…【内容概述】）——分组概述无七字段，直写条目缺字段（用户实测）
       final arcDetail = (an.metadata?['arc_summary_detailed']?.toString() ?? '').trim();
       final arcSum = arcDetail.isNotEmpty ? arcDetail : (an.arcSummary.isNotEmpty ? an.arcSummary : arc.summary);
-      // v1291：标签独行（【异常开场】与弧线N概述标签之间换行——用户裁决）
+      // v1291：标签独行（【开端】与弧线N概述标签之间换行——用户裁决）
       sb.writeln('弧线${an.arcNumber}概述：');
       sb.writeln(arcSum);
       sb.writeln();
