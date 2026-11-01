@@ -8,6 +8,7 @@ import '../state/app_state.dart';
 import '../services/api_service.dart';
 import '../utils/arc_text.dart';
 import '../utils/json_repair.dart';
+import '../utils/text_cleaner.dart';
 import '../utils/prompt_builder.dart';
 import '../utils/v469_style.dart';
 import '../widgets/slice_viewer_sheet.dart';
@@ -78,8 +79,8 @@ Future<void> regenSceneSummary({
   }
   // v915：字段赋值替代对象重建（v893教训：重建新实例=其它容器引用脱钩
   // +此处原重建漏choreo字段会把已分析的目的清空）
-  sc.summary = newSummary;
-  if (newChanges.isNotEmpty) sc.changes = newChanges;
+  sc.summary = TextCleaner.sanitizeSensitive(newSummary); // v1328词面净化
+  if (newChanges.isNotEmpty) sc.changes = TextCleaner.sanitizeSensitive(newChanges);
   // v915：双容器同步——analysis.scenes（弧线页/分镜页数据源）重载后是
   // 独立实例，按globalIndex同步概述/变化
   state.arcAnalyses.forEach((_, an) {
@@ -388,6 +389,14 @@ Future<void> runGlobalSceneScan({
         final winScenes = scenesJson
             .map((e) => Scene.fromJson(e as Map<String, dynamic>))
             .toList();
+        // v1328：AI产出字段入库前词面净化——原文净化过审≠AI产出过审（AI描述
+        // 情节自己用回敏感词，弧线分组拼prompt被提交门禁拦）。end_text不动
+        // （它是原文逐字摘抄，净化会破坏切片定位）
+        for (final sc in winScenes) {
+          sc.name = TextCleaner.sanitizeSensitive(sc.name);
+          sc.summary = TextCleaner.sanitizeSensitive(sc.summary);
+          sc.changes = TextCleaner.sanitizeSensitive(sc.changes);
+        }
 
         // end_text 链式切片（v320机制，对窗口文本）——失败补定位2次→⛔停机
         final windowText = buf.toString();
@@ -971,14 +980,16 @@ Future<void> groupArcsFromScenes({
           final eCh = seg.last.endChapter;
           final arc = Arc(
             number: arcNum,
-            title: m['title']?.toString() ?? '弧线$arcNum',
+            title: TextCleaner.sanitizeSensitive(
+                m['title']?.toString() ?? '弧线$arcNum'), // v1328词面净化
             chapterRange: '第$sCh-$eCh章',
             startChapter: sCh,
             endChapter: eCh,
             sceneFrom: from2 + 1,
             sceneTo: to2 + 1,
             status: m['status']?.toString() ?? 'complete',
-            summary: m['summary']?.toString() ?? '',
+            summary: TextCleaner.sanitizeSensitive(
+                m['summary']?.toString() ?? ''), // v1328词面净化
             focusCharacter: m['focus']?.toString() ?? '',
             closeType: m['close_type']?.toString() ?? 'pseudo',
             boundaryAnchor: '',
