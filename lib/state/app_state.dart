@@ -977,11 +977,15 @@ class AppState extends ChangeNotifier {
           final slice = globalScenes.sublist(arc.sceneFrom - 1, arc.sceneTo);
           // v997：分镜迁移——一步拆解的shots只写进了arcAnalyses实例，重绑用
           // globalScenes切片覆盖=分镜全丢（升级后"分镜数据没了"的根因）。
-          // 迁移：切片场景无shots而analysis场景有→搬过去，随后落盘
+          // 迁移：an（arc_analyses.json）是分镜权威源——非空即覆盖切片。
+          // v1318修复：原逻辑只救"切片空an有"，防不住反向——global_scenes.json
+          // 里残留旧副本shots（非空）时盖回新拆解（v1317重启后新7条变旧32条实证）
           for (var i = 0; i < slice.length && i < an.scenes.length; i++) {
-            if (slice[i].shots.isEmpty && an.scenes[i].shots.isNotEmpty) {
-              slice[i].shots = an.scenes[i].shots;
-              shotsMigrated = true;
+            if (an.scenes[i].shots.isNotEmpty) {
+              if (!identical(slice[i].shots, an.scenes[i].shots)) {
+                slice[i].shots = an.scenes[i].shots;
+                shotsMigrated = true;
+              }
             }
           }
           an.scenes = slice;
@@ -998,9 +1002,10 @@ class AppState extends ChangeNotifier {
             arc.sceneTo >= arc.sceneFrom &&
             globalScenes.length >= arc.sceneTo) {
           final slice = globalScenes.sublist(arc.sceneFrom - 1, arc.sceneTo);
-          // v997：同上——v场景容器里残留的shots也迁移到切片实例
+          // v1318：v（arc_scenes.json）同样是拆解直写的持久化值——非空即覆盖
+          // 切片，防global_scenes旧副本盖回（与上方an优先同源修复）
           for (var i = 0; i < slice.length && i < v.length; i++) {
-            if (slice[i].shots.isEmpty && v[i].shots.isNotEmpty) {
+            if (v[i].shots.isNotEmpty) {
               slice[i].shots = v[i].shots;
             }
           }

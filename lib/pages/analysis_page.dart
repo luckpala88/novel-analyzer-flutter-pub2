@@ -2350,6 +2350,11 @@ class _AnalysisPageState extends State<AnalysisPage>
             analysis.scenes[sceneIdx].choreo = scene.choreo; // v1015：同步清空旧交手回合
           }
           state.saveArcAnalyses();
+          // v1318：保存第四件——scene是globalScenes切片实例（同引用），但
+          // global_scenes.json此前不落盘，重启后旧副本shots盖回新拆解
+          // （v1317重启7条新分镜变32条旧数据实证）。保存四件套：arcScenes/
+          // arcAnalyses/globalScenes/markAnalyzed缺一不可
+          state.saveGlobalScenes();
           // v210：两步拆解补已拆解标记——此前只有一步拆解markArcAnalyzed，
           // v209严格化（isArcAnalyzed && hasShots）后两步拆解的弧线在改编页消失
           state.markArcAnalyzed(arcNum);
