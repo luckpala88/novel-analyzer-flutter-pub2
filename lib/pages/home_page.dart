@@ -146,6 +146,11 @@ class _HomePageState extends State<HomePage>
                     ],
                   ),
                   const SizedBox(width: 4),
+                  // v1330：词面净化开关+词表面板（开=送审原文过通用词表替换）
+                  MiniButton(
+                    label: '净化${state.sanitizeEnabled ? '开' : '关'}',
+                    onTap: () => _showSanitizeDialog(context, state),
+                  ),
                   MiniButton(
                     label: '设置',
                     onTap: () => _showSettingsDialog(state),
@@ -490,6 +495,103 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 设置弹窗（API配置+备份+预设+检查更新） =====
+  /// v1330：词面净化面板——开关+通用词表编辑（每行"敏感词=替换词"）
+  /// 开=送审原文（扫描窗口/分镜切片/零件切片/分组场景行）先过词表；
+  /// 章节库零污染（原文不动），end_text定位与切片物化都在净化文本上自洽
+  void _showSanitizeDialog(BuildContext dialogCtx, AppState state) {
+    final ctrl = TextEditingController(
+      text: state.sanitizePairsText.isEmpty
+          ? TextCleaner.defaultPairsText
+          : state.sanitizePairsText,
+    );
+    var enabled = state.sanitizeEnabled;
+    showDialog(
+      context: dialogCtx,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 24),
+          child: SizedBox(
+            width: double.maxFinite,
+            height: MediaQuery.of(dialogCtx).size.height * 0.8,
+            child: Column(
+              children: [
+                AppBar(
+                  title: const Text('词面净化'),
+                  actions: [
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          '净化开关（开=送AI前替换敏感词，章节原文不动）',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                      Switch(value: enabled, onChanged: (v) => setD(() => enabled = v)),
+                    ],
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('词表（每行"敏感词=替换词"语义替换；只写词不加=自动插/打码如卖/身——通用词库整包粘贴用）',
+                        style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+                    child: TextField(
+                      controller: ctrl,
+                      maxLines: null,
+                      expands: true,
+                      textAlignVertical: TextAlignVertical.top,
+                      style: const TextStyle(fontSize: 12, height: 1.4),
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  child: Row(
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          setD(() => ctrl.text = TextCleaner.defaultPairsText);
+                        },
+                        child: const Text('恢复默认词表'),
+                      ),
+                      const Spacer(),
+                      FilledButton(
+                        onPressed: () {
+                          state.setSanitizeEnabled(enabled);
+                          state.saveSanitizePairs(ctrl.text);
+                          Navigator.pop(ctx);
+                        },
+                        child: const Text('保存'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showSettingsDialog(AppState state) {
     showDialog(
       context: context,
@@ -1025,7 +1127,7 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 1329;
+  static const int _appVersion = 1330;
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';

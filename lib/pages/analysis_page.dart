@@ -2072,6 +2072,13 @@ class _AnalysisPageState extends State<AnalysisPage>
   /// 末镜默认到场景末尾；锚点句从上一切分点之后搜索防跨镜重句误命中
   void _materializeShotTexts(Scene scene, {AppState? state, String? arcKey, int? sceneIdx}) {
     var base = scene.text;
+    // v1330：物化base与拆解送审同坐标系（净化版）——AI输出的end_text摘自
+    // 净化文本，在未净化切片上匹配必失败。base随后写回scene.text=旧切片
+    // 借物化换血为净化版（切片本就是送审/创作用途，净化版入库合理）
+    if ((state?.sanitizeEnabled ?? false) && base.isNotEmpty) {
+      base = TextCleaner.sanitizeSensitive(base);
+      scene.text = base;
+    }
     if (base.isEmpty && state != null && arcKey != null && sceneIdx != null) {
       // v506b：旧划分场景无锚定切片——尝试全局场景流兜底（sceneFrom-1+sceneIdx定位）
       for (final a in state.completedArcs) {
@@ -2227,7 +2234,9 @@ class _AnalysisPageState extends State<AnalysisPage>
 
     final oldShots = scene.shots; // 失败回滚
     try {
-      final chapterText = _getSceneChapterText(state, scene);
+      final chapterText = state.sanitizeEnabled
+          ? TextCleaner.sanitizeSensitive(_getSceneChapterText(state, scene)) // v1330送审净化（旧切片幂等过表）
+          : _getSceneChapterText(state, scene);
       if (chapterText.trim().isEmpty) {
         _addLog('错误：未找到场景章节文本（${scene.chapterRange}）');
         return false;

@@ -248,6 +248,26 @@ class AppState extends ChangeNotifier {
   bool tokenLength = false; // 分镜篇幅标注
   bool funcAbstract = true; // v295：分镜功能抽象标注默认必选（开关已从场景/弧线页移除，分镜页prompt恒用）
 
+  // ===== v1330：通用词面净化（章节库零污染方案）=====
+  // 开=送审原文（扫描窗口/分镜切片/零件提取切片/弧线分组场景行）先过词表；
+  // 关=原文直送。AI产出入库净化恒开（另一层兜底，不受此开关控）
+  bool sanitizeEnabled = true;
+  String sanitizePairsText = ''; // 每行"敏感词=替换词"；空=用TextCleaner.defaultPairsText
+
+  void setSanitizeEnabled(bool v) {
+    sanitizeEnabled = v;
+    storage.writeGlobal('sanitize_enabled', v ? '1' : '0');
+    notifyListeners();
+  }
+
+  Future<void> saveSanitizePairs(String text) async {
+    sanitizePairsText = text.trim();
+    storage.writeGlobal('sanitize_pairs', sanitizePairsText);
+    TextCleaner.updateFromText(
+        sanitizePairsText.isEmpty ? TextCleaner.defaultPairsText : sanitizePairsText);
+    notifyListeners();
+  }
+
   void setFuncAbstract(bool v) {
     funcAbstract = v;
     storage.writeGlobal('func_abstract', v ? '1' : '0');
@@ -1285,6 +1305,14 @@ class AppState extends ChangeNotifier {
     // 功能抽象标注（分镜第10维度：类型层功能描述，推演模式依赖）
     final fa = storage.readGlobal('func_abstract');
     funcAbstract = fa != '0'; // 默认必选：仅显式存过'0'的极旧存档才关
+
+    // v1330：词面净化开关+词表（默认开；词表空=用内置默认表）
+    final se = storage.readGlobal('sanitize_enabled');
+    sanitizeEnabled = se != '0';
+    final sp = storage.readGlobal('sanitize_pairs');
+    if (sp != null) sanitizePairsText = sp;
+    TextCleaner.updateFromText(
+        sanitizePairsText.isEmpty ? TextCleaner.defaultPairsText : sanitizePairsText);
 
     // TTS配置
     final ttsEngine = storage.readGlobal('tts_engine');

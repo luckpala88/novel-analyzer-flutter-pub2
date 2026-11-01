@@ -175,7 +175,9 @@ bool computeSceneResumeAnchor(AppState state) {
   // v535b：切片已纯正文（无窗口标记）。无标记时场景整段在同一章内——
   // 但重复章号（两更）有多个候选章，逐一用120字长尾定位，命中的才对
   if (chapIdx >= 0) {
-    final c = chapters[chapIdx].content;
+    final c = state.sanitizeEnabled
+        ? TextCleaner.sanitizeSensitive(chapters[chapIdx].content) // v1330净化坐标系
+        : chapters[chapIdx].content;
     var p = c.indexOf(tail);
     if (p < 0) {
       final fz = ArcText.fuzzyLocate(c, tail);
@@ -186,7 +188,9 @@ bool computeSceneResumeAnchor(AppState state) {
   if (chapIdx < 0) {
     for (var i = 0; i < chapters.length; i++) {
       if (chNumOf(i) != kept.endChapter) continue;
-      final c = chapters[i].content;
+      final c = state.sanitizeEnabled
+          ? TextCleaner.sanitizeSensitive(chapters[i].content) // v1330净化坐标系
+          : chapters[i].content;
       var p = c.indexOf(tail);
       if (p < 0) {
         final fz = ArcText.fuzzyLocate(c, tail);
@@ -199,7 +203,9 @@ bool computeSceneResumeAnchor(AppState state) {
     }
   }
   if (chapIdx < 0) return false;
-  final c = chapters[chapIdx].content;
+  final c = state.sanitizeEnabled
+      ? TextCleaner.sanitizeSensitive(chapters[chapIdx].content) // v1330净化坐标系
+      : chapters[chapIdx].content;
   var p = c.indexOf(tail);
   if (p < 0) {
     final fz = ArcText.fuzzyLocate(c, tail);
@@ -278,11 +284,19 @@ Future<void> runGlobalSceneScan({
         for (var i = fromIdx; i <= toIdx; i++) {
           final ch = chapters[i];
           final n = ch.number > 0 ? ch.number : i + 1;
-          final content =
-              (i == fromIdx && anchorOffset > 0)
-                  ? ch.content.substring(anchorOffset)
-                  : ch.content;
-          buf.write('\n\n=== 第$n章 ===\n\n${ch.title}\n\n$content');
+          // v1330：词面净化开关——净化提前到章级：窗口文本/切片物化/剪断锚点
+          // offset全在同一净化坐标系（锚点定位同样对净化后章节文本做，续切
+          // 自洽）；章节库原文零污染，同一本书开关须保持一致（切换=锚点错位）
+          var content = ch.content;
+          var title = ch.title;
+          if (state.sanitizeEnabled) {
+            content = TextCleaner.sanitizeSensitive(content);
+            title = TextCleaner.sanitizeSensitive(title);
+          }
+          content = (i == fromIdx && anchorOffset > 0)
+              ? content.substring(anchorOffset)
+              : content;
+          buf.write('\n\n=== 第$n章 ===\n\n$title\n\n$content');
         }
 
         final systemPrompt = PromptBuilder.buildGlobalSceneSystemPrompt();
@@ -473,10 +487,13 @@ Future<void> runGlobalSceneScan({
           for (var i = fromIdx; i <= toIdx; i++) {
             final ch = chapters[i];
             final n = ch.number > 0 ? ch.number : i + 1;
-            sc.text = sc.text.replaceAll(
-              '\n\n=== 第$n章 ===\n\n${ch.title}\n\n',
-              '\n\n',
-            );
+            // v1330：家具匹配串与窗口文本同坐标系——title已净化时匹配串同步净化
+            var furniture =
+                '\n\n=== 第$n章 ===\n\n${ch.title}\n\n';
+            if (state.sanitizeEnabled) {
+              furniture = TextCleaner.sanitizeSensitive(furniture);
+            }
+            sc.text = sc.text.replaceAll(furniture, '\n\n');
           }
           sc.text = sc.text.trim();
         }
@@ -771,15 +788,22 @@ Future<void> groupArcsFromScenes({
           break;
         }
         final to = (cursor + batch).clamp(0, gs.length);
+        // v1330：openDesc注入侧净化（旧弧线title/summary存量词面）
         final openDesc = openArc == null
             ? '无'
-            : '弧线${openArc.number}「${openArc.title}」（视角：${openArc.focusCharacter}，该弧线此前场景已在上批归组、本次列表不含，概述：${openArc.summary}）';
+            : '弧线${openArc.number}「${state.sanitizeEnabled ? TextCleaner.sanitizeSensitive(openArc.title) : openArc.title}」（视角：${openArc.focusCharacter}，该弧线此前场景已在上批归组、本次列表不含，概述：${state.sanitizeEnabled ? TextCleaner.sanitizeSensitive(openArc.summary) : openArc.summary}）';
         final sb = StringBuffer();
+        // v1330：分组输入注入侧净化——旧存量场景的name/summary/changes可能
+        // 带未净化词面（v1328只管新产出入库），进prompt前过表（幂等）
+        final sanitizeOn = state.sanitizeEnabled;
         for (var i = cursor; i < to; i++) {
           final sc = gs[i];
           final ch = sc.changes.isEmpty ? '' : '｜变化：${sc.changes}';
-          sb.writeln(
-              '场景${i + 1}（${sc.chapterRange}）[${sc.name}] ${sc.summary}$ch');
+          final name = sanitizeOn ? TextCleaner.sanitizeSensitive(sc.name) : sc.name;
+          final summary =
+              sanitizeOn ? TextCleaner.sanitizeSensitive(sc.summary) : sc.summary;
+          final chg = sanitizeOn ? TextCleaner.sanitizeSensitive(ch) : ch;
+          sb.writeln('场景${i + 1}（${sc.chapterRange}）[$name] $summary$chg');
         }
         // v489/v490：分组prompt完整版——v489发现v483/484/488强化全改在无人调用的
         // buildScanSystemPrompt；v490按用户提供的旧版弧线扫描prompt全文融合：
@@ -1610,11 +1634,18 @@ Future<bool> extractArcParts({
           ? '边界已闭合（伪闭合）——本弧线叙事段在此完整结束并切线，正文切片是完整叙事段，按已闭合规则提取'
           : '边界已闭合（真闭合）——本弧线正文在此收束，正文切片是完整叙事段，按已闭合规则提取';
   String buildTaskUser(String taskText, {bool withFore = false}) {
+    // v1330：送审净化——arc.text旧切片可能含未净化词面，注入侧过表（幂等）
+    var arcTextSafe = arc.text;
+    var sceneListSafe = sceneList;
+    if (state.sanitizeEnabled) {
+      arcTextSafe = TextCleaner.sanitizeSensitive(arcTextSafe);
+      sceneListSafe = TextCleaner.sanitizeSensitive(sceneListSafe);
+    }
     var u = PromptBuilder.buildArcPartsUserPrompt(
       arcTitle: arc.title,
       arcSummary: arc.summary,
-      arcText: arc.text,
-      sceneList: sceneList,
+      arcText: arcTextSafe,
+      sceneList: sceneListSafe,
       boundaryStatus: boundaryStatus,
       taskOverride: taskText,
     );
