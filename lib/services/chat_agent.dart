@@ -30,6 +30,7 @@ const String agentToolDoc = '''
 11. {"tool":"update_style","args":{"name":"作家名","content":"档案markdown全文","mode":"append|overwrite|delete"}} —— 风格档案写入（需用户确认）。mode=append(默认,追加合并,新名=新建)/overwrite(整篇覆盖——用户说"修改/重写/精简某档案"用)/delete(删除档案,content可空)。追加时先get_styles读旧档再拼全文；overwrite时content即新档案全文（可基于旧档修改）
 12. {"tool":"get_scene","args":{"scene":1,"full":"0"}} —— 读场景（只读）：scene=全局场景序号（1-based，与弧线页"场景N"对应）。返回场景名/章节范围/概述/正文切片（默认前600字，full="1"返回完整切片）。用户说"读一下第N个场景/第一个场景的内容/某个切片"用这个
 13. {"tool":"get_shots","args":{"arc":1,"scene":2}} —— 读分镜（只读）：arc=弧线号，scene=该弧线内场景序号。返回该场景全部分镜的field/how/end_text清单。用户说"看某弧线某场景的分镜"用这个；读切片用get_scene
+14. {"tool":"search_content","args":{"keyword":"关键词","field":"all"}} —— 全书内容搜索（只读）：遍历全部场景的名称/概述/切片找关键词，返回命中场景序号+上下文摘录（取前20条）。field可选"text"/"summary"/"all"(默认)。用户问"哪里提到XX/某情节在第几章/找关于XX的场景"用这个；没命中就换同义词再搜（可多次调用）
 规则：一次只发一个指令，发出后停止等待结果；任务完成后用自然语言汇报结果；用户闲聊/问功能时不要发指令。
 ''';
 
@@ -170,6 +171,46 @@ Future<AgentToolResult> runTool(AppState state, String tool,
       }
       return AgentToolResult(tool, true,
           '弧线$an场景$scn「${sc.name}」（${sc.chapterRange}）共${sc.shots.length}个分镜：\n\n$buf');
+    case 'search_content': // v1345：全书内容搜索
+      final kw = '${args['keyword'] ?? ''}'.trim();
+      if (kw.isEmpty) {
+        return AgentToolResult(tool, false, '缺keyword参数');
+      }
+      final field = '${args['field'] ?? 'all'}';
+      final gs = state.globalScenes;
+      if (gs.isEmpty) {
+        return AgentToolResult(tool, true, '当前书场景流为空（先扫描场景）');
+      }
+      final hits = <String>[];
+      for (var i = 0; i < gs.length; i++) {
+        final sc = gs[i];
+        final inName = sc.name.contains(kw);
+        final inSummary = sc.summary.contains(kw);
+        final inText = sc.text.contains(kw);
+        if (field == 'summary' && !inSummary) continue;
+        if (field == 'text' && !inText) continue;
+        if (field == 'all' && !inName && !inSummary && !inText) continue;
+        // 命中上下文：切片中关键词前后各40字
+        var ctx = '';
+        if (inText) {
+          final pos = sc.text.indexOf(kw);
+          final st = pos > 40 ? pos - 40 : 0;
+          ctx = sc.text.substring(st, (pos + kw.length + 40).clamp(0, sc.text.length))
+              .replaceAll('\n', ' ');
+        } else if (inSummary) {
+          final pos = sc.summary.indexOf(kw);
+          final st = pos > 40 ? pos - 40 : 0;
+          ctx = sc.summary.substring(st, (pos + kw.length + 40).clamp(0, sc.summary.length));
+        }
+        final tag = [if (inName) '名称', if (inSummary) '概述', if (inText) '正文'].join('+');
+        hits.add('场景${i + 1}「${sc.name}」（${sc.chapterRange}）[$tag]\n${ctx.isNotEmpty ? ctx : sc.summary.substring(0, sc.summary.length.clamp(0, 100))}');
+        if (hits.length >= 20) break;
+      }
+      if (hits.isEmpty) {
+        return AgentToolResult(tool, true, '全书无「$kw」命中（field=$field）——可换同义词或拆短词再搜');
+      }
+      return AgentToolResult(tool, true,
+          '「$kw」命中${hits.length}条${hits.length >= 20 ? '（截断，可加限定词缩小）' : ''}：\n\n${hits.join('\n\n')}');
     case 'verify_data':
       // v883b：数据诊断（只读）——验证类测试交给agent：字段是否落库一查便知
       final target = (args['target'] ?? '').toString();
