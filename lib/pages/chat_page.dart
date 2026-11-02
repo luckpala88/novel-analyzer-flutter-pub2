@@ -1323,9 +1323,15 @@ class _ChatPageState extends State<ChatPage>
             ));
           }
         }
-        parts.add(useSilicon
-            ? _SiliconImage(src: m.group(1)!, skey: skey, bookName: bookName)
-            : _chatImage(context, m.group(1)!));
+        parts.add(state.chatImageEngine == 'pollination'
+            ? _chatImage(context, m.group(1)!)
+            : _SiliconImage(
+                src: m.group(1)!,
+                engine: state.chatImageEngine,
+                skey: skey,
+                cfKey: state.chatCfKey,
+                cfAccount: state.chatCfAccount,
+                bookName: bookName));
         cursor = m.end;
       }
       if (cursor < content.length) {
@@ -1394,9 +1400,18 @@ class _ChatPageState extends State<ChatPage>
 
 class _SiliconImage extends StatefulWidget {
   final String src;
+  final String engine; // v1348：'silicon'|'cf'
   final String skey;
+  final String cfKey;
+  final String cfAccount;
   final String bookName; // v1344：自动叠封面书名
-  const _SiliconImage({required this.src, required this.skey, this.bookName = ''});
+  const _SiliconImage(
+      {required this.src,
+      required this.engine,
+      required this.skey,
+      this.cfKey = '',
+      this.cfAccount = '',
+      this.bookName = ''});
   @override
   State<_SiliconImage> createState() => _SiliconImageState();
 }
@@ -1479,43 +1494,77 @@ class _SiliconImageState extends State<_SiliconImage> {
         if (mounted) setState(() => _bytes = b);
         return;
       }
-      final skey = widget.skey;
-      if (skey.isEmpty) {
-        setState(() => _err = '点顶栏🔑填硅基Key');
-        return;
+      Uint8List genBytes;
+      if (widget.engine == 'cf') {
+        // v1348：CF Workers AI flux-1-schnell（固定1024方图）
+        final ckey = widget.cfKey;
+        final acc = widget.cfAccount;
+        if (ckey.isEmpty || acc.isEmpty) {
+          setState(() => _err = '点顶栏🔑填CF Token+账户ID');
+          return;
+        }
+        final cbody = jsonEncode({'prompt': prompt});
+        final creq = http.Request(
+            'POST',
+            Uri.parse(
+                'https://api.cloudflare.com/client/v4/accounts/$acc/ai/run/@cf/black-forest-labs/flux-1-schnell'))
+          ..headers['Content-Type'] = 'application/json'
+          ..headers['Authorization'] = 'Bearer $ckey'
+          ..bodyBytes = cbody.codeUnits;
+        final crs = await http.Response.fromStream(
+            await creq.send().timeout(const Duration(seconds: 120)));
+        if (crs.statusCode != 200) {
+          setState(() => _err = 'CF生成失败 HTTP${crs.statusCode}');
+          return;
+        }
+        final cdata = jsonDecode(crs.body);
+        final b64 = (cdata['result'] ?? {})['image'] as String?;
+        if (b64 == null) {
+          setState(() => _err = 'CF生成失败（无图）');
+          return;
+        }
+        genBytes = base64Decode(b64);
+      } else {
+        final skey = widget.skey;
+        if (skey.isEmpty) {
+          setState(() => _err = '点顶栏🔑填硅基Key');
+          return;
+        }
+        final body = jsonEncode({
+          'model': 'Kwai-Kolors/Kolors',
+          'prompt': prompt,
+          'image_size': size,
+        });
+        final req = http.Request(
+            'POST', Uri.parse('https://api.siliconflow.cn/v1/images/generations'))
+          ..headers['Content-Type'] = 'application/json'
+          ..headers['Authorization'] = 'Bearer $skey'
+          ..bodyBytes = body.codeUnits;
+        final rs = await http.Response.fromStream(
+            await req.send().timeout(const Duration(seconds: 90)));
+        if (rs.statusCode != 200) {
+          setState(() => _err = '生成失败 HTTP${rs.statusCode}');
+          return;
+        }
+        final data = jsonDecode(rs.body);
+        final url = (data['images'] as List?)?.firstOrNull?['url'] as String?;
+        if (url == null) {
+          setState(() => _err = '生成失败（无图）');
+          return;
+        }
+        final imgRs = await http.get(Uri.parse(url))
+            .timeout(const Duration(seconds: 60));
+        if (imgRs.statusCode != 200) {
+          setState(() => _err = '图片下载失败');
+          return;
+        }
+        genBytes = imgRs.bodyBytes;
       }
-      final body = jsonEncode({
-        'model': 'Kwai-Kolors/Kolors',
-        'prompt': prompt,
-        'image_size': size,
-      });
-      final req = http.Request('POST', Uri.parse('https://api.siliconflow.cn/v1/images/generations'))
-        ..headers['Content-Type'] = 'application/json'
-        ..headers['Authorization'] = 'Bearer $skey'
-        ..bodyBytes = body.codeUnits;
-      final rs = await http.Response.fromStream(
-          await req.send().timeout(const Duration(seconds: 90)));
-      if (rs.statusCode != 200) {
-        setState(() => _err = '生成失败 HTTP${rs.statusCode}');
-        return;
-      }
-      final data = jsonDecode(rs.body);
-      final url = (data['images'] as List?)?.firstOrNull?['url'] as String?;
-      if (url == null) {
-        setState(() => _err = '生成失败（无图）');
-        return;
-      }
-      final imgRs = await http.get(Uri.parse(url))
-          .timeout(const Duration(seconds: 60));
-      if (imgRs.statusCode != 200) {
-        setState(() => _err = '图片下载失败');
-        return;
-      }
-      _cache[key] = imgRs.bodyBytes;
+      _cache[key] = genBytes;
       try {
-        await File(diskPath).writeAsBytes(imgRs.bodyBytes); // v1343：落盘
+        await File(diskPath).writeAsBytes(genBytes); // v1343：落盘
       } catch (_) {}
-      var finalBytes = imgRs.bodyBytes;
+      var finalBytes = genBytes;
       // v1344：封面标签自动叠书名+作者（prompt含cover触发，AI画不了汉字的正解）
       if (prompt.toLowerCase().contains('cover') && widget.bookName.isNotEmpty) {
         try {

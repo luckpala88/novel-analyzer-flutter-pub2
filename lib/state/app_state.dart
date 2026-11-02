@@ -265,6 +265,16 @@ class AppState extends ChangeNotifier {
   bool chatImageGen = true; // v1338：聊天页插图生成（pollinations野生API，AI输出img标签）
   String chatImageEngine = 'silicon'; // v1342：画图引擎 'pollination'|'silicon'
   String chatSiliconKey = ''; // v1342：硅基流动key（聊天画图独立存储）
+  String chatCfKey = ''; // v1348：Cloudflare Workers AI key
+  String chatCfAccount = ''; // v1348：CF账户ID
+
+  void setChatCf(String key, String account) {
+    chatCfKey = key.trim();
+    chatCfAccount = account.trim();
+    storage.writeGlobal('chat_cf_key', chatCfKey);
+    storage.writeGlobal('chat_cf_account', chatCfAccount);
+    notifyListeners();
+  }
 
   void setChatImageEngine(String v) {
     chatImageEngine = v;
@@ -1366,6 +1376,10 @@ class AppState extends ChangeNotifier {
     chatImageEngine = (cie == null || cie.isEmpty) ? 'silicon' : cie;
     final csk = storage.readGlobal('chat_silicon_key');
     if (csk != null) chatSiliconKey = csk;
+    final cfk = storage.readGlobal('chat_cf_key');
+    if (cfk != null) chatCfKey = cfk;
+    final cfa = storage.readGlobal('chat_cf_account');
+    if (cfa != null) chatCfAccount = cfa;
 
     // TTS配置
     final ttsEngine = storage.readGlobal('tts_engine');
