@@ -12,6 +12,7 @@ import '../models/scene.dart';
 import '../models/arc.dart'; // v772
 import '../models/world_book.dart'; // v772
 import '../utils/prompt_builder.dart';
+import '../utils/shield_text.dart';
 import '../services/scene_stream.dart';
 import '../utils/json_repair.dart';
 import '../utils/chinese_number.dart';
@@ -2253,9 +2254,10 @@ class _AnalysisPageState extends State<AnalysisPage>
         true,
         state.funcAbstract,
       );
-      // v1334：虚构研究声明——分类器语境锚（酒馆4.25预设实证），与词面净化组合
+      // v1335：预设护盾——1:1复刻酒馆4.25已验证组合（巨型system稀释+定性），
+      // v1334单disclaimer稀释量不够（AMILY/4.25实证：能过的预设都是万字级system）
       final sysFinal = state.disclaimerEnabled
-          ? '$systemPrompt\n\n${PromptBuilder.fictionDisclaimer}'
+          ? '${ShieldText.text}${PromptBuilder.fictionDisclaimer}\n\n$systemPrompt'
           : systemPrompt;
       // v694：删除旧单次预览块（v687分批改造时漏删——导致每批预览前先弹
       // 一次旧词链=用户实证连弹两次、标题不同）

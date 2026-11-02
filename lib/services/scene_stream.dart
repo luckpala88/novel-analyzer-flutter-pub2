@@ -9,6 +9,7 @@ import '../services/api_service.dart';
 import '../utils/arc_text.dart';
 import '../utils/json_repair.dart';
 import '../utils/text_cleaner.dart';
+import '../utils/shield_text.dart';
 import '../utils/prompt_builder.dart';
 import '../utils/v469_style.dart';
 import '../widgets/slice_viewer_sheet.dart';
@@ -1703,7 +1704,7 @@ Future<bool> extractArcParts({
         task: '弧线${arc.number}${t.$1}',
         // v1334：虚构研究声明——分类器语境锚（弧线4/12零件拦点同治）
         systemPrompt: state.disclaimerEnabled
-            ? '${t.$2}\n\n${PromptBuilder.fictionDisclaimer}'
+            ? '${ShieldText.text}${PromptBuilder.fictionDisclaimer}\n\n${t.$2}'
             : t.$2,
         userPrompt: t.$3,
         apiConfig: config,

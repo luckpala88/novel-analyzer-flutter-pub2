@@ -563,7 +563,7 @@ class _HomePageState extends State<HomePage>
                     children: [
                       const Expanded(
                         child: Text(
-                          '虚构声明（v1334：system末尾加虚构研究定性——酒馆4.25预设实证，与净化组合生效）',
+                          '预设护盾（v1335：复刻酒馆4.25已验证组合=万字system稀释+定性+声明，实证过审关键）',
                           style: TextStyle(fontSize: 12),
                         ),
                       ),
@@ -1165,7 +1165,7 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 1334;
+  static const int _appVersion = 1335;
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';
