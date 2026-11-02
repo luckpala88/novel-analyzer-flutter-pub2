@@ -1449,6 +1449,12 @@ class _SiliconImageState extends State<_SiliconImage> {
   static final Map<String, Uint8List> _cache = {};
   Uint8List? _bytes;
   Uint8List? _origBytes; // v1349：无字原底图（合成输入固定用它）
+  // v1367：封面调字——合成参数留存+每字偏移+调字模式
+  String _coverName = '';
+  String _coverAuthor = '';
+  String _coverFont = '';
+  final Map<int, Offset> _charOffsets = {};
+  bool _adjustMode = false;
   String? _err;
   static String? _imgDir; // v1343：磁盘缓存目录（prompt+size命名，永久复用防重复烧token）
 
@@ -1647,13 +1653,16 @@ class _SiliconImageState extends State<_SiliconImage> {
           child: Column(
             children: [
               Expanded(
-                child: GestureDetector(
-                  onTap: () => Navigator.pop(d),
-                  child: Center(
-                    child: InteractiveViewer(
-                        child: Image.memory(_bytes ?? b, fit: BoxFit.contain)),
-                  ),
-                ),
+                child: _adjustMode
+                    ? _buildAdjustLayout()
+                    : GestureDetector(
+                        onTap: () => Navigator.pop(d),
+                        child: Center(
+                          child: InteractiveViewer(
+                              child: Image.memory(_bytes ?? b,
+                                  fit: BoxFit.contain)),
+                        ),
+                      ),
               ),
               SafeArea(
                 child: Row(
@@ -1665,6 +1674,20 @@ class _SiliconImageState extends State<_SiliconImage> {
                       style: TextStyle(color: Colors.white70)),
                   onPressed: () => _coverTextDialog(context, b, this,
                       onDone: () => setD2(() {})),
+                ),
+                const SizedBox(width: 16),
+                TextButton.icon(
+                  icon: const Icon(Icons.open_with, color: Colors.white70),
+                  label: Text(_adjustMode ? '完成调字' : '调字',
+                      style: const TextStyle(color: Colors.white70)),
+                  onPressed: () {
+                    if (_coverName.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('请先合成一次再调字')));
+                      return;
+                    }
+                    setD2(() => _adjustMode = !_adjustMode);
+                  },
                 ),
                 const SizedBox(width: 16),
                 TextButton.icon(
@@ -1748,9 +1771,12 @@ class _SiliconImageState extends State<_SiliconImage> {
                 return; // v1358：空书名不关闭对话框
               }
               try {
+                st._coverName = name;
+                st._coverAuthor = authorCtl.text.trim();
+                st._coverFont = font;
                 final out = await composeCoverText(src0,
                     name, authorCtl.text.trim(),
-                    fontFamily: font);
+                    fontFamily: font, charOffsets: st._charOffsets);
                 if (out != null) {
                   st.updateBytes(out);
                   onDone?.call(); // 合成后刷新全屏预览
@@ -1773,6 +1799,88 @@ class _SiliconImageState extends State<_SiliconImage> {
   }
 
   /// 合成封面文字：鎏金渐变+黑描边+阴影（v1349重写——多轮补丁踩踏后推倒重来）
+  Future<Size>? _imgSizeF;
+  Future<Size> _decodeSize(Uint8List b) async {
+    final c = await ui.instantiateImageCodec(b);
+    final f = await c.getNextFrame();
+    return Size(f.image.width.toDouble(), f.image.height.toDouble());
+  }
+
+  /// v1367：调字布局——合成图铺底+每字可拖块（图内坐标系），拖动重合成
+  Widget _buildAdjustLayout() {
+    _imgSizeF ??= _decodeSize(_bytes!);
+    return FutureBuilder<Size>(
+      future: _imgSizeF,
+      builder: (ctx, snap) {
+        if (!snap.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        return _adjustInner(snap.data!.width, snap.data!.height);
+      },
+    );
+  }
+
+  Widget _adjustInner(double imgW, double imgH) {
+    return LayoutBuilder(builder: (ctx, box) {
+      final scale = box.maxWidth / imgW; // fitWidth缩放比
+      final dispH = imgH * scale;
+      final chars = _coverName.split('');
+      final nameSize = (imgW / 2.2).clamp(0.0, (imgH * 0.66) / chars.length);
+      final nameX = imgW * 0.70;
+      final y0 = imgH * 0.055;
+      final lineH = nameSize * 1.08;
+      return SizedBox(
+        height: dispH,
+        child: Stack(children: [
+          Center(
+              child: Image.memory(_bytes ?? Uint8List(0),
+                  fit: BoxFit.fitWidth)),
+          for (var i = 0; i < chars.length; i++)
+            Positioned(
+              left: (nameX + (_charOffsets[i]?.dx ?? 0)) * scale - 30,
+              top: (y0 + i * lineH + nameSize / 2 +
+                      (_charOffsets[i]?.dy ?? 0)) *
+                  scale -
+                  30,
+              child: GestureDetector(
+                onPanUpdate: (det) {
+                  setState(() {
+                    final cur = _charOffsets[i] ?? Offset.zero;
+                    _charOffsets[i] =
+                        cur + Offset(det.delta.dx / scale, det.delta.dy / scale);
+                  });
+                },
+                onPanEnd: (_) async {
+                  // 重合成（带偏移）
+                  if (_origBytes == null) return;
+                  final out = await composeCoverText(_origBytes!,
+                      _coverName, _coverAuthor,
+                      fontFamily: _coverFont, charOffsets: _charOffsets);
+                  if (out != null) setState(() => _bytes = out);
+                },
+                child: Container(
+                  width: 60,
+                  height: 60,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(0.12),
+                    border: Border.all(
+                        color: const Color(0xFFFFD700), width: 1.5),
+                  ),
+                  child: Text(chars[i],
+                      style: TextStyle(
+                          fontSize: 22,
+                          color: const Color(0xFFFFD700),
+                          fontFamily: _coverFont.isEmpty ? null : _coverFont)),
+                ),
+              ),
+            ),
+        ]),
+      );
+    });
+    }
+
   /// v1367：逐字字形检测——志莽行书缺字渲染空白（cmap有映射glyph空，fallback不触发），
   /// 离屏试画检查墨迹，空白字回退文楷画
   Future<bool> _glyphHasInk(
@@ -1806,7 +1914,7 @@ class _SiliconImageState extends State<_SiliconImage> {
   /// 合成封面：竖排鎏金书名+作者“某某著”竖排小字（参考正版网文封面布局）
   Future<Uint8List?> composeCoverText(
       Uint8List baseBytes, String bookName, String author,
-      {String fontFamily = ''}) async {
+      {String fontFamily = '', Map<int, Offset> charOffsets = const {}}) async {
     if (bookName.isEmpty) return null;
     final codec = await ui.instantiateImageCodec(baseBytes);
     final frame = await codec.getNextFrame();
@@ -1868,7 +1976,9 @@ class _SiliconImageState extends State<_SiliconImage> {
                   foreground: grad)),
           textDirection: TextDirection.ltr)
         ..layout();
-      tp.paint(canvas, ui.Offset(nameX - tp.width / 2, y));
+      final off = charOffsets[chars.indexOf(ch)] ?? Offset.zero;
+      tp.paint(canvas,
+          ui.Offset(nameX - tp.width / 2 + off.dx, y + off.dy));
       y += lineH;
     }
 
