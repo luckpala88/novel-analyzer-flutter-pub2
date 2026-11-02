@@ -13,6 +13,7 @@ import '../services/api_service.dart';
 import '../services/chat_agent.dart';
 import '../utils/prompt_builder.dart';
 import '../state/app_state.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../widgets/api_config_panel.dart';
 import '../widgets/v119_ui.dart'; // showV119Sheet / MiniButton
 
@@ -1348,7 +1349,8 @@ class _ChatPageState extends State<ChatPage>
             child: GestureDetector(
               onTap: () => Navigator.pop(d),
               child: Center(
-                child: InteractiveViewer(child: Image.network(url)),
+                child: InteractiveViewer(
+                    child: CachedNetworkImage(imageUrl: url)),
               ),
             ),
           ),
@@ -1356,13 +1358,14 @@ class _ChatPageState extends State<ChatPage>
       },
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        // v1339：限宽+fitWidth——加载完成后按原图比例显示（禁固定比例裁剪防压扁）
+        // v1341：cached_network_image——磁盘缓存+稳定下载（Image.network在
+        // ListView流式重建下下载流不可控，全屏能看气泡转圈实证）；fitWidth原图比例
         child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
-        child: Image.network(
-          url,
+        child: CachedNetworkImage(
+          imageUrl: url,
           fit: BoxFit.fitWidth,
-          loadingBuilder: (c, w, prog) => Container(
+          placeholder: (c, u) => Container(
             width: 260,
             height: 170,
             color: const Color(0xFFEFE8D8),
@@ -1373,7 +1376,7 @@ class _ChatPageState extends State<ChatPage>
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
           ),
-          errorBuilder: (c, e, s) => Container(
+          errorWidget: (c, u, e) => Container(
             width: 260,
             height: 56,
             color: const Color(0xFFEFE8D8),
