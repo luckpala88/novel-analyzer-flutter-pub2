@@ -135,7 +135,8 @@ class TextCleaner {
       '不碰女人=不近女色\n'
       '摸女人=接触女子\n'
       '摸手=验手\n'
-      '摸过=验过';
+      '摸过=验过\n'
+      '动手动脚=拉拉扯扯';
 
   static List<List<String>> _pairs = [];
 
