@@ -1866,7 +1866,14 @@ class _SiliconImageState extends State<_SiliconImage> {
 
 /// v1338：pollinations插图（野生API直连URL，CachedNetworkImage）
 Widget _chatImage(BuildContext context, String rawSrc) {
-    final url = rawSrc.contains('%') ? rawSrc : Uri.encodeFull(rawSrc);
+    var url = rawSrc.contains('%') ? rawSrc : Uri.encodeFull(rawSrc);
+    // v1363：野生API缺尺寸参数时默认竖版640x960（pollinations缺参默认1024方图
+    // ——竖版构图要求下方图观感=被拉长，实测证显示层不拉伸、是生成分辨率方的）
+    if (url.contains('image.pollinations.ai') &&
+        !url.contains('width=') &&
+        !url.contains('height=')) {
+      url = '$url?width=640&height=960&nologo=true';
+    }
     return GestureDetector(
       onTap: () {
         showDialog(
