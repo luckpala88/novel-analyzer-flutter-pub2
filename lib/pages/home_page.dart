@@ -151,6 +151,13 @@ class _HomePageState extends State<HomePage>
                     label: '净化${state.sanitizeEnabled ? '开' : '关'}',
                     onTap: () => _showSanitizeDialog(context, state),
                   ),
+                  // v1354：版本更新快捷键（有新版时红底高亮——免进设置三层点击）
+                  MiniButton(
+                    label: _latestRemoteBuild != null ? '更新v$_latestRemoteBuild' : '更新',
+                    primary: _latestRemoteBuild != null,
+                    danger: _latestRemoteBuild != null,
+                    onTap: () => _checkUpdate(),
+                  ),
                   MiniButton(
                     label: '设置',
                     onTap: () => _showSettingsDialog(state),
@@ -1189,7 +1196,7 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 1353;
+  static const int _appVersion = 1354;
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';
