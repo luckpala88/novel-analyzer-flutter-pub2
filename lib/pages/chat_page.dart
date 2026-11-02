@@ -714,6 +714,7 @@ class _ChatPageState extends State<ChatPage>
       appBar: AppBar(
         backgroundColor: const Color(0xFFF3E9D4),
         titleSpacing: 0,
+        toolbarHeight: 84, // v1357：两行按钮
         // v1011：会话标题不占工具栏（用户裁决：标题挤瘪右侧按键）——
         // 会话切换收进首个'会话▾'键，点开底部弹层看全标题
         title: const SizedBox.shrink(),
@@ -722,13 +723,11 @@ class _ChatPageState extends State<ChatPage>
         actions: [
           SizedBox(
             width: MediaQuery.of(context).size.width - 16,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              reverse: true,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                spacing: 4, // v1013：按键间距（此前紧贴）
-                children: [
+            child: Wrap(
+              alignment: WrapAlignment.end,
+              runSpacing: 2,
+              spacing: 4, // v1013：按键间距（此前紧贴）
+              children: [
           // v1011：会话切换键（替代原Expanded下拉，点开弹层看全标题）
           MiniButton(
             label: '会话 ▾',
@@ -802,9 +801,8 @@ class _ChatPageState extends State<ChatPage>
                 ],
               ),
             ),
-          ),
-        ],
-      ),
+              ],
+            ),
       body: Column(
         children: [
           Expanded(
@@ -1636,71 +1634,61 @@ class _SiliconImageState extends State<_SiliconImage> {
       );
     }
     return GestureDetector(
-      onTap: () {
-        showDialog(
-          context: context,
-          // v1356：StatefulBuilder——合成后实时刷新（原闭包b不更新=合成"无效"假象）
-          builder: (d) => StatefulBuilder(
-            builder: (d2, setD2) => Dialog.fullscreen(
-              backgroundColor: Colors.black,
-              child: Column(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => Navigator.pop(d),
-                      child: Center(
-                        child: InteractiveViewer(
-                            child: Image.memory(_bytes ?? b,
-                                fit: BoxFit.contain)),
-                      ),
-                    ),
+      onTap: () => showDialog(
+        context: context,
+        // v1356：StatefulBuilder——合成后实时刷新（原闭包b不更新=合成"无效"假象）
+        builder: (d) => StatefulBuilder(
+          builder: (d2, setD2) => Dialog.fullscreen(
+          backgroundColor: Colors.black,
+          child: Column(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => Navigator.pop(d),
+                  child: Center(
+                    child: InteractiveViewer(
+                        child: Image.memory(_bytes ?? b, fit: BoxFit.contain)),
                   ),
-                  SafeArea(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        TextButton.icon(
-                          icon: const Icon(Icons.text_fields,
-                              color: Colors.white70),
-                          label: const Text('叠封面文字',
-                              style: TextStyle(color: Colors.white70)),
-                          onPressed: () => _coverTextDialog(context, b, this,
-                              onDone: () => setD2(() {})),
-                        ),
-                        const SizedBox(width: 16),
-                        TextButton.icon(
-                          icon: const Icon(Icons.save_alt,
-                              color: Colors.white70),
-                          label: const Text('保存到Download',
-                              style: TextStyle(color: Colors.white70)),
-                          onPressed: () async {
-                            try {
-                              final dir =
-                                  Directory('/storage/emulated/0/Download');
-                              if (!dir.existsSync()) {
-                                dir.createSync(recursive: true);
-                              }
-                              final f = File(
-                                  '${dir.path}/chat_img_${DateTime.now().millisecondsSinceEpoch}.png');
-                              await f.writeAsBytes(b);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('已保存：${f.path}')));
-                            } catch (ex) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text('保存失败（需存储授权）')));
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+              SafeArea(
+                child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                TextButton.icon(
+                  icon: const Icon(Icons.text_fields, color: Colors.white70),
+                  label: const Text('叠封面文字',
+                      style: TextStyle(color: Colors.white70)),
+                  onPressed: () => _coverTextDialog(context, b, this,
+                      onDone: () => setD2(() {})),
+                ),
+                const SizedBox(width: 16),
+                TextButton.icon(
+                  icon: const Icon(Icons.save_alt, color: Colors.white70),
+                  label: const Text('保存到Download',
+                      style: TextStyle(color: Colors.white70)),
+                  onPressed: () async {
+                    try {
+                      final dir = Directory('/storage/emulated/0/Download');
+                      if (!dir.existsSync()) dir.createSync(recursive: true);
+                      final f = File(
+                          '${dir.path}/chat_img_${DateTime.now().millisecondsSinceEpoch}.png');
+                      await f.writeAsBytes(b);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('已保存：${f.path}')));
+                    } catch (ex) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('保存失败（需存储授权）')));
+                    }
+                  },
+                ),
+              ]),
+              ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
+    ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: ConstrainedBox(
@@ -1752,7 +1740,6 @@ class _SiliconImageState extends State<_SiliconImage> {
                   fontFamily: font);
               if (out != null) {
                 st.updateBytes(out);
-                onDone?.call(); // v1356：合成后刷新全屏预览
               }
               if (ctx.mounted) Navigator.pop(d);
             },
