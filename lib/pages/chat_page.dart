@@ -15,6 +15,7 @@ import '../utils/prompt_builder.dart';
 import '../state/app_state.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http; // v1342：硅基Kolors生成调用
+import 'package:path_provider/path_provider.dart'; // v1343：磁盘缓存目录
 import '../widgets/api_config_panel.dart';
 import '../widgets/v119_ui.dart'; // showV119Sheet / MiniButton
 
@@ -1401,6 +1402,21 @@ class _SiliconImageState extends State<_SiliconImage> {
   static final Map<String, Uint8List> _cache = {};
   Uint8List? _bytes;
   String? _err;
+  static String? _imgDir; // v1343：磁盘缓存目录（prompt+size命名，永久复用防重复烧token）
+
+  Future<String> _diskPath(String key) async {
+    final dir = _imgDir ??= await _ensureDir();
+    final safe = key.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').substring(0, 80);
+    return '$dir/si_$safe.png';
+  }
+
+  Future<String> _ensureDir() async {
+    final docs = (await getApplicationDocumentsDirectory()).path;
+    final dir = '$docs/chat_images';
+    final d = Directory(dir);
+    if (!d.existsSync()) d.createSync(recursive: true);
+    return dir;
+  }
 
   @override
   void initState() {
@@ -1429,6 +1445,15 @@ class _SiliconImageState extends State<_SiliconImage> {
       final key = '$prompt|$size';
       if (_cache.containsKey(key)) {
         setState(() => _bytes = _cache[key]);
+        return;
+      }
+      // v1343：磁盘缓存命中——切引擎/重启APP不重复生成（防历史楼层重烧token）
+      final diskPath = await _diskPath(key);
+      final diskFile = File(diskPath);
+      if (diskFile.existsSync()) {
+        final b = diskFile.readAsBytesSync();
+        _cache[key] = b;
+        if (mounted) setState(() => _bytes = b);
         return;
       }
       final skey = widget.skey;
@@ -1464,6 +1489,9 @@ class _SiliconImageState extends State<_SiliconImage> {
         return;
       }
       _cache[key] = imgRs.bodyBytes;
+      try {
+        await File(diskPath).writeAsBytes(imgRs.bodyBytes); // v1343：落盘
+      } catch (_) {}
       if (mounted) setState(() => _bytes = imgRs.bodyBytes);
     } catch (ex) {
       if (mounted) setState(() => _err = '生成超时/失败');
