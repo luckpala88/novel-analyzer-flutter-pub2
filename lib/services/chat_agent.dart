@@ -28,6 +28,8 @@ const String agentToolDoc = '''
 9. {"tool":"get_styles","args":{"name":"作家名"}} —— 个人风格档案（只读）：无name=列全部档案清单；有name=返回该档案全文。档案=某位"作家"的写作风格记忆（文风/句式/trick偏好/讲法习惯），创作/改编/二创页可选用来注入
 10. {"tool":"collect_style"} —— 汇总当前书表述层语料（只读）：弧线目的样本+逐场景目的样本+trick维度样本+文风DNA+用户全局要求（v1205）——供你总结/完善风格档案的素材
 11. {"tool":"update_style","args":{"name":"作家名","content":"档案markdown全文","mode":"append|overwrite|delete"}} —— 风格档案写入（需用户确认）。mode=append(默认,追加合并,新名=新建)/overwrite(整篇覆盖——用户说"修改/重写/精简某档案"用)/delete(删除档案,content可空)。追加时先get_styles读旧档再拼全文；overwrite时content即新档案全文（可基于旧档修改）
+12. {"tool":"get_scene","args":{"scene":1,"full":"0"}} —— 读场景（只读）：scene=全局场景序号（1-based，与弧线页"场景N"对应）。返回场景名/章节范围/概述/正文切片（默认前600字，full="1"返回完整切片）。用户说"读一下第N个场景/第一个场景的内容/某个切片"用这个
+13. {"tool":"get_shots","args":{"arc":1,"scene":2}} —— 读分镜（只读）：arc=弧线号，scene=该弧线内场景序号。返回该场景全部分镜的field/how/end_text清单。用户说"看某弧线某场景的分镜"用这个；读切片用get_scene
 规则：一次只发一个指令，发出后停止等待结果；任务完成后用自然语言汇报结果；用户闲聊/问功能时不要发指令。
 ''';
 
@@ -129,6 +131,45 @@ Future<AgentToolResult> runTool(AppState state, String tool,
       }
       return AgentToolResult(tool, true,
           '命中${hits.length}条（取前10）：\n${hits.take(10).join('\n\n')}');
+    case 'get_scene': // v1344：读场景（切片/概述）
+      final gs = state.globalScenes;
+      if (gs.isEmpty) {
+        return AgentToolResult(tool, true, '当前书场景流为空（先扫描场景）');
+      }
+      final sn = int.tryParse('${args['scene'] ?? ''}') ?? 1;
+      if (sn < 1 || sn > gs.length) {
+        return AgentToolResult(tool, false, '场景序号越界（1-${gs.length}）');
+      }
+      final sc = gs[sn - 1];
+      final full = '${args['full'] ?? ''}' == '1';
+      final txt = sc.text;
+      final showText = full || txt.length <= 600
+          ? txt
+          : '${txt.substring(0, 600)}\n…（切片共${txt.length}字，要完整内容可在args加"full":"1"）';
+      return AgentToolResult(tool, true,
+          '场景$sn「${sc.name}」（${sc.chapterRange}）\n概述：${sc.summary}\n切片（${txt.length}字）：\n$showText');
+    case 'get_shots': // v1344：读分镜
+      final an = int.tryParse('${args['arc'] ?? ''}') ?? 0;
+      final scenes = state.arcScenes['$an'] ?? const <Scene>[];
+      if (scenes.isEmpty) {
+        return AgentToolResult(tool, false, '弧线$an无场景数据（检查弧线号，弧线列表可用get_arcs查）');
+      }
+      final scn = int.tryParse('${args['scene'] ?? ''}') ?? 1;
+      if (scn < 1 || scn > scenes.length) {
+        return AgentToolResult(tool, false, '场景序号越界（弧线$an共${scenes.length}个场景）');
+      }
+      final sc = scenes[scn - 1];
+      if (sc.shots.isEmpty) {
+        return AgentToolResult(tool, true, '弧线$an场景$scn「${sc.name}」还没有分镜（先拆分镜）');
+      }
+      final buf = StringBuffer();
+      for (var i = 0; i < sc.shots.length; i++) {
+        final sh = sc.shots[i];
+        final how = sh.how.length > 220 ? '${sh.how.substring(0, 220)}…' : sh.how;
+        buf.writeln('分镜${i + 1}【${sh.field}】\nhow：$how\nend_text：${sh.endText}');
+      }
+      return AgentToolResult(tool, true,
+          '弧线$an场景$scn「${sc.name}」（${sc.chapterRange}）共${sc.shots.length}个分镜：\n\n$buf');
     case 'verify_data':
       // v883b：数据诊断（只读）——验证类测试交给agent：字段是否落库一查便知
       final target = (args['target'] ?? '').toString();
