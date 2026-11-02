@@ -758,21 +758,36 @@ class _ChatPageState extends State<ChatPage>
               setState(() {});
             },
           ),
-          if (state.chatImageGen)
-            MiniButton(
-              label: state.chatImageEngine == 'silicon' ? '硅基' : '野生',
-              onTap: () {
-                state.setChatImageEngine(state.chatImageEngine == 'silicon'
-                    ? 'pollination'
-                    : 'silicon');
-                setState(() {});
-              },
-            ),
-          if (state.chatImageGen && state.chatImageEngine == 'silicon')
-            MiniButton(
-              label: state.chatSiliconKey.isEmpty ? '🔑填Key' : '🔑已配',
-              onTap: () => _editSiliconKey(state),
-            ),
+          // v1351：插图关时引擎/Key键变灰不隐藏（位置固定不乱跑，用户裁决）
+          MiniButton(
+            label: state.chatImageEngine == 'silicon'
+                ? '硅基'
+                : state.chatImageEngine == 'cf'
+                    ? 'CF'
+                    : '野生',
+            enabled: state.chatImageGen,
+            onTap: state.chatImageGen
+                ? () {
+                    final order = ['silicon', 'cf', 'pollination'];
+                    final idx = order.indexOf(state.chatImageEngine);
+                    final next = order[(idx + 1) % order.length];
+                    state.setChatImageEngine(next);
+                    setState(() {});
+                  }
+                : null,
+          ),
+          MiniButton(
+            label: (state.chatImageEngine == 'silicon'
+                    ? state.chatSiliconKey
+                    : state.chatCfKey)
+                .isEmpty
+                ? '🔑填Key'
+                : '🔑已配',
+            enabled: state.chatImageGen && state.chatImageEngine != 'pollination',
+            onTap: state.chatImageGen && state.chatImageEngine != 'pollination'
+                ? () => _editImageKeys(state)
+                : null,
+          ),
           MiniButton(
             label: '⚙ API',
             onTap: () => showV119Sheet(
@@ -1369,22 +1384,34 @@ class _ChatPageState extends State<ChatPage>
   }
 
   /// v1342：硅基流动key编辑
-  void _editSiliconKey(AppState state) {
-    final ctrl = TextEditingController(text: state.chatSiliconKey);
+  /// v1351：画图Key编辑（硅基/CF双引擎三字段）
+  void _editImageKeys(AppState state) {
+    final siliconCtl = TextEditingController(text: state.chatSiliconKey);
+    final cfKeyCtl = TextEditingController(text: state.chatCfKey);
+    final cfAccCtl = TextEditingController(text: state.chatCfAccount);
     showDialog(
       context: context,
       builder: (d) => AlertDialog(
-        title: const Text('硅基流动 Key'),
-        content: TextField(
-          controller: ctrl,
-          decoration: const InputDecoration(hintText: 'sk-...',
-              border: OutlineInputBorder()),
-        ),
+        title: const Text('画图引擎 Key'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: siliconCtl,
+              decoration: const InputDecoration(labelText: '硅基流动 Key（sk-开头）',
+                  border: OutlineInputBorder())),
+          const SizedBox(height: 12),
+          TextField(controller: cfKeyCtl,
+              decoration: const InputDecoration(labelText: 'Cloudflare Token（cfut-开头）',
+                  border: OutlineInputBorder())),
+          const SizedBox(height: 12),
+          TextField(controller: cfAccCtl,
+              decoration: const InputDecoration(labelText: 'CF 账户ID（32位）',
+                  border: OutlineInputBorder())),
+        ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(d), child: const Text('取消')),
           FilledButton(
             onPressed: () {
-              state.setChatSiliconKey(ctrl.text);
+              state.setChatSiliconKey(siliconCtl.text);
+              state.setChatCf(cfKeyCtl.text, cfAccCtl.text);
               Navigator.pop(d);
             },
             child: const Text('保存'),
