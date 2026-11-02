@@ -1419,6 +1419,7 @@ class _SiliconImage extends StatefulWidget {
 class _SiliconImageState extends State<_SiliconImage> {
   static final Map<String, Uint8List> _cache = {};
   Uint8List? _bytes;
+  Uint8List? _origBytes; // v1349：无字原底图（合成输入固定用它）
   String? _err;
   static String? _imgDir; // v1343：磁盘缓存目录（prompt+size命名，永久复用防重复烧token）
 
@@ -1491,6 +1492,7 @@ class _SiliconImageState extends State<_SiliconImage> {
       if (diskFile.existsSync()) {
         final b = diskFile.readAsBytesSync();
         _cache[key] = b;
+        _origBytes = b; // v1349：原底图留存
         if (mounted) setState(() => _bytes = b);
         return;
       }
@@ -1561,6 +1563,7 @@ class _SiliconImageState extends State<_SiliconImage> {
         genBytes = imgRs.bodyBytes;
       }
       _cache[key] = genBytes;
+      _origBytes = genBytes; // v1349：原底图留存（重复合成从干净底图开始，防双层字）
       try {
         await File(diskPath).writeAsBytes(genBytes); // v1343：落盘
       } catch (_) {}
@@ -1688,7 +1691,8 @@ class _SiliconImageState extends State<_SiliconImage> {
           TextButton(onPressed: () => Navigator.pop(d), child: const Text('取消')),
           FilledButton(
             onPressed: () async {
-              final out = await composeCoverText(baseBytes,
+              final src = st._origBytes ?? baseBytes; // v1349：永远从无字底图合成
+              final out = await composeCoverText(src,
                   nameCtl.text.trim(), authorCtl.text.trim());
               if (out != null) {
                 st.updateBytes(out);
@@ -1702,7 +1706,7 @@ class _SiliconImageState extends State<_SiliconImage> {
     );
   }
 
-  /// 合成封面文字：底部bar统一入口（pollinations/硅基共用）
+  /// 合成封面文字：鎏金渐变+黑描边+阴影（v1349重写——多轮补丁踩踏后推倒重来）
   Future<Uint8List?> composeCoverText(
       Uint8List baseBytes, String bookName, String author) async {
     if (bookName.isEmpty) return null;
@@ -1712,32 +1716,45 @@ class _SiliconImageState extends State<_SiliconImage> {
     final recorder = ui.PictureRecorder();
     final canvas = ui.Canvas(recorder);
     canvas.drawImage(img, ui.Offset.zero, ui.Paint());
-    const nameY0 = 0.0; // v1344：鎏金渐变起点（nameY在后续计算，渐变用近似跨度）
-    // 书名：顶部横排大字（白字黑描边，自动缩放适配宽度）
-    final namePainter = TextPainter(
-      text: TextSpan(
-          text: bookName,
-          style: TextStyle(
-              fontSize: img.width / (bookName.length * 1.15),
-              color: Colors.white,
-              fontWeight: FontWeight.bold)),
-      textDirection: TextDirection.ltr,
-    )..layout(maxWidth: img.width * 0.92);
-    // 描边
-    final strokePainter = TextPainter(
-      text: TextSpan(
-          text: bookName,
-          style: TextStyle(
-              fontSize: img.width / (bookName.length * 1.15),
-              color: Colors.black,
-              fontWeight: FontWeight.bold)),
-      textDirection: TextDirection.ltr,
-    )..layout(maxWidth: img.width * 0.92);
-    final nameX = (img.width - namePainter.width) / 2;
+    final fontSize = img.width / (bookName.length * 1.15);
+    final nameX = (img.width - fontSize * bookName.length) / 2;
     final nameY = img.height * 0.06;
-    strokePainter.paint(canvas, ui.Offset(nameX, nameY));
-    namePainter.paint(canvas, ui.Offset(nameX, nameY));
-    // 作者：底部居中小字
+    final textSpan = TextSpan(
+        text: bookName,
+        style: TextStyle(
+            fontSize: fontSize,
+            fontWeight: FontWeight.w900,
+            foreground: ui.Paint()
+              ..shader = ui.Gradient.linear(
+                  ui.Offset(nameX, nameY),
+                  ui.Offset(nameX, nameY + fontSize * 1.15),
+                  const [
+                    Color(0xFFFFF3B0),
+                    Color(0xFFFFD700),
+                    Color(0xFFB8860B),
+                  ])));
+    final strokeSpan = TextSpan(
+        text: bookName,
+        style: TextStyle(
+            fontSize: fontSize,
+            fontWeight: FontWeight.w900,
+            foreground: ui.Paint()
+              ..color = Colors.black
+              ..style = ui.PaintingStyle.stroke
+              ..strokeWidth = fontSize / 12));
+    final shadowSpan = TextSpan(
+        text: bookName,
+        style: TextStyle(
+            fontSize: fontSize,
+            fontWeight: FontWeight.w900,
+            foreground: ui.Paint()
+              ..color = Colors.black.withOpacity(0.55)
+              ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 6)));
+    for (final span in [shadowSpan, strokeSpan, textSpan]) {
+      final tp = TextPainter(text: span, textDirection: TextDirection.ltr)
+        ..layout(maxWidth: img.width * 0.92);
+      tp.paint(canvas, ui.Offset(nameX, nameY));
+    }
     if (author.isNotEmpty) {
       final authorPainter = TextPainter(
         text: TextSpan(
@@ -1753,7 +1770,7 @@ class _SiliconImageState extends State<_SiliconImage> {
       authorPainter.paint(
           canvas,
           ui.Offset((img.width - authorPainter.width) / 2,
-              img.height * 0.94 - authorPainter.height));
+              img.height * 0.93 - authorPainter.height));
     }
     final pic = recorder.endRecording();
     final out = await pic.toImage(img.width, img.height);
