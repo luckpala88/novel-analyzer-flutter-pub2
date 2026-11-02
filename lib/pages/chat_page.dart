@@ -1843,6 +1843,10 @@ class _SiliconImageState extends State<_SiliconImage> {
                   scale -
                   30,
               child: GestureDetector(
+                behavior: HitTestBehavior.opaque, // v1371：全区域命中
+                onPanStart: (_) {
+                  AppState.instance.apiLog('调字拖动开始 #$i');
+                },
                 onPanUpdate: (det) {
                   setState(() {
                     final cur = _charOffsets[i] ?? Offset.zero;
@@ -1852,6 +1856,8 @@ class _SiliconImageState extends State<_SiliconImage> {
                 },
                 onPanEnd: (_) async {
                   // 重合成（带偏移）
+                  AppState.instance
+                      .apiLog('调字重合成 #$i off=${_charOffsets[i]}');
                   if (_origBytes == null) return;
                   final out = await composeCoverText(_origBytes!,
                       _coverName, _coverAuthor,
