@@ -262,6 +262,13 @@ class AppState extends ChangeNotifier {
   }
 
   bool disclaimerEnabled = true; // v1334：虚构研究声明（system末尾语境锚）
+  bool chatImageGen = true; // v1338：聊天页插图生成（pollinations野生API，AI输出img标签）
+
+  void setChatImageGen(bool v) {
+    chatImageGen = v;
+    storage.writeGlobal('chat_image_gen', v ? '1' : '0');
+    notifyListeners();
+  }
 
   void setDisclaimerEnabled(bool v) {
     disclaimerEnabled = v;
@@ -1335,6 +1342,9 @@ class AppState extends ChangeNotifier {
     // v1334：虚构声明开关（默认开）
     final de = storage.readGlobal('disclaimer_enabled');
     disclaimerEnabled = de != '0';
+    // v1338：聊天插图开关（默认开）
+    final cig = storage.readGlobal('chat_image_gen');
+    chatImageGen = cig != '0';
 
     // TTS配置
     final ttsEngine = storage.readGlobal('tts_engine');

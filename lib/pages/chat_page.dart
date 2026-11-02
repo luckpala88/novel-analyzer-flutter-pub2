@@ -463,6 +463,13 @@ class _ChatPageState extends State<ChatPage>
     var usr = hist.isEmpty
         ? textAll
         : '【聊天历史】\n${hist}【本轮用户消息】\n$textAll';
+    // v1338：插图生成指令（pollinations野生API，酒馆4.25预设迁移）
+    if (state.chatImageGen) {
+      usr = '【插图生成】在回复的合适位置插入0-2张插图标签（按剧情需要，无合适画面可不插），标签独立成段：\n'
+          '<img src="https://image.pollinations.ai/prompt/{URL编码的英文场景prompt}?width=768&height=512&nologo=true&model=flux" alt="场景简述"/>\n'
+          'prompt规则：固定前缀 best quality, masterpiece, 然后是画面主体/人物外观/服装/动作/镜头角度/氛围光线的英文关键词，逗号分隔，基于当前剧情场景生成。\n\n'
+          + usr;
+    }
 
     setState(() => _sending = true);
     _jumpBottom();
@@ -739,6 +746,13 @@ class _ChatPageState extends State<ChatPage>
                 state.newChatSession();
                 setState(() {});
               }),
+          MiniButton(
+            label: state.chatImageGen ? '插图开' : '插图关',
+            onTap: () {
+              state.setChatImageGen(!state.chatImageGen);
+              setState(() {});
+            },
+          ),
           MiniButton(
             label: '⚙ API',
             onTap: () => showV119Sheet(
@@ -1267,6 +1281,45 @@ class _ChatPageState extends State<ChatPage>
         .replaceAll(r'\Rightarrow', '⇒')
         .replaceAll(r'$\leftarrow$', '←')
         .replaceAll(r'\leftarrow', '←');
+    // v1338：img插图标签→网络图渲染（pollinations野生API迁移）
+    final imgRe = RegExp(
+        '<img\\s+src\\s*=\\s*"?(https?://[^"\\s>]+)',
+        caseSensitive: false);
+    if (imgRe.hasMatch(content)) {
+      final parts = <Widget>[];
+      var cursor = 0;
+      for (final m in imgRe.allMatches(content)) {
+        if (m.start > cursor) {
+          final txt = content.substring(cursor, m.start).trim();
+          if (txt.isNotEmpty) {
+            parts.add(SelectableText.rich(
+              TextSpan(children: _mdSpans(txt)),
+              style: const TextStyle(fontSize: 14.5, height: 1.5),
+            ));
+          }
+        }
+        parts.add(_chatImage(m.group(1)!));
+        cursor = m.end;
+      }
+      if (cursor < content.length) {
+        final tail = content.substring(cursor).trim();
+        if (tail.isNotEmpty) {
+          parts.add(SelectableText.rich(
+            TextSpan(children: _mdSpans(tail)),
+            style: const TextStyle(fontSize: 14.5, height: 1.5),
+          ));
+        }
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < parts.length; i++) ...[
+            parts[i],
+            if (i < parts.length - 1) const SizedBox(height: 6),
+          ]
+        ],
+      );
+    }
     final trimmed = content.trim();
     final isJson = (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
         (trimmed.startsWith('[') && trimmed.endsWith(']'));
@@ -1279,6 +1332,53 @@ class _ChatPageState extends State<ChatPage>
     return SelectableText.rich(
       TextSpan(children: _mdSpans(trimmed)),
       style: const TextStyle(fontSize: 14.5, height: 1.5),
+    );
+  }
+
+  /// v1338：插图网络图（pollinations现场生成，几秒延迟；点击全屏查看）
+  Widget _chatImage(String rawSrc) {
+    final url = rawSrc.contains('%') ? rawSrc : Uri.encodeFull(rawSrc);
+    return GestureDetector(
+      onTap: () {
+        showDialog(
+          context: context,
+          builder: (d) => Dialog.fullscreen(
+            backgroundColor: Colors.black,
+            child: GestureDetector(
+              onTap: () => Navigator.pop(d),
+              child: Center(
+                child: InteractiveViewer(child: Image.network(url)),
+              ),
+            ),
+          ),
+        );
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          url,
+          fit: BoxFit.cover,
+          loadingBuilder: (c, w, prog) => Container(
+            height: 160,
+            color: const Color(0xFFEFE8D8),
+            alignment: Alignment.center,
+            child: prog == null
+                ? null
+                : const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+          ),
+          errorBuilder: (c, e, s) => Container(
+            height: 56,
+            color: const Color(0xFFEFE8D8),
+            alignment: Alignment.center,
+            child: const Text('🖼 插图加载失败',
+                style: TextStyle(fontSize: 12, color: Color(0xFF9B8F7A))),
+          ),
+        ),
+      ),
     );
   }
 
