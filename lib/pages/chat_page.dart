@@ -1498,7 +1498,7 @@ class _SiliconImageState extends State<_SiliconImage> {
       final hm = RegExp(r'height=(\d+)').firstMatch(src);
       final size =
           '${wm != null ? wm.group(1) : 768}x${hm != null ? hm.group(1) : 768}';
-      final key = '$prompt|$size';
+      final key = '${widget.engine}|$prompt|$size'; // v1352：key含引擎——防CF/硅基缓存互相覆盖
       if (_cache.containsKey(key)) {
         setState(() => _bytes = _cache[key]);
         return;
