@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'json_repair.dart';
 /// 文本清理工具
 
@@ -172,6 +173,35 @@ class TextCleaner {
       }
     }
     return text;
+  }
+
+  static final Random _rng = Random();
+  static const String _cnPuncts = '，；：、。！？';
+
+  /// v1333：句内标点微空格扰动（酒馆4A预设手法迁移）——中文标点后45%概率
+  /// 插半角空格：语义100%不变，token序列每次请求随机（2^n组合）——文本
+  /// 哈希/缓存判重失效+语义分类器阈值边缘判定漂移。零可见噪声（混在排版
+  /// 里无攻击指纹，v1327头部噪声的前车之鉴）。只作用最终prompt字符串，
+  /// 切片/章节库/锚点链零接触；end_text摘抄带空格→fuzzyLocate宽松匹配
+  /// 忽略空格→物化自洽（v363b宽松索引同免疫）
+  static String punctuationJitter(String text) {
+    if (text.length < 8) return text;
+    final sb = StringBuffer();
+    for (var i = 0; i < text.length; i++) {
+      sb.write(text[i]);
+      if (_cnPuncts.contains(text[i]) && i + 1 < text.length) {
+        final next = text[i + 1];
+        final isWordChar =
+            (next.codeUnitAt(0) >= 0x4E00 && next.codeUnitAt(0) <= 0x9FFF) ||
+                (next.codeUnitAt(0) >= 0x61 && next.codeUnitAt(0) <= 0x7A) ||
+                (next.codeUnitAt(0) >= 0x41 && next.codeUnitAt(0) <= 0x5A) ||
+                (next.codeUnitAt(0) >= 0x30 && next.codeUnitAt(0) <= 0x39);
+        if (isWordChar && _rng.nextDouble() < 0.45) {
+          sb.write(' ');
+        }
+      }
+    }
+    return sb.toString();
   }
 
   /// 去掉结构标记行（v148重写：全变体覆盖），txt只留纯正文

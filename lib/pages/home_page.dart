@@ -538,6 +538,25 @@ class _HomePageState extends State<HomePage>
                     ],
                   ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          '标点扰动（v1333：标点后随机空格，token序列每次变——分类器漂移+判重失效，切片库零接触）',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                      Switch(
+                          value: state.jitterEnabled,
+                          onChanged: (v) {
+                            state.setJitterEnabled(v);
+                            setD(() {});
+                          }),
+                    ],
+                  ),
+                ),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 12),
                   child: Align(
@@ -1127,7 +1146,7 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 1332;
+  static const int _appVersion = 1333;
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';

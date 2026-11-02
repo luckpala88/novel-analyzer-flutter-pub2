@@ -253,10 +253,17 @@ class AppState extends ChangeNotifier {
   // 关=原文直送。AI产出入库净化恒开（另一层兜底，不受此开关控）
   bool sanitizeEnabled = true;
   String sanitizePairsText = ''; // 每行"敏感词=替换词"；空=用TextCleaner.defaultPairsText
+  bool jitterEnabled = true; // v1333：句内标点微空格扰动（每次请求token序列随机，分类器漂移+判重失效）
 
   void setSanitizeEnabled(bool v) {
     sanitizeEnabled = v;
     storage.writeGlobal('sanitize_enabled', v ? '1' : '0');
+    notifyListeners();
+  }
+
+  void setJitterEnabled(bool v) {
+    jitterEnabled = v;
+    storage.writeGlobal('jitter_enabled', v ? '1' : '0');
     notifyListeners();
   }
 
@@ -1313,6 +1320,10 @@ class AppState extends ChangeNotifier {
     if (sp != null) sanitizePairsText = sp;
     TextCleaner.updateFromText(
         sanitizePairsText.isEmpty ? TextCleaner.defaultPairsText : sanitizePairsText);
+
+    // v1333：标点微空格扰动开关（默认开）
+    final je = storage.readGlobal('jitter_enabled');
+    jitterEnabled = je != '0';
 
     // TTS配置
     final ttsEngine = storage.readGlobal('tts_engine');

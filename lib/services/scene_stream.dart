@@ -1641,6 +1641,11 @@ Future<bool> extractArcParts({
       arcTextSafe = TextCleaner.sanitizeSensitive(arcTextSafe);
       sceneListSafe = TextCleaner.sanitizeSensitive(sceneListSafe);
     }
+    // v1333：标点微空格扰动（卡点链专用）——token序列随机化，切片/锚点链零接触
+    if (state.jitterEnabled) {
+      arcTextSafe = TextCleaner.punctuationJitter(arcTextSafe);
+      sceneListSafe = TextCleaner.punctuationJitter(sceneListSafe);
+    }
     var u = PromptBuilder.buildArcPartsUserPrompt(
       arcTitle: arc.title,
       arcSummary: arc.summary,

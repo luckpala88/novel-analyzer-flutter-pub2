@@ -2237,6 +2237,11 @@ class _AnalysisPageState extends State<AnalysisPage>
       final chapterText = state.sanitizeEnabled
           ? TextCleaner.sanitizeSensitive(_getSceneChapterText(state, scene)) // v1330送审净化（旧切片幂等过表）
           : _getSceneChapterText(state, scene);
+      // v1333：标点微空格扰动——token序列每次随机，分类器漂移+判重失效；
+      // 只作用最终prompt，切片库零接触；end_text带空格由宽松匹配兜底
+      final promptText = state.jitterEnabled
+          ? TextCleaner.punctuationJitter(chapterText)
+          : chapterText;
       if (chapterText.trim().isEmpty) {
         _addLog('错误：未找到场景章节文本（${scene.chapterRange}）');
         return false;
@@ -2256,7 +2261,7 @@ class _AnalysisPageState extends State<AnalysisPage>
       // v695：撤销分批拆镜（用户定稿：中转API无缓存，各批缺上文上下文，
       // 批边界的转场/意图会与内容对不齐——错误形态不可接受；镜数合并问题
       // 已由v690密度绝对计数根治，长场景输出体量由拆解API的maxTokens承担）
-      final userPrompt = PromptBuilder.buildShotUserPrompt(scene, chapterText);
+      final userPrompt = PromptBuilder.buildShotUserPrompt(scene, promptText);
 
       final ok = await PromptPreview.maybePreview(
         context,
