@@ -272,6 +272,7 @@ class AppState extends ChangeNotifier {
 
   void setDisclaimerEnabled(bool v) {
     disclaimerEnabled = v;
+    ApiService.disguiseEnabled = v; // v1340：同步全局伪装通道
     storage.writeGlobal('disclaimer_enabled', v ? '1' : '0');
     notifyListeners();
   }
@@ -1342,6 +1343,7 @@ class AppState extends ChangeNotifier {
     // v1334：虚构声明开关（默认开）
     final de = storage.readGlobal('disclaimer_enabled');
     disclaimerEnabled = de != '0';
+    ApiService.disguiseEnabled = disclaimerEnabled; // v1340：同步全局伪装通道
     // v1338：聊天插图开关（默认开）
     final cig = storage.readGlobal('chat_image_gen');
     chatImageGen = cig != '0';

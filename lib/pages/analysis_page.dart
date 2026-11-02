@@ -2567,20 +2567,20 @@ class _AnalysisPageState extends State<AnalysisPage>
           ? '⛔ 未闭合弧线之后的分镜未拆（先闭合该弧线）'
           : '没有需要拆解的场景——转入交手回合增量清扫');
       // v1023c：没有未拆场景≠没事干——'已拆但没交手回合分析'的存量场景
-      // 在这里补跑交手回合增量（此前直接return=批量永远碰不到它们，用户实测）
-      if (!stoppedByIncomplete) {
-        setState(() => _isAnalyzing = true);
-        try {
-          await _runChoreoSweep(state);
-        } finally {
-          if (mounted) {
-            setState(() {
-              _isAnalyzing = false;
-              _statusText = '';
-            });
-          }
-        }
-      }
+      // v1340：交手回合增量清扫注释封存（v1272已废分析——扫壳纯空转日志噪音，用户点名删除）
+      // if (!stoppedByIncomplete) {
+      //   setState(() => _isAnalyzing = true);
+      //   try {
+      //     await _runChoreoSweep(state);
+      //   } finally {
+      //     if (mounted) {
+      //       setState(() {
+      //         _isAnalyzing = false;
+      //         _statusText = '';
+      //       });
+      //     }
+      //   }
+      // }
       return;
     }
     // v520b：全部重拆前先清空旧分镜——中途断开时"有分镜=新拆的，无=还没拆"，
@@ -2666,7 +2666,7 @@ class _AnalysisPageState extends State<AnalysisPage>
         if (arcNumber != null &&
             !state.api.isAborted &&
             !state.userAborted) {
-          await _runChoreoSweep(state, onlyArcNumber: arcNumber);
+          // await _runChoreoSweep(state, onlyArcNumber: arcNumber); // v1340封存
         }
       }
       _addLog('批量拆分镜完成');
@@ -2674,10 +2674,10 @@ class _AnalysisPageState extends State<AnalysisPage>
       // v998：补齐global_scenes落盘——分镜写在globalScenes共享实例上，
       // 不落盘=重启重绑用旧global_scenes.json覆盖=分镜全丢（用户实测）
       state.saveGlobalScenes();
-      // v903/v1015/v1022/v1023c：批量拆完后全书交手回合增量清扫（抽方法复用）
-      if (!state.api.isAborted && !state.userAborted) {
-        await _runChoreoSweep(state);
-      }
+      // v1340：交手回合清扫封存（同上）
+      // if (!state.api.isAborted && !state.userAborted) {
+      //   await _runChoreoSweep(state);
+      // }
     } finally {
       if (mounted) {
         setState(() {
