@@ -1823,6 +1823,17 @@ class _SiliconImageState extends State<_SiliconImage> {
     for (final span in [shadowSpan, strokeSpan, textSpan]) {
       final tp = TextPainter(text: span, textDirection: TextDirection.ltr)
         ..layout(maxWidth: img.width * 0.92);
+      // v1362：字形缺失兜底——自定义字体（楷/行只覆盖~2000常用字）缺字形时
+      // layout宽度会异常偏小或渲染豆腐块，检测到即回退系统字体重画
+      if (fontFamily.isNotEmpty && tp.width < fontSize * bookName.length * 0.5) {
+        final fixed = span.style!.copyWith(fontFamily: null);
+        final tp2 = TextPainter(
+            text: TextSpan(text: span.text, style: fixed),
+            textDirection: TextDirection.ltr)
+          ..layout(maxWidth: img.width * 0.92);
+        if (tp2.width > tp.width) tp2.paint(canvas, ui.Offset(nameX, nameY));
+        continue;
+      }
       tp.paint(canvas, ui.Offset(nameX, nameY));
     }
     if (author.isNotEmpty) {
@@ -1842,6 +1853,9 @@ class _SiliconImageState extends State<_SiliconImage> {
           ui.Offset((img.width - authorPainter.width) / 2,
               img.height * 0.93 - authorPainter.height));
     }
+    // v1362：诊断日志（书名字体宽度异常时能在传日志里看到）
+    AppState.instance.apiLog(
+        '合成 fontFamily=${fontFamily.isEmpty ? "系统" : fontFamily} 字数=${bookName.length}');
     final pic = recorder.endRecording();
     final out = await pic.toImage(img.width, img.height);
     final bd = await out.toByteData(format: ui.ImageByteFormat.png);
