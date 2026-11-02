@@ -30,7 +30,7 @@ const String agentToolDoc = '''
 11. {"tool":"update_style","args":{"name":"作家名","content":"档案markdown全文","mode":"append|overwrite|delete"}} —— 风格档案写入（需用户确认）。mode=append(默认,追加合并,新名=新建)/overwrite(整篇覆盖——用户说"修改/重写/精简某档案"用)/delete(删除档案,content可空)。追加时先get_styles读旧档再拼全文；overwrite时content即新档案全文（可基于旧档修改）
 12. {"tool":"get_scene","args":{"scene":1,"full":"0"}} —— 读场景（只读）：scene=全局场景序号（1-based，与弧线页"场景N"对应）。返回场景名/章节范围/概述/正文切片（默认前600字，full="1"返回完整切片）。用户说"读一下第N个场景/第一个场景的内容/某个切片"用这个
 13. {"tool":"get_shots","args":{"arc":1,"scene":2}} —— 读分镜（只读）：arc=弧线号，scene=该弧线内场景序号。返回该场景全部分镜的field/how/end_text清单。用户说"看某弧线某场景的分镜"用这个；读切片用get_scene
-14. {"tool":"search_content","args":{"keyword":"关键词","field":"all"}} —— 全书内容搜索（只读）：遍历全部场景的名称/概述/切片找关键词，返回命中场景序号+上下文摘录（取前20条）。field可选"text"/"summary"/"all"(默认)。用户问"哪里提到XX/某情节在第几章/找关于XX的场景"用这个；没命中就换同义词再搜（可多次调用）
+14. {"tool":"search_content","args":{"keyword":"关键词","field":"all","scope":"scenes"}} —— 内容搜索（只读）。scope="scenes"(默认)=已扫描场景流（48章场景切片+概述）；scope="book"=全书章节库原文（含未扫描章节，返回命中章号+摘录，覆盖1670章全库）。field可选"text"/"summary"/"all"(默认，仅scenes模式)。用户问"哪里提到XX/某情节在第几章/找关于XX的场景"用这个——已扫章节优先搜scenes（有场景定位），未扫内容或全书范围用scope="book"；没命中换同义词再搜
 规则：一次只发一个指令，发出后停止等待结果；任务完成后用自然语言汇报结果；用户闲聊/问功能时不要发指令。
 ''';
 
@@ -177,6 +177,10 @@ Future<AgentToolResult> runTool(AppState state, String tool,
         return AgentToolResult(tool, false, '缺keyword参数');
       }
       final field = '${args['field'] ?? 'all'}';
+      // v1346：scope="book"=全书章节库原文搜索（含未扫描章节）
+      if ('${args['scope'] ?? 'scenes'}' == 'book') {
+        return _searchBook(state, tool, kw);
+      }
       final gs = state.globalScenes;
       if (gs.isEmpty) {
         return AgentToolResult(tool, true, '当前书场景流为空（先扫描场景）');
@@ -207,7 +211,7 @@ Future<AgentToolResult> runTool(AppState state, String tool,
         if (hits.length >= 20) break;
       }
       if (hits.isEmpty) {
-        return AgentToolResult(tool, true, '全书无「$kw」命中（field=$field）——可换同义词或拆短词再搜');
+        return AgentToolResult(tool, true, '已扫描场景流无「$kw」命中（field=$field）——可换同义词再搜，或用scope="book"搜全书章节原文（含未扫描章节）');
       }
       return AgentToolResult(tool, true,
           '「$kw」命中${hits.length}条${hits.length >= 20 ? '（截断，可加限定词缩小）' : ''}：\n\n${hits.join('\n\n')}');
@@ -369,4 +373,31 @@ Future<AgentToolResult> runTool(AppState state, String tool,
     default:
       return AgentToolResult(tool, false, '未知工具：$tool');
   }
+}
+
+
+/// v1346：全书章节库原文搜索（含未扫描章节）
+AgentToolResult _searchBook(AppState state, String tool, String kw) {
+  final chs = state.chapters;
+  if (chs.isEmpty) {
+    return AgentToolResult(tool, true, '章节库为空');
+  }
+  final hits = <String>[];
+  for (var i = 0; i < chs.length; i++) {
+    final ch = chs[i];
+    final n = ch.number > 0 ? ch.number : i + 1;
+    final pos = ch.content.indexOf(kw);
+    if (pos < 0) continue;
+    final st = pos > 50 ? pos - 50 : 0;
+    final end = (pos + kw.length + 60).clamp(0, ch.content.length);
+    final ctx = ch.content.substring(st, end).replaceAll('\n', ' ');
+    final cnt = kw.allMatches(ch.content).length;
+    hits.add('第$n章「${ch.title}」（出现$cnt次）：…$ctx…');
+    if (hits.length >= 30) break;
+  }
+  if (hits.isEmpty) {
+    return AgentToolResult(tool, true, '全书${chs.length}章原文无「$kw」命中——可换同义词再搜');
+  }
+  return AgentToolResult(tool, true,
+      '「$kw」在章节库命中${hits.length}章${hits.length >= 30 ? '（截断）' : ''}：\n\n${hits.join('\n\n')}');
 }
