@@ -263,6 +263,20 @@ class AppState extends ChangeNotifier {
 
   bool disclaimerEnabled = true; // v1334：虚构研究声明（system末尾语境锚）
   bool chatImageGen = true; // v1338：聊天页插图生成（pollinations野生API，AI输出img标签）
+  String chatImageEngine = 'silicon'; // v1342：画图引擎 'pollination'|'silicon'
+  String chatSiliconKey = ''; // v1342：硅基流动key（聊天画图独立存储）
+
+  void setChatImageEngine(String v) {
+    chatImageEngine = v;
+    storage.writeGlobal('chat_image_engine', v);
+    notifyListeners();
+  }
+
+  void setChatSiliconKey(String v) {
+    chatSiliconKey = v.trim();
+    storage.writeGlobal('chat_silicon_key', chatSiliconKey);
+    notifyListeners();
+  }
 
   void setChatImageGen(bool v) {
     chatImageGen = v;
@@ -1347,6 +1361,11 @@ class AppState extends ChangeNotifier {
     // v1338：聊天插图开关（默认开）
     final cig = storage.readGlobal('chat_image_gen');
     chatImageGen = cig != '0';
+    // v1342：画图引擎+硅基key（默认硅基流动）
+    final cie = storage.readGlobal('chat_image_engine');
+    chatImageEngine = (cie == null || cie.isEmpty) ? 'silicon' : cie;
+    final csk = storage.readGlobal('chat_silicon_key');
+    if (csk != null) chatSiliconKey = csk;
 
     // TTS配置
     final ttsEngine = storage.readGlobal('tts_engine');

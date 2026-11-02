@@ -14,6 +14,7 @@ import '../services/chat_agent.dart';
 import '../utils/prompt_builder.dart';
 import '../state/app_state.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:http/http.dart' as http; // v1342：硅基Kolors生成调用
 import '../widgets/api_config_panel.dart';
 import '../widgets/v119_ui.dart'; // showV119Sheet / MiniButton
 
@@ -467,8 +468,9 @@ class _ChatPageState extends State<ChatPage>
     // v1338：插图生成指令（pollinations野生API，酒馆4.25预设迁移）
     if (state.chatImageGen) {
       usr = '【插图生成】在回复的合适位置插入0-2张插图标签（按剧情需要，无合适画面可不插），标签独立成段：\n'
-          '<img src="https://image.pollinations.ai/prompt/{URL编码的英文场景prompt}?width=768&height=512&nologo=true&model=flux" alt="场景简述"/>\n'
-          'prompt规则：固定前缀 best quality, masterpiece, 然后是画面主体/人物外观/服装/动作/镜头角度/氛围光线的英文关键词，逗号分隔，基于当前剧情场景生成。\n\n'
+          '<img src="https://image.pollinations.ai/prompt/{URL编码的英文场景prompt}?width={宽}&height={高}" alt="场景简述"/>\n'
+          'prompt规则：固定前缀 best quality, masterpiece, 然后是画面主体/人物外观/服装/动作/镜头角度/氛围光线的英文关键词，逗号分隔，基于当前剧情场景生成。\n'
+          '比例自选：人物/特写用 width=640&height=960（竖版），风景/大场面用 width=960&height=640（横版），其他默认 width=768&height=768。\n\n'
           + usr;
     }
 
@@ -754,6 +756,21 @@ class _ChatPageState extends State<ChatPage>
               setState(() {});
             },
           ),
+          if (state.chatImageGen)
+            MiniButton(
+              label: state.chatImageEngine == 'silicon' ? '硅基' : '野生',
+              onTap: () {
+                state.setChatImageEngine(state.chatImageEngine == 'silicon'
+                    ? 'pollination'
+                    : 'silicon');
+                setState(() {});
+              },
+            ),
+          if (state.chatImageGen && state.chatImageEngine == 'silicon')
+            MiniButton(
+              label: state.chatSiliconKey.isEmpty ? '🔑填Key' : '🔑已配',
+              onTap: () => _editSiliconKey(state),
+            ),
           MiniButton(
             label: '⚙ API',
             onTap: () => showV119Sheet(
@@ -1192,7 +1209,7 @@ class _ChatPageState extends State<ChatPage>
                 // v836：富文本渲染（JSON美化/简易markdown），单条复制保留
                 Padding(
                   padding: const EdgeInsets.only(right: 22),
-                  child: _richContent(m.content),
+                  child: _richContent(state, m.content),
                 ),
                 Positioned(
                   right: 0,
@@ -1271,7 +1288,10 @@ class _ChatPageState extends State<ChatPage>
   }
 
   /// 内容分发：JSON→美化卡片；markdown→富文本span；普通文本原样
-  Widget _richContent(String content) {
+  Widget _richContent(AppState state, String content) {
+    final useSilicon =
+        state.chatImageGen && state.chatImageEngine == 'silicon';
+    final skey = state.chatSiliconKey;
     // v1009：LaTeX箭头宏转符号——AI偶发输出$\rightarrow$等未渲染的宏，显示成源码
     content = content
         .replaceAll(r'$\rightarrow$', '→')
@@ -1300,7 +1320,9 @@ class _ChatPageState extends State<ChatPage>
             ));
           }
         }
-        parts.add(_chatImage(m.group(1)!));
+        parts.add(useSilicon
+            ? _SiliconImage(src: m.group(1)!, skey: skey)
+            : _chatImage(context, m.group(1)!));
         cursor = m.end;
       }
       if (cursor < content.length) {
@@ -1337,8 +1359,197 @@ class _ChatPageState extends State<ChatPage>
     );
   }
 
-  /// v1338：插图网络图（pollinations现场生成，几秒延迟；点击全屏查看）
-  Widget _chatImage(String rawSrc) {
+  /// v1342：硅基流动key编辑
+  void _editSiliconKey(AppState state) {
+    final ctrl = TextEditingController(text: state.chatSiliconKey);
+    showDialog(
+      context: context,
+      builder: (d) => AlertDialog(
+        title: const Text('硅基流动 Key'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(hintText: 'sk-...',
+              border: OutlineInputBorder()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(d), child: const Text('取消')),
+          FilledButton(
+            onPressed: () {
+              state.setChatSiliconKey(ctrl.text);
+              Navigator.pop(d);
+            },
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// v1342：硅基Kolors画图组件——从pollinations标签提取prompt异步生成
+  /// （缓存内存Map，URL临时过期所以存bytes）
+}
+
+class _SiliconImage extends StatefulWidget {
+  final String src;
+  final String skey;
+  const _SiliconImage({required this.src, required this.skey});
+  @override
+  State<_SiliconImage> createState() => _SiliconImageState();
+}
+
+class _SiliconImageState extends State<_SiliconImage> {
+  static final Map<String, Uint8List> _cache = {};
+  Uint8List? _bytes;
+  String? _err;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final src = widget.src;
+    if (_cache.containsKey(src)) {
+      setState(() => _bytes = _cache[src]);
+      return;
+    }
+    try {
+      // 提取prompt（/prompt/后?前）与尺寸
+      final pm = RegExp(r'/prompt/([^?]+)').firstMatch(src);
+      if (pm == null) {
+        setState(() => _err = '标签格式错误');
+        return;
+      }
+      final prompt = Uri.decodeComponent(pm.group(1)!);
+      final wm = RegExp(r'width=(\d+)').firstMatch(src);
+      final hm = RegExp(r'height=(\d+)').firstMatch(src);
+      final size =
+          '${wm != null ? wm.group(1) : 768}x${hm != null ? hm.group(1) : 768}';
+      final key = '$prompt|$size';
+      if (_cache.containsKey(key)) {
+        setState(() => _bytes = _cache[key]);
+        return;
+      }
+      final skey = widget.skey;
+      if (skey.isEmpty) {
+        setState(() => _err = '点顶栏🔑填硅基Key');
+        return;
+      }
+      final body = jsonEncode({
+        'model': 'Kwai-Kolors/Kolors',
+        'prompt': prompt,
+        'image_size': size,
+      });
+      final req = http.Request('POST', Uri.parse('https://api.siliconflow.cn/v1/images/generations'))
+        ..headers['Content-Type'] = 'application/json'
+        ..headers['Authorization'] = 'Bearer $skey'
+        ..bodyBytes = body.codeUnits;
+      final rs = await http.Response.fromStream(
+          await req.send().timeout(const Duration(seconds: 90)));
+      if (rs.statusCode != 200) {
+        setState(() => _err = '生成失败 HTTP${rs.statusCode}');
+        return;
+      }
+      final data = jsonDecode(rs.body);
+      final url = (data['images'] as List?)?.firstOrNull?['url'] as String?;
+      if (url == null) {
+        setState(() => _err = '生成失败（无图）');
+        return;
+      }
+      final imgRs = await http.get(Uri.parse(url))
+          .timeout(const Duration(seconds: 60));
+      if (imgRs.statusCode != 200) {
+        setState(() => _err = '图片下载失败');
+        return;
+      }
+      _cache[key] = imgRs.bodyBytes;
+      if (mounted) setState(() => _bytes = imgRs.bodyBytes);
+    } catch (ex) {
+      if (mounted) setState(() => _err = '生成超时/失败');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_err != null) {
+      return Container(
+        width: 260,
+        height: 56,
+        color: const Color(0xFFEFE8D8),
+        alignment: Alignment.center,
+        child: Text('🖼 $_err',
+            style: const TextStyle(fontSize: 12, color: Color(0xFF9B8F7A))),
+      );
+    }
+    final b = _bytes;
+    if (b == null) {
+      return Container(
+        width: 260,
+        height: 170,
+        color: const Color(0xFFEFE8D8),
+        alignment: Alignment.center,
+        child: const SizedBox(
+          width: 22,
+          height: 22,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+    return GestureDetector(
+      onTap: () => showDialog(
+        context: context,
+        builder: (d) => Dialog.fullscreen(
+          backgroundColor: Colors.black,
+          child: Column(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => Navigator.pop(d),
+                  child: Center(
+                    child: InteractiveViewer(
+                        child: Image.memory(b, fit: BoxFit.contain)),
+                  ),
+                ),
+              ),
+              SafeArea(
+                child: TextButton.icon(
+                  icon: const Icon(Icons.save_alt, color: Colors.white70),
+                  label: const Text('保存到Download',
+                      style: TextStyle(color: Colors.white70)),
+                  onPressed: () async {
+                    try {
+                      final dir = Directory('/storage/emulated/0/Download');
+                      if (!dir.existsSync()) dir.createSync(recursive: true);
+                      final f = File(
+                          '${dir.path}/chat_img_${DateTime.now().millisecondsSinceEpoch}.png');
+                      await f.writeAsBytes(b);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('已保存：${f.path}')));
+                    } catch (ex) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('保存失败（需存储授权）')));
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Image.memory(b, fit: BoxFit.fitWidth),
+        ),
+      ),
+    );
+  }
+}
+
+/// v1338：pollinations插图（野生API直连URL，CachedNetworkImage）
+Widget _chatImage(BuildContext context, String rawSrc) {
     final url = rawSrc.contains('%') ? rawSrc : Uri.encodeFull(rawSrc);
     return GestureDetector(
       onTap: () {
@@ -1346,12 +1557,41 @@ class _ChatPageState extends State<ChatPage>
           context: context,
           builder: (d) => Dialog.fullscreen(
             backgroundColor: Colors.black,
-            child: GestureDetector(
-              onTap: () => Navigator.pop(d),
-              child: Center(
-                child: InteractiveViewer(
-                    child: CachedNetworkImage(imageUrl: url)),
-              ),
+            child: Column(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(d),
+                    child: Center(
+                      child: InteractiveViewer(
+                          child: CachedNetworkImage(imageUrl: url)),
+                    ),
+                  ),
+                ),
+                SafeArea(
+                  child: TextButton.icon(
+                    icon: const Icon(Icons.save_alt, color: Colors.white70),
+                    label: const Text('保存到Download',
+                        style: TextStyle(color: Colors.white70)),
+                    onPressed: () async {
+                      try {
+                        final rs = await http.get(Uri.parse(url))
+                            .timeout(const Duration(seconds: 60));
+                        final dir = Directory('/storage/emulated/0/Download');
+                        if (!dir.existsSync()) dir.createSync(recursive: true);
+                        final f = File(
+                            '${dir.path}/chat_img_${DateTime.now().millisecondsSinceEpoch}.jpg');
+                        await f.writeAsBytes(rs.bodyBytes);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('已保存：${f.path}')));
+                      } catch (ex) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('保存失败（需存储授权）')));
+                      }
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
         );
@@ -1571,4 +1811,3 @@ class _ChatPageState extends State<ChatPage>
     if (last < text.length) spans.add(TextSpan(text: text.substring(last)));
     return spans;
   }
-}
