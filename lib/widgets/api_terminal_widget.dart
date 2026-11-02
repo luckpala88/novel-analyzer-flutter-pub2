@@ -5,7 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../utils/v469_style.dart';
 
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../state/app_state.dart';
+import '../pages/home_page.dart' show diagTokenRef;
 
 /// 全局API终端组件 — 顶部固定，可折叠
 /// 显示API日志+计时器+生成状态，所有页面共享
@@ -21,6 +24,63 @@ class _ApiTerminalWidgetState extends State<ApiTerminalWidget> {
   final _scrollController = ScrollController();
 
   @override
+  /// v1359：诊断日志上传——apiLogs全量+版本号→私有仓logs/目录（Contents API）
+  Future<void> _uploadDiagLog(BuildContext context, AppState state) async {
+    final ver = DateTime.now();
+    final stamp =
+        '${ver.year}${ver.month.toString().padLeft(2, '0')}${ver.day.toString().padLeft(2, '0')}_${ver.hour.toString().padLeft(2, '0')}${ver.minute.toString().padLeft(2, '0')}';
+    final body = [
+      '== 诊断日志 $stamp ==',
+      for (final l in state.apiLogs.reversed) l,
+    ].join('\n');
+    final content = base64Encode(utf8.encode(body));
+    try {
+      final token2 = _diagToken();
+      if (token2 == null || token2.isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('无上传凭证（token未注入）')),
+          );
+        }
+        return;
+      }
+      final url = Uri.parse(
+          'https://api.github.com/repos/luckpala88/novel-analyzer-flutter/contents/logs/diag_$stamp.txt');
+      final req = await http.put(url,
+        headers: {
+          'Authorization': 'Bearer $token2',
+          'Accept': 'application/vnd.github+json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'message': 'diag log $stamp',
+          'content': content,
+        }),
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(req.statusCode >= 200 && req.statusCode < 300
+                ? '日志已上传（${state.apiLogs.length}行）'
+                : '上传失败：HTTP ${req.statusCode}'),
+            duration: const Duration(milliseconds: 1500),
+          ),
+        );
+      }
+    } catch (ex) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('上传异常：$ex')),
+        );
+      }
+    }
+  }
+
+  String? _diagToken() {
+    // home_page.UpdatePanel.diagToken（public static const）——import获取
+    return diagTokenRef;
+  }
+
   void dispose() {
     _scrollController.dispose();
     super.dispose();
@@ -169,6 +229,32 @@ class _ApiTerminalWidgetState extends State<ApiTerminalWidget> {
                           ),
                           child: const Text(
                             '复制全部',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  // v1359：诊断日志上传键（一键传私有仓，云端助手拉取分析）
+                  if (_expanded && state.apiLogs.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: GestureDetector(
+                        onTap: () => _uploadDiagLog(context, state),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFB45309),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Text(
+                            '传日志',
                             style: TextStyle(
                               fontSize: 10,
                               color: Colors.white,

@@ -20,6 +20,10 @@ import '../widgets/cloud_sync_panel.dart';
 import '../widgets/chapter_reader_inline.dart';
 import '../widgets/v119_ui.dart';
 
+/// v1359：诊断日志token顶层引用（api_terminal_widget import用）
+const String diagTokenRef = _HomePageState.diagToken;
+
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -1196,11 +1200,13 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 1359;
+  static const int _appVersion = 1360;
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';
   static const String _updateTokenNew = '__UPD_TOKEN__';
+  /// v1359：诊断日志上传token（复用私有仓token，Actions注入）
+  static const String diagToken = _updateTokenNew;
   static const Map<String, String> _updateRepos = {
     'luckpala88/novel-analyzer-flutter': _updateTokenNew,
     'luckpala/novel-analyzer-flutter': _updateToken,
