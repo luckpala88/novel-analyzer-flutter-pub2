@@ -1636,57 +1636,71 @@ class _SiliconImageState extends State<_SiliconImage> {
       );
     }
     return GestureDetector(
-      onTap: () => showDialog(
-        context: context,
-        builder: (d) => Dialog.fullscreen(
-          backgroundColor: Colors.black,
-          child: Column(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => Navigator.pop(d),
-                  child: Center(
-                    child: InteractiveViewer(
-                        child: Image.memory(b, fit: BoxFit.contain)),
-                  ),
-                ),
-              ),
-              SafeArea(
-                child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+      onTap: () {
+        showDialog(
+          context: context,
+          // v1356：StatefulBuilder——合成后实时刷新（原闭包b不更新=合成"无效"假象）
+          builder: (d) => StatefulBuilder(
+            builder: (d2, setD2) => Dialog.fullscreen(
+              backgroundColor: Colors.black,
+              child: Column(
                 children: [
-                TextButton.icon(
-                  icon: const Icon(Icons.text_fields, color: Colors.white70),
-                  label: const Text('叠封面文字',
-                      style: TextStyle(color: Colors.white70)),
-                  onPressed: () => _coverTextDialog(context, b, this),
-                ),
-                const SizedBox(width: 16),
-                TextButton.icon(
-                  icon: const Icon(Icons.save_alt, color: Colors.white70),
-                  label: const Text('保存到Download',
-                      style: TextStyle(color: Colors.white70)),
-                  onPressed: () async {
-                    try {
-                      final dir = Directory('/storage/emulated/0/Download');
-                      if (!dir.existsSync()) dir.createSync(recursive: true);
-                      final f = File(
-                          '${dir.path}/chat_img_${DateTime.now().millisecondsSinceEpoch}.png');
-                      await f.writeAsBytes(b);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('已保存：${f.path}')));
-                    } catch (ex) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('保存失败（需存储授权）')));
-                    }
-                  },
-                ),
-              ]),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(d),
+                      child: Center(
+                        child: InteractiveViewer(
+                            child: Image.memory(_bytes ?? b,
+                                fit: BoxFit.contain)),
+                      ),
+                    ),
+                  ),
+                  SafeArea(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        TextButton.icon(
+                          icon: const Icon(Icons.text_fields,
+                              color: Colors.white70),
+                          label: const Text('叠封面文字',
+                              style: TextStyle(color: Colors.white70)),
+                          onPressed: () => _coverTextDialog(context, b, this,
+                              onDone: () => setD2(() {})),
+                        ),
+                        const SizedBox(width: 16),
+                        TextButton.icon(
+                          icon: const Icon(Icons.save_alt,
+                              color: Colors.white70),
+                          label: const Text('保存到Download',
+                              style: TextStyle(color: Colors.white70)),
+                          onPressed: () async {
+                            try {
+                              final dir =
+                                  Directory('/storage/emulated/0/Download');
+                              if (!dir.existsSync()) {
+                                dir.createSync(recursive: true);
+                              }
+                              final f = File(
+                                  '${dir.path}/chat_img_${DateTime.now().millisecondsSinceEpoch}.png');
+                              await f.writeAsBytes(b);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('已保存：${f.path}')));
+                            } catch (ex) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text('保存失败（需存储授权）')));
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: ConstrainedBox(
@@ -1698,7 +1712,8 @@ class _SiliconImageState extends State<_SiliconImage> {
   }
 
   /// v1344：封面文字叠加——Canvas+TextPainter画系统字体汉字（AI画不了中文的正解）
-  void _coverTextDialog(BuildContext ctx, Uint8List baseBytes, _SiliconImageState st) {
+  void _coverTextDialog(BuildContext ctx, Uint8List baseBytes, _SiliconImageState st,
+      {VoidCallback? onDone}) {
     final nameCtl = TextEditingController();
     final authorCtl = TextEditingController();
     var font = ''; // v1350：''=系统黑体 KaiShu/XingShu/CaoShu
@@ -1737,6 +1752,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                   fontFamily: font);
               if (out != null) {
                 st.updateBytes(out);
+                onDone?.call(); // v1356：合成后刷新全屏预览
               }
               if (ctx.mounted) Navigator.pop(d);
             },
