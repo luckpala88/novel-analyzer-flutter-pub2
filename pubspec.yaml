@@ -1,7 +1,7 @@
 name: novel_analyzer
 description: "网文拆解器 - Flutter版"
 publish_to: 'none'
-version: 1.0.1364+1364
+version: 1.0.1365+1365
 
 environment:
   sdk: ^3.13.0
@@ -30,6 +30,9 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   fonts:
+    - family: WenKai
+      fonts:
+        - asset: assets/fonts/wenkai.ttf
     - family: KaiShu
       fonts:
         - asset: assets/fonts/kai.ttf

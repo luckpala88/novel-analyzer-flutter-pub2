@@ -1709,7 +1709,7 @@ class _SiliconImageState extends State<_SiliconImage> {
     final nameCtl = TextEditingController();
     final authorCtl = TextEditingController();
     var font = ''; // v1350：''=系统黑体 KaiShu/XingShu/CaoShu
-    const fontNames = {'': '黑体', 'KaiShu': '楷书', 'XingShu': '行书', 'CaoShu': '草书'};
+    const fontNames = {'': '黑体', 'WenKai': '楷书', 'XingShu': '行书', 'CaoShu': '草书'};
     showDialog(
       context: ctx,
       builder: (d) => StatefulBuilder(
@@ -1791,6 +1791,7 @@ class _SiliconImageState extends State<_SiliconImage> {
         style: TextStyle(
             fontSize: fontSize,
             fontFamily: fontFamily.isEmpty ? null : fontFamily,
+            fontFamilyFallback: fontFamily.isEmpty ? null : const ['WenKai'], // v1365：缺字回退文楷
             fontWeight: FontWeight.w900,
             foreground: ui.Paint()
               ..shader = ui.Gradient.linear(
@@ -1801,26 +1802,18 @@ class _SiliconImageState extends State<_SiliconImage> {
                     Color(0xFFFFD700),
                     Color(0xFFB8860B),
                   ], [0.0, 0.5, 1.0], TileMode.clamp)));
-    final strokeSpan = TextSpan(
-        text: bookName,
-        style: TextStyle(
-            fontSize: fontSize,
-            fontFamily: fontFamily.isEmpty ? null : fontFamily,
-            fontWeight: FontWeight.w900,
-            foreground: ui.Paint()
-              ..color = Colors.black
-              ..style = ui.PaintingStyle.stroke
-              ..strokeWidth = fontSize / 12));
     final shadowSpan = TextSpan(
         text: bookName,
         style: TextStyle(
             fontSize: fontSize,
             fontFamily: fontFamily.isEmpty ? null : fontFamily,
+            fontFamilyFallback: fontFamily.isEmpty ? null : const ['WenKai'], // v1365：缺字回退文楷
             fontWeight: FontWeight.w900,
             foreground: ui.Paint()
               ..color = Colors.black.withOpacity(0.55)
               ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 6)));
-    for (final span in [shadowSpan, strokeSpan, textSpan]) {
+    // v1365：去描边（用户裁决不好看）——阴影+渐变金字
+    for (final span in [shadowSpan, textSpan]) {
       final tp = TextPainter(text: span, textDirection: TextDirection.ltr)
         ..layout(maxWidth: img.width * 0.92);
       // v1362：字形缺失兜底——自定义字体（楷/行只覆盖~2000常用字）缺字形时
