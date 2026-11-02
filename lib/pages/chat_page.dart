@@ -1898,162 +1898,8 @@ class _SiliconImageState extends State<_SiliconImage> {
     });
     }
 
-  /// v1367：逐字字形检测——志莽行书缺字渲染空白（cmap有映射glyph空，fallback不触发），
-  /// 离屏试画检查墨迹，空白字回退文楷画
-  Future<bool> _glyphHasInk(
-      String ch, double size, String? ff, List<String>? fb) async {
-    final rec = ui.PictureRecorder();
-    final c = ui.Canvas(rec);
-    c.drawRect(const Rect.fromLTWH(0, 0, 160, 160),
-        ui.Paint()..color = const Color(0xFF010101));
-    final tp = TextPainter(
-        text: TextSpan(
-            text: ch,
-            style: TextStyle(
-                fontSize: size,
-                fontFamily: ff,
-                fontFamilyFallback: fb,
-                color: Colors.white)),
-        textDirection: TextDirection.ltr)
-      ..layout();
-    tp.paint(c, const ui.Offset(20, 20));
-    final img = await rec.endRecording().toImage(160, 160);
-    final bd = await img.toByteData(format: ui.ImageByteFormat.rawRgba);
-    final px = bd!.buffer.asUint32List();
-    var ink = 0;
-    for (final v in px) {
-      final r = (v >> 16) & 0xFF, g = (v >> 8) & 0xFF, b = v & 0xFF;
-      if (r > 60 || g > 60 || b > 60) ink++; // 非背景=有墨
-    }
-    return ink > 40;
-  }
 
   /// 合成封面：竖排鎏金书名+作者“某某著”竖排小字（参考正版网文封面布局）
-  Future<Uint8List?> composeCoverText(
-      Uint8List baseBytes, String bookName, String author,
-      {String fontFamily = '', Map<int, Offset> charOffsets = const {}}) async {
-    if (bookName.isEmpty) return null;
-    final codec = await ui.instantiateImageCodec(baseBytes);
-    final frame = await codec.getNextFrame();
-    final img = frame.image;
-    final recorder = ui.PictureRecorder();
-    final canvas = ui.Canvas(recorder);
-    canvas.drawImage(img, ui.Offset.zero, ui.Paint());
-
-    // ===== 书名竖排（靠右列） =====
-    final chars = bookName.split('');
-    final nameSize =
-        (img.width / 2.2).clamp(0.0, (img.height * 0.66) / chars.length);
-    // v1369：书名+作者组整体居中（参考图神通者布局——组合宽=nameSize+作者列，中心0.5w）
-    final nameX = img.width * 0.585;
-    final y0 = img.height * 0.055;
-    final lineH = nameSize * 1.08;
-    final ff = fontFamily.isEmpty ? null : fontFamily;
-    final fallback = fontFamily.isEmpty ? null : const ['WenKai'];
-    // 鎏金渐变跨整列
-    final grad = ui.Paint()
-      ..shader = ui.Gradient.linear(
-          ui.Offset(nameX - nameSize / 2, y0),
-          ui.Offset(nameX - nameSize / 2, y0 + chars.length * lineH),
-          const [
-            Color(0xFFFFF3B0),
-            Color(0xFFFFD700),
-            Color(0xFFB8860B),
-          ], [0.0, 0.5, 1.0], TileMode.clamp);
-    var y = y0;
-    for (final ch in chars) {
-      // v1367：逐字检测——行书等覆盖小字体缺字空白→回退文楷
-      var useFont = ff;
-      if (ff != null && ff != 'WenKai') {
-        final hasInk = await _glyphHasInk(ch, nameSize, ff, fallback);
-        if (!hasInk) useFont = 'WenKai';
-      }
-      // 阴影层
-      final sh = TextPainter(
-          text: TextSpan(
-              text: ch,
-              style: TextStyle(
-                  fontSize: nameSize,
-                  fontFamily: useFont,
-                  fontWeight: FontWeight.w900,
-                  foreground: ui.Paint()
-                    ..color = Colors.black.withOpacity(0.6)
-                    ..maskFilter =
-                        const ui.MaskFilter.blur(ui.BlurStyle.normal, 8))),
-          textDirection: TextDirection.ltr)
-        ..layout();
-      sh.paint(canvas, ui.Offset(nameX - sh.width / 2 + 3, y + 4));
-      // 渐变金字层
-      final tp = TextPainter(
-          text: TextSpan(
-              text: ch,
-              style: TextStyle(
-                  fontSize: nameSize,
-                  fontFamily: useFont,
-                  fontWeight: FontWeight.w900,
-                  foreground: grad)),
-          textDirection: TextDirection.ltr)
-        ..layout();
-      final off = charOffsets[chars.indexOf(ch)] ?? Offset.zero;
-      tp.paint(canvas,
-          ui.Offset(nameX - tp.width / 2 + off.dx, y + off.dy));
-      y += lineH;
-    }
-
-    // ===== 作者竖排“某某著”（书名左侧，末字金圈印章） =====
-    if (author.isNotEmpty) {
-      final aChars = '$author著'.split('');
-      final aSize = nameSize * 0.30;
-      // v1370：作者在书名右上（参考图——竖排小字贴书名右缘顶部起排）
-      final ax = nameX + nameSize * 0.60;
-      var ay = y0 + nameSize * 0.08;
-      final ringR = aSize * 0.78;
-      for (var i = 0; i < aChars.length; i++) {
-        final isLast = i == aChars.length - 1;
-        var aUseFont = ff;
-        if (ff != null && ff != 'WenKai') {
-          final hasInk =
-              await _glyphHasInk(aChars[i], aSize, ff, fallback);
-          if (!hasInk) aUseFont = 'WenKai';
-        }
-        final tp = TextPainter(
-            text: TextSpan(
-                text: aChars[i],
-                style: TextStyle(
-                    fontSize: isLast ? aSize * 0.62 : aSize,
-                    fontFamily: aUseFont,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFFFFE9A8),
-                    shadows: [
-                      Shadow(
-                          blurRadius: 4,
-                          color: Colors.black.withOpacity(0.85)),
-                    ])),
-            textDirection: TextDirection.ltr)
-          ..layout();
-        if (isLast) {
-          // 印章圆圈
-          canvas.drawCircle(
-              ui.Offset(ax, ay + ringR * 0.55),
-              ringR,
-              ui.Paint()
-                ..color = const Color(0xFFB8860B)
-                ..style = ui.PaintingStyle.stroke
-                ..strokeWidth = aSize * 0.09);
-        }
-        tp.paint(canvas, ui.Offset(ax - tp.width / 2, ay));
-        ay += isLast ? aSize * 0.9 : aSize * 1.18;
-      }
-    }
-
-    AppState.instance.apiLog(
-        '合成 fontFamily=${fontFamily.isEmpty ? "系统" : fontFamily} 字数=${bookName.length} 竖排');
-    final pic = recorder.endRecording();
-    final out = await pic.toImage(img.width, img.height);
-    final bd = await out.toByteData(format: ui.ImageByteFormat.png);
-    img.dispose();
-    return bd?.buffer.asUint8List();
-  }
 }
 
 /// v1338：pollinations插图（野生API直连URL，CachedNetworkImage）
@@ -2325,4 +2171,160 @@ Widget _chatImage(BuildContext context, String rawSrc) {
     }
     if (last < text.length) spans.add(TextSpan(text: text.substring(last)));
     return spans;
+  }
+
+  /// v1367：逐字字形检测——志莽行书缺字渲染空白（cmap有映射glyph空，fallback不触发），
+  /// 离屏试画检查墨迹，空白字回退文楷画
+  Future<bool> glyphHasInk(
+      String ch, double size, String? ff, List<String>? fb) async {
+    final rec = ui.PictureRecorder();
+    final c = ui.Canvas(rec);
+    c.drawRect(const Rect.fromLTWH(0, 0, 160, 160),
+        ui.Paint()..color = const Color(0xFF010101));
+    final tp = TextPainter(
+        text: TextSpan(
+            text: ch,
+            style: TextStyle(
+                fontSize: size,
+                fontFamily: ff,
+                fontFamilyFallback: fb,
+                color: Colors.white)),
+        textDirection: TextDirection.ltr)
+      ..layout();
+    tp.paint(c, const ui.Offset(20, 20));
+    final img = await rec.endRecording().toImage(160, 160);
+    final bd = await img.toByteData(format: ui.ImageByteFormat.rawRgba);
+    final px = bd!.buffer.asUint32List();
+    var ink = 0;
+    for (final v in px) {
+      final r = (v >> 16) & 0xFF, g = (v >> 8) & 0xFF, b = v & 0xFF;
+      if (r > 60 || g > 60 || b > 60) ink++; // 非背景=有墨
+    }
+    return ink > 40;
+  }
+
+  Future<Uint8List?> composeCoverText(
+      Uint8List baseBytes, String bookName, String author,
+      {String fontFamily = '', Map<int, Offset> charOffsets = const {}}) async {
+    if (bookName.isEmpty) return null;
+    final codec = await ui.instantiateImageCodec(baseBytes);
+    final frame = await codec.getNextFrame();
+    final img = frame.image;
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder);
+    canvas.drawImage(img, ui.Offset.zero, ui.Paint());
+
+    // ===== 书名竖排（靠右列） =====
+    final chars = bookName.split('');
+    final nameSize =
+        (img.width / 2.2).clamp(0.0, (img.height * 0.66) / chars.length);
+    // v1369：书名+作者组整体居中（参考图神通者布局——组合宽=nameSize+作者列，中心0.5w）
+    final nameX = img.width * 0.585;
+    final y0 = img.height * 0.055;
+    final lineH = nameSize * 1.08;
+    final ff = fontFamily.isEmpty ? null : fontFamily;
+    final fallback = fontFamily.isEmpty ? null : const ['WenKai'];
+    // 鎏金渐变跨整列
+    final grad = ui.Paint()
+      ..shader = ui.Gradient.linear(
+          ui.Offset(nameX - nameSize / 2, y0),
+          ui.Offset(nameX - nameSize / 2, y0 + chars.length * lineH),
+          const [
+            Color(0xFFFFF3B0),
+            Color(0xFFFFD700),
+            Color(0xFFB8860B),
+          ], [0.0, 0.5, 1.0], TileMode.clamp);
+    var y = y0;
+    for (final ch in chars) {
+      // v1367：逐字检测——行书等覆盖小字体缺字空白→回退文楷
+      var useFont = ff;
+      if (ff != null && ff != 'WenKai') {
+        final hasInk = await glyphHasInk(ch, nameSize, ff, fallback);
+        if (!hasInk) useFont = 'WenKai';
+      }
+      // 阴影层
+      final sh = TextPainter(
+          text: TextSpan(
+              text: ch,
+              style: TextStyle(
+                  fontSize: nameSize,
+                  fontFamily: useFont,
+                  fontWeight: FontWeight.w900,
+                  foreground: ui.Paint()
+                    ..color = Colors.black.withOpacity(0.6)
+                    ..maskFilter =
+                        const ui.MaskFilter.blur(ui.BlurStyle.normal, 8))),
+          textDirection: TextDirection.ltr)
+        ..layout();
+      sh.paint(canvas, ui.Offset(nameX - sh.width / 2 + 3, y + 4));
+      // 渐变金字层
+      final tp = TextPainter(
+          text: TextSpan(
+              text: ch,
+              style: TextStyle(
+                  fontSize: nameSize,
+                  fontFamily: useFont,
+                  fontWeight: FontWeight.w900,
+                  foreground: grad)),
+          textDirection: TextDirection.ltr)
+        ..layout();
+      final off = charOffsets[chars.indexOf(ch)] ?? Offset.zero;
+      tp.paint(canvas,
+          ui.Offset(nameX - tp.width / 2 + off.dx, y + off.dy));
+      y += lineH;
+    }
+
+    // ===== 作者竖排“某某著”（书名左侧，末字金圈印章） =====
+    if (author.isNotEmpty) {
+      final aChars = '$author著'.split('');
+      final aSize = nameSize * 0.30;
+      // v1370：作者在书名右上（参考图——竖排小字贴书名右缘顶部起排）
+      final ax = nameX + nameSize * 0.60;
+      var ay = y0 + nameSize * 0.08;
+      final ringR = aSize * 0.78;
+      for (var i = 0; i < aChars.length; i++) {
+        final isLast = i == aChars.length - 1;
+        var aUseFont = ff;
+        if (ff != null && ff != 'WenKai') {
+          final hasInk =
+              await glyphHasInk(aChars[i], aSize, ff, fallback);
+          if (!hasInk) aUseFont = 'WenKai';
+        }
+        final tp = TextPainter(
+            text: TextSpan(
+                text: aChars[i],
+                style: TextStyle(
+                    fontSize: isLast ? aSize * 0.62 : aSize,
+                    fontFamily: aUseFont,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFFFFE9A8),
+                    shadows: [
+                      Shadow(
+                          blurRadius: 4,
+                          color: Colors.black.withOpacity(0.85)),
+                    ])),
+            textDirection: TextDirection.ltr)
+          ..layout();
+        if (isLast) {
+          // 印章圆圈
+          canvas.drawCircle(
+              ui.Offset(ax, ay + ringR * 0.55),
+              ringR,
+              ui.Paint()
+                ..color = const Color(0xFFB8860B)
+                ..style = ui.PaintingStyle.stroke
+                ..strokeWidth = aSize * 0.09);
+        }
+        tp.paint(canvas, ui.Offset(ax - tp.width / 2, ay));
+        ay += isLast ? aSize * 0.9 : aSize * 1.18;
+      }
+    }
+
+    AppState.instance.apiLog(
+        '合成 fontFamily=${fontFamily.isEmpty ? "系统" : fontFamily} 字数=${bookName.length} 竖排');
+    final pic = recorder.endRecording();
+    final out = await pic.toImage(img.width, img.height);
+    final bd = await out.toByteData(format: ui.ImageByteFormat.png);
+    img.dispose();
+    return bd?.buffer.asUint8List();
   }
