@@ -35,10 +35,16 @@ class _ApiTerminalWidgetState extends State<ApiTerminalWidget> {
         .replaceAll(RegExp(r'cfut-[A-Za-z0-9_-]{8,}'), 'cfut-***')
         .replaceAll(RegExp(r'Bearer [A-Za-z0-9_.-]{8,}'), 'Bearer ***')
         .replaceAll(RegExp(r'token[=: ]+[A-Za-z0-9_.-]{12,}', caseSensitive: false), 'token=***');
-    final body = [
-      '== 诊断日志 $stamp ==',
-      for (final l in state.apiLogs.reversed) mask(l),
-    ].join('\n');
+    // v1362：单文件限150KB——从最新行往回取（先进先出，旧的丢）
+    final buf = <String>['== 诊断日志 $stamp =='];
+    var size = buf.first.length;
+    for (final l in state.apiLogs) {
+      final m = mask(l);
+      size += m.length + 1;
+      if (size > 150 * 1024) break; // 超限即停，保留最新
+      buf.add(m);
+    }
+    final body = buf.join('\n');
     final content = base64Encode(utf8.encode(body));
     try {
       final token2 = _diagToken();
@@ -63,15 +69,49 @@ class _ApiTerminalWidgetState extends State<ApiTerminalWidget> {
           'content': content,
         }),
       );
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(req.statusCode >= 200 && req.statusCode < 300
-                ? '日志已上传（${state.apiLogs.length}行）'
-                : '上传失败：HTTP ${req.statusCode}'),
-            duration: const Duration(milliseconds: 1500),
-          ),
-        );
+      if (req.statusCode >= 200 && req.statusCode < 300) {
+        // v1362：目录先进先出——只留最近5个日志文件
+        try {
+          final dirUrl = Uri.parse(
+              'https://api.github.com/repos/luckpala88/novel-analyzer-flutter-pub2/contents/logs');
+          final lr = await http.get(dirUrl, headers: {
+            'Authorization': 'Bearer $token2',
+            'Accept': 'application/vnd.github+json',
+          });
+          if (lr.statusCode == 200) {
+            final list = (jsonDecode(lr.body) as List)
+                .map((e) => {'name': e['name'] as String, 'sha': e['sha'] as String})
+                .where((e) => (e['name'] as String).startsWith('diag_'))
+                .toList()
+              ..sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
+            for (final f in list.take(list.length > 5 ? list.length - 5 : 0)) {
+              await http.delete(Uri.parse('$url'),
+                  headers: {
+                    'Authorization': 'Bearer $token2',
+                    'Accept': 'application/vnd.github+json',
+                    'Content-Type': 'application/json',
+                  },
+                  body: jsonEncode({'message': 'cleanup old', 'sha': f['sha']}));
+            }
+          }
+        } catch (_) {} // 清理失败不影响上传结果
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('日志已上传（${buf.length - 1}行）'),
+              duration: const Duration(milliseconds: 1500),
+            ),
+          );
+        }
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('上传失败：HTTP ${req.statusCode}'),
+              duration: const Duration(milliseconds: 1500),
+            ),
+          );
+        }
       }
     } catch (ex) {
       if (context.mounted) {
