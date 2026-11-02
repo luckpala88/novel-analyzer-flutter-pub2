@@ -1773,6 +1773,36 @@ class _SiliconImageState extends State<_SiliconImage> {
   }
 
   /// 合成封面文字：鎏金渐变+黑描边+阴影（v1349重写——多轮补丁踩踏后推倒重来）
+  /// v1367：逐字字形检测——志莽行书缺字渲染空白（cmap有映射glyph空，fallback不触发），
+  /// 离屏试画检查墨迹，空白字回退文楷画
+  Future<bool> _glyphHasInk(
+      String ch, double size, String? ff, List<String>? fb) async {
+    final rec = ui.PictureRecorder();
+    final c = ui.Canvas(rec);
+    c.drawRect(const Rect.fromLTWH(0, 0, 160, 160),
+        ui.Paint()..color = const Color(0xFF010101));
+    final tp = TextPainter(
+        text: TextSpan(
+            text: ch,
+            style: TextStyle(
+                fontSize: size,
+                fontFamily: ff,
+                fontFamilyFallback: fb,
+                color: Colors.white)),
+        textDirection: TextDirection.ltr)
+      ..layout();
+    tp.paint(c, const ui.Offset(20, 20));
+    final img = await rec.endRecording().toImage(160, 160);
+    final bd = await img.toByteData(format: ui.ImageByteFormat.rawRgba);
+    final px = bd!.buffer.asUint32List();
+    var ink = 0;
+    for (final v in px) {
+      final r = (v >> 16) & 0xFF, g = (v >> 8) & 0xFF, b = v & 0xFF;
+      if (r > 60 || g > 60 || b > 60) ink++; // 非背景=有墨
+    }
+    return ink > 40;
+  }
+
   /// 合成封面：竖排鎏金书名+作者“某某著”竖排小字（参考正版网文封面布局）
   Future<Uint8List?> composeCoverText(
       Uint8List baseBytes, String bookName, String author,
@@ -1806,14 +1836,19 @@ class _SiliconImageState extends State<_SiliconImage> {
           ], [0.0, 0.5, 1.0], TileMode.clamp);
     var y = y0;
     for (final ch in chars) {
+      // v1367：逐字检测——行书等覆盖小字体缺字空白→回退文楷
+      var useFont = ff;
+      if (ff != null && ff != 'WenKai') {
+        final hasInk = await _glyphHasInk(ch, nameSize, ff, fallback);
+        if (!hasInk) useFont = 'WenKai';
+      }
       // 阴影层
       final sh = TextPainter(
           text: TextSpan(
               text: ch,
               style: TextStyle(
                   fontSize: nameSize,
-                  fontFamily: ff,
-                  fontFamilyFallback: fallback,
+                  fontFamily: useFont,
                   fontWeight: FontWeight.w900,
                   foreground: ui.Paint()
                     ..color = Colors.black.withOpacity(0.6)
@@ -1828,8 +1863,7 @@ class _SiliconImageState extends State<_SiliconImage> {
               text: ch,
               style: TextStyle(
                   fontSize: nameSize,
-                  fontFamily: ff,
-                  fontFamilyFallback: fallback,
+                  fontFamily: useFont,
                   fontWeight: FontWeight.w900,
                   foreground: grad)),
           textDirection: TextDirection.ltr)
@@ -1847,13 +1881,18 @@ class _SiliconImageState extends State<_SiliconImage> {
       final ringR = aSize * 0.78;
       for (var i = 0; i < aChars.length; i++) {
         final isLast = i == aChars.length - 1;
+        var aUseFont = ff;
+        if (ff != null && ff != 'WenKai') {
+          final hasInk =
+              await _glyphHasInk(aChars[i], aSize, ff, fallback);
+          if (!hasInk) aUseFont = 'WenKai';
+        }
         final tp = TextPainter(
             text: TextSpan(
                 text: aChars[i],
                 style: TextStyle(
                     fontSize: isLast ? aSize * 0.62 : aSize,
-                    fontFamily: ff,
-                    fontFamilyFallback: fallback,
+                    fontFamily: aUseFont,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFFFFE9A8),
                     shadows: [
