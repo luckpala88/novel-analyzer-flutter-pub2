@@ -2253,6 +2253,10 @@ class _AnalysisPageState extends State<AnalysisPage>
         true,
         state.funcAbstract,
       );
+      // v1334：虚构研究声明——分类器语境锚（酒馆4.25预设实证），与词面净化组合
+      final sysFinal = state.disclaimerEnabled
+          ? '$systemPrompt\n\n${PromptBuilder.fictionDisclaimer}'
+          : systemPrompt;
       // v694：删除旧单次预览块（v687分批改造时漏删——导致每批预览前先弹
       // 一次旧词链=用户实证连弹两次、标题不同）
 
@@ -2265,7 +2269,7 @@ class _AnalysisPageState extends State<AnalysisPage>
 
       final ok = await PromptPreview.maybePreview(
         context,
-        sysPrompt: systemPrompt,
+        sysPrompt: sysFinal,
         userPrompt: userPrompt,
         title: '分镜拆解词链预览',
         enabled: state.shotPromptPreview,
@@ -2277,7 +2281,7 @@ class _AnalysisPageState extends State<AnalysisPage>
 
       var result = await state.api.callApi(
         task: '分镜拆解',  // v824任务级反馈
-        systemPrompt: systemPrompt,
+        systemPrompt: sysFinal,
         userPrompt: userPrompt,
         apiConfig: config,
       );

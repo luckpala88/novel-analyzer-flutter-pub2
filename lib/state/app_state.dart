@@ -261,6 +261,14 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool disclaimerEnabled = true; // v1334：虚构研究声明（system末尾语境锚）
+
+  void setDisclaimerEnabled(bool v) {
+    disclaimerEnabled = v;
+    storage.writeGlobal('disclaimer_enabled', v ? '1' : '0');
+    notifyListeners();
+  }
+
   void setJitterEnabled(bool v) {
     jitterEnabled = v;
     storage.writeGlobal('jitter_enabled', v ? '1' : '0');
@@ -1324,6 +1332,9 @@ class AppState extends ChangeNotifier {
     // v1333：标点微空格扰动开关（默认开）
     final je = storage.readGlobal('jitter_enabled');
     jitterEnabled = je != '0';
+    // v1334：虚构声明开关（默认开）
+    final de = storage.readGlobal('disclaimer_enabled');
+    disclaimerEnabled = de != '0';
 
     // TTS配置
     final ttsEngine = storage.readGlobal('tts_engine');

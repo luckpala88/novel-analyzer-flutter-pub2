@@ -557,6 +557,25 @@ class _HomePageState extends State<HomePage>
                     ],
                   ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          '虚构声明（v1334：system末尾加虚构研究定性——酒馆4.25预设实证，与净化组合生效）',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                      Switch(
+                          value: state.disclaimerEnabled,
+                          onChanged: (v) {
+                            state.setDisclaimerEnabled(v);
+                            setD(() {});
+                          }),
+                    ],
+                  ),
+                ),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 12),
                   child: Align(
@@ -1146,7 +1165,7 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 1333;
+  static const int _appVersion = 1334;
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';

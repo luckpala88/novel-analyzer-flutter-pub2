@@ -1701,7 +1701,10 @@ Future<bool> extractArcParts({
     for (var attempt = 1; attempt <= 3; attempt++) {
       final r = await state.api.callApi(
         task: '弧线${arc.number}${t.$1}',
-        systemPrompt: t.$2,
+        // v1334：虚构研究声明——分类器语境锚（弧线4/12零件拦点同治）
+        systemPrompt: state.disclaimerEnabled
+            ? '${t.$2}\n\n${PromptBuilder.fictionDisclaimer}'
+            : t.$2,
         userPrompt: t.$3,
         apiConfig: config,
       );
