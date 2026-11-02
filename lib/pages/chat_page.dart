@@ -1740,13 +1740,27 @@ class _SiliconImageState extends State<_SiliconImage> {
           TextButton(onPressed: () => Navigator.pop(d), child: const Text('取消')),
           FilledButton(
             onPressed: () async {
-              final src = st._origBytes ?? baseBytes; // v1349：永远从无字底图合成
-              final out = await composeCoverText(src,
-                  nameCtl.text.trim(), authorCtl.text.trim(),
-                  fontFamily: font);
-              if (out != null) {
-                st.updateBytes(out);
-                onDone?.call(); // v1358：合成后刷新全屏预览
+              final src0 = st._origBytes ?? baseBytes; // v1349：永远从无字底图合成
+              final name = nameCtl.text.trim();
+              if (name.isEmpty) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(content: Text('请先填书名')));
+                return; // v1358：空书名不关闭对话框
+              }
+              try {
+                final out = await composeCoverText(src0,
+                    name, authorCtl.text.trim(),
+                    fontFamily: font);
+                if (out != null) {
+                  st.updateBytes(out);
+                  onDone?.call(); // 合成后刷新全屏预览
+                } else {
+                  ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                      content: Text('合成失败：底图异常')));
+                }
+              } catch (ex) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                    SnackBar(content: Text('合成异常：$ex')));
               }
               if (ctx.mounted) Navigator.pop(d);
             },
@@ -1786,7 +1800,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                     Color(0xFFFFF3B0),
                     Color(0xFFFFD700),
                     Color(0xFFB8860B),
-                  ])));
+                  ], [0.0, 0.5, 1.0], TileMode.clamp)));
     final strokeSpan = TextSpan(
         text: bookName,
         style: TextStyle(
