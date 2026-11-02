@@ -29,9 +29,15 @@ class _ApiTerminalWidgetState extends State<ApiTerminalWidget> {
     final ver = DateTime.now();
     final stamp =
         '${ver.year}${ver.month.toString().padLeft(2, '0')}${ver.day.toString().padLeft(2, '0')}_${ver.hour.toString().padLeft(2, '0')}${ver.minute.toString().padLeft(2, '0')}';
+    // v1360b：脱敏（pub2公开仓——key/token类串替换）
+    String mask(String l) => l
+        .replaceAll(RegExp(r'sk-[A-Za-z0-9_-]{8,}'), 'sk-***')
+        .replaceAll(RegExp(r'cfut-[A-Za-z0-9_-]{8,}'), 'cfut-***')
+        .replaceAll(RegExp(r'Bearer [A-Za-z0-9_.-]{8,}'), 'Bearer ***')
+        .replaceAll(RegExp(r'token[=: ]+[A-Za-z0-9_.-]{12,}', caseSensitive: false), 'token=***');
     final body = [
       '== 诊断日志 $stamp ==',
-      for (final l in state.apiLogs.reversed) l,
+      for (final l in state.apiLogs.reversed) mask(l),
     ].join('\n');
     final content = base64Encode(utf8.encode(body));
     try {
@@ -45,7 +51,7 @@ class _ApiTerminalWidgetState extends State<ApiTerminalWidget> {
         return;
       }
       final url = Uri.parse(
-          'https://api.github.com/repos/luckpala88/novel-analyzer-flutter/contents/logs/diag_$stamp.txt');
+          'https://api.github.com/repos/luckpala88/novel-analyzer-flutter-pub2/contents/logs/diag_$stamp.txt');
       final req = await http.put(url,
         headers: {
           'Authorization': 'Bearer $token2',
