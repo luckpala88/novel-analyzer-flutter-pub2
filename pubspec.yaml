@@ -10,15 +10,6 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-    - family: KaiShu
-      fonts:
-        - asset: assets/fonts/kai.ttf
-    - family: XingShu
-      fonts:
-        - asset: assets/fonts/xing.ttf
-    - family: CaoShu
-      fonts:
-        - asset: assets/fonts/cao.ttf
   cached_network_image: ^3.3.1
   provider: ^6.1.2
   http: ^1.2.2
