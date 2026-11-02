@@ -1519,6 +1519,10 @@ class _SiliconImageState extends State<_SiliconImage> {
           prompt.toLowerCase().contains('cover')) {
         final b = composedFile.readAsBytesSync();
         _cache[key] = b;
+        // v1373：composed命中时补_origBytes=无字底图——否则调字重合成静默return（金圈动字不动实证）
+        try {
+          _origBytes = File(diskPath).readAsBytesSync();
+        } catch (_) {}
         if (mounted) setState(() => _bytes = b);
         return;
       }
@@ -1700,7 +1704,10 @@ class _SiliconImageState extends State<_SiliconImage> {
                       if (!dir.existsSync()) dir.createSync(recursive: true);
                       final f = File(
                           '${dir.path}/chat_img_${DateTime.now().millisecondsSinceEpoch}.png');
-                      await f.writeAsBytes(b);
+                      await f.writeAsBytes(
+                          _bytes!); // v1373：直读_bytes（闭包b过时嫌疑消除）+留证据
+                      AppState.instance.apiLog(
+                          '保存PNG ${_bytes!.length}B -> ${f.path}');
                       ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text('已保存：${f.path}')));
                     } catch (ex) {

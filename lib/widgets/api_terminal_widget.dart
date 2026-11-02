@@ -27,8 +27,9 @@ class _ApiTerminalWidgetState extends State<ApiTerminalWidget> {
   /// v1359：诊断日志上传——apiLogs全量+版本号→私有仓logs/目录（Contents API）
   Future<void> _uploadDiagLog(BuildContext context, AppState state) async {
     final ver = DateTime.now();
+    // v1373：文件名精确到毫秒——分钟级stamp同分钟二传撞同名无sha=422
     final stamp =
-        '${ver.year}${ver.month.toString().padLeft(2, '0')}${ver.day.toString().padLeft(2, '0')}_${ver.hour.toString().padLeft(2, '0')}${ver.minute.toString().padLeft(2, '0')}';
+        '${ver.year}${ver.month.toString().padLeft(2, '0')}${ver.day.toString().padLeft(2, '0')}_${ver.hour.toString().padLeft(2, '0')}${ver.minute.toString().padLeft(2, '0')}${ver.second.toString().padLeft(2, '0')}${ver.millisecond.toString().padLeft(3, '0')}';
     // v1360b：脱敏（pub2公开仓——key/token类串替换）
     String mask(String l) => l
         .replaceAll(RegExp(r'sk-[A-Za-z0-9_-]{8,}'), 'sk-***')
