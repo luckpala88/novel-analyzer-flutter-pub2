@@ -1515,6 +1515,7 @@ class _SiliconImageState extends State<_SiliconImage> {
       // v1344：合成版优先（封面标签叠过字后直接读合成版）
       final composedPath = await _diskPath('${key}_composed');
       final composedFile = File(composedPath);
+      final diskPath = await _diskPath(key); // v1373b：提前声明（composed分支也要读无字底图）
       if (composedFile.existsSync() &&
           prompt.toLowerCase().contains('cover')) {
         final b = composedFile.readAsBytesSync();
@@ -1526,7 +1527,6 @@ class _SiliconImageState extends State<_SiliconImage> {
         if (mounted) setState(() => _bytes = b);
         return;
       }
-      final diskPath = await _diskPath(key);
       final diskFile = File(diskPath);
       if (diskFile.existsSync()) {
         final b = diskFile.readAsBytesSync();
