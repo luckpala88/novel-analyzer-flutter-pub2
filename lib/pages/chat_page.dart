@@ -1282,8 +1282,9 @@ class _ChatPageState extends State<ChatPage>
         .replaceAll(r'$\leftarrow$', '←')
         .replaceAll(r'\leftarrow', '←');
     // v1338：img插图标签→网络图渲染（pollinations野生API迁移）
+    // v1339：整标签匹配——消费src/alt等全部属性到闭合>，防alt残文本漏出
     final imgRe = RegExp(
-        '<img\\s+src\\s*=\\s*"?(https?://[^"\\s>]+)',
+        '<img\\s[^>]*src\\s*=\\s*"?(https?://[^"\\s>]+)[^>]*>',
         caseSensitive: false);
     if (imgRe.hasMatch(content)) {
       final parts = <Widget>[];
@@ -1355,29 +1356,33 @@ class _ChatPageState extends State<ChatPage>
       },
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
+        // v1339：限宽+fitWidth——加载完成后按原图比例显示（禁固定比例裁剪防压扁）
+        child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
         child: Image.network(
           url,
-          fit: BoxFit.cover,
+          fit: BoxFit.fitWidth,
           loadingBuilder: (c, w, prog) => Container(
-            height: 160,
+            width: 260,
+            height: 170,
             color: const Color(0xFFEFE8D8),
             alignment: Alignment.center,
-            child: prog == null
-                ? null
-                : const SizedBox(
+            child: const SizedBox(
                     width: 22,
                     height: 22,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
           ),
           errorBuilder: (c, e, s) => Container(
+            width: 260,
             height: 56,
             color: const Color(0xFFEFE8D8),
             alignment: Alignment.center,
-            child: const Text('🖼 插图加载失败',
+            child: const Text('🖼 插图加载失败（点重答再试）',
                 style: TextStyle(fontSize: 12, color: Color(0xFF9B8F7A))),
           ),
         ),
+      ),
       ),
     );
   }
