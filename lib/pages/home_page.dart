@@ -901,9 +901,18 @@ class _HomePageState extends State<HomePage>
       );
       return;
     }
-    final json = const JsonEncoder.withIndent('  ').convert(
-      state.presets.map((p) => p.toJson()).toList(),
-    );
+    // v1353：v2结构附带画图key（硅基/CF）——导入端兼容旧List格式
+    final payload = {
+      'type': 'api_presets_v2',
+      'presets': state.presets.map((p) => p.toJson()).toList(),
+      'imageKeys': {
+        'silicon': state.chatSiliconKey,
+        'cf_key': state.chatCfKey,
+        'cf_account': state.chatCfAccount,
+        'engine': state.chatImageEngine,
+      },
+    };
+    final json = const JsonEncoder.withIndent('  ').convert(payload);
     final filename =
         'api_presets_${DateTime.now().toIso8601String().substring(0, 10)}.json';
     final path = state.storage.getBackupPath(filename);
@@ -930,8 +939,23 @@ class _HomePageState extends State<HomePage>
         start = 3;
       }
       final json = utf8.decode(bytes.sublist(start));
-      final list = jsonDecode(json);
-      if (list is! List) throw const FormatException('不是预设数组');
+      final decoded = jsonDecode(json);
+      // v1353：v2 Map格式（含imageKeys画图key）与旧List格式兼容
+      late final List list;
+      if (decoded is Map && decoded['presets'] is List) {
+        list = decoded['presets'] as List;
+        final ik = decoded['imageKeys'];
+        if (ik is Map) {
+          state.setChatSiliconKey('${ik['silicon'] ?? ''}');
+          state.setChatCf('${ik['cf_key'] ?? ''}', '${ik['cf_account'] ?? ''}');
+          if (ik['engine'] is String) state.setChatImageEngine(ik['engine'] as String);
+          AppState.instance.apiLog('✓ 画图key已恢复（硅基/CF）');
+        }
+      } else if (decoded is List) {
+        list = decoded;
+      } else {
+        throw const FormatException('不是预设数组');
+      }
       var added = 0, merged = 0;
       for (final e in list) {
         if (e is! Map) continue;
@@ -1165,7 +1189,7 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 1352;
+  static const int _appVersion = 1353;
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';
