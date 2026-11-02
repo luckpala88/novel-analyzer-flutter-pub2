@@ -1,7 +1,7 @@
 name: novel_analyzer
 description: "网文拆解器 - Flutter版"
 publish_to: 'none'
-version: 1.0.1349+1349
+version: 1.0.1350+1350
 
 environment:
   sdk: ^3.13.0
@@ -10,6 +10,15 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
+    - family: KaiShu
+      fonts:
+        - asset: assets/fonts/kai.ttf
+    - family: XingShu
+      fonts:
+        - asset: assets/fonts/xing.ttf
+    - family: CaoShu
+      fonts:
+        - asset: assets/fonts/cao.ttf
   cached_network_image: ^3.3.1
   provider: ^6.1.2
   http: ^1.2.2
@@ -29,3 +38,13 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  fonts:
+    - family: KaiShu
+      fonts:
+        - asset: assets/fonts/kai.ttf
+    - family: XingShu
+      fonts:
+        - asset: assets/fonts/xing.ttf
+    - family: CaoShu
+      fonts:
+        - asset: assets/fonts/cao.ttf

@@ -1674,9 +1674,12 @@ class _SiliconImageState extends State<_SiliconImage> {
   void _coverTextDialog(BuildContext ctx, Uint8List baseBytes, _SiliconImageState st) {
     final nameCtl = TextEditingController();
     final authorCtl = TextEditingController();
+    var font = ''; // v1350：''=系统黑体 KaiShu/XingShu/CaoShu
+    const fontNames = {'': '黑体', 'KaiShu': '楷书', 'XingShu': '行书', 'CaoShu': '草书'};
     showDialog(
       context: ctx,
-      builder: (d) => AlertDialog(
+      builder: (d) => StatefulBuilder(
+        builder: (d, setD) => AlertDialog(
         title: const Text('叠封面文字'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           TextField(controller: nameCtl,
@@ -1686,6 +1689,16 @@ class _SiliconImageState extends State<_SiliconImage> {
           TextField(controller: authorCtl,
               decoration: const InputDecoration(labelText: '作者名（底部小字，可空）',
                   border: OutlineInputBorder())),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: fontNames.entries
+                .map((e) => ChoiceChip(
+                    label: Text(e.value),
+                    selected: font == e.key,
+                    onSelected: (_) => setD(() => font = e.key)))
+                .toList(),
+          ),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(d), child: const Text('取消')),
@@ -1693,7 +1706,8 @@ class _SiliconImageState extends State<_SiliconImage> {
             onPressed: () async {
               final src = st._origBytes ?? baseBytes; // v1349：永远从无字底图合成
               final out = await composeCoverText(src,
-                  nameCtl.text.trim(), authorCtl.text.trim());
+                  nameCtl.text.trim(), authorCtl.text.trim(),
+                  fontFamily: font);
               if (out != null) {
                 st.updateBytes(out);
               }
@@ -1703,12 +1717,14 @@ class _SiliconImageState extends State<_SiliconImage> {
           ),
         ],
       ),
+    ),
     );
   }
 
   /// 合成封面文字：鎏金渐变+黑描边+阴影（v1349重写——多轮补丁踩踏后推倒重来）
   Future<Uint8List?> composeCoverText(
-      Uint8List baseBytes, String bookName, String author) async {
+      Uint8List baseBytes, String bookName, String author,
+      {String fontFamily = ''}) async {
     if (bookName.isEmpty) return null;
     final codec = await ui.instantiateImageCodec(baseBytes);
     final frame = await codec.getNextFrame();
@@ -1723,6 +1739,7 @@ class _SiliconImageState extends State<_SiliconImage> {
         text: bookName,
         style: TextStyle(
             fontSize: fontSize,
+            fontFamily: fontFamily.isEmpty ? null : fontFamily,
             fontWeight: FontWeight.w900,
             foreground: ui.Paint()
               ..shader = ui.Gradient.linear(
@@ -1737,6 +1754,7 @@ class _SiliconImageState extends State<_SiliconImage> {
         text: bookName,
         style: TextStyle(
             fontSize: fontSize,
+            fontFamily: fontFamily.isEmpty ? null : fontFamily,
             fontWeight: FontWeight.w900,
             foreground: ui.Paint()
               ..color = Colors.black
@@ -1746,6 +1764,7 @@ class _SiliconImageState extends State<_SiliconImage> {
         text: bookName,
         style: TextStyle(
             fontSize: fontSize,
+            fontFamily: fontFamily.isEmpty ? null : fontFamily,
             fontWeight: FontWeight.w900,
             foreground: ui.Paint()
               ..color = Colors.black.withOpacity(0.55)
