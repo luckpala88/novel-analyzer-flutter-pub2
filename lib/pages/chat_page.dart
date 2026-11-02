@@ -714,7 +714,7 @@ class _ChatPageState extends State<ChatPage>
       appBar: AppBar(
         backgroundColor: const Color(0xFFF3E9D4),
         titleSpacing: 0,
-        toolbarHeight: 84, // v1357：两行按钮
+        toolbarHeight: 76, // v1358：两行收紧
         // v1011：会话标题不占工具栏（用户裁决：标题挤瘪右侧按键）——
         // 会话切换收进首个'会话▾'键，点开底部弹层看全标题
         title: const SizedBox.shrink(),
@@ -724,7 +724,7 @@ class _ChatPageState extends State<ChatPage>
           SizedBox(
             width: MediaQuery.of(context).size.width - 16,
             child: Wrap(
-              alignment: WrapAlignment.end,
+              alignment: WrapAlignment.start, // v1358：靠左排（用户裁决）
               runSpacing: 2,
               spacing: 4, // v1013：按键间距（此前紧贴）
               children: [
@@ -751,13 +751,26 @@ class _ChatPageState extends State<ChatPage>
                 setState(() {});
               }),
           MiniButton(
+            label: '⚙ API',
+            onTap: () => showV119Sheet(
+              context,
+              title: 'API设置 · AI聊天',
+              child: ApiConfigPanel(
+                config: state.getApiConfig('chat'),
+                section: 'chat',
+              ),
+            ),
+          ),
+          // v1358：插图三键原子组（同转行不拆散，粘一起用户裁决）
+          SizedBox(
+            child: Row(mainAxisSize: MainAxisSize.min, spacing: 4, children: [
+          MiniButton(
             label: state.chatImageGen ? '插图开' : '插图关',
             onTap: () {
               state.setChatImageGen(!state.chatImageGen);
               setState(() {});
             },
           ),
-          // v1351：插图关时引擎/Key键变灰不隐藏（位置固定不乱跑，用户裁决）
           MiniButton(
             label: state.chatImageEngine == 'silicon'
                 ? '硅基'
@@ -787,16 +800,7 @@ class _ChatPageState extends State<ChatPage>
                 ? () => _editImageKeys(state)
                 : null,
           ),
-          MiniButton(
-            label: '⚙ API',
-            onTap: () => showV119Sheet(
-              context,
-              title: 'API设置 · AI聊天',
-              child: ApiConfigPanel(
-                config: state.getApiConfig('chat'),
-                section: 'chat',
-              ),
-            ),
+            ]),
           ),
                 ],
               ),
@@ -1710,6 +1714,7 @@ class _SiliconImageState extends State<_SiliconImage> {
       context: ctx,
       builder: (d) => StatefulBuilder(
         builder: (d, setD) => AlertDialog(
+        scrollable: true, // v1358：键盘弹出时可滚动——合成键不被遮挡
         title: const Text('叠封面文字'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           TextField(controller: nameCtl,
@@ -1720,8 +1725,9 @@ class _SiliconImageState extends State<_SiliconImage> {
               decoration: const InputDecoration(labelText: '作者名（底部小字，可空）',
                   border: OutlineInputBorder())),
           const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
             children: fontNames.entries
                 .map((e) => ChoiceChip(
                     label: Text(e.value),
@@ -1740,6 +1746,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                   fontFamily: font);
               if (out != null) {
                 st.updateBytes(out);
+                onDone?.call(); // v1358：合成后刷新全屏预览
               }
               if (ctx.mounted) Navigator.pop(d);
             },
