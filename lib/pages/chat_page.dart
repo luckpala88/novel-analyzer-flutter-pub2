@@ -1826,7 +1826,7 @@ class _SiliconImageState extends State<_SiliconImage> {
       final dispH = imgH * scale;
       final chars = _coverName.split('');
       final nameSize = (imgW / 2.2).clamp(0.0, (imgH * 0.66) / chars.length);
-      final nameX = imgW * 0.70;
+      final nameX = imgW * 0.585;
       final y0 = imgH * 0.055;
       final lineH = nameSize * 1.08;
       return SizedBox(
@@ -1927,7 +1927,8 @@ class _SiliconImageState extends State<_SiliconImage> {
     final chars = bookName.split('');
     final nameSize =
         (img.width / 2.2).clamp(0.0, (img.height * 0.66) / chars.length);
-    final nameX = img.width * 0.70;
+    // v1369：书名+作者组整体居中（参考图神通者布局——组合宽=nameSize+作者列，中心0.5w）
+    final nameX = img.width * 0.585;
     final y0 = img.height * 0.055;
     final lineH = nameSize * 1.08;
     final ff = fontFamily.isEmpty ? null : fontFamily;
@@ -1986,8 +1987,8 @@ class _SiliconImageState extends State<_SiliconImage> {
     if (author.isNotEmpty) {
       final aChars = '$author著'.split('');
       final aSize = nameSize * 0.30;
-      final ax = nameX - nameSize * 0.72;
-      var ay = y0 + nameSize * 0.12;
+      final ax = nameX - nameSize * 0.62;
+      var ay = y0 + nameSize * 0.38; // 错落：作者起排比书名顶低一截
       final ringR = aSize * 0.78;
       for (var i = 0; i < aChars.length; i++) {
         final isLast = i == aChars.length - 1;
