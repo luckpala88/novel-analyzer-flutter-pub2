@@ -1832,9 +1832,13 @@ class _SiliconImageState extends State<_SiliconImage> {
       return SizedBox(
         height: dispH,
         child: Stack(children: [
-          Center(
-              child: Image.memory(_bytes ?? Uint8List(0),
-                  fit: BoxFit.fitWidth)),
+          // v1372：Image劫持Stack hit-test（沙盒drag_test复现实锤）——包IgnorePointer放行拖块手势
+          Positioned.fill(
+            child: IgnorePointer(
+                child: Center(
+                    child: Image.memory(_bytes ?? Uint8List(0),
+                        fit: BoxFit.fitWidth))),
+          ),
           for (var i = 0; i < chars.length; i++)
             Positioned(
               left: (nameX + (_charOffsets[i]?.dx ?? 0)) * scale - 30,
