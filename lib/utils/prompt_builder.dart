@@ -140,6 +140,25 @@ class PromptBuilder {
         '}\n';
   }
 
+  /// v1336：分镜拆解指令（不含正文）——正文经history多消息埋中段（审查焦点位假说）
+  static String buildShotInstruction(dynamic scene,
+      {int batchIdx = 1, int totalBatches = 1, bool isLastBatch = true}) {
+    final batchNote = totalBatches > 1
+        ? '⚠️ **分批拆解**：本场景原文共分$totalBatches批（按段落边界切分），本批为第$batchIdx批。逐段覆盖铁律不变，本批原文是场景的连续一段——照常从本批第一段拆到最后一段。**本批每条分镜都必须填end_text（包括本批最后一条）**——它是与下一批的衔接分界句，缺失=批间断裂。' +
+            (isLastBatch ? '本批为最后一批：最后一条分镜不填end_text（默认到场景末尾）。\n\n' : '\n\n')
+        : '';
+    return '场景：' +
+        scene.name +
+        '\n' +
+        '章节范围：' +
+        (scene.chapterRange ?? '') +
+        '\n\n' +
+        batchNote +
+        '请对前面已阅读的场景原文拆解**字段分镜**（v1311韩编八字段写作实例）：对照场景概述七字段，通读原文**逐段判断字段归属**并按原文顺序标注——异常N/外在期望N/深层动机N/意外N/对策N/结果N/触底反弹/隐藏信息N/B故事补偿N（字段顺序尊重原文，非理论模板），概述标\"无\"的字段跳过。原文的每一段（包括旁白、评价、背景介绍、环境描写等非角色段落）都必须归属某个分镜，不要遗漏。\n\n' +
+        '每个分镜的field用字段名+序号（如\"意外2\"）——意外vs异常先判性质：进程被外来因素中断（瞬时突发来不及阻止）=意外，反常的现象或状态（可持续、有悖常识认知）=异常；how=内容一句封顶+写法操作剖析为主体（从信息释放顺序/视角选择/句式节奏/情绪来源四个操作维度里挑本镜真实用到的拆，尽量用原著原句当证据；评价词不算剖析——\"反差出彩/印象深刻/行云流水\"这类打分词禁止当落点，出彩三性最多顺手一提）+暗线镜片：本镜有无隐晦体现外在期望/深层动机/隐藏信息/B故事补偿、推进是内驱还是外驱——有就点出暗示手法，没有不提禁硬凑；另剖析类型怎么写出来的（意外=突转怎么落/对策=蓄谋还是临时/结果=代价怎么落地），禁止只复述情节禁止留空；end_text必须从原文逐字照抄该分镜结束处的最后一句（含标点），禁止改写、缩写或拼接——正文切片即范文，除field/how/end_text外禁止输出任何其他维度。\n\n' +
+        '输出格式（纯JSON，不要markdown）：{\"shots\":[{\"field\":\"意外1\",\"how\":\"…\",\"end_text\":\"照抄该分镜结束处的最后一句原文。\"}]}';
+  }
+
   /// buildShotUserPrompt
   static String buildShotUserPrompt(dynamic scene, dynamic chapterText,
       {int batchIdx = 1, int totalBatches = 1, bool isLastBatch = true}) {

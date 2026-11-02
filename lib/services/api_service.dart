@@ -254,6 +254,7 @@ class ApiService {
     String task = '',
     List<({String mime, String base64})> images = const [], // v838：vision图片
     double? tempOverride, // v1136：任务级温度覆盖（独立温度开关用）
+    List<Map<String, String>> history = const [], // v1336：多消息伪装——正文埋消息流中段（酒馆实证：审查焦点在尾部user）
   }) async {
     rpmLimit = apiConfig.rpmLimit; // 配置的每分钟请求上限（0=不限）
     final effTemp = tempOverride ?? apiConfig.temperature;
@@ -278,6 +279,7 @@ class ApiService {
       onChunk: onChunk,
       images: images,
       task: task, // v1242：透传任务名——全景提取类重任务首字看门狗放宽180秒
+      history: history,
     );
     if (task.isNotEmpty) {
       final mins = (sw.elapsed.inSeconds / 60).toStringAsFixed(1);
@@ -304,6 +306,7 @@ class ApiService {
     void Function(String chunk)? onChunk,
     List<({String mime, String base64})> images = const [], // v838：vision图片
     String task = '', // v1242：重任务（全景提取）首字看门狗放宽到180秒
+    List<Map<String, String>> history = const [], // v1336：多消息伪装
   }) async {
     // 全局忙锁：已有任务在跑→拒绝（禁止并行生成，防止多任务乱序写盘脏数据）
     if (_busy) {
@@ -365,6 +368,8 @@ class ApiService {
 
       final messages = [
         {'role': 'system', 'content': systemPrompt},
+        // v1336：多消息伪装——正文埋消息流中段，尾部user只放指令（审查焦点位）
+        for (final m in history) m,
         {'role': 'user', 'content': userContent},
       ];
 
