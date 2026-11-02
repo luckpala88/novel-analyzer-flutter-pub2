@@ -1987,8 +1987,9 @@ class _SiliconImageState extends State<_SiliconImage> {
     if (author.isNotEmpty) {
       final aChars = '$author著'.split('');
       final aSize = nameSize * 0.30;
-      final ax = nameX - nameSize * 0.62;
-      var ay = y0 + nameSize * 0.38; // 错落：作者起排比书名顶低一截
+      // v1370：作者在书名右上（参考图——竖排小字贴书名右缘顶部起排）
+      final ax = nameX + nameSize * 0.60;
+      var ay = y0 + nameSize * 0.08;
       final ringR = aSize * 0.78;
       for (var i = 0; i < aChars.length; i++) {
         final isLast = i == aChars.length - 1;
