@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:share_plus/share_plus.dart';
 import 'dart:io';
+import 'dart:ui' as ui;
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -470,8 +471,8 @@ class _ChatPageState extends State<ChatPage>
     if (state.chatImageGen) {
       usr = '【插图生成】在回复的合适位置插入0-2张插图标签（按剧情需要，无合适画面可不插），标签独立成段：\n'
           '<img src="https://image.pollinations.ai/prompt/{URL编码的英文场景prompt}?width={宽}&height={高}" alt="场景简述"/>\n'
-          'prompt规则：固定前缀 best quality, masterpiece, 然后是画面主体/人物外观/服装/动作/镜头角度/氛围光线的英文关键词，逗号分隔，基于当前剧情场景生成。\n'
-          '比例自选：人物/特写用 width=640&height=960（竖版），风景/大场面用 width=960&height=640（横版），其他默认 width=768&height=768。\n\n'
+          'prompt规则：固定前缀 best quality, masterpiece, 然后是画面主体/人物外观/服装/动作/镜头角度/氛围光线的英文关键词，逗号分隔，基于当前剧情场景生成。prompt末尾固定加 no text, no letters, no watermark（AI画不了汉字，文字由APP后期叠加）。\n'
+          '比例自选：人物/特写用 width=640&height=960（竖版），风景/大场面用 width=960&height=640（横版），其他默认 width=768&height=768。用户要画小说封面时：竖版640x960，构图留出上方1/3空白供后期叠加书名，prompt加 book cover composition。\n\n'
           + usr;
     }
 
@@ -1293,6 +1294,7 @@ class _ChatPageState extends State<ChatPage>
     final useSilicon =
         state.chatImageGen && state.chatImageEngine == 'silicon';
     final skey = state.chatSiliconKey;
+    final bookName = state.currentBook; // v1344：自动叠封面书名
     // v1009：LaTeX箭头宏转符号——AI偶发输出$\rightarrow$等未渲染的宏，显示成源码
     content = content
         .replaceAll(r'$\rightarrow$', '→')
@@ -1322,7 +1324,7 @@ class _ChatPageState extends State<ChatPage>
           }
         }
         parts.add(useSilicon
-            ? _SiliconImage(src: m.group(1)!, skey: skey)
+            ? _SiliconImage(src: m.group(1)!, skey: skey, bookName: bookName)
             : _chatImage(context, m.group(1)!));
         cursor = m.end;
       }
@@ -1393,7 +1395,8 @@ class _ChatPageState extends State<ChatPage>
 class _SiliconImage extends StatefulWidget {
   final String src;
   final String skey;
-  const _SiliconImage({required this.src, required this.skey});
+  final String bookName; // v1344：自动叠封面书名
+  const _SiliconImage({required this.src, required this.skey, this.bookName = ''});
   @override
   State<_SiliconImage> createState() => _SiliconImageState();
 }
@@ -1424,6 +1427,16 @@ class _SiliconImageState extends State<_SiliconImage> {
     _load();
   }
 
+  /// v1344：封面合成后更新显示+落盘
+  Future<void> updateBytes(Uint8List b) async {
+    _bytes = b;
+    setState(() {});
+    try {
+      final diskPath = await _diskPath('${widget.src}_composed');
+      await File(diskPath).writeAsBytes(b);
+    } catch (_) {}
+  }
+
   Future<void> _load() async {
     final src = widget.src;
     if (_cache.containsKey(src)) {
@@ -1448,6 +1461,16 @@ class _SiliconImageState extends State<_SiliconImage> {
         return;
       }
       // v1343：磁盘缓存命中——切引擎/重启APP不重复生成（防历史楼层重烧token）
+      // v1344：合成版优先（封面标签叠过字后直接读合成版）
+      final composedPath = await _diskPath('${key}_composed');
+      final composedFile = File(composedPath);
+      if (composedFile.existsSync() &&
+          prompt.toLowerCase().contains('cover')) {
+        final b = composedFile.readAsBytesSync();
+        _cache[key] = b;
+        if (mounted) setState(() => _bytes = b);
+        return;
+      }
       final diskPath = await _diskPath(key);
       final diskFile = File(diskPath);
       if (diskFile.existsSync()) {
@@ -1492,7 +1515,16 @@ class _SiliconImageState extends State<_SiliconImage> {
       try {
         await File(diskPath).writeAsBytes(imgRs.bodyBytes); // v1343：落盘
       } catch (_) {}
-      if (mounted) setState(() => _bytes = imgRs.bodyBytes);
+      var finalBytes = imgRs.bodyBytes;
+      // v1344：封面标签自动叠书名+作者（prompt含cover触发，AI画不了汉字的正解）
+      if (prompt.toLowerCase().contains('cover') && widget.bookName.isNotEmpty) {
+        try {
+          final composed = await composeCoverText(
+              finalBytes, widget.bookName, 'luckpala');
+          if (composed != null) finalBytes = composed;
+        } catch (_) {}
+      }
+      if (mounted) setState(() => _bytes = finalBytes);
     } catch (ex) {
       if (mounted) setState(() => _err = '生成超时/失败');
     }
@@ -1541,7 +1573,17 @@ class _SiliconImageState extends State<_SiliconImage> {
                 ),
               ),
               SafeArea(
-                child: TextButton.icon(
+                child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                TextButton.icon(
+                  icon: const Icon(Icons.text_fields, color: Colors.white70),
+                  label: const Text('叠封面文字',
+                      style: TextStyle(color: Colors.white70)),
+                  onPressed: () => _coverTextDialog(context, b, this),
+                ),
+                const SizedBox(width: 16),
+                TextButton.icon(
                   icon: const Icon(Icons.save_alt, color: Colors.white70),
                   label: const Text('保存到Download',
                       style: TextStyle(color: Colors.white70)),
@@ -1560,6 +1602,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                     }
                   },
                 ),
+              ]),
               ),
             ],
           ),
@@ -1573,6 +1616,101 @@ class _SiliconImageState extends State<_SiliconImage> {
         ),
       ),
     );
+  }
+
+  /// v1344：封面文字叠加——Canvas+TextPainter画系统字体汉字（AI画不了中文的正解）
+  void _coverTextDialog(BuildContext ctx, Uint8List baseBytes, _SiliconImageState st) {
+    final nameCtl = TextEditingController();
+    final authorCtl = TextEditingController();
+    showDialog(
+      context: ctx,
+      builder: (d) => AlertDialog(
+        title: const Text('叠封面文字'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: nameCtl,
+              decoration: const InputDecoration(labelText: '书名（顶部横排大字）',
+                  border: OutlineInputBorder())),
+          const SizedBox(height: 12),
+          TextField(controller: authorCtl,
+              decoration: const InputDecoration(labelText: '作者名（底部小字，可空）',
+                  border: OutlineInputBorder())),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(d), child: const Text('取消')),
+          FilledButton(
+            onPressed: () async {
+              final out = await composeCoverText(baseBytes,
+                  nameCtl.text.trim(), authorCtl.text.trim());
+              if (out != null) {
+                st.updateBytes(out);
+              }
+              if (ctx.mounted) Navigator.pop(d);
+            },
+            child: const Text('合成'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 合成封面文字：底部bar统一入口（pollinations/硅基共用）
+  Future<Uint8List?> composeCoverText(
+      Uint8List baseBytes, String bookName, String author) async {
+    if (bookName.isEmpty) return null;
+    final codec = await ui.instantiateImageCodec(baseBytes);
+    final frame = await codec.getNextFrame();
+    final img = frame.image;
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder);
+    canvas.drawImage(img, ui.Offset.zero, ui.Paint());
+    const nameY0 = 0.0; // v1344：鎏金渐变起点（nameY在后续计算，渐变用近似跨度）
+    // 书名：顶部横排大字（白字黑描边，自动缩放适配宽度）
+    final namePainter = TextPainter(
+      text: TextSpan(
+          text: bookName,
+          style: TextStyle(
+              fontSize: img.width / (bookName.length * 1.15),
+              color: Colors.white,
+              fontWeight: FontWeight.bold)),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: img.width * 0.92);
+    // 描边
+    final strokePainter = TextPainter(
+      text: TextSpan(
+          text: bookName,
+          style: TextStyle(
+              fontSize: img.width / (bookName.length * 1.15),
+              color: Colors.black,
+              fontWeight: FontWeight.bold)),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: img.width * 0.92);
+    final nameX = (img.width - namePainter.width) / 2;
+    final nameY = img.height * 0.06;
+    strokePainter.paint(canvas, ui.Offset(nameX, nameY));
+    namePainter.paint(canvas, ui.Offset(nameX, nameY));
+    // 作者：底部居中小字
+    if (author.isNotEmpty) {
+      final authorPainter = TextPainter(
+        text: TextSpan(
+            text: '作者：$author',
+            style: TextStyle(
+                fontSize: img.width / 18.0,
+                color: Colors.white,
+                shadows: [
+                  Shadow(blurRadius: 4, color: Colors.black.withOpacity(0.8)),
+                ])),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      authorPainter.paint(
+          canvas,
+          ui.Offset((img.width - authorPainter.width) / 2,
+              img.height * 0.94 - authorPainter.height));
+    }
+    final pic = recorder.endRecording();
+    final out = await pic.toImage(img.width, img.height);
+    final bd = await out.toByteData(format: ui.ImageByteFormat.png);
+    img.dispose();
+    return bd?.buffer.asUint8List();
   }
 }
 
