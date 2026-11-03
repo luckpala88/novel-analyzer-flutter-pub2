@@ -777,12 +777,14 @@ class _ChatPageState extends State<ChatPage>
                 : state.chatImageEngine == 'cf'
                     ? 'CF'
                     : state.chatImageEngine == 'mj'
-                        ? 'MJ'
-                        : '野生',
+                        ? 'MJ公'
+                        : state.chatImageEngine == 'mjpro'
+                            ? 'MJ企'
+                            : '野生',
             enabled: state.chatImageGen,
             onTap: state.chatImageGen
                 ? () {
-                    final order = ['silicon', 'cf', 'mj', 'pollination'];
+                    final order = ['silicon', 'cf', 'mj', 'mjpro', 'pollination'];
                     final idx = order.indexOf(state.chatImageEngine);
                     final next = order[(idx + 1) % order.length];
                     state.setChatImageEngine(next);
@@ -793,7 +795,9 @@ class _ChatPageState extends State<ChatPage>
           MiniButton(
             label: (state.chatImageEngine == 'silicon'
                     ? state.chatSiliconKey
-                    : state.chatCfKey)
+                    : state.chatImageEngine == 'mjpro'
+                        ? state.chatMjProKey
+                        : state.chatCfKey)
                 .isEmpty
                 ? '🔑填Key'
                 : '🔑已配',
@@ -1355,7 +1359,8 @@ class _ChatPageState extends State<ChatPage>
                 cfKey: state.chatCfKey,
                 cfAccount: state.chatCfAccount,
                 bookName: bookName,
-                mjBase: state.chatMjBase));
+                mjBase: state.chatMjBase,
+                mjProKey: state.chatMjProKey));
         cursor = m.end;
       }
       if (cursor < normContent.length) {
@@ -1397,6 +1402,7 @@ class _ChatPageState extends State<ChatPage>
   void _editImageKeys(AppState state) {
     final siliconCtl = TextEditingController(text: state.chatSiliconKey);
     final mjCtl = TextEditingController(text: state.chatMjBase);
+    final mjProCtl = TextEditingController(text: state.chatMjProKey);
     final cfKeyCtl = TextEditingController(text: state.chatCfKey);
     final cfAccCtl = TextEditingController(text: state.chatCfAccount);
     showDialog(
@@ -1418,6 +1424,9 @@ class _ChatPageState extends State<ChatPage>
           TextField(controller: mjCtl,
               decoration: const InputDecoration(labelText: 'MJ公益接口地址（免key，默认ai.trueai.org）',
                   border: OutlineInputBorder())),
+          TextField(controller: mjProCtl,
+              decoration: const InputDecoration(labelText: '环网key（MJ企付费引擎）',
+                  border: OutlineInputBorder())),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(d), child: const Text('取消')),
@@ -1426,6 +1435,7 @@ class _ChatPageState extends State<ChatPage>
               state.setChatSiliconKey(siliconCtl.text);
               state.setChatCf(cfKeyCtl.text, cfAccCtl.text);
               state.setChatMjBase(mjCtl.text);
+              state.setChatMjProKey(mjProCtl.text);
               Navigator.pop(d);
             },
             child: const Text('保存'),
@@ -1447,6 +1457,7 @@ class _SiliconImage extends StatefulWidget {
   final String cfAccount;
   final String bookName; // v1344：自动叠封面书名
   final String mjBase; // v1383：MJ公益接口地址
+  final String mjProKey; // v1385：MJ企（环网关）key
   const _SiliconImage(
       {required this.src,
       required this.engine,
@@ -1454,7 +1465,8 @@ class _SiliconImage extends StatefulWidget {
       this.cfKey = '',
       this.cfAccount = '',
       this.bookName = '',
-      this.mjBase = 'https://ai.trueai.org'});
+      this.mjBase = 'https://ai.trueai.org',
+      this.mjProKey = ''});
   @override
   State<_SiliconImage> createState() => _SiliconImageState();
 }
@@ -1567,19 +1579,32 @@ class _SiliconImageState extends State<_SiliconImage> {
         return;
       }
       Uint8List genBytes;
-      if (widget.engine == 'mj') {
+      if (widget.engine == 'mj' || widget.engine == 'mjpro') {
         // v1383：MJ公益接口（trueai-org/midjourney-proxy）——提交任务+轮询取图
+        // v1385：mjpro=MJ企付费引擎（环网关，Bearer key）
         // prompt=标签URL里的英文场景，AI标签width/height→--ar比例（MJ真出对应构图）
+        final isPro = widget.engine == 'mjpro';
+        final mjBase = isPro ? 'https://api.huanwangai.com' : widget.mjBase;
+        final mjHeaders = isPro
+            ? {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ${widget.mjProKey}'
+              }
+            : {'Content-Type': 'application/json'};
+        if (isPro && widget.mjProKey.isEmpty) {
+          setState(() => _err = '点顶栏🔑填环网key');
+          return;
+        }
         final w0 = int.tryParse(RegExp(r'width=(\d+)').firstMatch(widget.src)?.group(1) ?? '1024');
         final h0 = int.tryParse(RegExp(r'height=(\d+)').firstMatch(widget.src)?.group(1) ?? '1024');
         final g = w0 != null && h0 != null && w0 > 0 && h0 > 0 ? w0.gcd(h0) : 1;
         final ar = w0 != null && h0 != null ? ' --ar ${w0 ~/ g}:${h0 ~/ g}' : '';
         final mjPrompt = '$prompt$ar';
-        AppState.instance.apiLog('MJ提交: $mjPrompt');
+        AppState.instance.apiLog('MJ提交(${widget.engine}): $mjPrompt');
         try {
           final sub = await http
-              .post(Uri.parse('${widget.mjBase}/mj/submit/imagine'),
-                  headers: {'Content-Type': 'application/json'},
+              .post(Uri.parse('$mjBase/mj/submit/imagine'),
+                  headers: mjHeaders,
                   body: jsonEncode({'prompt': mjPrompt}))
               .timeout(const Duration(seconds: 30));
           if (sub.statusCode != 200) {
@@ -1601,7 +1626,7 @@ class _SiliconImageState extends State<_SiliconImage> {
             await Future.delayed(const Duration(seconds: 5));
             if (!mounted) return;
             final ft = await http
-                .get(Uri.parse('${widget.mjBase}/mj/task/$taskId/fetch'))
+                .get(Uri.parse('$mjBase/mj/task/$taskId/fetch'), headers: mjHeaders)
                 .timeout(const Duration(seconds: 20));
             if (ft.statusCode != 200) continue;
             final ftData = jsonDecode(ft.body);

@@ -268,12 +268,19 @@ class AppState extends ChangeNotifier {
   String chatCfKey = ''; // v1348：Cloudflare Workers AI key
   String chatCfAccount = ''; // v1348：CF账户ID
   String chatMjBase = 'https://ai.trueai.org'; // v1383：MJ公益接口地址（trueai-org/midjourney-proxy，免key）
+  String chatMjProKey = ''; // v1385：MJ企付费引擎key（环网关api.huanwangai.com，Bearer）
 
   void setChatCf(String key, String account) {
     chatCfKey = key.trim();
     chatCfAccount = account.trim();
     storage.writeGlobal('chat_cf_key', chatCfKey);
     storage.writeGlobal('chat_cf_account', chatCfAccount);
+    notifyListeners();
+  }
+
+  void setChatMjProKey(String v) {
+    chatMjProKey = v.trim();
+    storage.writeGlobal('chat_mjpro_key', chatMjProKey);
     notifyListeners();
   }
 
@@ -1388,6 +1395,8 @@ class AppState extends ChangeNotifier {
     final cfa = storage.readGlobal('chat_cf_account');
     final mjb = storage.readGlobal('chat_mj_base');
     if (mjb != null && mjb.isNotEmpty) chatMjBase = mjb;
+    final mjpk = storage.readGlobal('chat_mjpro_key');
+    if (mjpk != null) chatMjProKey = mjpk;
     if (cfa != null) chatCfAccount = cfa;
 
     // TTS配置
