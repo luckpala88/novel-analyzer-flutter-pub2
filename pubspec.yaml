@@ -1,7 +1,7 @@
 name: novel_analyzer
 description: "网文拆解器 - Flutter版"
 publish_to: 'none'
-version: 1.0.1407+1407
+version: 1.0.1408+1408
 
 environment:
   sdk: ^3.13.0
@@ -42,3 +42,12 @@ flutter:
     - family: CaoShu
       fonts:
         - asset: assets/fonts/cao.ttf
+    - family: QiuHong
+      fonts:
+        - asset: assets/fonts/qiuhong.ttf
+    - family: YouRan
+      fonts:
+        - asset: assets/fonts/youran.ttf
+    - family: MaShanZheng
+      fonts:
+        - asset: assets/fonts/mashanzheng.ttf

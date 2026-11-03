@@ -2362,7 +2362,15 @@ class _SiliconImageState extends State<_SiliconImage> {
     final nameCtl = TextEditingController();
     final authorCtl = TextEditingController();
     var font = ''; // v1350：''=系统黑体 KaiShu/XingShu/CaoShu
-    const fontNames = {'': '黑体', 'WenKai': '楷书', 'XingShu': '行书', 'CaoShu': '草书'};
+    const fontNames = {
+      '': '黑体',
+      'QiuHong': '秋鸿楷',
+      'MaShanZheng': '马善政',
+      'WenKai': '楷书',
+      'XingShu': '行书',
+      'CaoShu': '草书',
+      'YouRan': '悠然小楷',
+    }; // v1408：新增秋鸿楷/悠然小楷（free-font）/马善政（Google Fonts）三款毛笔字
     showDialog(
       context: ctx,
       builder: (d) => StatefulBuilder(
