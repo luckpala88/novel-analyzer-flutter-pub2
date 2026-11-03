@@ -270,6 +270,7 @@ class AppState extends ChangeNotifier {
   String chatMjBase = 'https://ai.trueai.org'; // v1383：MJ公益接口地址（trueai-org/midjourney-proxy，免key）
   String chatMjProKey = ''; // v1385：MJ企付费引擎key（环网关api.huanwangai.com，Bearer）
   DateTime? chatEngineSwitchAt; // v1388：引擎切换时刻——此前楼层不自动重绘（用户回复/重答才画）
+  int chatPageOpenedAt = 0; // v1414b：进聊天页时刻（页面级会话起点）——组件级会随切引擎重建失效，致旧楼层被判"新楼层"每引擎重画一轮
 
   void setChatCf(String key, String account) {
     chatCfKey = key.trim();

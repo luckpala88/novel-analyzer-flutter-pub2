@@ -47,6 +47,9 @@ class _ChatPageState extends State<ChatPage>
   @override
   void initState() {
     super.initState();
+    // v1414b：进聊天页=新会话起点（AppState页面级），切引擎组件重建不重置
+    AppState.instance.chatPageOpenedAt =
+        DateTime.now().millisecondsSinceEpoch;
     ContentFont.load('chat').then((v) {
       if (mounted) setState(() => _chatFontScale = v);
     });
@@ -1601,8 +1604,11 @@ class _SiliconImageState extends State<_SiliconImage> {
   @override
   void initState() {
     super.initState();
-    // v1412：会话起点——只有本次打开APP之后新产生的楼层才允许自动绘制
-    _sessionStartMs = DateTime.now().millisecondsSinceEpoch;
+    // v1412/v1414b：会话起点改读AppState页面级（进聊天页时刻）——
+    // 组件级会随切引擎重建/不重建两个方向都失效
+    _sessionStartMs = AppState.instance.chatPageOpenedAt > 0
+        ? AppState.instance.chatPageOpenedAt
+        : DateTime.now().millisecondsSinceEpoch;
     _load();
   }
 
@@ -1731,6 +1737,9 @@ class _SiliconImageState extends State<_SiliconImage> {
             : '未生成（无存档任务ID）');
         return;
       }
+      // v1414b：manualRetry一次性消费——豁免本次挂起后即清除，
+      // 防static集合残留无限豁免挂起（每切一个引擎重画一轮的帮凶）
+      _manualRetry.remove(src);
       // v1388：全局并发闸——多楼层同时自动生成超服务商并发限制（环网关code=-1实证）
       while (_activeGen >= 2) {
         await Future.delayed(const Duration(milliseconds: 500));
