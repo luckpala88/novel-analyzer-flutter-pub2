@@ -1759,9 +1759,10 @@ class _SiliconImageState extends State<_SiliconImage> {
         // v1411：空串ID不算命中（任务闭环""hack残留）
         final savedTaskId =
             (_mjTaskIds?[src] ?? '').isNotEmpty ? _mjTaskIds![src] : null;
-        // v1412：点击只允许"取回"——无存档ID绝不重新提交（额度血案实证）
-        // 重新提交只有一条路：本会话内新产生的楼层自动生成（用户主动让它画）
-        if (savedTaskId == null && _manualRetry.contains(src)) {
+        // v1412b：点击只允许"取回"——本次打开APP之前就存在的楼层，无存档ID绝不重新提交
+        // （判定用会话起点，不用_manualRetry——static集合残留会误杀本会话新楼层自动画）
+        if (savedTaskId == null &&
+            (widget.floorCreatedAt ?? 0) < _sessionStartMs) {
           if (_activeGen > 0) _activeGen--;
           setState(() => _err = '该图无存档任务ID，取不了');
           return;
