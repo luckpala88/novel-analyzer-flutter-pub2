@@ -1332,12 +1332,18 @@ class _ChatPageState extends State<ChatPage>
     // v1338：img插图标签→网络图渲染（pollinations野生API迁移）
     // v1339：整标签匹配——消费src/alt等全部属性到闭合>，防alt残文本漏出
     // v1379：AI输出长prompt时img标签内常插换行→正则[^"\\s>]遇换行断=标签原文本显示不画图——先压缩<img>段内换行
-    final normContent = content.replaceAllMapped(
+    var normContent = content.replaceAllMapped(
         RegExp('<img[\\s\\S]*?>', caseSensitive: false),
         (m) => m.group(0)!.replaceAll(RegExp(r'[\n\r]'), ' '));
     final imgRe = RegExp(
         '<img\\s[^>]*src\\s*=\\s*"?(https?://[^"\\s>]+)[^>]*>',
         caseSensitive: false);
+    // v1390：AI偶发输出未闭合标签（缺末尾>）——补闭合再试，未闭合不再整条漏掉
+    if (!imgRe.hasMatch(normContent) &&
+        RegExp('<img\\s', caseSensitive: false).hasMatch(normContent) &&
+        !normContent.trimRight().endsWith('>')) {
+      normContent = '${normContent.trimRight()}>';
+    }
     if (imgRe.hasMatch(normContent)) {
       final parts = <Widget>[];
       var cursor = 0;
