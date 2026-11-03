@@ -1498,6 +1498,40 @@ class _SiliconImageState extends State<_SiliconImage> {
   // v1395：MJ任务ID持久化——轮询超时后凭ID回站取图，不重新生成不耗额度
   static Map<String, String>? _mjTaskIds;
   static bool _mjTasksLoaded = false;
+  List<Uint8List>? _mjGrid; // v1400：MJ四宫格切分后的4张单图
+  int _mjGridSel = 0; // v1400：当前选中的宫格
+
+  /// v1400：MJ四宫格2x2切分为4张单图
+  Future<List<Uint8List>?> _splitGrid(Uint8List src) async {
+    try {
+      final codec = await ui.instantiateImageCodec(src);
+      final frame = await codec.getNextFrame();
+      final img = frame.image;
+      if ((img.width / img.height - 1).abs() > 0.15) return null; // 非方图不切
+      final w = img.width ~/ 2, h = img.height ~/ 2;
+      final out = <Uint8List>[];
+      for (final rc in [
+        const Offset(0, 0),
+        Offset(w.toDouble(), 0),
+        const Offset(0, 0) + Offset(0, h.toDouble()),
+        Offset(w.toDouble(), h.toDouble())
+      ]) {
+        final rec = ui.PictureRecorder();
+        final c = ui.Canvas(rec);
+        c.drawImageRect(
+            img,
+            ui.Rect.fromLTWH(rc.dx, rc.dy, w.toDouble(), h.toDouble()),
+            ui.Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()),
+            ui.Paint());
+        final pi = await rec.endRecording().toImage(w, h);
+        final bd = await pi.toByteData(format: ui.ImageByteFormat.png);
+        out.add(bd!.buffer.asUint8List());
+      }
+      return out;
+    } catch (_) {
+      return null;
+    }
+  }
   // v1388：切引擎前的历史楼层=手动生成（点击占位才画），防切引擎自动重绘刷额度
   static final Set<String> _manualOnly = {};
   static final Set<String> _manualRetry = {};
@@ -1804,6 +1838,9 @@ class _SiliconImageState extends State<_SiliconImage> {
           _mjTaskIds?[src] != null ? (_mjTaskIds![src] = "") : null; // v1395：任务闭环清映射
           _mjTaskIds?.remove(src);
           genBytes = imgRs.bodyBytes;
+          // v1400：MJ四宫格自动切分
+          _mjGrid = await _splitGrid(genBytes);
+          _mjGridSel = 0;
         } catch (ex) {
           if (_activeGen > 0) _activeGen--;
           _failedOnce.add(src);
@@ -1968,6 +2005,57 @@ class _SiliconImageState extends State<_SiliconImage> {
           height: 22,
           child: CircularProgressIndicator(strokeWidth: 2),
         ),
+      );
+    }
+    // v1400：MJ四宫格选择视图——点选一张设为正身
+    if (_mjGrid != null && _mjGrid!.length == 4) {
+      return Container(
+        width: 260,
+        padding: const EdgeInsets.all(4),
+        color: const Color(0xFFEFE8D8),
+        child: Column(children: [
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            childAspectRatio: 1,
+            mainAxisSpacing: 4,
+            crossAxisSpacing: 4,
+            children: [
+              for (var i = 0; i < 4; i++)
+                GestureDetector(
+                  onTap: () async {
+                    setState(() {
+                      _mjGridSel = i;
+                      _bytes = _mjGrid![i];
+                      _mjGrid = null; // 选定后退出宫格视图
+                    });
+                    _origBytes = _mjGrid![i];
+                    _failedOnce.remove(widget.src);
+                    _manualRetry.add(widget.src);
+                    _mjTaskIds?.remove(widget.src);
+                    await _load(); // 重新加载走缓存/合成链
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                          color: _mjGridSel == i
+                              ? const Color(0xFFFFD700)
+                              : Colors.transparent,
+                          width: 3),
+                    ),
+                    child: Image.memory(_mjGrid![i],
+                        fit: BoxFit.cover),
+                  ),
+                ),
+            ],
+          ),
+          const Padding(
+            padding: EdgeInsets.only(top: 2),
+            child: Text('点选一张作为封面底图（金色框为当前选择）',
+                style: TextStyle(fontSize: 11, color: Color(0xFF9B8F7A))),
+          ),
+        ]),
       );
     }
     final hasMjTask = _mjTaskIds?[widget.src] != null &&
