@@ -1495,6 +1495,9 @@ class _SiliconImageState extends State<_SiliconImage> {
   // v1384：全局在飞任务去重——流式输出期间楼层每chunk重建State，无此锁=MJ提交风暴（日志实证1.6秒16连发）
   static final Set<String> _inflight = {};
   static int _activeGen = 0; // v1388：全局生成并发计数（上限2，防超服务商并发）
+  // v1395：MJ任务ID持久化——轮询超时后凭ID回站取图，不重新生成不耗额度
+  static Map<String, String>? _mjTaskIds;
+  static bool _mjTasksLoaded = false;
   // v1388：切引擎前的历史楼层=手动生成（点击占位才画），防切引擎自动重绘刷额度
   static final Set<String> _manualOnly = {};
   static final Set<String> _manualRetry = {};
@@ -1521,6 +1524,29 @@ class _SiliconImageState extends State<_SiliconImage> {
   bool _adjustMode = false;
   String? _err;
   static String? _imgDir; // v1343：磁盘缓存目录（prompt+size命名，永久复用防重复烧token）
+
+  Future<void> _saveMjTask(String src, String taskId) async {
+    _mjTaskIds ??= {};
+    _mjTaskIds![src] = taskId;
+    try {
+      final f = File(await _diskPath('mj_tasks.json'));
+      await f.writeAsString(jsonEncode(_mjTaskIds));
+    } catch (_) {}
+  }
+
+  Future<void> _loadMjTasks() async {
+    if (_mjTasksLoaded) return;
+    _mjTasksLoaded = true;
+    try {
+      final f = File(await _diskPath('mj_tasks.json'));
+      if (f.existsSync()) {
+        _mjTaskIds =
+            (jsonDecode(f.readAsStringSync()) as Map).cast<String, String>();
+      }
+    } catch (_) {
+      _mjTaskIds ??= {};
+    }
+  }
 
   Future<String> _diskPath(String key) async {
     final dir = _imgDir ??= await _ensureDir();
@@ -1656,11 +1682,19 @@ class _SiliconImageState extends State<_SiliconImage> {
           setState(() => _err = '点顶栏🔑填环网key');
           return;
         }
+        // v1395：找回超时任务——凭已存taskId直接续轮询，不重新提交不耗额度
+        await _loadMjTasks();
+        final savedTaskId = _mjTaskIds?[src];
         final w0 = int.tryParse(RegExp(r'width=(\d+)').firstMatch(widget.src)?.group(1) ?? '1024');
         final h0 = int.tryParse(RegExp(r'height=(\d+)').firstMatch(widget.src)?.group(1) ?? '1024');
         final g = w0 != null && h0 != null && w0 > 0 && h0 > 0 ? w0.gcd(h0) : 1;
         final ar = w0 != null && h0 != null ? ' --ar ${w0 ~/ g}:${h0 ~/ g}' : '';
         final mjPrompt = '$prompt$ar';
+        String? imageUrl;
+        if (savedTaskId != null) {
+          AppState.instance.apiLog('MJ续取任务: $savedTaskId');
+          setState(() => _err = '找回超时任务，继续取图…');
+        } else {
         AppState.instance.apiLog('MJ提交(${widget.engine}): $mjPrompt');
         try {
           final sub = await http
@@ -1687,7 +1721,19 @@ class _SiliconImageState extends State<_SiliconImage> {
                 _err = 'MJ提交失败: ${subData['description'] ?? subData['result']}');
             return;
           }
-          final taskId = subData['result'].toString();
+          _mjTaskIds ??= {};
+          _mjTaskIds![src] = subData['result'].toString();
+          _saveMjTask(src, _mjTaskIds![src]!);
+        } catch (ex) {
+          if (_activeGen > 0) _activeGen--;
+          _failedOnce.add(src);
+          AppState.instance.apiLog('MJ异常: $ex');
+          setState(() => _err = 'MJ异常: $ex');
+          return;
+        }
+        }
+        try {
+          final taskId = savedTaskId ?? _mjTaskIds![src]!;
           String? imageUrl;
           for (var t = 0; t < 60; t++) {
             await Future.delayed(const Duration(seconds: 5));
@@ -1734,8 +1780,10 @@ class _SiliconImageState extends State<_SiliconImage> {
           if (imageUrl == null || imageUrl.isEmpty) {
             if (_activeGen > 0) _activeGen--;
             _failedOnce.add(src);
-            AppState.instance.apiLog('MJ超时（5分钟未完成）');
-            setState(() => _err = 'MJ超时（5分钟未完成）');
+            AppState.instance
+                .apiLog('MJ轮询超时 任务ID已存（点重试继续取图）');
+            setState(() =>
+                _err = 'MJ等待超时，任务已保存（点此继续取图）');
             return;
           }
           setState(() => _err = 'MJ完成，下载中…');
@@ -1749,6 +1797,8 @@ class _SiliconImageState extends State<_SiliconImage> {
             setState(() => _err = 'MJ图下载失败 HTTP${imgRs.statusCode}');
             return;
           }
+          _mjTaskIds?[src] != null ? (_mjTaskIds![src] = "") : null; // v1395：任务闭环清映射
+          _mjTaskIds?.remove(src);
           genBytes = imgRs.bodyBytes;
         } catch (ex) {
           if (_activeGen > 0) _activeGen--;
