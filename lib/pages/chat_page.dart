@@ -1454,6 +1454,7 @@ class _SiliconImageState extends State<_SiliconImage> {
   String _coverAuthor = '';
   String _coverFont = '';
   final Map<int, Offset> _charOffsets = {};
+  final Map<int, Offset?> _dragLast = {}; // v1375：拖动起点（pointer坐标）
   bool _adjustMode = false;
   String? _err;
   static String? _imgDir; // v1343：磁盘缓存目录（prompt+size命名，永久复用防重复烧token）
@@ -1853,20 +1854,26 @@ class _SiliconImageState extends State<_SiliconImage> {
                       (_charOffsets[i]?.dy ?? 0)) *
                   scale -
                   30,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque, // v1371：全区域命中
-                onPanStart: (_) {
-                  AppState.instance.apiLog('调字拖动开始 #$i');
+              // v1375：Listener raw pointer——不走手势竞技场无18px slop死区，
+              // 按下即动（GestureDetector完整结构沙盒全绿但真机无效，换最底层方案）
+              child: Listener(
+                onPointerDown: (e) {
+                  _dragLast[i] = e.position;
+                  AppState.instance.apiLog('调字按下 #$i pos=${e.position}');
                 },
-                onPanUpdate: (det) {
+                onPointerMove: (e) {
+                  final last = _dragLast[i] ?? e.position;
+                  _dragLast[i] = e.position;
+                  final d = e.position - last;
+                  if (d.distance < 0.5) return;
                   setState(() {
                     final cur = _charOffsets[i] ?? Offset.zero;
                     _charOffsets[i] =
-                        cur + Offset(det.delta.dx / scale, det.delta.dy / scale);
+                        cur + Offset(d.dx / scale, d.dy / scale);
                   });
                 },
-                onPanEnd: (_) async {
-                  // 重合成（带偏移）
+                onPointerUp: (_) async {
+                  _dragLast[i] = null;
                   AppState.instance
                       .apiLog('调字重合成 #$i off=${_charOffsets[i]}');
                   if (_origBytes == null) return;
