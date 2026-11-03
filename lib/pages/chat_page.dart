@@ -2160,8 +2160,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                   if (st._origBytes == null) st._origBytes = src0;
                   st._charCenters = out.charCenters; // v1382：圈套真实字位
                   st._authorCenter = out.authorCenter;
-                  st._charOffsets.clear(); // v1382：centers已含offset，防双计
-                  st._authorOffset = Offset.zero;
+                  // v1393：偏移永久累计不清——清了下次重合成字弹回基础位（用户"会弹回"实证）
                   st.updateBytes(out.bytes);
                   onDone?.call(); // 合成后刷新全屏预览
                 } else {
@@ -2225,8 +2224,7 @@ class _SiliconImageState extends State<_SiliconImage> {
       if (out != null) {
         _charCenters = out.charCenters;
         _authorCenter = out.authorCenter;
-        _charOffsets.clear();
-        _authorOffset = Offset.zero;
+        // v1393：偏移永久累计不清
         setState(() => _bytes = out.bytes);
         setD2(() {});
       }
@@ -2256,16 +2254,15 @@ class _SiliconImageState extends State<_SiliconImage> {
           for (var i = 0; i < chars.length; i++)
             Positioned(
               // v1382：圈=compose返回的真实字中心+offset增量
-              left: ((i < _charCenters.length
+              // v1393：centers已含偏移，不再叠加（双计=拖动后跳位）
+              left: (i < _charCenters.length
                           ? _charCenters[i].dx
-                          : nameX) +
-                      (_charOffsets[i]?.dx ?? 0)) *
+                          : nameX) *
                   scale -
                   30,
-              top: ((i < _charCenters.length
+              top: (i < _charCenters.length
                           ? _charCenters[i].dy
-                          : y0 + i * lineH + 0.7 * nameSize) +
-                      (_charOffsets[i]?.dy ?? 0)) *
+                          : y0 + i * lineH + 0.7 * nameSize) *
                   scale -
                   30,
               // v1375：Listener raw pointer——不走手势竞技场无18px slop死区，
@@ -2316,8 +2313,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                     if (out != null) {
                       _charCenters = out.charCenters; // v1382：圈跟新字位
                       _authorCenter = out.authorCenter;
-                      _charOffsets.clear(); // centers已含offset，防双计
-                      _authorOffset = Offset.zero;
+                      // v1393：偏移永久累计不清（弹回根因）
                       setState(() => _bytes = out.bytes); // 楼层图更新
                       setD2(() {}); // v1376：Dialog也刷（Image读_bytes新值）
                     } else {
@@ -2347,7 +2343,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                   ),
                   // v1382：单字缩放角标——左上减/右上加
                   Positioned(
-                    top: -9, left: -9,
+                    top: -12, left: -12,
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () async {
@@ -2356,19 +2352,19 @@ class _SiliconImageState extends State<_SiliconImage> {
                         await _rescaleCompose(setD2); // v1392：点击即重合成
                       },
                       child: Container(
-                        width: 22, height: 22,
+                        width: 30, height: 30,
                         alignment: Alignment.center,
                         decoration: const BoxDecoration(
                             shape: BoxShape.circle,
                             color: Color(0xFF6B5A2E)),
                         child: const Text('-',
                             style: TextStyle(
-                                color: Colors.white, fontSize: 15, height: 1)),
+                                color: Colors.white, fontSize: 20, height: 1)),
                       ),
                     ),
                   ),
                   Positioned(
-                    top: -9, right: -9,
+                    top: -12, right: -12,
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () async {
@@ -2377,14 +2373,14 @@ class _SiliconImageState extends State<_SiliconImage> {
                         await _rescaleCompose(setD2); // v1392：点击即重合成
                       },
                       child: Container(
-                        width: 22, height: 22,
+                        width: 30, height: 30,
                         alignment: Alignment.center,
                         decoration: const BoxDecoration(
                             shape: BoxShape.circle,
                             color: Color(0xFF6B5A2E)),
                         child: const Text('+',
                             style: TextStyle(
-                                color: Colors.white, fontSize: 15, height: 1)),
+                                color: Colors.white, fontSize: 20, height: 1)),
                       ),
                     ),
                   ),
@@ -2394,8 +2390,9 @@ class _SiliconImageState extends State<_SiliconImage> {
           // v1376：作者列“某某著”独立拖块（青圈44px区分书名金圈）
           // v1382：作者块=compose返回锚点（列底部下方不压字）+36px小圈
           Positioned(
-            left: (_authorCenter.dx + _authorOffset.dx) * scale - 18,
-            top: (_authorCenter.dy + _authorOffset.dy) * scale - 18,
+            // v1393：authorCenter已含偏移
+            left: _authorCenter.dx * scale - 18,
+            top: _authorCenter.dy * scale - 18,
             child: Listener(
               onPointerDown: (e) {
                 _aDragLast[0] = e.position;
@@ -2437,8 +2434,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                   if (out != null) {
                     _charCenters = out.charCenters;
                     _authorCenter = out.authorCenter;
-                    _charOffsets.clear(); // centers已含offset，防双计
-                    _authorOffset = Offset.zero;
+                    // v1393：偏移永久累计不清
                     setState(() => _bytes = out.bytes);
                     setD2(() {});
                   } else {
@@ -2464,7 +2460,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                           fontSize: 13, color: Color(0xFF7FD4C8))),
                 ),
                 Positioned(
-                  top: -8, left: -8,
+                  top: -11, left: -11,
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () async {
@@ -2473,7 +2469,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                       await _rescaleCompose(setD2);
                     },
                     child: Container(
-                      width: 20, height: 20,
+                      width: 26, height: 26,
                       alignment: Alignment.center,
                       decoration: const BoxDecoration(
                           shape: BoxShape.circle, color: Color(0xFF2E5A55)),
@@ -2484,7 +2480,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                   ),
                 ),
                 Positioned(
-                  top: -8, right: -8,
+                  top: -11, right: -11,
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () async {
@@ -2493,7 +2489,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                       await _rescaleCompose(setD2);
                     },
                     child: Container(
-                      width: 20, height: 20,
+                      width: 26, height: 26,
                       alignment: Alignment.center,
                       decoration: const BoxDecoration(
                           shape: BoxShape.circle, color: Color(0xFF2E5A55)),
