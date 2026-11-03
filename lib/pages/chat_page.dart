@@ -1507,7 +1507,8 @@ class _SiliconImageState extends State<_SiliconImage> {
       final codec = await ui.instantiateImageCodec(src);
       final frame = await codec.getNextFrame();
       final img = frame.image;
-      if ((img.width / img.height - 1).abs() > 0.15) return null; // 非方图不切
+      // v1404：删除方图判定——MJ的imagine永远是2x2四宫格，--ar竖版时整体也是竖的（2:3实证漏切）
+      if (img.width % 2 != 0 || img.height % 2 != 0) return null;
       final w = img.width ~/ 2, h = img.height ~/ 2;
       final out = <Uint8List>[];
       for (final rc in [
