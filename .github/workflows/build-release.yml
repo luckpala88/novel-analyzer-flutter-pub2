@@ -99,7 +99,14 @@ jobs:
           try { $release = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases/tags/$tag" -Headers $headers } catch {
             Write-Host "release不存在，创建..."
             $body = @{ tag_name = $tag; name = $tag } | ConvertTo-Json
-            $release = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases" -Method Post -Headers $headers -ContentType "application/json" -Body $body
+            # v1415b：创建撞already_exists（双workflow并发/API延迟窗口，v1415实证）→等3秒回查
+            try {
+              $release = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases" -Method Post -Headers $headers -ContentType "application/json" -Body $body
+            } catch {
+              Write-Host "创建撞已有release，等3秒回查..."
+              Start-Sleep -Seconds 3
+              $release = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases/tags/$tag" -Headers $headers
+            }
           }
           # v1182：先删同名旧资产（重推tag时Release已有旧APK，直接POST会422）
           try {
