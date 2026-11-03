@@ -1324,15 +1324,19 @@ class _ChatPageState extends State<ChatPage>
         .replaceAll(r'\leftarrow', '←');
     // v1338：img插图标签→网络图渲染（pollinations野生API迁移）
     // v1339：整标签匹配——消费src/alt等全部属性到闭合>，防alt残文本漏出
+    // v1379：AI输出长prompt时img标签内常插换行→正则[^"\\s>]遇换行断=标签原文本显示不画图——先压缩<img>段内换行
+    final normContent = content.replaceAllMapped(
+        RegExp('<img[\\s\\S]*?>', caseSensitive: false),
+        (m) => m.group(0)!.replaceAll(RegExp(r'[\n\r]'), ' '));
     final imgRe = RegExp(
         '<img\\s[^>]*src\\s*=\\s*"?(https?://[^"\\s>]+)[^>]*>',
         caseSensitive: false);
-    if (imgRe.hasMatch(content)) {
+    if (imgRe.hasMatch(normContent)) {
       final parts = <Widget>[];
       var cursor = 0;
-      for (final m in imgRe.allMatches(content)) {
+      for (final m in imgRe.allMatches(normContent)) {
         if (m.start > cursor) {
-          final txt = content.substring(cursor, m.start).trim();
+          final txt = normContent.substring(cursor, m.start).trim();
           if (txt.isNotEmpty) {
             parts.add(SelectableText.rich(
               TextSpan(children: _mdSpans(txt)),
@@ -1351,7 +1355,7 @@ class _ChatPageState extends State<ChatPage>
                 bookName: bookName));
         cursor = m.end;
       }
-      if (cursor < content.length) {
+      if (cursor < normContent.length) {
         final tail = content.substring(cursor).trim();
         if (tail.isNotEmpty) {
           parts.add(SelectableText.rich(
