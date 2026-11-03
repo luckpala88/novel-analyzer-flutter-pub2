@@ -1659,7 +1659,7 @@ class _SiliconImageState extends State<_SiliconImage> {
             children: [
               Expanded(
                 child: _adjustMode
-                    ? _buildAdjustLayout()
+                    ? _buildAdjustLayout(setD2)
                     : GestureDetector(
                         onTap: () => Navigator.pop(d),
                         child: Center(
@@ -1815,7 +1815,7 @@ class _SiliconImageState extends State<_SiliconImage> {
   }
 
   /// v1367：调字布局——合成图铺底+每字可拖块（图内坐标系），拖动重合成
-  Widget _buildAdjustLayout() {
+  Widget _buildAdjustLayout(void Function(void Function()) setD2) {
     _imgSizeF ??= _decodeSize(_bytes!);
     return FutureBuilder<Size>(
       future: _imgSizeF,
@@ -1823,12 +1823,13 @@ class _SiliconImageState extends State<_SiliconImage> {
         if (!snap.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
-        return _adjustInner(snap.data!.width, snap.data!.height);
+        return _adjustInner(snap.data!.width, snap.data!.height, setD2);
       },
     );
   }
 
-  Widget _adjustInner(double imgW, double imgH) {
+  Widget _adjustInner(double imgW, double imgH,
+      void Function(void Function()) setD2) {
     return LayoutBuilder(builder: (ctx, box) {
       final scale = box.maxWidth / imgW; // fitWidth缩放比
       final dispH = imgH * scale;
@@ -1866,7 +1867,8 @@ class _SiliconImageState extends State<_SiliconImage> {
                   _dragLast[i] = e.position;
                   final d = e.position - last;
                   if (d.distance < 0.5) return;
-                  setState(() {
+                  // v1376：setD2刷新Dialog（state.setState只刷楼层=金圈不跟手根因）
+                  setD2(() {
                     final cur = _charOffsets[i] ?? Offset.zero;
                     _charOffsets[i] =
                         cur + Offset(d.dx / scale, d.dy / scale);
@@ -1880,7 +1882,10 @@ class _SiliconImageState extends State<_SiliconImage> {
                   final out = await composeCoverText(_origBytes!,
                       _coverName, _coverAuthor,
                       fontFamily: _coverFont, charOffsets: _charOffsets);
-                  if (out != null) setState(() => _bytes = out);
+                  if (out != null) {
+                    setState(() => _bytes = out); // 楼层图更新
+                    setD2(() {}); // v1376：Dialog也刷（Image读_bytes新值）
+                  }
                 },
                 child: Container(
                   width: 60,
