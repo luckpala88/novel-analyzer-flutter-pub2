@@ -1790,6 +1790,8 @@ class _SiliconImageState extends State<_SiliconImage> {
                     charOffsets: st._charOffsets,
                     authorOffset: st._authorOffset);
                 if (out != null) {
+                  // v1378：合成实际用的底图记为_origBytes——历史缓存路径_origBytes漏赋值时重合成静默return实证
+                  if (st._origBytes == null) st._origBytes = src0;
                   st.updateBytes(out);
                   onDone?.call(); // 合成后刷新全屏预览
                 } else {
@@ -1882,15 +1884,26 @@ class _SiliconImageState extends State<_SiliconImage> {
                   _dragLast[i] = null;
                   AppState.instance
                       .apiLog('调字重合成 #$i off=${_charOffsets[i]}');
-                  if (_origBytes == null) return;
-                  final out = await composeCoverText(_origBytes!,
-                      _coverName, _coverAuthor,
-                      fontFamily: _coverFont,
-                      charOffsets: _charOffsets,
-                      authorOffset: _authorOffset);
-                  if (out != null) {
-                    setState(() => _bytes = out); // 楼层图更新
-                    setD2(() {}); // v1376：Dialog也刷（Image读_bytes新值）
+                  // v1378：底图空时兜底用当前图重画（字重复叠加劣于静默无反应）
+                  final src0 = _origBytes ?? _bytes;
+                  if (src0 == null) {
+                    AppState.instance.apiLog('重合成跳过：无底图');
+                    return;
+                  }
+                  try {
+                    final out = await composeCoverText(src0,
+                        _coverName, _coverAuthor,
+                        fontFamily: _coverFont,
+                        charOffsets: _charOffsets,
+                        authorOffset: _authorOffset);
+                    if (out != null) {
+                      setState(() => _bytes = out); // 楼层图更新
+                      setD2(() {}); // v1376：Dialog也刷（Image读_bytes新值）
+                    } else {
+                      AppState.instance.apiLog('重合成返回空');
+                    }
+                  } catch (ex) {
+                    AppState.instance.apiLog('重合成异常：$ex');
                   }
                 },
                 child: Container(
@@ -1938,15 +1951,25 @@ class _SiliconImageState extends State<_SiliconImage> {
                 _aDragLast[0] = null;
                 AppState.instance
                     .apiLog('作者重合成 off=$_authorOffset');
-                if (_origBytes == null) return;
-                final out = await composeCoverText(_origBytes!,
-                    _coverName, _coverAuthor,
-                    fontFamily: _coverFont,
-                    charOffsets: _charOffsets,
-                    authorOffset: _authorOffset);
-                if (out != null) {
-                  setState(() => _bytes = out);
-                  setD2(() {});
+                final src0 = _origBytes ?? _bytes; // v1378：同书名兜底
+                if (src0 == null) {
+                  AppState.instance.apiLog('作者重合成跳过：无底图');
+                  return;
+                }
+                try {
+                  final out = await composeCoverText(src0,
+                      _coverName, _coverAuthor,
+                      fontFamily: _coverFont,
+                      charOffsets: _charOffsets,
+                      authorOffset: _authorOffset);
+                  if (out != null) {
+                    setState(() => _bytes = out);
+                    setD2(() {});
+                  } else {
+                    AppState.instance.apiLog('作者重合成返回空');
+                  }
+                } catch (ex) {
+                  AppState.instance.apiLog('作者重合成异常：$ex');
                 }
               },
               child: Container(
