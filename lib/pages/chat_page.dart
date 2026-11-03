@@ -1494,6 +1494,7 @@ class _SiliconImageState extends State<_SiliconImage> {
   static final Map<String, Uint8List> _cache = {};
   // v1384：全局在飞任务去重——流式输出期间楼层每chunk重建State，无此锁=MJ提交风暴（日志实证1.6秒16连发）
   static final Set<String> _inflight = {};
+  int _sessionStartMs = 0; // v1412：会话起点（initState赋值），防止打开APP自动补画历史楼层
   static int _activeGen = 0; // v1388：全局生成并发计数（上限2，防超服务商并发）
   // v1395：MJ任务ID持久化——轮询超时后凭ID回站取图，不重新生成不耗额度
   static Map<String, String>? _mjTaskIds;
@@ -1600,6 +1601,8 @@ class _SiliconImageState extends State<_SiliconImage> {
   @override
   void initState() {
     super.initState();
+    // v1412：会话起点——只有本次打开APP之后新产生的楼层才允许自动绘制
+    _sessionStartMs = DateTime.now().millisecondsSinceEpoch;
     _load();
   }
 
@@ -1709,10 +1712,15 @@ class _SiliconImageState extends State<_SiliconImage> {
         return;
       }
       // v1388：切引擎前的历史楼层不自动生成——用户回复/重答的新楼层才画
+      // v1412：本次打开APP时已存在的楼层一律不自动绘制，只认会话起点之后新产生的楼层——
+      // 防止冷启动把昨晚失败过的楼层整批自动补画烧额度（11-04凌晨01:41三连发实证）
       final switchMs = AppState.instance.chatEngineSwitchAt?.millisecondsSinceEpoch;
+      final beforeSession = _sessionStartMs > 0 &&
+          widget.floorCreatedAt != null &&
+          widget.floorCreatedAt! < _sessionStartMs;
       if (widget.floorCreatedAt != null &&
-          switchMs != null &&
-          widget.floorCreatedAt! < switchMs &&
+          ((switchMs != null && widget.floorCreatedAt! < switchMs) ||
+              beforeSession) &&
           !_manualRetry.contains(src)) {
         _manualOnly.add(src);
         // v1397：有MJ在途任务时提示取回（凭taskId跨引擎取图，不耗额度）
@@ -1720,7 +1728,7 @@ class _SiliconImageState extends State<_SiliconImage> {
         final hasTask = _mjTaskIds?[src]?.isNotEmpty == true;
         setState(() => _err = hasTask
             ? '有MJ在途任务，点此取回'
-            : '旧楼层未生成（无存档任务ID）');
+            : '未生成（无存档任务ID）');
         return;
       }
       // v1388：全局并发闸——多楼层同时自动生成超服务商并发限制（环网关code=-1实证）
@@ -1751,13 +1759,9 @@ class _SiliconImageState extends State<_SiliconImage> {
         // v1411：空串ID不算命中（任务闭环""hack残留）
         final savedTaskId =
             (_mjTaskIds?[src] ?? '').isNotEmpty ? _mjTaskIds![src] : null;
-        // v1411：历史楼层无存档ID——点取图也绝不重新提交（额度血案实证）
-        final swMs =
-            AppState.instance.chatEngineSwitchAt?.millisecondsSinceEpoch;
-        if (savedTaskId == null &&
-            widget.floorCreatedAt != null &&
-            swMs != null &&
-            widget.floorCreatedAt! < swMs) {
+        // v1412：点击只允许"取回"——无存档ID绝不重新提交（额度血案实证）
+        // 重新提交只有一条路：本会话内新产生的楼层自动生成（用户主动让它画）
+        if (savedTaskId == null && _manualRetry.contains(src)) {
           if (_activeGen > 0) _activeGen--;
           setState(() => _err = '该图无存档任务ID，取不了');
           return;
