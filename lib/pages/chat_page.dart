@@ -1612,6 +1612,29 @@ class _SiliconImageState extends State<_SiliconImage> {
     } catch (_) {}
   }
 
+  /// v1402：监听在飞任务——在飞State销毁后其async轮询仍会写缓存，本循环2秒一查接住显示
+  Future<void> _watchInflight(String src) async {
+    final pm = RegExp(r'/prompt/([^?]+)').firstMatch(src);
+    if (pm == null) return;
+    final prompt = Uri.decodeComponent(pm.group(1)!);
+    final wm = RegExp(r'width=(\d+)').firstMatch(src);
+    final hm = RegExp(r'height=(\d+)').firstMatch(src);
+    final key =
+        '$prompt|${wm != null ? wm.group(1) : 768}x${hm != null ? hm.group(1) : 768}';
+    for (var t = 0; t < 150; t++) {
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+      if (_cache.containsKey(key)) {
+        setState(() {
+          _bytes = _cache[key];
+          _err = null;
+        });
+        return;
+      }
+      if (!_inflight.contains(src)) return; // 在飞已结束（失败路径），留在错误态
+    }
+  }
+
   Future<void> _load() async {
     final src = widget.src;
     if (_cache.containsKey(src)) {
@@ -1625,6 +1648,7 @@ class _SiliconImageState extends State<_SiliconImage> {
     // v1384：同key在飞直接挂起等结果（rebuild的新State复用缓存/in-flight结果）
     if (_inflight.contains(src)) {
       setState(() => _err = '任务进行中，请稍候…');
+      _watchInflight(src); // v1402：后台监听缓存——在飞State销毁后其结果仍能接住显示
       return;
     }
     // v1386：失败冷却60秒——期内重建挂起，防"失败-移除-重试"死循环刷爆公益池
