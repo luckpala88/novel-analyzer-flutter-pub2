@@ -1738,6 +1738,17 @@ class _SiliconImageState extends State<_SiliconImage> {
       }
       _activeGen++;
       Uint8List genBytes;
+      // v1414：野生引擎（CF/硅基/pollinations）无任务ID取回机制——
+      // 本次打开APP前的旧楼层一律不生成（此前防护只覆盖MJ分支，切野生即重画一轮）
+      if (widget.engine != 'mj' &&
+          widget.engine != 'mjpro' &&
+          (widget.floorCreatedAt ?? 0) < _sessionStartMs) {
+        if (_activeGen > 0) _activeGen--;
+        setState(() => _err = _mjTaskIds?[src]?.isNotEmpty == true
+            ? 'MJ任务请切回MJ引擎取回'
+            : '旧楼层不自动重绘（想重画请重新生成）');
+        return;
+      }
       if (widget.engine == 'mj' || widget.engine == 'mjpro') {
         // v1383：MJ公益接口（trueai-org/midjourney-proxy）——提交任务+轮询取图
         // v1385：mjpro=MJ企付费引擎（环网关，Bearer key）
