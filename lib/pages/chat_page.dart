@@ -1882,7 +1882,8 @@ class _SiliconImageState extends State<_SiliconImage> {
           for (var i = 0; i < chars.length; i++)
             Positioned(
               left: (nameX + (_charOffsets[i]?.dx ?? 0)) * scale - 30,
-              top: (y0 + i * lineH + nameSize / 2 +
+              // v1381：圈中心对齐字视觉中心（TextPainter行高≈1.4×fontSize→中心0.7倍，原0.5倍圈偏上）
+              top: (y0 + i * lineH + nameSize * 0.7 +
                       (_charOffsets[i]?.dy ?? 0)) *
                   scale -
                   30,
@@ -1963,6 +1964,7 @@ class _SiliconImageState extends State<_SiliconImage> {
             left: (nameX + nameSize * 0.60 + _authorOffset.dx) * scale - 30,
             top: (y0 + nameSize * 0.08 +
                     2.5 * (nameSize * 0.30) * 1.18 / 2 +
+                    (nameSize * 0.30) * 0.2 +
                     _authorOffset.dy) *
                 scale -
                 30,
