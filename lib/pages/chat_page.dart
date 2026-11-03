@@ -1699,9 +1699,17 @@ class _SiliconImageState extends State<_SiliconImage> {
             final ftData = jsonDecode(ft.body);
             final status = ftData['status']?.toString() ?? '';
             if (status == 'SUCCESS') {
-              imageUrl = (ftData['imageUrl'] ??
-                      ftData['result']?['imageUrl'])
-                  ?.toString();
+              // v1393：字段多形态容错——v12接口 imageUrl/imageUrls[]/result.imageUrl/uri
+              final urls = ftData['imageUrls'];
+              imageUrl = (ftData['imageUrl']?.toString().isNotEmpty == true
+                      ? ftData['imageUrl']
+                      : null) ??
+                  (urls is List && urls.isNotEmpty ? urls[0] : null) ??
+                  ftData['result']?['imageUrl'] ??
+                  ftData['uri'];
+              imageUrl = imageUrl?.toString();
+              AppState.instance.apiLog(
+                  'MJ SUCCESS响应: ${ft.body.length > 500 ? ft.body.substring(0, 500) : ft.body}');
               break;
             }
             if (status == 'FAILURE') {
