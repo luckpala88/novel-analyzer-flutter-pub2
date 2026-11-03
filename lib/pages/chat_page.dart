@@ -1461,6 +1461,8 @@ class _SiliconImage extends StatefulWidget {
 
 class _SiliconImageState extends State<_SiliconImage> {
   static final Map<String, Uint8List> _cache = {};
+  // v1384：全局在飞任务去重——流式输出期间楼层每chunk重建State，无此锁=MJ提交风暴（日志实证1.6秒16连发）
+  static final Set<String> _inflight = {};
   Uint8List? _bytes;
   Uint8List? _origBytes; // v1349：无字原底图（合成输入固定用它）
   // v1367：封面调字——合成参数留存+每字偏移+调字模式
@@ -1517,6 +1519,12 @@ class _SiliconImageState extends State<_SiliconImage> {
       setState(() => _bytes = _cache[src]);
       return;
     }
+    // v1384：同key在飞直接挂起等结果（rebuild的新State复用缓存/in-flight结果）
+    if (_inflight.contains(src)) {
+      setState(() => _err = '任务进行中，请稍候…');
+      return;
+    }
+    _inflight.add(src);
     try {
       // 提取prompt（/prompt/后?前）与尺寸
       final pm = RegExp(r'/prompt/([^?]+)').firstMatch(src);
@@ -1575,11 +1583,14 @@ class _SiliconImageState extends State<_SiliconImage> {
                   body: jsonEncode({'prompt': mjPrompt}))
               .timeout(const Duration(seconds: 30));
           if (sub.statusCode != 200) {
+            AppState.instance.apiLog('MJ提交失败 HTTP${sub.statusCode}');
             setState(() => _err = 'MJ提交失败 HTTP${sub.statusCode}');
             return;
           }
           final subData = jsonDecode(sub.body);
           if (subData['code'] != 1) {
+            AppState.instance.apiLog(
+                'MJ提交失败 code=${subData['code']} ${subData['description'] ?? subData['result']}');
             setState(() =>
                 _err = 'MJ提交失败: ${subData['description'] ?? subData['result']}');
             return;
@@ -1602,6 +1613,8 @@ class _SiliconImageState extends State<_SiliconImage> {
               break;
             }
             if (status == 'FAILURE') {
+              AppState.instance
+                  .apiLog('MJ任务失败: ${ftData['failReason'] ?? '未知'}');
               setState(() =>
                   _err = 'MJ任务失败: ${ftData['failReason'] ?? '未知'}');
               return;
@@ -1610,6 +1623,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                 () => _err = 'MJ绘制中 ${ftData['progress'] ?? status}…');
           }
           if (imageUrl == null || imageUrl.isEmpty) {
+            AppState.instance.apiLog('MJ超时（5分钟未完成）');
             setState(() => _err = 'MJ超时（5分钟未完成）');
             return;
           }
@@ -1618,11 +1632,13 @@ class _SiliconImageState extends State<_SiliconImage> {
               .get(Uri.parse(imageUrl))
               .timeout(const Duration(seconds: 60));
           if (imgRs.statusCode != 200) {
+            AppState.instance.apiLog('MJ图下载失败 HTTP${imgRs.statusCode}');
             setState(() => _err = 'MJ图下载失败 HTTP${imgRs.statusCode}');
             return;
           }
           genBytes = imgRs.bodyBytes;
         } catch (ex) {
+          AppState.instance.apiLog('MJ异常: $ex');
           setState(() => _err = 'MJ异常: $ex');
           return;
         }
@@ -1729,6 +1745,8 @@ class _SiliconImageState extends State<_SiliconImage> {
       if (mounted) setState(() => _bytes = finalBytes);
     } catch (ex) {
       if (mounted) setState(() => _err = '生成超时/失败');
+    } finally {
+      _inflight.remove(src); // v1384：无论成败，飞完移除
     }
   }
 
