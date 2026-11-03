@@ -1692,9 +1692,15 @@ class _SiliconImageState extends State<_SiliconImage> {
           for (var t = 0; t < 60; t++) {
             await Future.delayed(const Duration(seconds: 5));
             if (!mounted) return;
-            final ft = await http
-                .get(Uri.parse('$mjBase/mj/task/$taskId/fetch'), headers: mjHeaders)
-                .timeout(const Duration(seconds: 20));
+            http.Response ft;
+            try {
+              ft = await http
+                  .get(Uri.parse('$mjBase/mj/task/$taskId/fetch'),
+                      headers: mjHeaders)
+                  .timeout(const Duration(seconds: 20));
+            } catch (_) {
+              continue; // v1394：单次fetch超时/失败不断链，下一轮继续问（14:53实证一次超时废整任务）
+            }
             if (ft.statusCode != 200) continue;
             final ftData = jsonDecode(ft.body);
             final status = ftData['status']?.toString() ?? '';
