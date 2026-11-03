@@ -1475,6 +1475,8 @@ class _SiliconImageState extends State<_SiliconImage> {
   static final Map<String, Uint8List> _cache = {};
   // v1384：全局在飞任务去重——流式输出期间楼层每chunk重建State，无此锁=MJ提交风暴（日志实证1.6秒16连发）
   static final Set<String> _inflight = {};
+  // v1386：失败冷却——429后finally移除inflight→chunk重建立即重试→"失败-移除-重试"死循环（v1384日志实证百次429）
+  static final Map<String, DateTime> _failCooldown = {};
   Uint8List? _bytes;
   Uint8List? _origBytes; // v1349：无字原底图（合成输入固定用它）
   // v1367：封面调字——合成参数留存+每字偏移+调字模式
@@ -1534,6 +1536,13 @@ class _SiliconImageState extends State<_SiliconImage> {
     // v1384：同key在飞直接挂起等结果（rebuild的新State复用缓存/in-flight结果）
     if (_inflight.contains(src)) {
       setState(() => _err = '任务进行中，请稍候…');
+      return;
+    }
+    // v1386：失败冷却60秒——期内重建挂起，防"失败-移除-重试"死循环刷爆公益池
+    final cd = _failCooldown[src];
+    if (cd != null &&
+        DateTime.now().difference(cd) < const Duration(seconds: 60)) {
+      setState(() => _err = '刚才失败，冷却中（60秒后可重试）');
       return;
     }
     _inflight.add(src);
@@ -1608,12 +1617,14 @@ class _SiliconImageState extends State<_SiliconImage> {
                   body: jsonEncode({'prompt': mjPrompt}))
               .timeout(const Duration(seconds: 30));
           if (sub.statusCode != 200) {
+            _failCooldown[src] = DateTime.now();
             AppState.instance.apiLog('MJ提交失败 HTTP${sub.statusCode}');
             setState(() => _err = 'MJ提交失败 HTTP${sub.statusCode}');
             return;
           }
           final subData = jsonDecode(sub.body);
           if (subData['code'] != 1) {
+            _failCooldown[src] = DateTime.now();
             AppState.instance.apiLog(
                 'MJ提交失败 code=${subData['code']} ${subData['description'] ?? subData['result']}');
             setState(() =>
@@ -1638,6 +1649,7 @@ class _SiliconImageState extends State<_SiliconImage> {
               break;
             }
             if (status == 'FAILURE') {
+              _failCooldown[src] = DateTime.now();
               AppState.instance
                   .apiLog('MJ任务失败: ${ftData['failReason'] ?? '未知'}');
               setState(() =>
