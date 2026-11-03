@@ -1456,6 +1456,8 @@ class _SiliconImageState extends State<_SiliconImage> {
   final Map<int, Offset> _charOffsets = {};
   final Map<int, Offset?> _dragLast = {}; // v1375：拖动起点（pointer坐标）
   Offset _authorOffset = Offset.zero; // v1377b：作者列整体偏移
+  bool _lockName = true; // v1379：书名锁——开=4字绑定一起移
+  bool _lockAuthor = true; // v1379：作者锁——开=作者与书名联动
   final Map<int, Offset?> _aDragLast = {}; // v1376：作者拖动起点
   bool _adjustMode = false;
   String? _err;
@@ -1683,6 +1685,25 @@ class _SiliconImageState extends State<_SiliconImage> {
                       onDone: () => setD2(() {})),
                 ),
                 const SizedBox(width: 16),
+                if (_adjustMode) ...[
+                  // v1379：双锁开关——书名4字绑定/作者与书名联动
+                  TextButton.icon(
+                    icon: Icon(_lockName ? Icons.lock : Icons.lock_open,
+                        color: const Color(0xFFFFD700), size: 18),
+                    label: const Text('书名锁',
+                        style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    onPressed: () => setD2(() => _lockName = !_lockName),
+                  ),
+                  TextButton.icon(
+                    icon: Icon(_lockAuthor ? Icons.lock : Icons.lock_open,
+                        color: const Color(0xFF7FD4C8), size: 18),
+                    label: const Text('作者锁',
+                        style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    onPressed: () => setD2(() => _lockAuthor = !_lockAuthor),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                const SizedBox(width: 16),
                 TextButton.icon(
                   icon: const Icon(Icons.open_with, color: Colors.white70),
                   label: Text(_adjustMode ? '完成调字' : '调字',
@@ -1875,9 +1896,17 @@ class _SiliconImageState extends State<_SiliconImage> {
                   if (d.distance < 0.5) return;
                   // v1376：setD2刷新Dialog（state.setState只刷楼层=金圈不跟手根因）
                   setD2(() {
-                    final cur = _charOffsets[i] ?? Offset.zero;
-                    _charOffsets[i] =
-                        cur + Offset(d.dx / scale, d.dy / scale);
+                    final dd = Offset(d.dx / scale, d.dy / scale);
+                    if (_lockName) {
+                      // v1379：书名锁开——4字绑定一起移
+                      for (var j = 0; j < chars.length; j++) {
+                        _charOffsets[j] =
+                            (_charOffsets[j] ?? Offset.zero) + dd;
+                      }
+                    } else {
+                      _charOffsets[i] = (_charOffsets[i] ?? Offset.zero) + dd;
+                    }
+                    if (_lockAuthor) _authorOffset += dd; // 作者锁开=跟书名联动
                   });
                 },
                 onPointerUp: (_) async {
@@ -1944,7 +1973,14 @@ class _SiliconImageState extends State<_SiliconImage> {
                 final d = e.position - last;
                 if (d.distance < 0.5) return;
                 setD2(() {
-                  _authorOffset += Offset(d.dx / scale, d.dy / scale);
+                  final dd = Offset(d.dx / scale, d.dy / scale);
+                  _authorOffset += dd;
+                  if (_lockAuthor) {
+                    // v1379：作者锁开=书名跟作者联动
+                    for (var j = 0; j < chars.length; j++) {
+                      _charOffsets[j] = (_charOffsets[j] ?? Offset.zero) + dd;
+                    }
+                  }
                 });
               },
               onPointerUp: (_) async {
