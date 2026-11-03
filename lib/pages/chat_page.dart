@@ -1572,7 +1572,9 @@ class _SiliconImageState extends State<_SiliconImage> {
       final hm = RegExp(r'height=(\d+)').firstMatch(src);
       final size =
           '${wm != null ? wm.group(1) : 768}x${hm != null ? hm.group(1) : 768}';
-      final key = '${widget.engine}|$prompt|$size'; // v1352：key含引擎——防CF/硅基缓存互相覆盖
+      // v1389：磁盘缓存key去引擎前缀——一个prompt一张图，"谁画的显示谁"，重画后新版本覆盖保留
+      final key = '$prompt|$size';
+      final legacyKey = '${widget.engine}|$prompt|$size'; // v1352旧格式（含引擎），兼容读取
       if (_cache.containsKey(key)) {
         setState(() => _bytes = _cache[key]);
         return;
@@ -1581,7 +1583,12 @@ class _SiliconImageState extends State<_SiliconImage> {
       // v1344：合成版优先（封面标签叠过字后直接读合成版）
       final composedPath = await _diskPath('${key}_composed');
       final composedFile = File(composedPath);
-      final diskPath = await _diskPath(key); // v1373b：提前声明（composed分支也要读无字底图）
+      var diskPath = await _diskPath(key); // v1373b：提前声明（composed分支也要读无字底图）
+      // v1389：新格式miss则读旧格式（v1352含引擎前缀的存量文件），兼容过渡
+      if (!File(diskPath).existsSync()) {
+        final legacyPath = await _diskPath(legacyKey);
+        if (File(legacyPath).existsSync()) diskPath = legacyPath;
+      }
       if (composedFile.existsSync() &&
           prompt.toLowerCase().contains('cover')) {
         final b = composedFile.readAsBytesSync();
@@ -1600,21 +1607,6 @@ class _SiliconImageState extends State<_SiliconImage> {
         _origBytes = b; // v1349：原底图留存
         if (mounted) setState(() => _bytes = b);
         return;
-      }
-      // v1388：切引擎不重绘历史——找其他引擎的磁盘缓存直接显示（环网50张额度被自动重绘刷掉教训）
-      for (final e in ['silicon', 'cf', 'mj', 'mjpro', 'pollination']) {
-        if (e == widget.engine) continue;
-        try {
-          final op = await _diskPath('$e|$prompt|$size');
-          final of = File(op);
-          if (of.existsSync()) {
-            final ob = of.readAsBytesSync();
-            _cache[key] = ob;
-            _origBytes = ob;
-            if (mounted) setState(() => _bytes = ob);
-            return;
-          }
-        } catch (_) {}
       }
       // v1388：切引擎前的历史楼层不自动生成——用户回复/重答的新楼层才画
       final switchMs = AppState.instance.chatEngineSwitchAt?.millisecondsSinceEpoch;
