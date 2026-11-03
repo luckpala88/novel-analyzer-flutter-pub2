@@ -2006,6 +2006,88 @@ class _SiliconImageState extends State<_SiliconImage> {
                       onDone: () => setD2(() {})),
                 ),
                 const SizedBox(width: 16),
+                // v1398：取回MJ在途图——凭存档taskId跨引擎取图（不耗额度）
+                if (_mjTaskIds?[widget.src] != null)
+                  TextButton.icon(
+                    icon: const Icon(Icons.cloud_download,
+                        color: Colors.white70),
+                    label: const Text('取MJ图',
+                        style: TextStyle(color: Colors.white70)),
+                    onPressed: () async {
+                      final tid = _mjTaskIds![widget.src]!;
+                      final isPro = widget.engine == 'mjpro';
+                      final mjBase = isPro
+                          ? 'https://api.huanwangai.com'
+                          : widget.mjBase;
+                      final mjHeaders = isPro
+                          ? {
+                              'Content-Type': 'application/json',
+                              'Authorization': 'Bearer ${widget.mjProKey}'
+                            }
+                          : {'Content-Type': 'application/json'};
+                      setState(() => _err = '取回MJ图…');
+                      String? imageUrl;
+                      for (var t = 0; t < 60; t++) {
+                        await Future.delayed(const Duration(seconds: 5));
+                        if (!mounted) return;
+                        http.Response ft;
+                        try {
+                          ft = await http
+                              .get(Uri.parse('$mjBase/mj/task/$tid/fetch'),
+                                  headers: mjHeaders)
+                              .timeout(const Duration(seconds: 20));
+                        } catch (_) {
+                          continue;
+                        }
+                        if (ft.statusCode != 200) continue;
+                        final ftData = jsonDecode(ft.body);
+                        final status = ftData['status']?.toString() ?? '';
+                        if (status == 'SUCCESS') {
+                          final urls = ftData['imageUrls'];
+                          imageUrl = (ftData['imageUrl']?.toString()
+                                          .isNotEmpty ==
+                                      true
+                                  ? ftData['imageUrl']
+                                  : null) ??
+                              (urls is List && urls.isNotEmpty
+                                  ? urls[0]
+                                  : null) ??
+                              ftData['result']?['imageUrl'] ??
+                              ftData['uri'];
+                          imageUrl = imageUrl?.toString();
+                          break;
+                        }
+                        if (status == 'FAILURE') {
+                          setState(() => _err =
+                              'MJ任务失败: ${ftData['failReason'] ?? '未知'}');
+                          return;
+                        }
+                        setState(
+                            () => _err = '取回中 ${ftData['progress'] ?? status}…');
+                      }
+                      if (imageUrl == null || imageUrl.isEmpty) {
+                        setState(() => _err = '取回超时，稍后再点');
+                        return;
+                      }
+                      final imgRs = await http
+                          .get(Uri.parse(imageUrl))
+                          .timeout(const Duration(seconds: 60));
+                      if (imgRs.statusCode != 200) {
+                        setState(
+                            () => _err = 'MJ图下载失败 HTTP${imgRs.statusCode}');
+                        return;
+                      }
+                      _mjTaskIds?.remove(widget.src); // 取回闭环
+                      _failedOnce.remove(widget.src);
+                      _manualOnly.remove(widget.src);
+                      _manualRetry.add(widget.src);
+                      setState(() => _err = null);
+                      await updateBytes(imgRs.bodyBytes);
+                      _origBytes = imgRs.bodyBytes;
+                      _manualRetry.add(widget.src);
+                      await _load();
+                    },
+                  ),
                 if (_adjustMode) ...[
                   // v1379：双锁开关——书名4字绑定/作者与书名联动
                   TextButton.icon(
