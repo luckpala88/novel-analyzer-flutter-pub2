@@ -1656,7 +1656,11 @@ class _SiliconImageState extends State<_SiliconImage> {
           widget.floorCreatedAt! < switchMs &&
           !_manualRetry.contains(src)) {
         _manualOnly.add(src);
-        setState(() => _err = '未生成（切引擎后的旧楼层，点此生成）');
+        // v1397：有MJ在途任务时提示取回（凭taskId跨引擎取图，不耗额度）
+        final hasTask = _mjTaskIds?[src] != null;
+        setState(() => _err = hasTask
+            ? '有MJ在途任务，点此取回'
+            : '未生成（切引擎后的旧楼层，点此生成）');
         return;
       }
       // v1388：全局并发闸——多楼层同时自动生成超服务商并发限制（环网关code=-1实证）
