@@ -39,11 +39,11 @@ void main() {
 
     // 3. 像素diff：两图不同（偏移改变了字位置）
     final codec0 =
-        await ui.instantiateImageCodec(out0!);
+        await ui.instantiateImageCodec(out0!.bytes);
     final f0 = await codec0.getNextFrame();
     final bd0 = await f0.image
         .toByteData(format: ui.ImageByteFormat.rawRgba);
-    final codec1 = await ui.instantiateImageCodec(out1!);
+    final codec1 = await ui.instantiateImageCodec(out1!.bytes);
     final f1 = await codec1.getNextFrame();
     final bd1 = await f1.image
         .toByteData(format: ui.ImageByteFormat.rawRgba);
@@ -68,10 +68,10 @@ void main() {
     // 4. 保存链：writeAsBytes→读回字节一致
     final f = File(
         '/tmp/cover_test_${DateTime.now().millisecondsSinceEpoch}.png');
-    await f.writeAsBytes(out1);
-    expect(f.lengthSync(), out1.length, reason: '保存后PNG字节数应一致');
+    await f.writeAsBytes(out1.bytes);
+    expect(f.lengthSync(), out1.bytes.length, reason: '保存后PNG字节数应一致');
     f.deleteSync();
-    debugPrint('保存链OK ${out1.length}B');
+    debugPrint('保存链OK ${out1.bytes.length}B');
     });
   }, skip: true); // v1373b已沙盒验证：diff=31398px偏移生效97%书名列、保存链26306B一致
   // skip原因：audioplayers动态UUID channel test环境mock不完

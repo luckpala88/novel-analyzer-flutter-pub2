@@ -1462,6 +1462,10 @@ class _SiliconImageState extends State<_SiliconImage> {
   Offset _authorOffset = Offset.zero; // v1377b：作者列整体偏移
   bool _lockName = true; // v1379：书名锁——开=4字绑定一起移
   bool _lockAuthor = true; // v1379：作者锁——开=作者与书名联动
+  List<Offset> _charCenters = []; // v1382：各字真实视觉中心（compose返回）
+  Offset _authorCenter = Offset.zero; // v1382：作者拖块锚点
+  final Map<int, double> _charScales = {}; // v1382：单字缩放
+  double _authorScale = 1.0; // v1382：作者列缩放
   final Map<int, Offset?> _aDragLast = {}; // v1376：作者拖动起点
   bool _adjustMode = false;
   String? _err;
@@ -1553,7 +1557,11 @@ class _SiliconImageState extends State<_SiliconImage> {
           setState(() => _err = '点顶栏🔑填CF Token+账户ID');
           return;
         }
-        final cbody = jsonEncode({'prompt': prompt});
+        // v1382：flux-schnell对裸prompt出图随机——加封面质量增强前缀
+        final cbody = jsonEncode({
+          'prompt':
+              'professional book cover art, masterpiece, best quality, highly detailed, dramatic lighting, cinematic composition, rich colors. $prompt'
+        });
         final creq = http.Request(
             'POST',
             Uri.parse(
@@ -1621,7 +1629,7 @@ class _SiliconImageState extends State<_SiliconImage> {
         try {
           final composed = await composeCoverText(
               finalBytes, widget.bookName, 'luckpala');
-          if (composed != null) finalBytes = composed;
+          if (composed != null) finalBytes = composed.bytes;
         } catch (_) {}
       }
       if (mounted) setState(() => _bytes = finalBytes);
@@ -1678,8 +1686,11 @@ class _SiliconImageState extends State<_SiliconImage> {
                       ),
               ),
               SafeArea(
-                child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+                child: Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 8,
+                runSpacing: 2,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                 TextButton.icon(
                   icon: const Icon(Icons.text_fields, color: Colors.white70),
@@ -1704,6 +1715,32 @@ class _SiliconImageState extends State<_SiliconImage> {
                     label: const Text('作者锁',
                         style: TextStyle(color: Colors.white70, fontSize: 12)),
                     onPressed: () => setD2(() => _lockAuthor = !_lockAuthor),
+                  ),
+                  // v1382：复位——清偏移+缩放回合成初始
+                  TextButton.icon(
+                    icon: const Icon(Icons.restart_alt,
+                        color: Colors.white70, size: 18),
+                    label: const Text('复位',
+                        style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    onPressed: () async {
+                      setD2(() {
+                        _charOffsets.clear();
+                        _authorOffset = Offset.zero;
+                        _charScales.clear();
+                        _authorScale = 1.0;
+                      });
+                      final src0 = _origBytes ?? _bytes;
+                      if (src0 == null) return;
+                      final out = await composeCoverText(src0, _coverName,
+                          _coverAuthor,
+                          fontFamily: _coverFont);
+                      if (out != null) {
+                        _charCenters = out.charCenters;
+                        _authorCenter = out.authorCenter;
+                        setState(() => _bytes = out.bytes);
+                        setD2(() {});
+                      }
+                    },
                   ),
                   const SizedBox(width: 8),
                 ],
@@ -1813,11 +1850,17 @@ class _SiliconImageState extends State<_SiliconImage> {
                     name, authorCtl.text.trim(),
                     fontFamily: font,
                     charOffsets: st._charOffsets,
-                    authorOffset: st._authorOffset);
+                    authorOffset: st._authorOffset,
+                    charScales: st._charScales,
+                    authorScale: st._authorScale);
                 if (out != null) {
                   // v1378：合成实际用的底图记为_origBytes——历史缓存路径_origBytes漏赋值时重合成静默return实证
                   if (st._origBytes == null) st._origBytes = src0;
-                  st.updateBytes(out);
+                  st._charCenters = out.charCenters; // v1382：圈套真实字位
+                  st._authorCenter = out.authorCenter;
+                  st._charOffsets.clear(); // v1382：centers已含offset，防双计
+                  st._authorOffset = Offset.zero;
+                  st.updateBytes(out.bytes);
                   onDone?.call(); // 合成后刷新全屏预览
                 } else {
                   ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
@@ -1881,9 +1924,16 @@ class _SiliconImageState extends State<_SiliconImage> {
           ),
           for (var i = 0; i < chars.length; i++)
             Positioned(
-              left: (nameX + (_charOffsets[i]?.dx ?? 0)) * scale - 30,
-              // v1381：圈中心对齐字视觉中心（TextPainter行高≈1.4×fontSize→中心0.7倍，原0.5倍圈偏上）
-              top: (y0 + i * lineH + nameSize * 0.7 +
+              // v1382：圈=compose返回的真实字中心+offset增量
+              left: ((i < _charCenters.length
+                          ? _charCenters[i].dx
+                          : nameX) +
+                      (_charOffsets[i]?.dx ?? 0)) *
+                  scale -
+                  30,
+              top: ((i < _charCenters.length
+                          ? _charCenters[i].dy
+                          : y0 + i * lineH + 0.7 * nameSize) +
                       (_charOffsets[i]?.dy ?? 0)) *
                   scale -
                   30,
@@ -1929,9 +1979,15 @@ class _SiliconImageState extends State<_SiliconImage> {
                         _coverName, _coverAuthor,
                         fontFamily: _coverFont,
                         charOffsets: _charOffsets,
-                        authorOffset: _authorOffset);
+                        authorOffset: _authorOffset,
+                        charScales: _charScales,
+                        authorScale: _authorScale);
                     if (out != null) {
-                      setState(() => _bytes = out); // 楼层图更新
+                      _charCenters = out.charCenters; // v1382：圈跟新字位
+                      _authorCenter = out.authorCenter;
+                      _charOffsets.clear(); // centers已含offset，防双计
+                      _authorOffset = Offset.zero;
+                      setState(() => _bytes = out.bytes); // 楼层图更新
                       setD2(() {}); // v1376：Dialog也刷（Image读_bytes新值）
                     } else {
                       AppState.instance.apiLog('重合成返回空');
@@ -1940,34 +1996,69 @@ class _SiliconImageState extends State<_SiliconImage> {
                     AppState.instance.apiLog('重合成异常：$ex');
                   }
                 },
-                child: Container(
-                  width: 60,
-                  height: 60,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.12),
-                    border: Border.all(
-                        color: const Color(0xFFFFD700), width: 1.5),
+                child: Stack(clipBehavior: Clip.none, children: [
+                  Container(
+                    width: 60,
+                    height: 60,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withOpacity(0.12),
+                      border: Border.all(
+                          color: const Color(0xFFFFD700), width: 1.5),
+                    ),
+                    child: Text(chars[i],
+                        style: TextStyle(
+                            fontSize: 22,
+                            color: const Color(0xFFFFD700),
+                            fontFamily:
+                                _coverFont.isEmpty ? null : _coverFont)),
                   ),
-                  child: Text(chars[i],
-                      style: TextStyle(
-                          fontSize: 22,
-                          color: const Color(0xFFFFD700),
-                          fontFamily: _coverFont.isEmpty ? null : _coverFont)),
-                ),
+                  // v1382：单字缩放角标——左上减/右上加
+                  Positioned(
+                    top: -9, left: -9,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => setD2(() => _charScales[i] =
+                          ((_charScales[i] ?? 1.0) - 0.1).clamp(0.5, 2.0)),
+                      child: Container(
+                        width: 22, height: 22,
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Color(0xFF6B5A2E)),
+                        child: const Text('-',
+                            style: TextStyle(
+                                color: Colors.white, fontSize: 15, height: 1)),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: -9, right: -9,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => setD2(() => _charScales[i] =
+                          ((_charScales[i] ?? 1.0) + 0.1).clamp(0.5, 2.0)),
+                      child: Container(
+                        width: 22, height: 22,
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Color(0xFF6B5A2E)),
+                        child: const Text('+',
+                            style: TextStyle(
+                                color: Colors.white, fontSize: 15, height: 1)),
+                      ),
+                    ),
+                  ),
+                ]),
               ),
             ),
           // v1376：作者列“某某著”独立拖块（青圈44px区分书名金圈）
-          // v1377b：作者列单拖块（整列一起移动，列中点定位）
+          // v1382：作者块=compose返回锚点（列底部下方不压字）+36px小圈
           Positioned(
-            left: (nameX + nameSize * 0.60 + _authorOffset.dx) * scale - 30,
-            top: (y0 + nameSize * 0.08 +
-                    2.5 * (nameSize * 0.30) * 1.18 / 2 +
-                    (nameSize * 0.30) * 0.2 +
-                    _authorOffset.dy) *
-                scale -
-                30,
+            left: (_authorCenter.dx + _authorOffset.dx) * scale - 18,
+            top: (_authorCenter.dy + _authorOffset.dy) * scale - 18,
             child: Listener(
               onPointerDown: (e) {
                 _aDragLast[0] = e.position;
@@ -2003,9 +2094,15 @@ class _SiliconImageState extends State<_SiliconImage> {
                       _coverName, _coverAuthor,
                       fontFamily: _coverFont,
                       charOffsets: _charOffsets,
-                      authorOffset: _authorOffset);
+                      authorOffset: _authorOffset,
+                      charScales: _charScales,
+                      authorScale: _authorScale);
                   if (out != null) {
-                    setState(() => _bytes = out);
+                    _charCenters = out.charCenters;
+                    _authorCenter = out.authorCenter;
+                    _charOffsets.clear(); // centers已含offset，防双计
+                    _authorOffset = Offset.zero;
+                    setState(() => _bytes = out.bytes);
                     setD2(() {});
                   } else {
                     AppState.instance.apiLog('作者重合成返回空');
@@ -2014,20 +2111,56 @@ class _SiliconImageState extends State<_SiliconImage> {
                   AppState.instance.apiLog('作者重合成异常：$ex');
                 }
               },
-              child: Container(
-                width: 60,
-                height: 60,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.12),
-                  border:
-                      Border.all(color: const Color(0xFF7FD4C8), width: 1.5),
+              child: Stack(clipBehavior: Clip.none, children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(0.12),
+                    border:
+                        Border.all(color: const Color(0xFF7FD4C8), width: 1.5),
+                  ),
+                  child: Text(_coverAuthor.isEmpty ? '著' : _coverAuthor[0],
+                      style: const TextStyle(
+                          fontSize: 13, color: Color(0xFF7FD4C8))),
                 ),
-                child: Text(_coverAuthor.isEmpty ? '著' : _coverAuthor[0],
-                    style: const TextStyle(
-                        fontSize: 16, color: Color(0xFF7FD4C8))),
-              ),
+                Positioned(
+                  top: -8, left: -8,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => setD2(() =>
+                        _authorScale = (_authorScale - 0.1).clamp(0.5, 2.0)),
+                    child: Container(
+                      width: 20, height: 20,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(
+                          shape: BoxShape.circle, color: Color(0xFF2E5A55)),
+                      child: const Text('-',
+                          style: TextStyle(
+                              color: Colors.white, fontSize: 14, height: 1)),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: -8, right: -8,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => setD2(() =>
+                        _authorScale = (_authorScale + 0.1).clamp(0.5, 2.0)),
+                    child: Container(
+                      width: 20, height: 20,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(
+                          shape: BoxShape.circle, color: Color(0xFF2E5A55)),
+                      child: const Text('+',
+                          style: TextStyle(
+                              color: Colors.white, fontSize: 14, height: 1)),
+                    ),
+                  ),
+                ),
+              ]),
             ),
           ),
         ]),
@@ -2340,11 +2473,13 @@ Widget _chatImage(BuildContext context, String rawSrc) {
     return ink > 40;
   }
 
-  Future<Uint8List?> composeCoverText(
+  Future<CoverComposeResult?> composeCoverText(
       Uint8List baseBytes, String bookName, String author,
       {String fontFamily = '',
       Map<int, Offset> charOffsets = const {},
-      Offset authorOffset = Offset.zero}) async {
+      Offset authorOffset = Offset.zero,
+      Map<int, double> charScales = const {},
+      double authorScale = 1.0}) async {
     if (bookName.isEmpty) return null;
     final codec = await ui.instantiateImageCodec(baseBytes);
     final frame = await codec.getNextFrame();
@@ -2374,11 +2509,14 @@ Widget _chatImage(BuildContext context, String rawSrc) {
             Color(0xFFB8860B),
           ], [0.0, 0.5, 1.0], TileMode.clamp);
     var y = y0;
-    for (final ch in chars) {
+    final centers = <Offset>[]; // v1382：各字真实视觉中心
+    for (var i = 0; i < chars.length; i++) {
+      final ch = chars[i];
+      final sc = charScales[i] ?? 1.0; // v1382：单字缩放
       // v1367：逐字检测——行书等覆盖小字体缺字空白→回退文楷
       var useFont = ff;
       if (ff != null && ff != 'WenKai') {
-        final hasInk = await glyphHasInk(ch, nameSize, ff, fallback);
+        final hasInk = await glyphHasInk(ch, nameSize * sc, ff, fallback);
         if (!hasInk) useFont = 'WenKai';
       }
       // 阴影层
@@ -2386,7 +2524,7 @@ Widget _chatImage(BuildContext context, String rawSrc) {
           text: TextSpan(
               text: ch,
               style: TextStyle(
-                  fontSize: nameSize,
+                  fontSize: nameSize * sc,
                   fontFamily: useFont,
                   fontWeight: FontWeight.w900,
                   foreground: ui.Paint()
@@ -2401,19 +2539,23 @@ Widget _chatImage(BuildContext context, String rawSrc) {
           text: TextSpan(
               text: ch,
               style: TextStyle(
-                  fontSize: nameSize,
+                  fontSize: nameSize * sc,
                   fontFamily: useFont,
                   fontWeight: FontWeight.w900,
                   foreground: grad)),
           textDirection: TextDirection.ltr)
         ..layout();
-      final off = charOffsets[chars.indexOf(ch)] ?? Offset.zero;
+      final off = charOffsets[i] ?? Offset.zero;
       tp.paint(canvas,
           ui.Offset(nameX - tp.width / 2 + off.dx, y + off.dy));
+      centers.add(Offset(
+          nameX + off.dx, y + tp.height / 2 + off.dy)); // v1382：真实视觉中心
       y += lineH;
     }
 
     // ===== 作者竖排“某某著”（书名左侧，末字金圈印章） =====
+    var authorCenter = Offset(img.width * 0.7, img.height * 0.25);
+    final aCenters = <Offset>[];
     if (author.isNotEmpty) {
       final aChars = '$author著'.split('');
       final aSize = nameSize * 0.30;
@@ -2433,7 +2575,9 @@ Widget _chatImage(BuildContext context, String rawSrc) {
             text: TextSpan(
                 text: aChars[i],
                 style: TextStyle(
-                    fontSize: isLast ? aSize * 0.62 : aSize,
+                    fontSize: isLast
+                        ? aSize * 0.62 * authorScale
+                        : aSize * authorScale,
                     fontFamily: aUseFont,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFFFFE9A8),
@@ -2457,8 +2601,11 @@ Widget _chatImage(BuildContext context, String rawSrc) {
         }
         tp.paint(canvas,
             ui.Offset(ax - tp.width / 2 + offA.dx, ay + offA.dy));
+        aCenters.add(Offset(ax + offA.dx, ay + tp.height / 2 + offA.dy));
         ay += isLast ? aSize * 0.9 : aSize * 1.18;
       }
+      // v1382：作者拖块中心=列底部下方（不压名字）
+      authorCenter = Offset(ax + authorOffset.dx, ay + aSize * 1.2);
     }
 
     AppState.instance.apiLog(
@@ -2467,5 +2614,14 @@ Widget _chatImage(BuildContext context, String rawSrc) {
     final out = await pic.toImage(img.width, img.height);
     final bd = await out.toByteData(format: ui.ImageByteFormat.png);
     img.dispose();
-    return bd?.buffer.asUint8List();
+    if (bd == null) return null;
+    return CoverComposeResult(bd.buffer.asUint8List(), centers, authorCenter);
   }
+
+/// v1382：封面合成结果——bytes+各字真实视觉中心（TextPainter实测，圈套字零偏差）
+class CoverComposeResult {
+  final Uint8List bytes;
+  final List<Offset> charCenters;
+  final Offset authorCenter;
+  CoverComposeResult(this.bytes, this.charCenters, this.authorCenter);
+}
