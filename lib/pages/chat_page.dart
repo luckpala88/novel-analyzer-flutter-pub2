@@ -1798,6 +1798,7 @@ class _SiliconImageState extends State<_SiliconImage> {
         try {
           final taskId = savedTaskId ?? _mjTaskIds![src]!;
           String? imageUrl;
+          var lastProg = ''; // v1403：进度去重
           for (var t = 0; t < 60; t++) {
             await Future.delayed(const Duration(seconds: 5));
             if (!mounted) return;
@@ -2246,8 +2247,10 @@ class _SiliconImageState extends State<_SiliconImage> {
                     final tid = _mjTaskIds![widget.src]!;
                     setState(() => _err = '取回MJ图…');
                     String? imageUrl;
-                    for (var t = 0; t < 60; t++) {
-                      await Future.delayed(const Duration(seconds: 5));
+                    var lastProg = '';
+                    for (var t = 0; t < 108; t++) {
+                      await Future.delayed(
+                          Duration(seconds: t < 60 ? 2 : 5));
                       if (!mounted) return;
                       http.Response ft;
                       try {
@@ -2265,6 +2268,11 @@ class _SiliconImageState extends State<_SiliconImage> {
                       if (ft.statusCode != 200) continue;
                       final ftData = jsonDecode(ft.body);
                       final status = ftData['status']?.toString() ?? '';
+                      final prog = ftData['progress']?.toString() ?? '';
+                      if (prog.isNotEmpty && prog != lastProg) {
+                        lastProg = prog;
+                        AppState.instance.apiLog('MJ进度 $prog');
+                      }
                       if (status == 'SUCCESS') {
                         // v1401：独立单图URL数组优先
                         final urls = ftData['imageUrls'];
