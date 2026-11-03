@@ -1789,8 +1789,27 @@ class _SiliconImageState extends State<_SiliconImage> {
             final ftData = jsonDecode(ft.body);
             final status = ftData['status']?.toString() ?? '';
             if (status == 'SUCCESS') {
-              // v1393：字段多形态容错——v12接口 imageUrl/imageUrls[]/result.imageUrl/uri
+              // v1401：独立单图URL数组优先（环网关后台4张独立图，原始分辨率）
               final urls = ftData['imageUrls'];
+              if (urls is List && urls.length >= 2) {
+                final dl = <Uint8List>[];
+                for (final u in urls) {
+                  try {
+                    final rs = await http
+                        .get(Uri.parse(u.toString()))
+                        .timeout(const Duration(seconds: 60));
+                    if (rs.statusCode == 200) dl.add(rs.bodyBytes);
+                  } catch (_) {}
+                }
+                if (dl.length >= 2) {
+                  _mjGrid = dl;
+                  _mjGridSel = 0;
+                  _mjTaskIds?.remove(src);
+                  genBytes = dl[0];
+                  break;
+                }
+              }
+              // 拼图兜底：imageUrl四宫格→本地切分
               imageUrl = (ftData['imageUrl']?.toString().isNotEmpty == true
                       ? ftData['imageUrl']
                       : null) ??
@@ -2220,7 +2239,28 @@ class _SiliconImageState extends State<_SiliconImage> {
                       final ftData = jsonDecode(ft.body);
                       final status = ftData['status']?.toString() ?? '';
                       if (status == 'SUCCESS') {
+                        // v1401：独立单图URL数组优先
                         final urls = ftData['imageUrls'];
+                        if (urls is List && urls.length >= 2) {
+                          final dl = <Uint8List>[];
+                          for (final u in urls) {
+                            try {
+                              final rs = await http
+                                  .get(Uri.parse(u.toString()))
+                                  .timeout(const Duration(seconds: 60));
+                              if (rs.statusCode == 200) dl.add(rs.bodyBytes);
+                            } catch (_) {}
+                          }
+                          if (dl.length >= 2) {
+                            _mjGrid = dl;
+                            _mjGridSel = 0;
+                            _mjTaskIds?.remove(widget.src);
+                            await updateBytes(dl[0]);
+                            AppState.instance
+                                .apiLog('MJ图取回成功(4图) ${dl.length}张');
+                            return;
+                          }
+                        }
                         imageUrl = (ftData['imageUrl']?.toString()
                                         .isNotEmpty ==
                                     true
