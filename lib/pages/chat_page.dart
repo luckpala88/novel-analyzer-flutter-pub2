@@ -1716,10 +1716,11 @@ class _SiliconImageState extends State<_SiliconImage> {
           !_manualRetry.contains(src)) {
         _manualOnly.add(src);
         // v1397：有MJ在途任务时提示取回（凭taskId跨引擎取图，不耗额度）
-        final hasTask = _mjTaskIds?[src] != null;
+        // v1411：空串ID不算有任务；无ID历史楼层不承诺生成（点了也取不了，绝不重画）
+        final hasTask = _mjTaskIds?[src]?.isNotEmpty == true;
         setState(() => _err = hasTask
             ? '有MJ在途任务，点此取回'
-            : '未生成（切引擎后的旧楼层，点此生成）');
+            : '旧楼层未生成（无存档任务ID）');
         return;
       }
       // v1388：全局并发闸——多楼层同时自动生成超服务商并发限制（环网关code=-1实证）
@@ -1747,7 +1748,20 @@ class _SiliconImageState extends State<_SiliconImage> {
         }
         // v1395：找回超时任务——凭已存taskId直接续轮询，不重新提交不耗额度
         await _loadMjTasks();
-        final savedTaskId = _mjTaskIds?[src];
+        // v1411：空串ID不算命中（任务闭环""hack残留）
+        final savedTaskId =
+            (_mjTaskIds?[src] ?? '').isNotEmpty ? _mjTaskIds![src] : null;
+        // v1411：历史楼层无存档ID——点取图也绝不重新提交（额度血案实证）
+        final swMs =
+            AppState.instance.chatEngineSwitchAt?.millisecondsSinceEpoch;
+        if (savedTaskId == null &&
+            widget.floorCreatedAt != null &&
+            swMs != null &&
+            widget.floorCreatedAt! < swMs) {
+          if (_activeGen > 0) _activeGen--;
+          setState(() => _err = '该图无存档任务ID，取不了');
+          return;
+        }
         final w0 = int.tryParse(RegExp(r'width=(\d+)').firstMatch(widget.src)?.group(1) ?? '1024');
         final h0 = int.tryParse(RegExp(r'height=(\d+)').firstMatch(widget.src)?.group(1) ?? '1024');
         final g = w0 != null && h0 != null && w0 > 0 && h0 > 0 ? w0.gcd(h0) : 1;
