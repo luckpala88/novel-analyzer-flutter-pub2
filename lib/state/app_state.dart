@@ -294,6 +294,8 @@ class AppState extends ChangeNotifier {
   void setChatImageEngine(String v) {
     chatImageEngine = v;
     chatEngineSwitchAt = DateTime.now(); // v1388：此前楼层不自动重绘
+    storage.writeGlobal('chat_engine_switch_at',
+        chatEngineSwitchAt!.millisecondsSinceEpoch.toString()); // v1409：持久化
     storage.writeGlobal('chat_image_engine', v);
     notifyListeners();
   }
@@ -1399,6 +1401,11 @@ class AppState extends ChangeNotifier {
     if (mjb != null && mjb.isNotEmpty) chatMjBase = mjb;
     final mjpk = storage.readGlobal('chat_mjpro_key');
     if (mjpk != null) chatMjProKey = mjpk;
+    final esa = storage.readGlobal('chat_engine_switch_at');
+    if (esa != null) {
+      chatEngineSwitchAt =
+          DateTime.fromMillisecondsSinceEpoch(int.parse(esa));
+    }
     if (cfa != null) chatCfAccount = cfa;
 
     // TTS配置
