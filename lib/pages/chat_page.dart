@@ -1820,8 +1820,10 @@ class _SiliconImageState extends State<_SiliconImage> {
                 final dl = <Uint8List>[];
                 for (final u in urls) {
                   try {
+                    // v1403：元素是{url,thumbnail}对象——取url字段（toString={url:..}导致解析全失败回退拼图实证）
+                    final uu = u is Map ? (u['url'] ?? u) : u;
                     final rs = await http
-                        .get(Uri.parse(u.toString()))
+                        .get(Uri.parse(uu.toString()))
                         .timeout(const Duration(seconds: 60));
                     if (rs.statusCode == 200) dl.add(rs.bodyBytes);
                   } catch (_) {}
@@ -2270,8 +2272,10 @@ class _SiliconImageState extends State<_SiliconImage> {
                           final dl = <Uint8List>[];
                           for (final u in urls) {
                             try {
+                              // v1403：{url,thumbnail}对象取url
+                              final uu = u is Map ? (u['url'] ?? u) : u;
                               final rs = await http
-                                  .get(Uri.parse(u.toString()))
+                                  .get(Uri.parse(uu.toString()))
                                   .timeout(const Duration(seconds: 60));
                               if (rs.statusCode == 200) dl.add(rs.bodyBytes);
                             } catch (_) {}
