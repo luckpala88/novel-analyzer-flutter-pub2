@@ -1234,7 +1234,8 @@ class _ChatPageState extends State<ChatPage>
                 // v836：富文本渲染（JSON美化/简易markdown），单条复制保留
                 Padding(
                   padding: const EdgeInsets.only(right: 22),
-                  child: _richContent(state, m.content),
+                  child: _richContent(state, m.content,
+                      msgCreatedAt: m.ts),
                 ),
                 Positioned(
                   right: 0,
@@ -1313,7 +1314,7 @@ class _ChatPageState extends State<ChatPage>
   }
 
   /// 内容分发：JSON→美化卡片；markdown→富文本span；普通文本原样
-  Widget _richContent(AppState state, String content) {
+  Widget _richContent(AppState state, String content, {int? msgCreatedAt}) {
     final useSilicon =
         state.chatImageGen && state.chatImageEngine == 'silicon';
     final skey = state.chatSiliconKey;
@@ -1360,7 +1361,8 @@ class _ChatPageState extends State<ChatPage>
                 cfAccount: state.chatCfAccount,
                 bookName: bookName,
                 mjBase: state.chatMjBase,
-                mjProKey: state.chatMjProKey));
+                mjProKey: state.chatMjProKey,
+                floorCreatedAt: msgCreatedAt));
         cursor = m.end;
       }
       if (cursor < normContent.length) {
@@ -1458,6 +1460,7 @@ class _SiliconImage extends StatefulWidget {
   final String bookName; // v1344：自动叠封面书名
   final String mjBase; // v1383：MJ公益接口地址
   final String mjProKey; // v1385：MJ企（环网关）key
+  final int? floorCreatedAt; // v1388：楼层消息时间——切引擎前的历史楼层不自动生成
   const _SiliconImage(
       {required this.src,
       required this.engine,
@@ -1466,7 +1469,8 @@ class _SiliconImage extends StatefulWidget {
       this.cfAccount = '',
       this.bookName = '',
       this.mjBase = 'https://ai.trueai.org',
-      this.mjProKey = ''});
+      this.mjProKey = '',
+      this.floorCreatedAt});
   @override
   State<_SiliconImage> createState() => _SiliconImageState();
 }
@@ -1475,6 +1479,10 @@ class _SiliconImageState extends State<_SiliconImage> {
   static final Map<String, Uint8List> _cache = {};
   // v1384：全局在飞任务去重——流式输出期间楼层每chunk重建State，无此锁=MJ提交风暴（日志实证1.6秒16连发）
   static final Set<String> _inflight = {};
+  static int _activeGen = 0; // v1388：全局生成并发计数（上限2，防超服务商并发）
+  // v1388：切引擎前的历史楼层=手动生成（点击占位才画），防切引擎自动重绘刷额度
+  static final Set<String> _manualOnly = {};
+  static final Set<String> _manualRetry = {};
   // v1386：失败冷却——429后finally移除inflight→chunk重建立即重试→"失败-移除-重试"死循环（v1384日志实证百次429）
   static final Map<String, DateTime> _failCooldown = {};
   // v1387：失败一次就停——用户裁决"提交失败一次就让它停"——重建的State不再自动重试，手动点击错误框重试
@@ -1593,6 +1601,37 @@ class _SiliconImageState extends State<_SiliconImage> {
         if (mounted) setState(() => _bytes = b);
         return;
       }
+      // v1388：切引擎不重绘历史——找其他引擎的磁盘缓存直接显示（环网50张额度被自动重绘刷掉教训）
+      for (final e in ['silicon', 'cf', 'mj', 'mjpro', 'pollination']) {
+        if (e == widget.engine) continue;
+        try {
+          final op = await _diskPath('$e|$prompt|$size');
+          final of = File(op);
+          if (of.existsSync()) {
+            final ob = of.readAsBytesSync();
+            _cache[key] = ob;
+            _origBytes = ob;
+            if (mounted) setState(() => _bytes = ob);
+            return;
+          }
+        } catch (_) {}
+      }
+      // v1388：切引擎前的历史楼层不自动生成——用户回复/重答的新楼层才画
+      final switchMs = AppState.instance.chatEngineSwitchAt?.millisecondsSinceEpoch;
+      if (widget.floorCreatedAt != null &&
+          switchMs != null &&
+          widget.floorCreatedAt! < switchMs &&
+          !_manualRetry.contains(src)) {
+        _manualOnly.add(src);
+        setState(() => _err = '未生成（切引擎后的旧楼层，点此生成）');
+        return;
+      }
+      // v1388：全局并发闸——多楼层同时自动生成超服务商并发限制（环网关code=-1实证）
+      while (_activeGen >= 2) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (!mounted) return;
+      }
+      _activeGen++;
       Uint8List genBytes;
       if (widget.engine == 'mj' || widget.engine == 'mjpro') {
         // v1383：MJ公益接口（trueai-org/midjourney-proxy）——提交任务+轮询取图
@@ -1623,6 +1662,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                   body: jsonEncode({'prompt': mjPrompt}))
               .timeout(const Duration(seconds: 30));
           if (sub.statusCode != 200) {
+            if (_activeGen > 0) _activeGen--;
             _failedOnce.add(src);
             _failCooldown[src] = DateTime.now();
             AppState.instance.apiLog('MJ提交失败 HTTP${sub.statusCode}');
@@ -1631,6 +1671,7 @@ class _SiliconImageState extends State<_SiliconImage> {
           }
           final subData = jsonDecode(sub.body);
           if (subData['code'] != 1) {
+            if (_activeGen > 0) _activeGen--;
             _failedOnce.add(src);
             _failCooldown[src] = DateTime.now();
             AppState.instance.apiLog(
@@ -1657,6 +1698,7 @@ class _SiliconImageState extends State<_SiliconImage> {
               break;
             }
             if (status == 'FAILURE') {
+              if (_activeGen > 0) _activeGen--;
               _failedOnce.add(src);
               _failCooldown[src] = DateTime.now();
               AppState.instance
@@ -1669,6 +1711,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                 () => _err = 'MJ绘制中 ${ftData['progress'] ?? status}…');
           }
           if (imageUrl == null || imageUrl.isEmpty) {
+            if (_activeGen > 0) _activeGen--;
             _failedOnce.add(src);
             AppState.instance.apiLog('MJ超时（5分钟未完成）');
             setState(() => _err = 'MJ超时（5分钟未完成）');
@@ -1679,6 +1722,7 @@ class _SiliconImageState extends State<_SiliconImage> {
               .get(Uri.parse(imageUrl))
               .timeout(const Duration(seconds: 60));
           if (imgRs.statusCode != 200) {
+            if (_activeGen > 0) _activeGen--;
             _failedOnce.add(src);
             AppState.instance.apiLog('MJ图下载失败 HTTP${imgRs.statusCode}');
             setState(() => _err = 'MJ图下载失败 HTTP${imgRs.statusCode}');
@@ -1686,6 +1730,7 @@ class _SiliconImageState extends State<_SiliconImage> {
           }
           genBytes = imgRs.bodyBytes;
         } catch (ex) {
+          if (_activeGen > 0) _activeGen--;
           _failedOnce.add(src);
           AppState.instance.apiLog('MJ异常: $ex');
           setState(() => _err = 'MJ异常: $ex');
@@ -1706,6 +1751,7 @@ class _SiliconImageState extends State<_SiliconImage> {
           } catch (_) {}
         }
         if (mounted) setState(() => _bytes = finalBytes);
+        if (_activeGen > 0) _activeGen--;
         return;
       }
       if (widget.engine == 'cf') {
@@ -1782,6 +1828,8 @@ class _SiliconImageState extends State<_SiliconImage> {
       try {
         await File(diskPath).writeAsBytes(genBytes); // v1343：落盘
       } catch (_) {}
+      _manualRetry.remove(src); // v1388：生成完成，撤销手动重试豁免
+      _activeGen--; // v1388：并发闸释放
       var finalBytes = genBytes;
       // v1344：封面标签自动叠书名+作者（prompt含cover触发，AI画不了汉字的正解）
       if (prompt.toLowerCase().contains('cover') && widget.bookName.isNotEmpty) {
@@ -1796,20 +1844,26 @@ class _SiliconImageState extends State<_SiliconImage> {
       if (mounted) setState(() => _err = '生成超时/失败');
     } finally {
       _inflight.remove(src); // v1384：无论成败，飞完移除
+      if (_activeGen > 0) _activeGen--; // v1388：异常路径也释放
     }
   }
 
   @override
   Widget build(BuildContext context) {
     if (_err != null) {
-      final failed = _failedOnce.contains(widget.src);
+      final failed = _failedOnce.contains(widget.src) ||
+          _manualOnly.contains(widget.src);
       return GestureDetector(
         onTap: failed
             ? () {
-                // v1387：手动重试——清失败标记/冷却后重新加载
+                // v1387/1388：手动重试——清失败标记/冷却/手动标记后重新加载
                 _failedOnce.remove(widget.src);
                 _failCooldown.remove(widget.src);
                 _inflight.remove(widget.src);
+                if (_manualOnly.contains(widget.src)) {
+                  _manualOnly.remove(widget.src);
+                  _manualRetry.add(widget.src); // 本次load豁免manualOnly
+                }
                 setState(() {
                   _err = null;
                 });

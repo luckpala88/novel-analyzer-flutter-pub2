@@ -269,6 +269,7 @@ class AppState extends ChangeNotifier {
   String chatCfAccount = ''; // v1348：CF账户ID
   String chatMjBase = 'https://ai.trueai.org'; // v1383：MJ公益接口地址（trueai-org/midjourney-proxy，免key）
   String chatMjProKey = ''; // v1385：MJ企付费引擎key（环网关api.huanwangai.com，Bearer）
+  DateTime? chatEngineSwitchAt; // v1388：引擎切换时刻——此前楼层不自动重绘（用户回复/重答才画）
 
   void setChatCf(String key, String account) {
     chatCfKey = key.trim();
@@ -292,6 +293,7 @@ class AppState extends ChangeNotifier {
 
   void setChatImageEngine(String v) {
     chatImageEngine = v;
+    chatEngineSwitchAt = DateTime.now(); // v1388：此前楼层不自动重绘
     storage.writeGlobal('chat_image_engine', v);
     notifyListeners();
   }
