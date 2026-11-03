@@ -1344,6 +1344,15 @@ class _ChatPageState extends State<ChatPage>
         !normContent.trimRight().endsWith('>')) {
       normContent = '${normContent.trimRight()}>';
     }
+    // v1391：img解析失败诊断——flash流式偶发原文本显示，真实content形状进日志定位
+    if (RegExp('<img\\s', caseSensitive: false).hasMatch(normContent) &&
+        !imgRe.hasMatch(normContent)) {
+      final tail = normContent.length > 80
+          ? normContent.substring(normContent.length - 80)
+          : normContent;
+      AppState.instance.apiLog(
+          'img解析失败 len=${normContent.length} 含闭合>=${normContent.contains('>')} 尾=[$tail]');
+    }
     if (imgRe.hasMatch(normContent)) {
       final parts = <Widget>[];
       var cursor = 0;
