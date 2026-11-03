@@ -1477,6 +1477,8 @@ class _SiliconImageState extends State<_SiliconImage> {
   static final Set<String> _inflight = {};
   // v1386：失败冷却——429后finally移除inflight→chunk重建立即重试→"失败-移除-重试"死循环（v1384日志实证百次429）
   static final Map<String, DateTime> _failCooldown = {};
+  // v1387：失败一次就停——用户裁决"提交失败一次就让它停"——重建的State不再自动重试，手动点击错误框重试
+  static final Set<String> _failedOnce = {};
   Uint8List? _bytes;
   Uint8List? _origBytes; // v1349：无字原底图（合成输入固定用它）
   // v1367：封面调字——合成参数留存+每字偏移+调字模式
@@ -1532,6 +1534,10 @@ class _SiliconImageState extends State<_SiliconImage> {
     if (_cache.containsKey(src)) {
       setState(() => _bytes = _cache[src]);
       return;
+    }
+    // v1387：失败过就永久挂起（自动重试禁用），用户点击错误框手动重试
+    if (_failedOnce.contains(src)) {
+      return; // _err显示走build的错误分支
     }
     // v1384：同key在飞直接挂起等结果（rebuild的新State复用缓存/in-flight结果）
     if (_inflight.contains(src)) {
@@ -1617,6 +1623,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                   body: jsonEncode({'prompt': mjPrompt}))
               .timeout(const Duration(seconds: 30));
           if (sub.statusCode != 200) {
+            _failedOnce.add(src);
             _failCooldown[src] = DateTime.now();
             AppState.instance.apiLog('MJ提交失败 HTTP${sub.statusCode}');
             setState(() => _err = 'MJ提交失败 HTTP${sub.statusCode}');
@@ -1624,6 +1631,7 @@ class _SiliconImageState extends State<_SiliconImage> {
           }
           final subData = jsonDecode(sub.body);
           if (subData['code'] != 1) {
+            _failedOnce.add(src);
             _failCooldown[src] = DateTime.now();
             AppState.instance.apiLog(
                 'MJ提交失败 code=${subData['code']} ${subData['description'] ?? subData['result']}');
@@ -1649,6 +1657,7 @@ class _SiliconImageState extends State<_SiliconImage> {
               break;
             }
             if (status == 'FAILURE') {
+              _failedOnce.add(src);
               _failCooldown[src] = DateTime.now();
               AppState.instance
                   .apiLog('MJ任务失败: ${ftData['failReason'] ?? '未知'}');
@@ -1660,6 +1669,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                 () => _err = 'MJ绘制中 ${ftData['progress'] ?? status}…');
           }
           if (imageUrl == null || imageUrl.isEmpty) {
+            _failedOnce.add(src);
             AppState.instance.apiLog('MJ超时（5分钟未完成）');
             setState(() => _err = 'MJ超时（5分钟未完成）');
             return;
@@ -1669,12 +1679,14 @@ class _SiliconImageState extends State<_SiliconImage> {
               .get(Uri.parse(imageUrl))
               .timeout(const Duration(seconds: 60));
           if (imgRs.statusCode != 200) {
+            _failedOnce.add(src);
             AppState.instance.apiLog('MJ图下载失败 HTTP${imgRs.statusCode}');
             setState(() => _err = 'MJ图下载失败 HTTP${imgRs.statusCode}');
             return;
           }
           genBytes = imgRs.bodyBytes;
         } catch (ex) {
+          _failedOnce.add(src);
           AppState.instance.apiLog('MJ异常: $ex');
           setState(() => _err = 'MJ异常: $ex');
           return;
@@ -1790,13 +1802,29 @@ class _SiliconImageState extends State<_SiliconImage> {
   @override
   Widget build(BuildContext context) {
     if (_err != null) {
-      return Container(
-        width: 260,
-        height: 56,
-        color: const Color(0xFFEFE8D8),
-        alignment: Alignment.center,
-        child: Text('🖼 $_err',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF9B8F7A))),
+      final failed = _failedOnce.contains(widget.src);
+      return GestureDetector(
+        onTap: failed
+            ? () {
+                // v1387：手动重试——清失败标记/冷却后重新加载
+                _failedOnce.remove(widget.src);
+                _failCooldown.remove(widget.src);
+                _inflight.remove(widget.src);
+                setState(() {
+                  _err = null;
+                });
+                _load();
+              }
+            : null,
+        child: Container(
+          width: 260,
+          height: 56,
+          color: const Color(0xFFEFE8D8),
+          alignment: Alignment.center,
+          child: Text(failed ? '🖼 $_err（点此重试）' : '🖼 $_err',
+              style:
+                  const TextStyle(fontSize: 12, color: Color(0xFF9B8F7A))),
+        ),
       );
     }
     final b = _bytes;
