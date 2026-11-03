@@ -2140,6 +2140,35 @@ class _SiliconImageState extends State<_SiliconImage> {
     );
   }
 
+  DateTime? _lastScaleTap; // v1392：缩放防抖
+  Future<void> _rescaleCompose(
+      void Function(void Function()) setD2) async {
+    final now = DateTime.now();
+    if (_lastScaleTap != null &&
+        now.difference(_lastScaleTap!) < const Duration(milliseconds: 400)) {
+      return; // 400ms防抖：连点合并，最后一次生效
+    }
+    _lastScaleTap = now;
+    final src0 = _origBytes ?? _bytes;
+    if (src0 == null) return;
+    try {
+      final out = await composeCoverText(src0, _coverName, _coverAuthor,
+          fontFamily: _coverFont,
+          charOffsets: _charOffsets,
+          authorOffset: _authorOffset,
+          charScales: _charScales,
+          authorScale: _authorScale);
+      if (out != null) {
+        _charCenters = out.charCenters;
+        _authorCenter = out.authorCenter;
+        _charOffsets.clear();
+        _authorOffset = Offset.zero;
+        setState(() => _bytes = out.bytes);
+        setD2(() {});
+      }
+    } catch (_) {}
+  }
+
   Widget _adjustInner(double imgW, double imgH,
       void Function(void Function()) setD2) {
     return LayoutBuilder(builder: (ctx, box) {
@@ -2257,8 +2286,11 @@ class _SiliconImageState extends State<_SiliconImage> {
                     top: -9, left: -9,
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
-                      onTap: () => setD2(() => _charScales[i] =
-                          ((_charScales[i] ?? 1.0) - 0.1).clamp(0.5, 2.0)),
+                      onTap: () async {
+                        setD2(() => _charScales[i] =
+                            ((_charScales[i] ?? 1.0) - 0.1).clamp(0.5, 2.0));
+                        await _rescaleCompose(setD2); // v1392：点击即重合成
+                      },
                       child: Container(
                         width: 22, height: 22,
                         alignment: Alignment.center,
@@ -2275,8 +2307,11 @@ class _SiliconImageState extends State<_SiliconImage> {
                     top: -9, right: -9,
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
-                      onTap: () => setD2(() => _charScales[i] =
-                          ((_charScales[i] ?? 1.0) + 0.1).clamp(0.5, 2.0)),
+                      onTap: () async {
+                        setD2(() => _charScales[i] =
+                            ((_charScales[i] ?? 1.0) + 0.1).clamp(0.5, 2.0));
+                        await _rescaleCompose(setD2); // v1392：点击即重合成
+                      },
                       child: Container(
                         width: 22, height: 22,
                         alignment: Alignment.center,
@@ -2368,8 +2403,11 @@ class _SiliconImageState extends State<_SiliconImage> {
                   top: -8, left: -8,
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onTap: () => setD2(() =>
-                        _authorScale = (_authorScale - 0.1).clamp(0.5, 2.0)),
+                    onTap: () async {
+                      setD2(() =>
+                          _authorScale = (_authorScale - 0.1).clamp(0.5, 2.0));
+                      await _rescaleCompose(setD2);
+                    },
                     child: Container(
                       width: 20, height: 20,
                       alignment: Alignment.center,
@@ -2385,8 +2423,11 @@ class _SiliconImageState extends State<_SiliconImage> {
                   top: -8, right: -8,
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onTap: () => setD2(() =>
-                        _authorScale = (_authorScale + 0.1).clamp(0.5, 2.0)),
+                    onTap: () async {
+                      setD2(() =>
+                          _authorScale = (_authorScale + 0.1).clamp(0.5, 2.0));
+                      await _rescaleCompose(setD2);
+                    },
                     child: Container(
                       width: 20, height: 20,
                       alignment: Alignment.center,
