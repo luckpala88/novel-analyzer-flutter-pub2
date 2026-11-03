@@ -1455,7 +1455,7 @@ class _SiliconImageState extends State<_SiliconImage> {
   String _coverFont = '';
   final Map<int, Offset> _charOffsets = {};
   final Map<int, Offset?> _dragLast = {}; // v1375：拖动起点（pointer坐标）
-  final Map<int, Offset> _authorOffsets = {}; // v1376：作者列独立偏移
+  Offset _authorOffset = Offset.zero; // v1377b：作者列整体偏移
   final Map<int, Offset?> _aDragLast = {}; // v1376：作者拖动起点
   bool _adjustMode = false;
   String? _err;
@@ -1788,7 +1788,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                     name, authorCtl.text.trim(),
                     fontFamily: font,
                     charOffsets: st._charOffsets,
-                    authorOffsets: st._authorOffsets);
+                    authorOffset: st._authorOffset);
                 if (out != null) {
                   st.updateBytes(out);
                   onDone?.call(); // 合成后刷新全屏预览
@@ -1838,7 +1838,6 @@ class _SiliconImageState extends State<_SiliconImage> {
       final scale = box.maxWidth / imgW; // fitWidth缩放比
       final dispH = imgH * scale;
       final chars = _coverName.split('');
-      final aChars = '$_coverAuthor著'.split(''); // v1376：作者拖块用
       final nameSize = (imgW / 2.2).clamp(0.0, (imgH * 0.66) / chars.length);
       final nameX = imgW * 0.585;
       final y0 = imgH * 0.055;
@@ -1888,7 +1887,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                       _coverName, _coverAuthor,
                       fontFamily: _coverFont,
                       charOffsets: _charOffsets,
-                      authorOffsets: _authorOffsets);
+                      authorOffset: _authorOffset);
                   if (out != null) {
                     setState(() => _bytes = out); // 楼层图更新
                     setD2(() {}); // v1376：Dialog也刷（Image读_bytes新值）
@@ -1913,64 +1912,59 @@ class _SiliconImageState extends State<_SiliconImage> {
               ),
             ),
           // v1376：作者列“某某著”独立拖块（青圈44px区分书名金圈）
-          for (var i = 0; i < aChars.length; i++)
-            Positioned(
-              left: (nameX + nameSize * 0.60 +
-                      (_authorOffsets[i]?.dx ?? 0)) *
-                  scale -
-                  22,
-              top: (y0 + nameSize * 0.08 +
-                      i * (nameSize * 0.30) * 1.18 +
-                      (_authorOffsets[i]?.dy ?? 0)) *
-                  scale -
-                  22,
-              child: Listener(
-                onPointerDown: (e) {
-                  _aDragLast[i] = e.position;
-                  AppState.instance.apiLog('作者按下 #$i pos=${e.position}');
-                },
-                onPointerMove: (e) {
-                  final last = _aDragLast[i] ?? e.position;
-                  _aDragLast[i] = e.position;
-                  final d = e.position - last;
-                  if (d.distance < 0.5) return;
-                  setD2(() {
-                    final cur = _authorOffsets[i] ?? Offset.zero;
-                    _authorOffsets[i] =
-                        cur + Offset(d.dx / scale, d.dy / scale);
-                  });
-                },
-                onPointerUp: (_) async {
-                  _aDragLast[i] = null;
-                  AppState.instance
-                      .apiLog('作者重合成 #$i off=${_authorOffsets[i]}');
-                  if (_origBytes == null) return;
-                  final out = await composeCoverText(_origBytes!,
-                      _coverName, _coverAuthor,
-                      fontFamily: _coverFont,
-                      charOffsets: _charOffsets,
-                      authorOffsets: _authorOffsets);
-                  if (out != null) {
-                    setState(() => _bytes = out);
-                    setD2(() {});
-                  }
-                },
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.12),
-                    border: Border.all(
-                        color: const Color(0xFF7FD4C8), width: 1.5),
-                  ),
-                  child: Text(aChars[i],
-                      style: const TextStyle(
-                          fontSize: 14, color: Color(0xFF7FD4C8))),
+          // v1377b：作者列单拖块（整列一起移动，列中点定位）
+          Positioned(
+            left: (nameX + nameSize * 0.60 + _authorOffset.dx) * scale - 30,
+            top: (y0 + nameSize * 0.08 +
+                    2.5 * (nameSize * 0.30) * 1.18 / 2 +
+                    _authorOffset.dy) *
+                scale -
+                30,
+            child: Listener(
+              onPointerDown: (e) {
+                _aDragLast[0] = e.position;
+                AppState.instance.apiLog('作者按下 pos=${e.position}');
+              },
+              onPointerMove: (e) {
+                final last = _aDragLast[0] ?? e.position;
+                _aDragLast[0] = e.position;
+                final d = e.position - last;
+                if (d.distance < 0.5) return;
+                setD2(() {
+                  _authorOffset += Offset(d.dx / scale, d.dy / scale);
+                });
+              },
+              onPointerUp: (_) async {
+                _aDragLast[0] = null;
+                AppState.instance
+                    .apiLog('作者重合成 off=$_authorOffset');
+                if (_origBytes == null) return;
+                final out = await composeCoverText(_origBytes!,
+                    _coverName, _coverAuthor,
+                    fontFamily: _coverFont,
+                    charOffsets: _charOffsets,
+                    authorOffset: _authorOffset);
+                if (out != null) {
+                  setState(() => _bytes = out);
+                  setD2(() {});
+                }
+              },
+              child: Container(
+                width: 60,
+                height: 60,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.12),
+                  border:
+                      Border.all(color: const Color(0xFF7FD4C8), width: 1.5),
                 ),
+                child: Text(_coverAuthor.isEmpty ? '著' : _coverAuthor[0],
+                    style: const TextStyle(
+                        fontSize: 16, color: Color(0xFF7FD4C8))),
               ),
             ),
+          ),
         ]),
       );
     });
@@ -2285,7 +2279,7 @@ Widget _chatImage(BuildContext context, String rawSrc) {
       Uint8List baseBytes, String bookName, String author,
       {String fontFamily = '',
       Map<int, Offset> charOffsets = const {},
-      Map<int, Offset> authorOffsets = const {}}) async {
+      Offset authorOffset = Offset.zero}) async {
     if (bookName.isEmpty) return null;
     final codec = await ui.instantiateImageCodec(baseBytes);
     final frame = await codec.getNextFrame();
@@ -2385,7 +2379,7 @@ Widget _chatImage(BuildContext context, String rawSrc) {
                     ])),
             textDirection: TextDirection.ltr)
           ..layout();
-        final offA = authorOffsets[i] ?? Offset.zero;
+        final offA = authorOffset; // v1377b：整列一起移动
         if (isLast) {
           // 印章圆圈
           canvas.drawCircle(
