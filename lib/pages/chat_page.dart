@@ -2377,9 +2377,17 @@ class _SiliconImageState extends State<_SiliconImage> {
     }
     final b = _bytes;
     if (b == null) {
+      // v1465：占位按图片真实比例预撑高（width/height参数算出）——
+      // 图加载完成后item高度不变，列表不弹跳（22:29滑动回滚实证）
+      final wm = RegExp(r'width=(\d+)').firstMatch(widget.src);
+      final hm = RegExp(r'height=(\d+)').firstMatch(widget.src);
+      final phW = 260.0;
+      final phH = phW *
+          ((num.tryParse(hm?.group(1) ?? '') ?? 768) /
+              (num.tryParse(wm?.group(1) ?? '') ?? 768));
       return Container(
         width: 260,
-        height: 170,
+        height: phH.clamp(120.0, 520.0),
         color: const Color(0xFFEFE8D8),
         alignment: Alignment.center,
         child: const SizedBox(
