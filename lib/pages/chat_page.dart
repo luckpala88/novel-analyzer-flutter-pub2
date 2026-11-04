@@ -1879,9 +1879,10 @@ class _SiliconImageState extends State<_SiliconImage> {
           var gotGrid = false;
           var lastProg = ''; // v1403：进度去重
           var _fetchFail = 0; // v1431：连续fetch失败计数（留痕限频：前3次+每6次打一条）
-          // v1417：轮询上限300秒→900秒——环网关99%卡住=proxy裁剪上传4独立图中，MJ实际已完成，
-          // 300秒不够白瞎已生成任务（09:13实证99%卡死超时）
-          for (var t = 0; t < 180; t++) {
+          // v1433：轮询无上限——proxy解卡自动出图（14:23用户裁决：还要点占位有点傻）。
+          // 99%=MJ画完等proxy收尾（切图传CDN），proxy啥时候交卷啥时候SUCCESS，APP只管每5秒问。
+          // 组件销毁(mounted)自动停；FAILURE是终态退出。
+          while (true) {
             await Future.delayed(const Duration(seconds: 5));
             if (!mounted) return;
             http.Response ft;
