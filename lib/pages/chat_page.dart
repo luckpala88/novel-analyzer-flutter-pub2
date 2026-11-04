@@ -1860,6 +1860,9 @@ class _SiliconImageState extends State<_SiliconImage> {
           _mjTaskIds ??= {};
           _mjTaskIds![src] = subData['result'].toString();
           _saveMjTask(src, _mjTaskIds![src]!);
+          // v1430：票据全程可见——提交响应回来即打终端（用户要求发起时+绘制中都能看到ID）
+          AppState.instance
+              .apiLog('MJ任务ID: ${_mjTaskIds![src]}（票已落盘）');
         } catch (ex) {
           if (_activeGen > 0) _activeGen--;
           _failedOnce.add(src);
@@ -1948,8 +1951,15 @@ class _SiliconImageState extends State<_SiliconImage> {
                   _err = 'MJ任务失败: ${ftData['failReason'] ?? '未知'}');
               return;
             }
-            setState(
-                () => _err = 'MJ绘制中 ${ftData['progress'] ?? status}…');
+            final prog = ftData['progress']?.toString() ?? status;
+            if (prog != lastProg) {
+              lastProg = prog;
+              // v1430：绘制中终端同步显示ID+进度（变化时打，不刷屏）
+              AppState.instance
+                  .apiLog('MJ绘制中 $prog（任务$taskId）');
+            }
+            setState(() =>
+                _err = 'MJ绘制中 $prog…（任务$taskId）');
           }
           if (!gotGrid && (imageUrl == null || imageUrl.isEmpty)) {
             if (_activeGen > 0) _activeGen--;
