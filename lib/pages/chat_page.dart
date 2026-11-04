@@ -1503,6 +1503,7 @@ class _SiliconImageState extends State<_SiliconImage> {
   static Map<String, String>? _mjTaskIds;
   static bool _mjTasksLoaded = false;
   List<Uint8List>? _mjGrid; // v1400：MJ四宫格切分后的4张单图
+  String? _curKey; // v1438：当前图缓存key（重新取图按钮清缓存用）
   int _mjGridSel = 0; // v1400：当前选中的宫格
 
   /// v1400：MJ四宫格2x2切分为4张单图
@@ -1638,9 +1639,38 @@ class _SiliconImageState extends State<_SiliconImage> {
     _load();
   }
 
+  /// v1438：重新取图（测试票链用）——清缓存凭票重取，纯续取不提交不耗额度
+  Future<void> _reFetchFromTicket() async {
+    final key = _curKey;
+    if (key == null) return;
+    _cache.remove(key);
+    try {
+      File(await _diskPath(key)).deleteSync();
+    } catch (_) {}
+    try {
+      File(await _diskPath('${widget.src}_composed')).deleteSync();
+    } catch (_) {}
+    _manualRetry.add(widget.src);
+    setState(() => _err = '重新取图中（凭票续取，不耗额度）…');
+    _bytes = null;
+    await _load();
+  }
+
   /// v1344：封面合成后更新显示+落盘
   Future<void> updateBytes(Uint8List b) async {
     _bytes = b;
+    // v1439：合成版同步进宫格——加过标题的缩略也带标题（用户确认交互）
+    // 落盘变体位，换标题永远从无字底图(_origBytes)重新合成
+    if (_mjGrid != null && _mjGridSel < _mjGrid!.length) {
+      _mjGrid![_mjGridSel] = b;
+      try {
+        final key = _curKey;
+        if (key != null) {
+          await File(await _diskPath('${key}_v$_mjGridSel'))
+              .writeAsBytes(b);
+        }
+      } catch (_) {}
+    }
     setState(() {});
     try {
       final diskPath = await _diskPath('${widget.src}_composed');
@@ -1709,6 +1739,7 @@ class _SiliconImageState extends State<_SiliconImage> {
           '${wm != null ? wm.group(1) : 768}x${hm != null ? hm.group(1) : 768}';
       // v1389：磁盘缓存key去引擎前缀——一个prompt一张图，"谁画的显示谁"，重画后新版本覆盖保留
       final key = '$prompt|$size';
+      _curKey = key; // v1438：记录当前key
       final legacyKey = '${widget.engine}|$prompt|$size'; // v1352旧格式（含引擎），兼容读取
       if (_cache.containsKey(key)) {
         setState(() => _bytes = _cache[key]);
@@ -2220,48 +2251,80 @@ class _SiliconImageState extends State<_SiliconImage> {
     }
     // v1400：MJ四宫格选择视图——点选一张设为正身
     if (_mjGrid != null && _mjGrid!.length >= 2) {
-      // v1428：四张全用——正身+缩略条，点缩略图随时切换（不再选完即弃）
-      // 4张都已落盘(key_v0..v3)，重启后从磁盘重建缩略条
+      // v1438：田字四宫格——点哪张哪张进全屏（用户定稿交互），金框为当前使用
+      // 4张已落盘(key_v0..v3)重启保留（v1437重建），点宫格即切正身（调字/加标题对当前张）
       return Container(
         width: 260,
         padding: const EdgeInsets.all(4),
         color: const Color(0xFFEFE8D8),
         child: Column(children: [
-          if (_bytes != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Image.memory(_bytes!, fit: BoxFit.contain, height: 190),
-            ),
-          SizedBox(
-            height: 62,
-            child: Row(children: [
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            childAspectRatio: 0.78,
+            mainAxisSpacing: 4,
+            crossAxisSpacing: 4,
+            children: [
               for (var i = 0; i < _mjGrid!.length; i++)
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() {
+                GestureDetector(
+                  onTap: () {
+                    final img = _mjGrid![i];
+                    setState(() {
                       _mjGridSel = i;
-                      _bytes = _mjGrid![i];
-                    }),
-                    child: Container(
-                      margin: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                            color: _mjGridSel == i
-                                ? const Color(0xFFFFD700)
-                                : Colors.transparent,
-                            width: 2),
+                      _bytes = img;
+                    });
+                    showDialog(
+                      context: context,
+                      builder: (d) => Dialog.fullscreen(
+                        backgroundColor: Colors.black,
+                        child: GestureDetector(
+                          onTap: () => Navigator.pop(d),
+                          child: Column(children: [
+                            Expanded(
+                              child: Image.memory(img, fit: BoxFit.contain),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Text(
+                                  '第${i + 1}张｜点击任意处返回（此张已设为使用中）',
+                                  style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.white70)),
+                            ),
+                          ]),
+                        ),
                       ),
-                      child:
-                          Image.memory(_mjGrid![i], fit: BoxFit.cover),
+                    );
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                          color: _mjGridSel == i
+                              ? const Color(0xFFFFD700)
+                              : Colors.transparent,
+                          width: 3),
                     ),
+                    child: Image.memory(_mjGrid![i], fit: BoxFit.cover),
                   ),
                 ),
-            ]),
+            ],
           ),
-          const Padding(
-            padding: EdgeInsets.only(top: 2),
-            child: Text('点缩略图切换用哪一张（四张都已保存）',
-                style: TextStyle(fontSize: 11, color: Color(0xFF9B8F7A))),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Row(children: [
+              const Expanded(
+                child: Text('点图全屏查看，金框为使用中（四张已保存）',
+                    style: TextStyle(
+                        fontSize: 11, color: Color(0xFF9B8F7A))),
+              ),
+              GestureDetector(
+                onTap: _reFetchFromTicket,
+                child: const Text('⟳重新取图',
+                    style: TextStyle(
+                        fontSize: 11, color: Color(0xFFB8860B))),
+              ),
+            ]),
           ),
         ]),
       );
