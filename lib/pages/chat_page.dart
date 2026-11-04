@@ -1848,7 +1848,9 @@ class _SiliconImageState extends State<_SiliconImage> {
           final taskId = savedTaskId ?? memTaskId ?? _mjTaskIds![src]!;
           String? imageUrl;
           var lastProg = ''; // v1403：进度去重
-          for (var t = 0; t < 60; t++) {
+          // v1417：轮询上限300秒→900秒——环网关99%卡住=proxy裁剪上传4独立图中，MJ实际已完成，
+          // 300秒不够白瞎已生成任务（09:13实证99%卡死超时）
+          for (var t = 0; t < 180; t++) {
             await Future.delayed(const Duration(seconds: 5));
             if (!mounted) return;
             http.Response ft;
