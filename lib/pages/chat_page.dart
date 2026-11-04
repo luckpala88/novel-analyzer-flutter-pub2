@@ -1716,7 +1716,9 @@ class _SiliconImageState extends State<_SiliconImage> {
       }
       // v1343：磁盘缓存命中——切引擎/重启APP不重复生成（防历史楼层重烧token）
       // v1344：合成版优先（封面标签叠过字后直接读合成版）
-      final composedPath = await _diskPath('${key}_composed');
+      // v1429：合成版写读统一用widget.src（1642写侧是src_composed——此前读侧用key，
+      // 两个净化结果不同=合成版重启后读不回，v1344以来的暗bug今日用户问保存机制才暴露）
+      final composedPath = await _diskPath('${widget.src}_composed');
       final composedFile = File(composedPath);
       var diskPath = await _diskPath(key); // v1373b：提前声明（composed分支也要读无字底图）
       // v1389：新格式miss则读旧格式（v1352含引擎前缀的存量文件），兼容过渡
@@ -1911,6 +1913,13 @@ class _SiliconImageState extends State<_SiliconImage> {
                   // v1422：票据铁律——成功也不清ID，MJ没删就永远可重新取图
                   genBytes = dl[0];
                   gotGrid = true;
+                  // v1428：4张变体全落盘——图下缩略条随时切换（用户裁决：四张都用）
+                  for (var n = 0; n < dl.length; n++) {
+                    try {
+                      await File(await _diskPath('${key}_v$n'))
+                          .writeAsBytes(dl[n]);
+                    } catch (_) {}
+                  }
                   break;
                 }
               }
@@ -2143,52 +2152,48 @@ class _SiliconImageState extends State<_SiliconImage> {
       );
     }
     // v1400：MJ四宫格选择视图——点选一张设为正身
-    if (_mjGrid != null && _mjGrid!.length >= 2) { // v1427：>=2即显示宫格（部分下载失败也容错，原来==4时2-3张直接落单图）
+    if (_mjGrid != null && _mjGrid!.length >= 2) {
+      // v1428：四张全用——正身+缩略条，点缩略图随时切换（不再选完即弃）
+      // 4张都已落盘(key_v0..v3)，重启后从磁盘重建缩略条
       return Container(
         width: 260,
         padding: const EdgeInsets.all(4),
         color: const Color(0xFFEFE8D8),
         child: Column(children: [
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            childAspectRatio: 1,
-            mainAxisSpacing: 4,
-            crossAxisSpacing: 4,
-            children: [
+          if (_bytes != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Image.memory(_bytes!, fit: BoxFit.contain, height: 190),
+            ),
+          SizedBox(
+            height: 62,
+            child: Row(children: [
               for (var i = 0; i < _mjGrid!.length; i++)
-                GestureDetector(
-                  onTap: () async {
-                    final img = _mjGrid![i]; // v1427：先取局部再置null（原代码置null后空断言崩）
-                    setState(() {
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() {
                       _mjGridSel = i;
-                      _bytes = img;
-                      _mjGrid = null; // 选定后退出宫格视图
-                    });
-                    _origBytes = img;
-                    _failedOnce.remove(widget.src);
-                    _manualRetry.add(widget.src);
-                    _mjTaskIds?.remove(widget.src);
-                    await _load(); // 重新加载走缓存/合成链
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                          color: _mjGridSel == i
-                              ? const Color(0xFFFFD700)
-                              : Colors.transparent,
-                          width: 3),
+                      _bytes = _mjGrid![i];
+                    }),
+                    child: Container(
+                      margin: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                            color: _mjGridSel == i
+                                ? const Color(0xFFFFD700)
+                                : Colors.transparent,
+                            width: 2),
+                      ),
+                      child:
+                          Image.memory(_mjGrid![i], fit: BoxFit.cover),
                     ),
-                    child: Image.memory(_mjGrid![i],
-                        fit: BoxFit.cover),
                   ),
                 ),
-            ],
+            ]),
           ),
           const Padding(
             padding: EdgeInsets.only(top: 2),
-            child: Text('点选一张作为封面底图（金色框为当前选择）',
+            child: Text('点缩略图切换用哪一张（四张都已保存）',
                 style: TextStyle(fontSize: 11, color: Color(0xFF9B8F7A))),
           ),
         ]),
