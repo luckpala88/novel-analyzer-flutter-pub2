@@ -2143,7 +2143,7 @@ class _SiliconImageState extends State<_SiliconImage> {
       );
     }
     // v1400：MJ四宫格选择视图——点选一张设为正身
-    if (_mjGrid != null && _mjGrid!.length == 4) {
+    if (_mjGrid != null && _mjGrid!.length >= 2) { // v1427：>=2即显示宫格（部分下载失败也容错，原来==4时2-3张直接落单图）
       return Container(
         width: 260,
         padding: const EdgeInsets.all(4),
@@ -2157,15 +2157,16 @@ class _SiliconImageState extends State<_SiliconImage> {
             mainAxisSpacing: 4,
             crossAxisSpacing: 4,
             children: [
-              for (var i = 0; i < 4; i++)
+              for (var i = 0; i < _mjGrid!.length; i++)
                 GestureDetector(
                   onTap: () async {
+                    final img = _mjGrid![i]; // v1427：先取局部再置null（原代码置null后空断言崩）
                     setState(() {
                       _mjGridSel = i;
-                      _bytes = _mjGrid![i];
+                      _bytes = img;
                       _mjGrid = null; // 选定后退出宫格视图
                     });
-                    _origBytes = _mjGrid![i];
+                    _origBytes = img;
                     _failedOnce.remove(widget.src);
                     _manualRetry.add(widget.src);
                     _mjTaskIds?.remove(widget.src);
@@ -2379,7 +2380,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                           if (dl.length >= 2) {
                             _mjGrid = dl;
                             _mjGridSel = 0;
-                            _mjTaskIds?.remove(widget.src);
+                            // v1427：票据铁律补漏——此处清票是v1422扫描漏网点（widget.src写法绕过了当时的rg模式）
                             await updateBytes(dl[0]);
                             AppState.instance
                                 .apiLog('MJ图取回成功(4图) ${dl.length}张');
