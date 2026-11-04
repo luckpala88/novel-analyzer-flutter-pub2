@@ -2038,9 +2038,12 @@ class _SiliconImageState extends State<_SiliconImage> {
                 AppState.instance.apiLog(
                     'MJ轮询fetch失败x$_fetchFail: HTTP${ft.statusCode}');
               }
-              // v1449：旧票无引擎标记+本站查无此ID（404）→自动切另一站查
+              // v1449/v1458：旧票无引擎标记+本站查无此ID→自动切另一站查
               // （历史记录混两家引擎，旧票没记在哪画的——两边都试一遍总能找到）
-              if (ft.statusCode == 404 && markedEngine == null) {
+              // v1458：proxy对"任务不存在"返回204 No Content而非404（20:40实证：
+              // mj企票在MJ公上查持续204，切站条件只认404导致永远不切、取不回）
+              if ((ft.statusCode == 204 || ft.statusCode == 404) &&
+                  markedEngine == null) {
                 final otherPro = !taskIsPro;
                 final otherBase = otherPro
                     ? 'https://api.huanwangai.com'
