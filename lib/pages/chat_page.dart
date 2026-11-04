@@ -1860,25 +1860,19 @@ class _SiliconImageState extends State<_SiliconImage> {
         final g = w0 != null && h0 != null && w0 > 0 && h0 > 0 ? w0.gcd(h0) : 1;
         final ar = w0 != null && h0 != null ? ' --ar ${w0 ~/ g}:${h0 ~/ g}' : '';
         var mjPrompt = '$prompt$ar';
-        // v1443：提交前额度预检（用户方案：发起前查，有FAST用FAST，没额度自动切RELAX）——
-        // 公益站GET /mj/home免key返回fastAvailableCount/relaxAvailableCount实时数据
+        // v1444：mj公强制RELAX——FAST队列全站拥堵240深，提交排队到超时必败
+        // （14:30-15:13五连败全"超时失败"实证，RELAX慢车道3单全成）
+        // 额度预检保留打日志（fastAvailableCount是全站池仅供参考）
         if (!isPro) {
+          mjPrompt = '$mjPrompt --relax';
           try {
             final hr = await http
                 .get(Uri.parse('$mjBase/mj/home'))
                 .timeout(const Duration(seconds: 10));
             if (hr.statusCode == 200) {
               final hd = (jsonDecode(hr.body)['data'] ?? {}) as Map;
-              final fast = (hd['fastAvailableCount'] ?? 0) as num;
-              final relax = (hd['relaxAvailableCount'] ?? 0) as num;
-              if (fast <= 0 && relax > 0) {
-                mjPrompt = '$mjPrompt --relax';
-                AppState.instance
-                    .apiLog('额度预检: FAST耗尽(剩${fast})，自动切RELAX(剩${relax})');
-              } else {
-                AppState.instance
-                    .apiLog('额度预检: FAST剩${fast}，RELAX剩${relax}');
-              }
+              AppState.instance.apiLog(
+                  '额度预检: FAST剩${hd['fastAvailableCount']}，RELAX剩${hd['relaxAvailableCount']}，悠船剩${hd['youChuanRelaxAvailableCount']}（已强制RELAX绕开FAST拥堵）');
             }
           } catch (_) {}
         }
