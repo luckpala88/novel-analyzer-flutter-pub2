@@ -2428,8 +2428,22 @@ class _SiliconImageState extends State<_SiliconImage> {
                                   : GestureDetector(
                                       onTap: () => Navigator.pop(d),
                                       child: Center(
+                                        // v1460：全屏降采样1440+解码转圈（2MB原尺寸解码是点四格死机主嫌）
                                         child: Image.memory(img,
-                                            fit: BoxFit.contain),
+                                            fit: BoxFit.contain,
+                                            cacheWidth: 1440,
+                                            frameBuilder: (c, child, frame,
+                                                    wasSync) =>
+                                                frame == null
+                                                    ? const Center(
+                                                        child: SizedBox(
+                                                            width: 36,
+                                                            height: 36,
+                                                            child:
+                                                                CircularProgressIndicator(
+                                                                    color: Colors
+                                                                        .white70)))
+                                                    : child),
                                       ),
                                     ),
                             ),
@@ -2502,7 +2516,18 @@ class _SiliconImageState extends State<_SiliconImage> {
                               : Colors.transparent,
                           width: 3),
                     ),
-                    child: Image.memory(_mjGrid![i], fit: BoxFit.cover, cacheWidth: 300), // v1457：降采样防死机
+                    child: Image.memory(_mjGrid![i], fit: BoxFit.cover, cacheWidth: 300,
+                        // v1460：解码中转圈——2MB大图解码1-2秒无反馈像死机
+                        frameBuilder: (c, child, frame, wasSync) => frame == null
+                            ? Container(
+                                color: const Color(0xFFEFE8D8),
+                                alignment: Alignment.center,
+                                child: const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2)))
+                            : child), // v1457：降采样防死机
                   ),
                 ),
             ],
