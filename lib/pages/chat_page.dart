@@ -2406,7 +2406,8 @@ class _SiliconImageState extends State<_SiliconImage> {
     }
     // v1468：四格视图暂禁用（二分实验，用户指令23:11）——只显示第一张，
     // 点图走普通全屏。若不死=死机锁定在四格onTap链；若还死=死在共同路径
-    const _mjGridDisabled = true;
+    // v1469：四格恢复（方案A）——死机锁定在v1460的cacheWidth:1440/frameBuilder组合
+    const _mjGridDisabled = false;
     // v1400：MJ四宫格选择视图——点选一张设为正身
     if (!_mjGridDisabled && _mjGrid != null && _mjGrid!.length >= 2) {
       // v1438：田字四宫格——点哪张哪张进全屏（用户定稿交互），金框为当前使用
@@ -2450,22 +2451,11 @@ class _SiliconImageState extends State<_SiliconImage> {
                                   : GestureDetector(
                                       onTap: () => Navigator.pop(d),
                                       child: Center(
-                                        // v1460：全屏降采样1440+解码转圈（2MB原尺寸解码是点四格死机主嫌）
-                                        child: Image.memory(img,
-                                            fit: BoxFit.contain,
-                                            cacheWidth: 1440,
-                                            frameBuilder: (c, child, frame,
-                                                    wasSync) =>
-                                                frame == null
-                                                    ? const Center(
-                                                        child: SizedBox(
-                                                            width: 36,
-                                                            height: 36,
-                                                            child:
-                                                                CircularProgressIndicator(
-                                                                    color: Colors
-                                                                        .white70)))
-                                                    : child),
+                                        // v1469：方案A——与单图全屏同构（InteractiveViewer+原尺寸解码，
+                                        // 无cacheWidth无frameBuilder——单图v1468实证不死）
+                                        child: InteractiveViewer(
+                                            child: Image.memory(_bytes ?? img,
+                                                fit: BoxFit.contain)),
                                       ),
                                     ),
                             ),
