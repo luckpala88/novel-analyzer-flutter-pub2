@@ -1795,32 +1795,9 @@ class _SiliconImageState extends State<_SiliconImage> {
         // v1416：内存taskId兜底——savedTaskId判定外再查内存map（闭环""/读盘竞态下不丢ID）
         final memTaskId =
             (_mjTaskIds?[src] ?? '').isNotEmpty ? _mjTaskIds![src] : null;
-        // v1420：ID丢失终极兜底——proxy任务列表可查，按prompt匹配找回
-        // （10:0x实证：刷新聊天后ID链断裂提示"取不了"，但后台图已画好——prompt就是天然ID）
-        var effTaskId = savedTaskId ?? memTaskId;
-        if (effTaskId == null) {
-          try {
-            final lr = await http
-                .get(Uri.parse('$mjBase/mj/task/list'), headers: mjHeaders)
-                .timeout(const Duration(seconds: 20));
-            if (lr.statusCode == 200) {
-              final tasks = (jsonDecode(lr.body) as List)
-                  .where((t) =>
-                      t is Map &&
-                      (t['status'] == 'SUCCESS' ||
-                          t['status'] == 'IN_PROGRESS' ||
-                          t['status'] == 'SUBMITTED') &&
-                      (t['prompt']?.toString() ?? '').contains(mjPrompt))
-                  .toList();
-              if (tasks.isNotEmpty) {
-                tasks.sort((a, b) => (b['submitTime'] ?? 0)
-                    .compareTo(a['submitTime'] ?? 0));
-                effTaskId = tasks.first['id']?.toString();
-                AppState.instance.apiLog('按prompt找回任务: $effTaskId');
-              }
-            }
-          } catch (_) {}
-        }
+        // v1421：prompt匹配兜底已回滚（用户裁决：公共池匹配有取错图隐患）——
+        // ID链靠 v1416内存兜底+v1416 merge读盘+v1419 SUCCESS等URL 三个根因修复保稳
+        final effTaskId = savedTaskId ?? memTaskId;
         // v1412b：点击只允许"取回"——本次打开APP之前就存在的楼层，无存档ID绝不重新提交
         // （判定用会话起点，不用_manualRetry——static集合残留会误杀本会话新楼层自动画）
         if (effTaskId == null &&
