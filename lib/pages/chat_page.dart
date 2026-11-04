@@ -1868,8 +1868,10 @@ class _SiliconImageState extends State<_SiliconImage> {
         // v1397：有MJ在途任务时提示取回（凭taskId跨引擎取图，不耗额度）
         // v1411：空串ID不算有任务；无ID历史楼层不承诺生成（点了也取不了，绝不重画）
         final hasTask = _mjTaskIds?[src]?.isNotEmpty == true;
+        // v1463：有票的占位ID常显（旧记录票在手随时可取，与宫格ID常显对齐）
+        final tid0 = _mjTaskIds?[src] ?? '';
         setState(() => _err = hasTask
-            ? '有MJ在途任务，点此取回'
+            ? '任务$tid0已存档（点此取回）'
             : '未生成（无存档任务ID）');
         return;
       }
