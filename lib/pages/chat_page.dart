@@ -2404,8 +2404,11 @@ class _SiliconImageState extends State<_SiliconImage> {
         ),
       );
     }
+    // v1468：四格视图暂禁用（二分实验，用户指令23:11）——只显示第一张，
+    // 点图走普通全屏。若不死=死机锁定在四格onTap链；若还死=死在共同路径
+    const _mjGridDisabled = true;
     // v1400：MJ四宫格选择视图——点选一张设为正身
-    if (_mjGrid != null && _mjGrid!.length >= 2) {
+    if (!_mjGridDisabled && _mjGrid != null && _mjGrid!.length >= 2) {
       // v1438：田字四宫格——点哪张哪张进全屏（用户定稿交互），金框为当前使用
       // 4张已落盘(key_v0..v3)重启保留（v1437重建），点宫格即切正身（调字/加标题对当前张）
       return Container(
