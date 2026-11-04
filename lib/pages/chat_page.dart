@@ -1758,7 +1758,7 @@ class _SiliconImageState extends State<_SiliconImage> {
         if (!mounted) return;
       }
       _activeGen++;
-      Uint8List genBytes;
+      late Uint8List genBytes;
       // v1414：野生引擎（CF/硅基/pollinations）无任务ID取回机制——
       // 本次打开APP前的旧楼层一律不生成（此前防护只覆盖MJ分支，切野生即重画一轮）
       if (widget.engine != 'mj' &&
@@ -1855,6 +1855,9 @@ class _SiliconImageState extends State<_SiliconImage> {
         try {
           final taskId = effTaskId ?? savedTaskId ?? memTaskId ?? _mjTaskIds![src]!;
           String? imageUrl;
+          // v1424：独立4图通道标记——该通道只写genBytes不写imageUrl，
+          // 循环后超时检查只看imageUrl会把"已下载成功"误判成超时（11:45实证6秒循环）
+          var gotGrid = false;
           var lastProg = ''; // v1403：进度去重
           // v1417：轮询上限300秒→900秒——环网关99%卡住=proxy裁剪上传4独立图中，MJ实际已完成，
           // 300秒不够白瞎已生成任务（09:13实证99%卡死超时）
@@ -1893,6 +1896,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                   _mjGridSel = 0;
                   // v1422：票据铁律——成功也不清ID，MJ没删就永远可重新取图
                   genBytes = dl[0];
+                  gotGrid = true;
                   break;
                 }
               }
@@ -1924,7 +1928,7 @@ class _SiliconImageState extends State<_SiliconImage> {
             setState(
                 () => _err = 'MJ绘制中 ${ftData['progress'] ?? status}…');
           }
-          if (imageUrl == null || imageUrl.isEmpty) {
+          if (!gotGrid && (imageUrl == null || imageUrl.isEmpty)) {
             if (_activeGen > 0) _activeGen--;
             _failedOnce.add(src);
             AppState.instance
@@ -1934,23 +1938,26 @@ class _SiliconImageState extends State<_SiliconImage> {
                 'MJ等待超时，任务$taskId已存档（点此继续取图）');
             return;
           }
-          setState(() => _err = 'MJ完成，下载中…');
-          final imgRs = await http
-              .get(Uri.parse(imageUrl))
-              .timeout(const Duration(seconds: 60));
-          if (imgRs.statusCode != 200) {
-            if (_activeGen > 0) _activeGen--;
-            _failedOnce.add(src);
-            AppState.instance.apiLog('MJ图下载失败 HTTP${imgRs.statusCode}');
-            setState(() => _err = 'MJ图下载失败 HTTP${imgRs.statusCode}');
-            return;
+          if (!gotGrid) {
+            setState(() => _err = 'MJ完成，下载中…');
+            final imgRs = await http
+                .get(Uri.parse(imageUrl!))
+                .timeout(const Duration(seconds: 60));
+            if (imgRs.statusCode != 200) {
+              if (_activeGen > 0) _activeGen--;
+              _failedOnce.add(src);
+              AppState.instance
+                  .apiLog('MJ图下载失败 HTTP${imgRs.statusCode}');
+              setState(() => _err = 'MJ图下载失败 HTTP${imgRs.statusCode}');
+              return;
+            }
+            // v1422：票据铁律——废除v1395闭环清映射/删除，ID永久保留（用户定稿：
+            // 提交即存票、票据唯一不能丢、任何时候可凭票重新取图，除非MJ那边删了）
+            genBytes = imgRs.bodyBytes;
+            // v1400：MJ四宫格自动切分
+            _mjGrid = await _splitGrid(genBytes);
+            _mjGridSel = 0;
           }
-          // v1422：票据铁律——废除v1395闭环清映射/删除，ID永久保留（用户定稿：
-          // 提交即存票、票据唯一不能丢、任何时候可凭票重新取图，除非MJ那边删了）
-          genBytes = imgRs.bodyBytes;
-          // v1400：MJ四宫格自动切分
-          _mjGrid = await _splitGrid(genBytes);
-          _mjGridSel = 0;
         } catch (ex) {
           if (_activeGen > 0) _activeGen--;
           _failedOnce.add(src);
