@@ -2348,6 +2348,19 @@ class _SiliconImageState extends State<_SiliconImage> {
               ),
             ]),
           ),
+          // v1442：任务ID常显——重新取图/出图后占位退场，ID随时可查可抄
+          Builder(builder: (c) {
+            final tid = _mjTaskIds?[widget.src];
+            return Padding(
+              padding: const EdgeInsets.only(top: 1),
+              child: Text(
+                  tid != null && tid.isNotEmpty
+                      ? '任务ID: $tid'
+                      : '（无存档任务ID）',
+                  style: const TextStyle(
+                      fontSize: 10, color: Color(0xFFB0A58C))),
+            );
+          }),
         ]),
       );
     }
