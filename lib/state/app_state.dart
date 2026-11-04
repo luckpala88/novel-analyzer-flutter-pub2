@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -904,33 +905,28 @@ class AppState extends ChangeNotifier {
     // 加载章节（v221：解析失败不再静默清空——大文件写入中断产生截断JSON时，
     // 按栈式修复救回完整前缀部分并报警。用户案例：chapters.json 9MB切书后
     // "消失"但弧线还在=解析失败被chapters=[]吞掉）
-    final chaptersJson = storage.readFile('${p}chapters.json');
-    debugPrint('[Load] chapters.json读取：${chaptersJson == null ? "null(不存在或读失败)" : "${chaptersJson.length}字"}');
-    // v222诊断：切书加载结果进全局终端（真机排查"切回0章"）
-    apiLog(
-      chaptersJson == null
-          ? '⚠️ [$currentBook] chapters.json不存在或读取失败（目录：$p）'
-          : '[$currentBook] 章节文件${chaptersJson.length ~/ 1024}KB，解析中...',
-    );
-    if (chaptersJson != null && chaptersJson.isNotEmpty) {
-      try {
-        final list = jsonDecode(chaptersJson) as List;
-        chapters = list
-            .map((e) => Chapter.fromJson(e as Map<String, dynamic>))
-            .toList();
-      } catch (e) {
-        debugPrint('Load chapters error: $e');
-        // v221：截断修复——按括号栈补全闭合（TOOLS.md的栈式修复方案）
-        chapters = _repairChaptersJson(chaptersJson);
-        if (chapters.isEmpty) {
-          apiLog('❌ 章节数据损坏无法读取（${chaptersJson.length}字）——文件可能写入时被中断。备份在磁盘未删除，可尝试重新上传');
-        } else {
-          apiLog('⚠️ 章节数据部分损坏，已修复救回${chapters.length}章（原文件${chaptersJson.length}字）——建议重新上传完整txt以补全');
-          saveChapters(); // 修复结果立即回写固化
-        }
+    // v1473：章节读+解析整体进Isolate——3.2MB文件同步读+jsonDecode主线程跑数秒
+    // =启动/切书ANR真凶（02:40实证"章节文件3232KB解析中"后无响应）
+    final absChaptersPath = '${storage.baseDirPath}/${p}chapters.json';
+    apiLog('[$currentBook] 章节文件解析中（Isolate后台）...');
+    try {
+      final list = await compute(_parseChaptersIsolate, absChaptersPath);
+      chapters = list
+          .map((e) => Chapter.fromJson(e as Map<String, dynamic>))
+          .toList();
+      apiLog('[$currentBook] 章节解析完成：${chapters.length}章');
+    } catch (e) {
+      debugPrint('Load chapters error: $e');
+      // v221：截断修复（低频损坏路径暂留主线程）
+      final chaptersJson = storage.readFile('${p}chapters.json');
+      chapters =
+          chaptersJson == null ? [] : _repairChaptersJson(chaptersJson);
+      if (chapters.isEmpty) {
+        apiLog('❌ 章节数据损坏无法读取——文件可能写入时被中断。备份在磁盘未删除，可尝试重新上传');
+      } else {
+        apiLog('⚠️ 章节数据部分损坏，已修复救回${chapters.length}章——建议重新上传完整txt以补全');
+        saveChapters();
       }
-    } else {
-      chapters = [];
     }
 
     // v455：加载全局场景流——必须无条件（此前误放arc_scan.json块内，
@@ -3428,4 +3424,22 @@ class AppState extends ChangeNotifier {
       return false;
     }
   }
+}
+
+
+/// v1473：章节json读+解码跑后台Isolate（compute要求顶层/静态函数）
+/// 返回原始List<Map>，主线程只做Chapter.fromJson映射
+List<dynamic> _parseChaptersIsolate(String absPath) {
+  final file = File(absPath);
+  if (!file.existsSync()) return [];
+  var bytes = file.readAsBytesSync(); // Isolate内同步读=不卡主线程
+  if (bytes.length >= 3 &&
+      bytes[0] == 0xEF &&
+      bytes[1] == 0xBB &&
+      bytes[2] == 0xBF) {
+    bytes = bytes.sublist(3); // 剥UTF-8 BOM（与readFile同规则）
+  }
+  final s = utf8.decode(bytes, allowMalformed: true);
+  final list = jsonDecode(s) as List;
+  return list;
 }
