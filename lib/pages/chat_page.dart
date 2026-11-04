@@ -2632,7 +2632,8 @@ class _SiliconImageState extends State<_SiliconImage> {
                           _err = 'MJ图下载失败 HTTP${imgRs.statusCode}');
                       return;
                     }
-                    _mjTaskIds?.remove(widget.src); // 取回闭环
+                    // v1447：票据铁律第三处补漏（v1422/v1427后仍漏——浮标dialog里还有一处，
+                    // remove致hasMjTask失效浮标消失，票必须终身保留）
                     await updateBytes(imgRs.bodyBytes); // 正身替换
                     AppState.instance.apiLog('MJ图取回成功 ${imgRs.bodyBytes.length}B');
                   },
