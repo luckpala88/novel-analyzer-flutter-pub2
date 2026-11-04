@@ -1962,8 +1962,10 @@ class _SiliconImageState extends State<_SiliconImage> {
         }
         try {
           final taskId = effTaskId ?? savedTaskId ?? memTaskId ?? _mjTaskIds![src]!;
-          // v1448：续取按"绘制时引擎"路由——公益票fetch公益站，企票fetch环网关（不跟当前切换走）
-          final taskIsPro = (_mjTaskEngines?[src] ?? widget.engine) == 'mjpro';
+          // v1448/v1449：续取按"绘制时引擎"路由——公益票fetch公益站，企票fetch环网关
+          // 旧票（v1448前）无引擎标记→markedEngine为null→fetch 404时自动切另一站查（18:30用户提议）
+          final markedEngine = _mjTaskEngines?[src];
+          final taskIsPro = (markedEngine ?? widget.engine) == 'mjpro';
           final taskBase = taskIsPro ? 'https://api.huanwangai.com' : widget.mjBase;
           final taskHeaders = taskIsPro
               ? {
@@ -2003,6 +2005,28 @@ class _SiliconImageState extends State<_SiliconImage> {
               if (_fetchFail <= 3 || _fetchFail % 6 == 0) {
                 AppState.instance.apiLog(
                     'MJ轮询fetch失败x$_fetchFail: HTTP${ft.statusCode}');
+              }
+              // v1449：旧票无引擎标记+本站查无此ID（404）→自动切另一站查
+              // （历史记录混两家引擎，旧票没记在哪画的——两边都试一遍总能找到）
+              if (ft.statusCode == 404 && markedEngine == null) {
+                final otherPro = !taskIsPro;
+                final otherBase = otherPro
+                    ? 'https://api.huanwangai.com'
+                    : widget.mjBase;
+                final otherHeaders = otherPro
+                    ? {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ${widget.mjProKey}'
+                      }
+                    : {'Content-Type': 'application/json'};
+                try {
+                  ft = await http
+                      .get(Uri.parse('$otherBase/mj/task/$taskId/fetch'),
+                          headers: otherHeaders)
+                      .timeout(const Duration(seconds: 20));
+                  AppState.instance.apiLog(
+                      '旧票跨站查询: $otherBase → HTTP${ft.statusCode}');
+                } catch (_) {}
               }
             }
             // v1434：fetch接口挂（连续失败>=6）→查task/list按ID兜底——
