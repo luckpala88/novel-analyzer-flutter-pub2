@@ -2131,22 +2131,22 @@ class _SiliconImageState extends State<_SiliconImage> {
       final failed = _failedOnce.contains(widget.src) ||
           _manualOnly.contains(widget.src);
       return GestureDetector(
-        onTap: failed
-            ? () {
-                // v1387/1388：手动重试——清失败标记/冷却/手动标记后重新加载
-                _failedOnce.remove(widget.src);
-                _failCooldown.remove(widget.src);
-                _inflight.remove(widget.src);
-                if (_manualOnly.contains(widget.src)) {
-                  _manualOnly.remove(widget.src);
-                  _manualRetry.add(widget.src); // 本次load豁免manualOnly
-                }
-                setState(() {
-                  _err = null;
-                });
-                _load();
-              }
-            : null,
+        // v1432：占位恒可点——绘制中点击=清挂起重走load（票在手必续取不重画，
+        // proxy解卡时点一下立刻出图；旧轮询实例fetch幂等无副作用）
+        onTap: () {
+          // v1387/1388：手动重试——清失败标记/冷却/手动标记后重新加载
+          _failedOnce.remove(widget.src);
+          _failCooldown.remove(widget.src);
+          _inflight.remove(widget.src);
+          if (_manualOnly.contains(widget.src)) {
+            _manualOnly.remove(widget.src);
+            _manualRetry.add(widget.src); // 本次load豁免manualOnly
+          }
+          setState(() {
+            _err = null;
+          });
+          _load();
+        },
         child: Container(
           width: 260,
           height: 56,
