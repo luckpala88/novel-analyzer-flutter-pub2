@@ -1921,8 +1921,9 @@ class _SiliconImageState extends State<_SiliconImage> {
             _failedOnce.add(src);
             AppState.instance
                 .apiLog('MJ轮询超时 任务ID已存（点重试继续取图）');
-            setState(() =>
-                _err = 'MJ等待超时，任务已保存（点此继续取图）');
+            // v1419：占位直接显示任务ID——ID可见化，后台画好凭ID随时可取回
+            setState(() => _err =
+                'MJ等待超时，任务$taskId已存档（点此继续取图）');
             return;
           }
           setState(() => _err = 'MJ完成，下载中…');
