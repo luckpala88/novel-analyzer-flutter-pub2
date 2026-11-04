@@ -1885,7 +1885,7 @@ class _SiliconImageState extends State<_SiliconImage> {
           while (true) {
             await Future.delayed(const Duration(seconds: 5));
             if (!mounted) return;
-            http.Response ft;
+            http.Response? ft;
             try {
               ft = await http
                   .get(Uri.parse('$mjBase/mj/task/$taskId/fetch'),
@@ -1898,15 +1898,43 @@ class _SiliconImageState extends State<_SiliconImage> {
                 AppState.instance
                     .apiLog('MJ轮询fetch失败x$_fetchFail: $e');
               }
-              continue; // v1394：单次fetch超时/失败不断链，下一轮继续问（14:53实证一次超时废整任务）
             }
-            if (ft.statusCode != 200) {
+            if (ft != null && ft.statusCode != 200) {
               _fetchFail++;
               if (_fetchFail <= 3 || _fetchFail % 6 == 0) {
                 AppState.instance.apiLog(
                     'MJ轮询fetch失败x$_fetchFail: HTTP${ft.statusCode}');
               }
-              continue;
+            }
+            // v1434：fetch接口挂（连续失败>=6）→查task/list按ID兜底——
+            // list与fetch同库，fetch接口本身故障时list可能还活着（14:27用户提议）
+            if ((ft == null || ft.statusCode != 200) && _fetchFail >= 6) {
+              try {
+                final lr = await http
+                    .get(Uri.parse('$mjBase/mj/task/list'),
+                        headers: mjHeaders)
+                    .timeout(const Duration(seconds: 20));
+                if (lr.statusCode == 200) {
+                  final decoded = jsonDecode(lr.body);
+                  Map? me;
+                  if (decoded is List) {
+                    for (final t in decoded) {
+                      if (t is Map && t['id'].toString() == taskId) {
+                        me = t;
+                        break;
+                      }
+                    }
+                  }
+                  if (me != null && me['status'] == 'SUCCESS') {
+                    AppState.instance
+                        .apiLog('fetch接口挂，list兜底取到SUCCESS数据');
+                    ft = http.Response(jsonEncode(me), 200);
+                  }
+                }
+              } catch (_) {}
+            }
+            if (ft == null || ft.statusCode != 200) {
+              continue; // v1394：单次失败不断链，下一轮继续问
             }
             _fetchFail = 0;
             final ftData = jsonDecode(ft.body);
