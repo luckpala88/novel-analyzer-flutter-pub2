@@ -1501,6 +1501,7 @@ class _SiliconImageState extends State<_SiliconImage> {
   static int _activeGen = 0; // v1388：全局生成并发计数（上限2，防超服务商并发）
   // v1395：MJ任务ID持久化——轮询超时后凭ID回站取图，不重新生成不耗额度
   static Map<String, String>? _mjTaskIds;
+  static Map<String, String>? _mjTaskEngines; // v1448：src→绘制时引擎（取图按绘制引擎路由，不跟当前切换走）
   static bool _mjTasksLoaded = false;
   List<Uint8List>? _mjGrid; // v1400：MJ四宫格切分后的4张单图（[i]=当前显示，可能是合成版）
   List<Uint8List>? _origGrid; // v1440：每张变体的无字原图——各张独立加标题的合成底图
@@ -1566,12 +1567,16 @@ class _SiliconImageState extends State<_SiliconImage> {
   String? _err;
   static String? _imgDir; // v1343：磁盘缓存目录（prompt+size命名，永久复用防重复烧token）
 
-  Future<void> _saveMjTask(String src, String taskId) async {
+  Future<void> _saveMjTask(String src, String taskId, String engine) async {
     _mjTaskIds ??= {};
     _mjTaskIds![src] = taskId;
+    _mjTaskEngines ??= {};
+    _mjTaskEngines![src] = engine;
     // v1425：票库入global存储（global/mj_tasks）——随云同步备份迁移（用户裁决：图不同步、ID同步）
     try {
       AppState.instance.storage.writeGlobalJson('mj_tasks', _mjTaskIds);
+      // v1448：引擎映射同步落盘——重新取图按绘制时引擎路由（公益票去公益站fetch，企票去环网关）
+      AppState.instance.storage.writeGlobalJson('mj_task_engines', _mjTaskEngines);
     } catch (e) {
       // v1423：写盘失败必须留痕
       AppState.instance.apiLog('MJ任务票写盘失败: $e');
@@ -1597,6 +1602,16 @@ class _SiliconImageState extends State<_SiliconImage> {
       // v1425：主票库=global存储（随云同步备份）
       final g = AppState.instance.storage.readGlobalJson('mj_tasks');
       if (g is Map) absorb(g);
+      // v1448：引擎映射同步恢复
+      final ge = AppState.instance.storage.readGlobalJson('mj_task_engines');
+      if (ge is Map) {
+        _mjTaskEngines ??= {};
+        ge.forEach((k, v) {
+          if (!_mjTaskEngines!.containsKey(k)) {
+            _mjTaskEngines![k.toString()] = v.toString();
+          }
+        });
+      }
       // 旧私有文件一次性迁移（v1425前票存chat_images目录）
       try {
         final f = File(await _diskPath('mj_tasks.json'));
@@ -1933,7 +1948,7 @@ class _SiliconImageState extends State<_SiliconImage> {
           }
           _mjTaskIds ??= {};
           _mjTaskIds![src] = subData['result'].toString();
-          _saveMjTask(src, _mjTaskIds![src]!);
+          _saveMjTask(src, _mjTaskIds![src]!, widget.engine);
           // v1430：票据全程可见——提交响应回来即打终端（用户要求发起时+绘制中都能看到ID）
           AppState.instance
               .apiLog('MJ任务ID: ${_mjTaskIds![src]}（票已落盘）');
@@ -1947,6 +1962,15 @@ class _SiliconImageState extends State<_SiliconImage> {
         }
         try {
           final taskId = effTaskId ?? savedTaskId ?? memTaskId ?? _mjTaskIds![src]!;
+          // v1448：续取按"绘制时引擎"路由——公益票fetch公益站，企票fetch环网关（不跟当前切换走）
+          final taskIsPro = (_mjTaskEngines?[src] ?? widget.engine) == 'mjpro';
+          final taskBase = taskIsPro ? 'https://api.huanwangai.com' : widget.mjBase;
+          final taskHeaders = taskIsPro
+              ? {
+                  'Content-Type': 'application/json',
+                  'Authorization': 'Bearer ${widget.mjProKey}'
+                }
+              : {'Content-Type': 'application/json'};
           String? imageUrl;
           // v1424：独立4图通道标记——该通道只写genBytes不写imageUrl，
           // 循环后超时检查只看imageUrl会把"已下载成功"误判成超时（11:45实证6秒循环）
@@ -1963,8 +1987,8 @@ class _SiliconImageState extends State<_SiliconImage> {
             http.Response? ft;
             try {
               ft = await http
-                  .get(Uri.parse('$mjBase/mj/task/$taskId/fetch'),
-                      headers: mjHeaders)
+                  .get(Uri.parse('$taskBase/mj/task/$taskId/fetch'),
+                      headers: taskHeaders)
                   .timeout(const Duration(seconds: 20));
             } catch (e) {
               // v1431：fetch失败必须留痕（13:55实证：持续超时静默continue，13分钟零日志像死机）
@@ -1987,16 +2011,16 @@ class _SiliconImageState extends State<_SiliconImage> {
               try {
                 // v1441：list兜底按引擎分路径——公益站GET /mj/task/list（开放），
                 // 环网关POST /mj/task/list-by-condition带ids（15:08文档实测，GET 404）
-                final lr = isPro
+                final lr = taskIsPro
                     ? await http
                         .post(
-                            Uri.parse('$mjBase/mj/task/list-by-condition'),
-                            headers: mjHeaders,
+                            Uri.parse('$taskBase/mj/task/list-by-condition'),
+                            headers: taskHeaders,
                             body: jsonEncode({'ids': [taskId]}))
                         .timeout(const Duration(seconds: 20))
                     : await http
-                        .get(Uri.parse('$mjBase/mj/task/list'),
-                            headers: mjHeaders)
+                        .get(Uri.parse('$taskBase/mj/task/list'),
+                            headers: taskHeaders)
                         .timeout(const Duration(seconds: 20));
                 if (lr.statusCode == 200) {
                   final decoded = jsonDecode(lr.body);
