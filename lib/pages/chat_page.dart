@@ -1570,7 +1570,10 @@ class _SiliconImageState extends State<_SiliconImage> {
     try {
       final f = File(await _diskPath('mj_tasks.json'));
       await f.writeAsString(jsonEncode(_mjTaskIds));
-    } catch (_) {}
+    } catch (e) {
+      // v1423：写盘失败必须留痕（此前catch吞掉——若09:47事故是写盘失败将永远无证据）
+      AppState.instance.apiLog('MJ任务票写盘失败: $e');
+    }
   }
 
   Future<void> _loadMjTasks() async {
