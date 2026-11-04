@@ -1612,7 +1612,10 @@ class _SiliconImageState extends State<_SiliconImage> {
 
   Future<String> _diskPath(String key) async {
     final dir = _imgDir ??= await _ensureDir();
-    final safe = key.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').substring(0, 80);
+    var safe = key.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+    // v1426：substring(0,80)对短文件名越界炸——mj_tasks.json(11字符)从v1343起每次写盘必炸被吞，
+    // 票从未落盘=内存票刷新即丢（11:49日志RangeError 0..11:80实锤）——这就是"有ID取不到图"的总根源
+    if (safe.length > 80) safe = safe.substring(0, 80);
     return '$dir/si_$safe.png';
   }
 
