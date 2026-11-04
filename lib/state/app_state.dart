@@ -343,6 +343,8 @@ class AppState extends ChangeNotifier {
 
   // ===== API日志 =====
   List<String> apiLogs = [];
+  Timer? _logNotifyTimer; // v1475：日志notify去抖
+  File? _logFile; // v1475：日志落盘文件
   bool terminalPinned = false; // 终端常显（点过清理后保持显示空终端，不再自动隐藏）
   // API计时器状态
   // v203：计时器ValueNotifier化——原Timer每100ms notifyListeners让全App
@@ -373,6 +375,22 @@ class AppState extends ChangeNotifier {
     loadStyleProfiles(); // v944：全局风格档案（跨书，聊天迭代+创作/改编选用）
     storage.errorLog = apiLog; // v857：写盘异常透传终端
     _setupApiCallbacks();
+    await initLogPersistence(); // v1475：日志落盘初始化+死机前日志回填
+  }
+
+  /// v1475：日志文件初始化——启动时读回api_log.txt尾部200条（死机前日志不丢）
+  Future<void> initLogPersistence() async {
+    try {
+      final f = File('${storage.baseDirPath}/api_log.txt');
+      _logFile = f;
+      if (await f.exists()) {
+        final content = await f.readAsString();
+        final lines =
+            content.split('\n').where((l) => l.trim().isNotEmpty).toList();
+        if (lines.length > 200) lines.removeRange(0, lines.length - 200);
+        apiLogs.addAll(lines);
+      }
+    } catch (_) {}
   }
 
   // ===== v944：个人风格档案（全局多"作家"——聊天页迭代，创作/改编页选用）=====
@@ -501,9 +519,17 @@ class AppState extends ChangeNotifier {
         '${ts.minute.toString().padLeft(2, '0')}:'
         '${ts.second.toString().padLeft(2, '0')}.'
         '${ts.millisecond.toString().padLeft(3, '0').substring(0, 2)}';
-    apiLogs.add('[$tsStr] $msg');
+    final line = '[$tsStr] $msg';
+    apiLogs.add(line);
     if (apiLogs.length > 200) apiLogs.removeAt(0);
-    notifyListeners();
+    // v1475刀①：notify去抖100ms——onTap链路里的apiLog不再立刻触发整页rebuild
+    // （四夜死机案：四格onTap首行apiLog→notifyListeners→聊天页整页rebuild→楼层
+    //  渲染链卡死主线程→ANR；单图onTap无apiLog故不死；且UI冻结导致埋点日志永远
+    //  刷不出来=四夜黑盒根源）
+    _logNotifyTimer?.cancel();
+    _logNotifyTimer = Timer(const Duration(milliseconds: 100), notifyListeners);
+    // v1475刀②：异步落盘append——死机后日志不丢（启动回填见initLogPersistence）
+    _logFile?.writeAsString('$line\n', mode: FileMode.append).catchError((_) {});
   }
 
   void _setupApiCallbacks() {
@@ -574,6 +600,7 @@ class AppState extends ChangeNotifier {
   void clearApiLogs() {
     terminalPinned = true; // 清屏但终端保持显示
     apiLogs.clear();
+    _logFile?.writeAsString('', mode: FileMode.write).catchError((_) {}); // v1475：落盘同步清
     apiTimerRunning.value = false;
     apiTimerSeconds.value = 0;
     _apiTimerTimer?.cancel();
