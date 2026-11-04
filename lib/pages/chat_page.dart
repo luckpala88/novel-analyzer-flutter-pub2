@@ -2341,6 +2341,13 @@ class _SiliconImageState extends State<_SiliconImage> {
   @override
   Widget build(BuildContext context) {
     if (_err != null) {
+      // v1467：比例高计算（err占位也用——三态同高）
+      final wm0 = RegExp(r'width=(\d+)').firstMatch(widget.src);
+      final hm0 = RegExp(r'height=(\d+)').firstMatch(widget.src);
+      final phH = (260.0 *
+              ((num.tryParse(hm0?.group(1) ?? '') ?? 768) /
+                  (num.tryParse(wm0?.group(1) ?? '') ?? 768)))
+          .clamp(120.0, 520.0);
       final failed = _failedOnce.contains(widget.src) ||
           _manualOnly.contains(widget.src);
       return GestureDetector(
@@ -2362,7 +2369,7 @@ class _SiliconImageState extends State<_SiliconImage> {
         },
         child: Container(
           width: 260,
-          height: 56,
+          height: phH, // v1467：err占位同比例高——三态同高，滚动经过零弹跳
           color: const Color(0xFFEFE8D8),
           alignment: Alignment.center,
           // v1417：_err自带"点此"提示时不再叠"（点此重试）"——超时文案两段"点此"连排被当成两个按键
@@ -2376,18 +2383,18 @@ class _SiliconImageState extends State<_SiliconImage> {
       );
     }
     final b = _bytes;
+    // v1466：图片比例高（width/height参数）——占位与显示共用，滚动经过高度恒定
+    final wm = RegExp(r'width=(\d+)').firstMatch(widget.src);
+    final hm = RegExp(r'height=(\d+)').firstMatch(widget.src);
+    final phW = 260.0;
+    final phH = (phW *
+            ((num.tryParse(hm?.group(1) ?? '') ?? 768) /
+                (num.tryParse(wm?.group(1) ?? '') ?? 768)))
+        .clamp(120.0, 520.0);
     if (b == null) {
-      // v1465：占位按图片真实比例预撑高（width/height参数算出）——
-      // 图加载完成后item高度不变，列表不弹跳（22:29滑动回滚实证）
-      final wm = RegExp(r'width=(\d+)').firstMatch(widget.src);
-      final hm = RegExp(r'height=(\d+)').firstMatch(widget.src);
-      final phW = 260.0;
-      final phH = phW *
-          ((num.tryParse(hm?.group(1) ?? '') ?? 768) /
-              (num.tryParse(wm?.group(1) ?? '') ?? 768));
       return Container(
         width: 260,
-        height: phH.clamp(120.0, 520.0),
+        height: phH,
         color: const Color(0xFFEFE8D8),
         alignment: Alignment.center,
         child: const SizedBox(
@@ -2717,7 +2724,11 @@ class _SiliconImageState extends State<_SiliconImage> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
           child: Stack(children: [
-            Image.memory(b, fit: BoxFit.fitWidth),
+            SizedBox(
+              width: 260,
+              height: phH,
+              child: Image.memory(b,
+                  fit: BoxFit.contain)), // v1466：比例容器防滚动弹跳
             // v1399：取MJ图浮标——仅MJ企引擎+有存档任务时显示
             if (hasMjTask)
               Positioned(
