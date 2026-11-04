@@ -2414,7 +2414,11 @@ class _SiliconImageState extends State<_SiliconImage> {
                     });
                     // v1440：各张独立标题——底图切到该张的无字原图
                     _origBytes = _origGrid?[i] ?? img;
-                    showDialog(
+                    // v1462：全屏延后一帧开——ANR实证（21:54"无响应关闭还是等待"）：
+                    // 点宫格同帧做setState(4格重建)+全屏2MB解码=主线程阻塞超5秒
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!mounted) return;
+                      showDialog(
                       context: context,
                       builder: (d) => Dialog.fullscreen(
                         backgroundColor: Colors.black,
@@ -2507,6 +2511,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                         ),
                       ),
                     );
+                    }); // v1462：addPostFrameCallback闭合
                   },
                   child: Container(
                     decoration: BoxDecoration(
