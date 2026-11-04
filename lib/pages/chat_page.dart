@@ -2417,21 +2417,9 @@ class _SiliconImageState extends State<_SiliconImage> {
               for (var i = 0; i < _mjGrid!.length; i++)
                 GestureDetector(
                   onTap: () {
-                    // v1470：埋点定位——死机时最后一条日志=死点（点四格前先传日志留底）
-                    AppState.instance.apiLog('四格TAP[$i] 开始');
+                    // v1474：二分实验①——砍setState+_origBytes，裸开全屏（显示该张，不切正身）
+                    AppState.instance.apiLog('四格TAP[$i] 裸开全屏');
                     final img = _mjGrid![i];
-                    AppState.instance.apiLog('四格TAP[$i] 取图完成 ${img.length}B');
-                    setState(() {
-                      _mjGridSel = i;
-                      _bytes = img;
-                    });
-                    AppState.instance.apiLog('四格TAP[$i] setState完成');
-                    // v1440：各张独立标题——底图切到该张的无字原图
-                    _origBytes = _origGrid?[i] ?? img;
-                    AppState.instance.apiLog('四格TAP[$i] origBytes完成');
-                    // v1464：回滚v1462拆帧——拆帧后点四格必死（22:24实证"没法进到全屏"），
-                    // ANR根因另查；恢复直接打开全屏
-                    AppState.instance.apiLog('四格TAP[$i] showDialog前');
                     showDialog(
                       context: context,
                       builder: (d) => Dialog.fullscreen(
@@ -2451,8 +2439,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                                         // v1469：方案A——与单图全屏同构（InteractiveViewer+原尺寸解码，
                                         // 无cacheWidth无frameBuilder——单图v1468实证不死）
                                         child: InteractiveViewer(
-                                            child: Image.memory(_bytes ?? img,
-                                                fit: BoxFit.contain)),
+                                            child: Image.memory(img, fit: BoxFit.contain)),
                                       ),
                                     ),
                             ),
