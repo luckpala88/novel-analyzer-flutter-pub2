@@ -1567,11 +1567,11 @@ class _SiliconImageState extends State<_SiliconImage> {
   Future<void> _saveMjTask(String src, String taskId) async {
     _mjTaskIds ??= {};
     _mjTaskIds![src] = taskId;
+    // v1425：票库入global存储（global/mj_tasks）——随云同步备份迁移（用户裁决：图不同步、ID同步）
     try {
-      final f = File(await _diskPath('mj_tasks.json'));
-      await f.writeAsString(jsonEncode(_mjTaskIds));
+      AppState.instance.storage.writeGlobalJson('mj_tasks', _mjTaskIds);
     } catch (e) {
-      // v1423：写盘失败必须留痕（此前catch吞掉——若09:47事故是写盘失败将永远无证据）
+      // v1423：写盘失败必须留痕
       AppState.instance.apiLog('MJ任务票写盘失败: $e');
     }
   }
@@ -1579,21 +1579,32 @@ class _SiliconImageState extends State<_SiliconImage> {
   Future<void> _loadMjTasks() async {
     if (_mjTasksLoaded) return;
     _mjTasksLoaded = true;
+    // v1416：merge读盘——内存已有taskId不覆盖（08:51事故：提交已存ID，读盘旧数据覆盖后savedTaskId空→重新提交重画一单）
+    _mjTaskIds ??= {};
+    void absorb(Map<dynamic, dynamic> src) {
+      src.forEach((k, v) {
+        if (v.toString().isNotEmpty &&
+            (!_mjTaskIds!.containsKey(k) ||
+                (_mjTaskIds![k] ?? '').isEmpty)) {
+          _mjTaskIds![k.toString()] = v.toString(); // v1422：有效票恢复空串脏位
+        }
+      });
+    }
+
     try {
-      final f = File(await _diskPath('mj_tasks.json'));
-      if (f.existsSync()) {
-        final disk =
-            (jsonDecode(f.readAsStringSync()) as Map).cast<String, String>();
-        // v1416：merge读盘——内存已有taskId不覆盖（08:51事故：提交已存ID，读盘旧数据覆盖后savedTaskId空→重新提交重画一单）
-        _mjTaskIds ??= {};
-        disk.forEach((k, v) {
-          if (v.isNotEmpty &&
-              (!_mjTaskIds!.containsKey(k) ||
-                  (_mjTaskIds![k] ?? '').isEmpty)) {
-            _mjTaskIds![k] = v; // v1422：磁盘有效票恢复内存空串脏位
-          }
-        });
-      }
+      // v1425：主票库=global存储（随云同步备份）
+      final g = AppState.instance.storage.readGlobalJson('mj_tasks');
+      if (g is Map) absorb(g);
+      // 旧私有文件一次性迁移（v1425前票存chat_images目录）
+      try {
+        final f = File(await _diskPath('mj_tasks.json'));
+        if (f.existsSync()) {
+          final old =
+              (jsonDecode(f.readAsStringSync()) as Map).cast<String, String>();
+          absorb(old);
+          AppState.instance.storage.writeGlobalJson('mj_tasks', _mjTaskIds);
+        }
+      } catch (_) {}
     } catch (_) {
       _mjTaskIds ??= {};
     }
