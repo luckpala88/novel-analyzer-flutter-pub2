@@ -1964,10 +1964,19 @@ class _SiliconImageState extends State<_SiliconImage> {
             // list与fetch同库，fetch接口本身故障时list可能还活着（14:27用户提议）
             if ((ft == null || ft.statusCode != 200) && _fetchFail >= 6) {
               try {
-                final lr = await http
-                    .get(Uri.parse('$mjBase/mj/task/list'),
-                        headers: mjHeaders)
-                    .timeout(const Duration(seconds: 20));
+                // v1441：list兜底按引擎分路径——公益站GET /mj/task/list（开放），
+                // 环网关POST /mj/task/list-by-condition带ids（15:08文档实测，GET 404）
+                final lr = isPro
+                    ? await http
+                        .post(
+                            Uri.parse('$mjBase/mj/task/list-by-condition'),
+                            headers: mjHeaders,
+                            body: jsonEncode({'ids': [taskId]}))
+                        .timeout(const Duration(seconds: 20))
+                    : await http
+                        .get(Uri.parse('$mjBase/mj/task/list'),
+                            headers: mjHeaders)
+                        .timeout(const Duration(seconds: 20));
                 if (lr.statusCode == 200) {
                   final decoded = jsonDecode(lr.body);
                   Map? me;
