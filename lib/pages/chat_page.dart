@@ -2379,19 +2379,55 @@ class _SiliconImageState extends State<_SiliconImage> {
                       context: context,
                       builder: (d) => Dialog.fullscreen(
                         backgroundColor: Colors.black,
-                        child: GestureDetector(
-                          onTap: () => Navigator.pop(d),
-                          child: Column(children: [
+                        // v1450：全屏内嵌调字/加标题（StatefulBuilder切_adjustMode，
+                        // 复用_buildAdjustLayout——合成基于当前张的无字原图）
+                        child: StatefulBuilder(
+                          builder: (d2, setD2) => Column(children: [
                             Expanded(
-                              child: Image.memory(img, fit: BoxFit.contain),
+                              child: _adjustMode
+                                  ? _buildAdjustLayout(setD2)
+                                  : GestureDetector(
+                                      onTap: () => Navigator.pop(d),
+                                      child: Center(
+                                        child: Image.memory(img,
+                                            fit: BoxFit.contain),
+                                      ),
+                                    ),
                             ),
-                            Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Text(
-                                  '第${i + 1}张｜点击任意处返回（此张已设为使用中）',
-                                  style: const TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.white70)),
+                            SafeArea(
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Row(children: [
+                                  Expanded(
+                                    child: Text(
+                                        _adjustMode
+                                            ? '调字中——完成后点完成'
+                                            : '第${i + 1}张｜金框为使用中',
+                                        style: const TextStyle(
+                                            fontSize: 13,
+                                            color: Colors.white70)),
+                                  ),
+                                  GestureDetector(
+                                    onTap: () =>
+                                        setD2(() => _adjustMode = !_adjustMode),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                            color: const Color(0xFFFFD700)),
+                                        borderRadius:
+                                            BorderRadius.circular(16),
+                                      ),
+                                      child: Text(
+                                          _adjustMode ? '完成' : '✍️调字/加标题',
+                                          style: const TextStyle(
+                                              fontSize: 13,
+                                              color: Color(0xFFFFD700))),
+                                    ),
+                                  ),
+                                ]),
+                              ),
                             ),
                           ]),
                         ),
@@ -2427,7 +2463,7 @@ class _SiliconImageState extends State<_SiliconImage> {
               ),
             ]),
           ),
-          // v1442：任务ID常显——重新取图/出图后占位退场，ID随时可查可抄
+          // v1442/v1450：任务ID常显+票库诊断（区分"票库空"还是"key不匹配"）
           Builder(builder: (c) {
             final tid = _mjTaskIds?[widget.src];
             return Padding(
@@ -2435,7 +2471,7 @@ class _SiliconImageState extends State<_SiliconImage> {
               child: Text(
                   tid != null && tid.isNotEmpty
                       ? '任务ID: $tid'
-                      : '（无存档任务ID）',
+                      : '（无存档任务ID｜票库${_mjTaskIds?.length ?? 0}条）',
                   style: const TextStyle(
                       fontSize: 10, color: Color(0xFFB0A58C))),
             );
