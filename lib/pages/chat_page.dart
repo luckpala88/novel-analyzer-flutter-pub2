@@ -1660,6 +1660,9 @@ class _SiliconImageState extends State<_SiliconImage> {
   /// v1344：封面合成后更新显示+落盘
   Future<void> updateBytes(Uint8List b) async {
     _bytes = b;
+    // v1445：取图成功必须清_err——build里占位优先于图显示，
+    // 不清则"取回MJ图…"占位永远盖住已取到的图（17:59实证取完不显示要重启）
+    _err = null;
     // v1439：合成版同步进宫格——加过标题的缩略也带标题（用户确认交互）
     // 落盘变体位，换标题永远从无字底图(_origBytes)重新合成
     if (_mjGrid != null && _mjGridSel < _mjGrid!.length) {
@@ -2136,7 +2139,12 @@ class _SiliconImageState extends State<_SiliconImage> {
             if (composed != null) finalBytes = composed.bytes;
           } catch (_) {}
         }
-        if (mounted) setState(() => _bytes = finalBytes);
+        if (mounted) {
+          setState(() {
+            _bytes = finalBytes;
+            _err = null; // v1445：成功清占位（双链并发时占位不能盖图）
+          });
+        }
         if (_activeGen > 0) _activeGen--;
         return;
       }
@@ -2225,7 +2233,12 @@ class _SiliconImageState extends State<_SiliconImage> {
           if (composed != null) finalBytes = composed.bytes;
         } catch (_) {}
       }
-      if (mounted) setState(() => _bytes = finalBytes);
+      if (mounted) {
+          setState(() {
+            _bytes = finalBytes;
+            _err = null; // v1445：成功清占位（双链并发时占位不能盖图）
+          });
+        }
     } catch (ex) {
       if (mounted) setState(() => _err = '生成超时/失败');
     } finally {
@@ -2564,8 +2577,19 @@ class _SiliconImageState extends State<_SiliconImage> {
                             } catch (_) {}
                           }
                           if (dl.length >= 2) {
-                            _mjGrid = dl;
+                            _mjGrid = List<Uint8List>.from(dl);
+                            _origGrid = List<Uint8List>.from(dl);
                             _mjGridSel = 0;
+                            // v1445：浮标链补4张落盘（v1428只加在主链——漏了浮标链致重启后无四图）
+                            for (var n = 0; n < dl.length; n++) {
+                              try {
+                                final k0 = _curKey;
+                                if (k0 != null) {
+                                  await File(await _diskPath('${k0}_v' + n.toString()))
+                                      .writeAsBytes(dl[n]);
+                                }
+                              } catch (_) {}
+                            }
                             // v1427：票据铁律补漏——此处清票是v1422扫描漏网点（widget.src写法绕过了当时的rg模式）
                             await updateBytes(dl[0]);
                             AppState.instance
