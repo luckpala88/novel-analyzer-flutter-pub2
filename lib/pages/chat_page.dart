@@ -1859,7 +1859,29 @@ class _SiliconImageState extends State<_SiliconImage> {
         final h0 = int.tryParse(RegExp(r'height=(\d+)').firstMatch(widget.src)?.group(1) ?? '1024');
         final g = w0 != null && h0 != null && w0 > 0 && h0 > 0 ? w0.gcd(h0) : 1;
         final ar = w0 != null && h0 != null ? ' --ar ${w0 ~/ g}:${h0 ~/ g}' : '';
-        final mjPrompt = '$prompt$ar';
+        var mjPrompt = '$prompt$ar';
+        // v1443：提交前额度预检（用户方案：发起前查，有FAST用FAST，没额度自动切RELAX）——
+        // 公益站GET /mj/home免key返回fastAvailableCount/relaxAvailableCount实时数据
+        if (!isPro) {
+          try {
+            final hr = await http
+                .get(Uri.parse('$mjBase/mj/home'))
+                .timeout(const Duration(seconds: 10));
+            if (hr.statusCode == 200) {
+              final hd = (jsonDecode(hr.body)['data'] ?? {}) as Map;
+              final fast = (hd['fastAvailableCount'] ?? 0) as num;
+              final relax = (hd['relaxAvailableCount'] ?? 0) as num;
+              if (fast <= 0 && relax > 0) {
+                mjPrompt = '$mjPrompt --relax';
+                AppState.instance
+                    .apiLog('额度预检: FAST耗尽(剩${fast})，自动切RELAX(剩${relax})');
+              } else {
+                AppState.instance
+                    .apiLog('额度预检: FAST剩${fast}，RELAX剩${relax}');
+              }
+            }
+          } catch (_) {}
+        }
         String? imageUrl;
         // v1395：找回超时任务——凭已存taskId直接续轮询，不重新提交不耗额度
         await _loadMjTasks();
