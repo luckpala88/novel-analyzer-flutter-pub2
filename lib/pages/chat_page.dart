@@ -1579,8 +1579,15 @@ class _SiliconImageState extends State<_SiliconImage> {
     try {
       final f = File(await _diskPath('mj_tasks.json'));
       if (f.existsSync()) {
-        _mjTaskIds =
+        final disk =
             (jsonDecode(f.readAsStringSync()) as Map).cast<String, String>();
+        // v1416：merge读盘——内存已有taskId不覆盖（08:51事故：提交已存ID，读盘旧数据覆盖后savedTaskId空→重新提交重画一单）
+        _mjTaskIds ??= {};
+        disk.forEach((k, v) {
+          if (v.isNotEmpty && !_mjTaskIds!.containsKey(k)) {
+            _mjTaskIds![k] = v;
+          }
+        });
       }
     } catch (_) {
       _mjTaskIds ??= {};
@@ -1779,9 +1786,12 @@ class _SiliconImageState extends State<_SiliconImage> {
         // v1411：空串ID不算命中（任务闭环""hack残留）
         final savedTaskId =
             (_mjTaskIds?[src] ?? '').isNotEmpty ? _mjTaskIds![src] : null;
+        // v1416：内存taskId兜底——savedTaskId判定外再查内存map（闭环""/读盘竞态下不丢ID）
+        final memTaskId =
+            (_mjTaskIds?[src] ?? '').isNotEmpty ? _mjTaskIds![src] : null;
         // v1412b：点击只允许"取回"——本次打开APP之前就存在的楼层，无存档ID绝不重新提交
         // （判定用会话起点，不用_manualRetry——static集合残留会误杀本会话新楼层自动画）
-        if (savedTaskId == null &&
+        if ((savedTaskId ?? memTaskId) == null &&
             (widget.floorCreatedAt ?? 0) < _sessionStartMs) {
           if (_activeGen > 0) _activeGen--;
           setState(() => _err = '该图无存档任务ID，取不了');
@@ -1835,7 +1845,7 @@ class _SiliconImageState extends State<_SiliconImage> {
         }
         }
         try {
-          final taskId = savedTaskId ?? _mjTaskIds![src]!;
+          final taskId = savedTaskId ?? memTaskId ?? _mjTaskIds![src]!;
           String? imageUrl;
           var lastProg = ''; // v1403：进度去重
           for (var t = 0; t < 60; t++) {
@@ -1886,6 +1896,9 @@ class _SiliconImageState extends State<_SiliconImage> {
               imageUrl = imageUrl?.toString();
               AppState.instance.apiLog(
                   'MJ SUCCESS响应: ${ft.body.length > 500 ? ft.body.substring(0, 500) : ft.body}');
+              // v1416：SUCCESS但URL全空→继续等（环网关status先SUCCESS、URL后到；
+              // 08:50事故：此处break后imageUrl空被当"轮询超时"，白瞎已生成的任务）
+              if (imageUrl == null || imageUrl.isEmpty) continue;
               break;
             }
             if (status == 'FAILURE') {
