@@ -1584,8 +1584,10 @@ class _SiliconImageState extends State<_SiliconImage> {
         // v1416：merge读盘——内存已有taskId不覆盖（08:51事故：提交已存ID，读盘旧数据覆盖后savedTaskId空→重新提交重画一单）
         _mjTaskIds ??= {};
         disk.forEach((k, v) {
-          if (v.isNotEmpty && !_mjTaskIds!.containsKey(k)) {
-            _mjTaskIds![k] = v;
+          if (v.isNotEmpty &&
+              (!_mjTaskIds!.containsKey(k) ||
+                  (_mjTaskIds![k] ?? '').isEmpty)) {
+            _mjTaskIds![k] = v; // v1422：磁盘有效票恢复内存空串脏位
           }
         });
       }
@@ -1886,7 +1888,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                 if (dl.length >= 2) {
                   _mjGrid = dl;
                   _mjGridSel = 0;
-                  _mjTaskIds?.remove(src);
+                  // v1422：票据铁律——成功也不清ID，MJ没删就永远可重新取图
                   genBytes = dl[0];
                   break;
                 }
@@ -1940,8 +1942,8 @@ class _SiliconImageState extends State<_SiliconImage> {
             setState(() => _err = 'MJ图下载失败 HTTP${imgRs.statusCode}');
             return;
           }
-          _mjTaskIds?[src] != null ? (_mjTaskIds![src] = "") : null; // v1395：任务闭环清映射
-          _mjTaskIds?.remove(src);
+          // v1422：票据铁律——废除v1395闭环清映射/删除，ID永久保留（用户定稿：
+          // 提交即存票、票据唯一不能丢、任何时候可凭票重新取图，除非MJ那边删了）
           genBytes = imgRs.bodyBytes;
           // v1400：MJ四宫格自动切分
           _mjGrid = await _splitGrid(genBytes);
