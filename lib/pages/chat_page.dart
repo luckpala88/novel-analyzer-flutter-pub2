@@ -1655,19 +1655,28 @@ class _SiliconImageState extends State<_SiliconImage> {
     _load();
   }
 
-  /// v1438：重新取图（测试票链用）——清缓存凭票重取，纯续取不提交不耗额度
+  /// v1451：重新取图——本地有图直接读回（零网络秒出），本地没有才凭票fetch
+  /// （用户裁决18:53：图已存本地为何还要去代理取——先本地后远程，永不删已有文件）
   Future<void> _reFetchFromTicket() async {
     final key = _curKey;
     if (key == null) return;
-    _cache.remove(key);
+    // 第一步：本地磁盘有图 → 直接读回显示
     try {
-      File(await _diskPath(key)).deleteSync();
+      final local = File(await _diskPath(key));
+      if (local.existsSync() && local.lengthSync() > 0) {
+        final data = local.readAsBytesSync();
+        _cache[key] = data;
+        _bytes = data;
+        _origBytes ??= data;
+        _err = null;
+        setState(() {});
+        AppState.instance.apiLog('重新取图: 本地缓存命中，直接显示（零网络）');
+        return;
+      }
     } catch (_) {}
-    try {
-      File(await _diskPath('${widget.src}_composed')).deleteSync();
-    } catch (_) {}
+    // 第二步：本地没有 → 凭票走load（manualRetry豁免挂起，续取不耗额度）
     _manualRetry.add(widget.src);
-    setState(() => _err = '重新取图中（凭票续取，不耗额度）…');
+    setState(() => _err = '本地无图，凭票向proxy取回中（不耗额度）…');
     _bytes = null;
     await _load();
   }
