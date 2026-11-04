@@ -1502,7 +1502,8 @@ class _SiliconImageState extends State<_SiliconImage> {
   // v1395：MJ任务ID持久化——轮询超时后凭ID回站取图，不重新生成不耗额度
   static Map<String, String>? _mjTaskIds;
   static bool _mjTasksLoaded = false;
-  List<Uint8List>? _mjGrid; // v1400：MJ四宫格切分后的4张单图
+  List<Uint8List>? _mjGrid; // v1400：MJ四宫格切分后的4张单图（[i]=当前显示，可能是合成版）
+  List<Uint8List>? _origGrid; // v1440：每张变体的无字原图——各张独立加标题的合成底图
   String? _curKey; // v1438：当前图缓存key（重新取图按钮清缓存用）
   int _mjGridSel = 0; // v1400：当前选中的宫格
 
@@ -1666,7 +1667,8 @@ class _SiliconImageState extends State<_SiliconImage> {
       try {
         final key = _curKey;
         if (key != null) {
-          await File(await _diskPath('${key}_v$_mjGridSel'))
+          // v1440：合成版存_c文件（v{n}保持无字原图——各张独立换标题互不影响）
+          await File(await _diskPath('${key}_v${_mjGridSel}_c'))
               .writeAsBytes(b);
         }
       } catch (_) {}
@@ -1752,16 +1754,24 @@ class _SiliconImageState extends State<_SiliconImage> {
       final composedPath = await _diskPath('${widget.src}_composed');
       final composedFile = File(composedPath);
       var diskPath = await _diskPath(key); // v1373b：提前声明（composed分支也要读无字底图）
-      // v1437：磁盘变体重建缩略条（v1428只写了4张落盘漏了重建读取——重启/切对话后缩略条消失实证）
+      // v1437/v1440：磁盘变体重建宫格——v{n}=无字原图进_origGrid，
+      // v{n}_c=合成版存在则_mjGrid显示合成版（各张独立标题跨重启保留）
       try {
         final variants = <Uint8List>[];
+        final origs = <Uint8List>[];
         for (var n = 0; n < 4; n++) {
           final vf = File(await _diskPath('${key}_v$n'));
-          if (vf.existsSync()) variants.add(vf.readAsBytesSync());
+          if (!vf.existsSync()) continue;
+          final orig = vf.readAsBytesSync();
+          origs.add(orig);
+          final cf = File(await _diskPath('${key}_v${n}_c'));
+          variants.add(cf.existsSync() ? cf.readAsBytesSync() : orig);
         }
         if (variants.length >= 2) {
           _mjGrid = variants;
+          _origGrid = origs;
           _mjGridSel = 0;
+          _bytes = variants[0];
         }
       } catch (_) {}
       // v1389：新格式miss则读旧格式（v1352含引擎前缀的存量文件），兼容过渡
@@ -1999,7 +2009,8 @@ class _SiliconImageState extends State<_SiliconImage> {
                   } catch (_) {}
                 }
                 if (dl.length >= 2) {
-                  _mjGrid = dl;
+                  _mjGrid = List<Uint8List>.from(dl);
+                  _origGrid = List<Uint8List>.from(dl); // v1440：每张无字原图独立追踪
                   _mjGridSel = 0;
                   // v1422：票据铁律——成功也不清ID，MJ没删就永远可重新取图
                   genBytes = dl[0];
@@ -2274,6 +2285,8 @@ class _SiliconImageState extends State<_SiliconImage> {
                       _mjGridSel = i;
                       _bytes = img;
                     });
+                    // v1440：各张独立标题——底图切到该张的无字原图
+                    _origBytes = _origGrid?[i] ?? img;
                     showDialog(
                       context: context,
                       builder: (d) => Dialog.fullscreen(
