@@ -3170,6 +3170,28 @@ class _SiliconImageState extends State<_SiliconImage> {
   /// 合成封面：竖排鎏金书名+作者“某某著”竖排小字（参考正版网文封面布局）
 }
 
+/// v1453：其它引擎已画过的图优先读本地磁盘（si_{key}.png）——
+/// pollinations是生成型URL，见到URL就重新画，必须先拦在本地缓存
+Future<File?> _findLocalGenImage(String url) async {
+  try {
+    final pm = RegExp(r'/prompt/([^?]+)').firstMatch(url);
+    if (pm == null) return null;
+    final prompt = Uri.decodeComponent(pm.group(1)!);
+    final wm = RegExp(r'width=(\d+)').firstMatch(url);
+    final hm = RegExp(r'height=(\d+)').firstMatch(url);
+    final size = '${wm?.group(1) ?? 768}x${hm?.group(1) ?? 768}';
+    final key = '$prompt|$size';
+    var safe = key.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+    if (safe.length > 80) safe = safe.substring(0, 80);
+    final dir = _SiliconImageState._imgDir;
+    if (dir == null) return null;
+    final f = File('$dir/si_$safe.png');
+    return (f.existsSync() && f.lengthSync() > 0) ? f : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 /// v1338：pollinations插图（野生API直连URL，CachedNetworkImage）
 Widget _chatImage(BuildContext context, String rawSrc) {
     var url = rawSrc.contains('%') ? rawSrc : Uri.encodeFull(rawSrc);
@@ -3235,9 +3257,17 @@ Widget _chatImage(BuildContext context, String rawSrc) {
         borderRadius: BorderRadius.circular(8),
         // v1341：cached_network_image——磁盘缓存+稳定下载（Image.network在
         // ListView流式重建下下载流不可控，全屏能看气泡转圈实证）；fitWidth原图比例
+        // v1453：本地优先——其它引擎已画过的图（磁盘有）直接显示，不放行pollinations重画
         child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
-        child: CachedNetworkImage(
+        child: FutureBuilder<File?>(
+          future: _findLocalGenImage(url),
+          builder: (c, snap) {
+            if (snap.hasData && snap.data != null) {
+              return Image.memory(snap.data!.readAsBytesSync(),
+                  fit: BoxFit.fitWidth);
+            }
+            return CachedNetworkImage(
           imageUrl: url,
           fit: BoxFit.fitWidth,
           placeholder: (c, u) => Container(
@@ -3259,6 +3289,8 @@ Widget _chatImage(BuildContext context, String rawSrc) {
             child: const Text('🖼 插图加载失败（点重答再试）',
                 style: TextStyle(fontSize: 12, color: Color(0xFF9B8F7A))),
           ),
+            );
+          },
         ),
       ),
       ),
