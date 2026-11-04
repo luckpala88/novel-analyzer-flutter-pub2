@@ -1746,17 +1746,8 @@ class _SiliconImageState extends State<_SiliconImage> {
       final key = '$prompt|$size';
       _curKey = key; // v1438：记录当前key
       final legacyKey = '${widget.engine}|$prompt|$size'; // v1352旧格式（含引擎），兼容读取
-      if (_cache.containsKey(key)) {
-        setState(() => _bytes = _cache[key]);
-        return;
-      }
-      // v1343：磁盘缓存命中——切引擎/重启APP不重复生成（防历史楼层重烧token）
-      // v1344：合成版优先（封面标签叠过字后直接读合成版）
-      // v1429：合成版写读统一用widget.src（1642写侧是src_composed——此前读侧用key，
-      // 两个净化结果不同=合成版重启后读不回，v1344以来的暗bug今日用户问保存机制才暴露）
-      final composedPath = await _diskPath('${widget.src}_composed');
-      final composedFile = File(composedPath);
-      var diskPath = await _diskPath(key); // v1373b：提前声明（composed分支也要读无字底图）
+      // v1446：重建段必须先于_cache命中执行——命中直接return会让重建跳过，
+      // 滚动列表销毁重建后_mjGrid丢失全部变单图（18:18用户实证）
       // v1437/v1440：磁盘变体重建宫格——v{n}=无字原图进_origGrid，
       // v{n}_c=合成版存在则_mjGrid显示合成版（各张独立标题跨重启保留）
       try {
@@ -1777,6 +1768,17 @@ class _SiliconImageState extends State<_SiliconImage> {
           _bytes = variants[0];
         }
       } catch (_) {}
+      if (_cache.containsKey(key)) {
+        setState(() => _bytes = _cache[key]);
+        return;
+      }
+      // v1343：磁盘缓存命中——切引擎/重启APP不重复生成（防历史楼层重烧token）
+      // v1344：合成版优先（封面标签叠过字后直接读合成版）
+      // v1429：合成版写读统一用widget.src（1642写侧是src_composed——此前读侧用key，
+      // 两个净化结果不同=合成版重启后读不回，v1344以来的暗bug今日用户问保存机制才暴露）
+      final composedPath = await _diskPath('${widget.src}_composed');
+      final composedFile = File(composedPath);
+      var diskPath = await _diskPath(key); // v1373b：提前声明（composed分支也要读无字底图）
       // v1389：新格式miss则读旧格式（v1352含引擎前缀的存量文件），兼容过渡
       if (!File(diskPath).existsSync()) {
         final legacyPath = await _diskPath(legacyKey);
