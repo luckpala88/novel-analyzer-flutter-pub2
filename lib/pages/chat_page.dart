@@ -2712,7 +2712,12 @@ class _SiliconImageState extends State<_SiliconImage> {
                               final rs = await http
                                   .get(Uri.parse(uu.toString()))
                                   .timeout(const Duration(seconds: 60));
-                              if (rs.statusCode == 200) dl.add(rs.bodyBytes);
+                              if (rs.statusCode == 200) {
+                                dl.add(rs.bodyBytes);
+                                // v1456：下载进度留痕（同主链）
+                                AppState.instance.apiLog(
+                                    '下载中 ${dl.length}/${urls.length}张（${rs.bodyBytes.length ~/ 1024}KB）');
+                              }
                             } catch (_) {}
                           }
                           if (dl.length >= 2) {
