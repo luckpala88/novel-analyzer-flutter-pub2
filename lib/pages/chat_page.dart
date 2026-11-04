@@ -2224,15 +2224,8 @@ class _SiliconImageState extends State<_SiliconImage> {
         try {
           await File(diskPath).writeAsBytes(genBytes);
         } catch (_) {}
+        // v1472：去掉自动叠书名+作者——用户裁决，叠字改全屏内手动加标题
         var finalBytes = genBytes;
-        if (prompt.toLowerCase().contains('cover') &&
-            widget.bookName.isNotEmpty) {
-          try {
-            final composed = await composeCoverText(
-                finalBytes, widget.bookName, 'luckpala');
-            if (composed != null) finalBytes = composed.bytes;
-          } catch (_) {}
-        }
         if (mounted) {
           setState(() {
             _bytes = finalBytes;
@@ -2318,15 +2311,8 @@ class _SiliconImageState extends State<_SiliconImage> {
       } catch (_) {}
       _manualRetry.remove(src); // v1388：生成完成，撤销手动重试豁免
       _activeGen--; // v1388：并发闸释放
+      // v1472：去掉自动叠书名+作者——用户裁决，叠字改全屏内手动加标题
       var finalBytes = genBytes;
-      // v1344：封面标签自动叠书名+作者（prompt含cover触发，AI画不了汉字的正解）
-      if (prompt.toLowerCase().contains('cover') && widget.bookName.isNotEmpty) {
-        try {
-          final composed = await composeCoverText(
-              finalBytes, widget.bookName, 'luckpala');
-          if (composed != null) finalBytes = composed.bytes;
-        } catch (_) {}
-      }
       if (mounted) {
           setState(() {
             _bytes = finalBytes;
