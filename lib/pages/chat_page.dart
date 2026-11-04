@@ -2548,13 +2548,23 @@ class _SiliconImageState extends State<_SiliconImage> {
               ),
             ]),
           ),
-          // v1442/v1450：任务ID常显+票库诊断（区分"票库空"还是"key不匹配"）
+          // v1442/v1450/v1461：任务ID常显+票库诊断——
+          // v1461：内存票读不到时现读磁盘global（内存map被重建时ID忽有忽无实证）
           Builder(builder: (c) {
-            final tid = _mjTaskIds?[widget.src];
+            var tid = _mjTaskIds?[widget.src] ?? '';
+            if (tid.isEmpty) {
+              try {
+                final g = AppState.instance.storage.readGlobalJson('mj_tasks');
+                if (g is Map) {
+                  final gt = g[widget.src]?.toString() ?? '';
+                  if (gt.isNotEmpty) tid = gt;
+                }
+              } catch (_) {}
+            }
             return Padding(
               padding: const EdgeInsets.only(top: 1),
               child: Text(
-                  tid != null && tid.isNotEmpty
+                  tid.isNotEmpty
                       ? '任务ID: $tid'
                       : '（无存档任务ID｜票库${_mjTaskIds?.length ?? 0}条）',
                   style: const TextStyle(
