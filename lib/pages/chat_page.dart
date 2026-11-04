@@ -1878,6 +1878,7 @@ class _SiliconImageState extends State<_SiliconImage> {
           // 循环后超时检查只看imageUrl会把"已下载成功"误判成超时（11:45实证6秒循环）
           var gotGrid = false;
           var lastProg = ''; // v1403：进度去重
+          var _fetchFail = 0; // v1431：连续fetch失败计数（留痕限频：前3次+每6次打一条）
           // v1417：轮询上限300秒→900秒——环网关99%卡住=proxy裁剪上传4独立图中，MJ实际已完成，
           // 300秒不够白瞎已生成任务（09:13实证99%卡死超时）
           for (var t = 0; t < 180; t++) {
@@ -1889,10 +1890,24 @@ class _SiliconImageState extends State<_SiliconImage> {
                   .get(Uri.parse('$mjBase/mj/task/$taskId/fetch'),
                       headers: mjHeaders)
                   .timeout(const Duration(seconds: 20));
-            } catch (_) {
+            } catch (e) {
+              // v1431：fetch失败必须留痕（13:55实证：持续超时静默continue，13分钟零日志像死机）
+              _fetchFail++;
+              if (_fetchFail <= 3 || _fetchFail % 6 == 0) {
+                AppState.instance
+                    .apiLog('MJ轮询fetch失败x$_fetchFail: $e');
+              }
               continue; // v1394：单次fetch超时/失败不断链，下一轮继续问（14:53实证一次超时废整任务）
             }
-            if (ft.statusCode != 200) continue;
+            if (ft.statusCode != 200) {
+              _fetchFail++;
+              if (_fetchFail <= 3 || _fetchFail % 6 == 0) {
+                AppState.instance.apiLog(
+                    'MJ轮询fetch失败x$_fetchFail: HTTP${ft.statusCode}');
+              }
+              continue;
+            }
+            _fetchFail = 0;
             final ftData = jsonDecode(ft.body);
             final status = ftData['status']?.toString() ?? '';
             if (status == 'SUCCESS') {
