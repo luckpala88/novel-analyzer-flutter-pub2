@@ -1638,9 +1638,9 @@ class _SiliconImageState extends State<_SiliconImage> {
       // 旧私有文件一次性迁移（v1425前票存chat_images目录）
       try {
         final f = File(await _diskPath('mj_tasks.json'));
-        if (f.existsSync()) {
+        if (await f.exists()) {
           final old =
-              (jsonDecode(f.readAsStringSync()) as Map).cast<String, String>();
+              (jsonDecode(await f.readAsString()) as Map).cast<String, String>();
           absorb(old);
           AppState.instance.storage.writeGlobalJson('mj_tasks', _mjTaskIds);
         }
@@ -1689,8 +1689,10 @@ class _SiliconImageState extends State<_SiliconImage> {
     // 第一步：本地磁盘有图 → 直接读回显示
     try {
       final local = File(await _diskPath(key));
-      if (local.existsSync() && local.lengthSync() > 0) {
-        final data = local.readAsBytesSync();
+      // v1471：同步IO全改异步——01:44实证ANR前最后操作=重新取图缓存命中，
+      // readAsBytesSync主线程读2MB大图（公共目录慢盘）=死机真凶候补第一
+      if (await local.exists() && await local.length() > 0) {
+        final data = await local.readAsBytes();
         _cache[key] = data;
         _bytes = data;
         _origBytes ??= data;
@@ -1805,11 +1807,12 @@ class _SiliconImageState extends State<_SiliconImage> {
         final origs = <Uint8List>[];
         for (var n = 0; n < 4; n++) {
           final vf = File(await _diskPath('${key}_v$n'));
-          if (!vf.existsSync()) continue;
-          final orig = vf.readAsBytesSync();
+          // v1471：重建段同步IO全异步化——主线程同步读8张2MB=启动/滚动/重取卡死真凶
+          if (!await vf.exists()) continue;
+          final orig = await vf.readAsBytes();
           origs.add(orig);
           final cf = File(await _diskPath('${key}_v${n}_c'));
-          variants.add(cf.existsSync() ? cf.readAsBytesSync() : orig);
+          variants.add(await cf.exists() ? await cf.readAsBytes() : orig);
         }
         if (variants.length >= 2) {
           _mjGrid = variants;
@@ -1830,24 +1833,24 @@ class _SiliconImageState extends State<_SiliconImage> {
       final composedFile = File(composedPath);
       var diskPath = await _diskPath(key); // v1373b：提前声明（composed分支也要读无字底图）
       // v1389：新格式miss则读旧格式（v1352含引擎前缀的存量文件），兼容过渡
-      if (!File(diskPath).existsSync()) {
+      if (!await File(diskPath).exists()) {
         final legacyPath = await _diskPath(legacyKey);
-        if (File(legacyPath).existsSync()) diskPath = legacyPath;
+        if (await File(legacyPath).exists()) diskPath = legacyPath;
       }
-      if (composedFile.existsSync() &&
+      if (await composedFile.exists() &&
           prompt.toLowerCase().contains('cover')) {
-        final b = composedFile.readAsBytesSync();
+        final b = await composedFile.readAsBytes();
         _cache[key] = b;
         // v1373：composed命中时补_origBytes=无字底图——否则调字重合成静默return（金圈动字不动实证）
         try {
-          _origBytes = File(diskPath).readAsBytesSync();
+          _origBytes = await File(diskPath).readAsBytes();
         } catch (_) {}
         if (mounted) setState(() => _bytes = b);
         return;
       }
       final diskFile = File(diskPath);
-      if (diskFile.existsSync()) {
-        final b = diskFile.readAsBytesSync();
+      if (await diskFile.exists()) {
+        final b = await diskFile.readAsBytes();
         _cache[key] = b;
         _origBytes = b; // v1349：原底图留存
         if (mounted) setState(() => _bytes = b);
@@ -3376,12 +3379,13 @@ Widget _chatImage(BuildContext context, String rawSrc) {
         // v1453：本地优先——其它引擎已画过的图（磁盘有）直接显示，不放行pollinations重画
         child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
-        child: FutureBuilder<File?>(
-          future: _findLocalGenImage(url),
+        // v1471：future直读bytes（builder里readAsBytesSync=每次rebuild主线程同步读盘）
+        child: FutureBuilder<Uint8List?>(
+          future: _findLocalGenImage(url)
+              .then((f) => f == null ? null : f.readAsBytes()),
           builder: (c, snap) {
             if (snap.hasData && snap.data != null) {
-              return Image.memory(snap.data!.readAsBytesSync(),
-                  fit: BoxFit.fitWidth);
+              return Image.memory(snap.data!, fit: BoxFit.fitWidth);
             }
             return CachedNetworkImage(
           imageUrl: url,
