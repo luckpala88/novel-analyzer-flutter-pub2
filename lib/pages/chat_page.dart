@@ -2088,7 +2088,11 @@ class _SiliconImageState extends State<_SiliconImage> {
           height: 56,
           color: const Color(0xFFEFE8D8),
           alignment: Alignment.center,
-          child: Text(failed ? '🖼 $_err（点此重试）' : '🖼 $_err',
+          // v1417：_err自带"点此"提示时不再叠"（点此重试）"——超时文案两段"点此"连排被当成两个按键
+          child: Text(
+              failed && !_err!.contains('点此')
+                  ? '🖼 $_err（点此重试）'
+                  : '🖼 $_err',
               style:
                   const TextStyle(fontSize: 12, color: Color(0xFF9B8F7A))),
         ),
