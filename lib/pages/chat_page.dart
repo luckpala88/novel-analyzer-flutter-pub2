@@ -2429,11 +2429,32 @@ class _SiliconImageState extends State<_SiliconImage> {
                             SafeArea(
                               child: Padding(
                                 padding: const EdgeInsets.all(12),
-                                child: Row(children: [
+                                child: Wrap(children: [
+                                  if (_adjustMode)
+                                    GestureDetector(
+                                      onTap: () => _coverTextDialog(
+                                          context, _origGrid?[i] ?? img, this,
+                                          onDone: () => setD2(() {})),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          border: Border.all(
+                                              color: const Color(0xFFFFD700)),
+                                          borderRadius:
+                                              BorderRadius.circular(16),
+                                        ),
+                                        child: const Text('叠封面文字',
+                                            style: TextStyle(
+                                                fontSize: 13,
+                                                color: Color(0xFFFFD700))),
+                                      ),
+                                    ),
+                                  const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
                                         _adjustMode
-                                            ? '调字中——完成后点完成'
+                                            ? '调字中——先拖放定位，点叠封面文字输入书名'
                                             : '第${i + 1}张｜金框为使用中',
                                         style: const TextStyle(
                                             fontSize: 13,
