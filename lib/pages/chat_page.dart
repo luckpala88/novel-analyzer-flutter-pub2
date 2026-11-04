@@ -1721,6 +1721,18 @@ class _SiliconImageState extends State<_SiliconImage> {
       final composedPath = await _diskPath('${widget.src}_composed');
       final composedFile = File(composedPath);
       var diskPath = await _diskPath(key); // v1373b：提前声明（composed分支也要读无字底图）
+      // v1437：磁盘变体重建缩略条（v1428只写了4张落盘漏了重建读取——重启/切对话后缩略条消失实证）
+      try {
+        final variants = <Uint8List>[];
+        for (var n = 0; n < 4; n++) {
+          final vf = File(await _diskPath('${key}_v$n'));
+          if (vf.existsSync()) variants.add(vf.readAsBytesSync());
+        }
+        if (variants.length >= 2) {
+          _mjGrid = variants;
+          _mjGridSel = 0;
+        }
+      } catch (_) {}
       // v1389：新格式miss则读旧格式（v1352含引擎前缀的存量文件），兼容过渡
       if (!File(diskPath).existsSync()) {
         final legacyPath = await _diskPath(legacyKey);
