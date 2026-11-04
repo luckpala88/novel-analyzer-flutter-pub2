@@ -1883,7 +1883,8 @@ class _SiliconImageState extends State<_SiliconImage> {
           // 99%=MJ画完等proxy收尾（切图传CDN），proxy啥时候交卷啥时候SUCCESS，APP只管每5秒问。
           // 组件销毁(mounted)自动停；FAILURE是终态退出。
           while (true) {
-            await Future.delayed(const Duration(seconds: 5));
+            // v1435：轮询间隔5秒→60秒（14:31用户裁决——proxy收尾动辄几分钟，5秒一问纯浪费电）
+            await Future.delayed(const Duration(seconds: 60));
             if (!mounted) return;
             http.Response? ft;
             try {
