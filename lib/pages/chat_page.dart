@@ -2198,6 +2198,7 @@ class _SiliconImageState extends State<_SiliconImage> {
             genBytes = imgRs.bodyBytes;
             // v1400：MJ四宫格自动切分
             _mjGrid = await _splitGrid(genBytes);
+                        _origGrid = List<Uint8List>.from(_mjGrid!); // v1457：拼图路径补origGrid（缺它则切宫格后_origBytes误指向合成版→多次叠加字）
             _mjGridSel = 0;
           }
         } catch (ex) {
@@ -2495,7 +2496,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                               : Colors.transparent,
                           width: 3),
                     ),
-                    child: Image.memory(_mjGrid![i], fit: BoxFit.cover),
+                    child: Image.memory(_mjGrid![i], fit: BoxFit.cover, cacheWidth: 300), // v1457：降采样防死机
                   ),
                 ),
             ],
@@ -2957,7 +2958,7 @@ class _SiliconImageState extends State<_SiliconImage> {
             child: IgnorePointer(
                 child: Center(
                     child: Image.memory(_bytes ?? Uint8List(0),
-                        fit: BoxFit.fitWidth))),
+                        fit: BoxFit.fitWidth, cacheWidth: 900))), // v1457：解码缓存防拖动卡顿
           ),
           for (var i = 0; i < chars.length; i++)
             Positioned(
@@ -3051,7 +3052,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                   ),
                   // v1382：单字缩放角标——左上减/右上加
                   Positioned(
-                    top: -12, left: -12,
+                    top: -20, left: -20,
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () async {
@@ -3060,7 +3061,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                         await _rescaleCompose(setD2); // v1392：点击即重合成
                       },
                       child: Container(
-                        width: 30, height: 30,
+                        width: 44, height: 44,
                         alignment: Alignment.center,
                         decoration: const BoxDecoration(
                             shape: BoxShape.circle,
@@ -3072,7 +3073,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                     ),
                   ),
                   Positioned(
-                    top: -12, right: -12,
+                    top: -20, right: -20,
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () async {
@@ -3081,7 +3082,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                         await _rescaleCompose(setD2); // v1392：点击即重合成
                       },
                       child: Container(
-                        width: 30, height: 30,
+                        width: 44, height: 44,
                         alignment: Alignment.center,
                         decoration: const BoxDecoration(
                             shape: BoxShape.circle,
