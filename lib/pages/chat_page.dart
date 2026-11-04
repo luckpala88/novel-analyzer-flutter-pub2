@@ -785,13 +785,36 @@ class _ChatPageState extends State<ChatPage>
                             ? 'MJ企'
                             : '野生',
             enabled: state.chatImageGen,
+            // v1454：弹出菜单直接选引擎（原循环切换要跨野生，18:23用户定稿）
             onTap: state.chatImageGen
-                ? () {
-                    final order = ['silicon', 'cf', 'mj', 'mjpro', 'pollination'];
-                    final idx = order.indexOf(state.chatImageEngine);
-                    final next = order[(idx + 1) % order.length];
-                    state.setChatImageEngine(next);
-                    setState(() {});
+                ? () async {
+                    final order = [
+                      ['silicon', '硅基'],
+                      ['cf', 'CF'],
+                      ['mj', 'MJ公'],
+                      ['mjpro', 'MJ企'],
+                      ['pollination', '野生'],
+                    ];
+                    final pick = await showDialog<String>(
+                      context: context,
+                      builder: (d) => SimpleDialog(
+                        title: const Text('选择绘图引擎',
+                            style: TextStyle(fontSize: 16)),
+                        children: [
+                          for (final e in order)
+                            RadioListTile<String>(
+                              value: e[0],
+                              groupValue: state.chatImageEngine,
+                              onChanged: (v) => Navigator.pop(d, v),
+                              title: Text(e[1]),
+                            ),
+                        ],
+                      ),
+                    );
+                    if (pick != null && pick != state.chatImageEngine) {
+                      state.setChatImageEngine(pick);
+                      setState(() {});
+                    }
                   }
                 : null,
           ),
