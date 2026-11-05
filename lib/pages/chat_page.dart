@@ -1588,6 +1588,11 @@ class _SiliconImageState extends State<_SiliconImage> {
   double _authorScale = 1.0; // v1382：作者列缩放
   final Map<int, Offset?> _aDragLast = {}; // v1376：作者拖动起点
   bool _adjustMode = false;
+  // v1498：四格全屏按键调字状态（跨全屏重开保留会话内状态）
+  double _gdx = 0, _gdy = 0; // 整块位移
+  double _gsc = 1.0; // 标题字号倍率
+  bool _gdyInit = false; // 首次进入下移一档（防顶边裁切）
+  bool _adjOn = false; // 按键调字面板开关
   String? _err;
   static String? _imgDir; // v1343：磁盘缓存目录（prompt+size命名，永久复用防重复烧token）
 
@@ -2495,57 +2500,175 @@ class _SiliconImageState extends State<_SiliconImage> {
                       setState(() => _err = '此图无法打开: $e');
                       return;
                     }
+                    // v1498：取图宽高（位移步长/首次下移基准）
+                    int W = 1024, H = 1824;
+                    try {
+                      final c2 = await ui.instantiateImageCodec(img);
+                      final f2 = await c2.getNextFrame();
+                      W = f2.image.width;
+                      H = f2.image.height;
+                      f2.image.dispose();
+                    } catch (_) {}
+                    if (!_gdyInit) {
+                      _gdy = H * 0.06; // 首次整体下移一档（防顶边裁切）
+                      _gdyInit = true;
+                    }
                     showDialog(
                       context: context,
-                      // v1488：极简全屏+表单式叠字+保存键——合成后留在全屏看结果
-                      // （cur本地变量刷新），结果同步写_v{i}_c+更新_mjGrid[i]；
-                      // 仍无拖放画布层（_buildAdjustLayout维持封存）
+                      // v1498：极简全屏+表单叠字+按键调字（字号±/上下左右/复位）
+                      // ——按键驱动重新合成（composeCoverText已验证稳定），
+                      // 拖放画布层(_buildAdjustLayout)维持封存
                       builder: (d) => Dialog.fullscreen(
                         backgroundColor: Colors.black,
                         child: _FsProbe(
                           tag: 'TAP[$i]',
                           child: StatefulBuilder(
-                            builder: (d2, setD2) => Column(children: [
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () => Navigator.pop(d),
-                                child: Center(
-                                  child: InteractiveViewer(
-                                      child: Image.memory(img,
-                                          fit: BoxFit.contain,
-                                          cacheWidth: 1024)),
+                            builder: (d2, setD2) {
+                              Future<void> recomp() async {
+                                if (_coverName.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text('请先叠封面文字合成一次')));
+                                  return;
+                                }
+                                final offs = {
+                                  for (var k = 0; k < 12; k++)
+                                    k: Offset(_gdx, _gdy)
+                                };
+                                final scl = {
+                                  for (var k = 0; k < 12; k++) k: _gsc
+                                };
+                                final out = await composeCoverText(
+                                    memImg,
+                                    _coverName,
+                                    _coverAuthor,
+                                    fontFamily: _coverFont,
+                                    charOffsets: offs,
+                                    authorOffset: Offset(_gdx, _gdy),
+                                    charScales: scl,
+                                    authorScale: 1.0);
+                                if (out != null) {
+                                  img = out.bytes;
+                                  setD2(() {});
+                                }
+                              }
+
+                              Widget adjBtn(String label, VoidCallback onP) {
+                                return TextButton(
+                                    onPressed: () {
+                                      onP();
+                                      setD2(() {});
+                                    },
+                                    child: Text(label,
+                                        style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 13)));
+                              }
+
+                              return Column(children: [
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => Navigator.pop(d),
+                                  child: Center(
+                                    child: InteractiveViewer(
+                                        child: Image.memory(img,
+                                            fit: BoxFit.contain,
+                                            cacheWidth: 1024)),
+                                  ),
                                 ),
                               ),
-                            ),
-                            SafeArea(
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Wrap(alignment: WrapAlignment.center,
-                                    spacing: 8,
-                                    children: [
+                              SafeArea(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8),
+                                  child: Wrap(
+                                      alignment: WrapAlignment.center,
+                                      spacing: 6,
+                                      runSpacing: 2,
+                                      crossAxisAlignment:
+                                          WrapCrossAlignment.center,
+                                      children: [
                                   TextButton.icon(
                                     icon: const Icon(Icons.text_fields,
                                         color: Colors.white70),
                                     label: const Text('叠封面文字',
-                                        style: TextStyle(color: Colors.white70)),
+                                        style: TextStyle(
+                                            color: Colors.white70)),
                                     onPressed: () => _coverTextDialog(
                                         d2, img, this,
-                                        baseOverride: memImg, // v1489：永远以干净切片为底——重复合成不叠字
+                                        baseOverride: memImg,
+                                        charOff: {
+                                          for (var k = 0; k < 12; k++)
+                                            k: Offset(_gdx, _gdy)
+                                        },
+                                        authOff: Offset(_gdx, _gdy),
+                                        charSc: {
+                                          for (var k = 0; k < 12; k++) k: _gsc
+                                        },
                                         onComposed: (b) {
-                                          img = b; // 全屏立即显示合成版
-                                          // v1489：用户定稿——四格只显底图，合成版不回写_mjGrid
+                                          img = b;
                                           setD2(() {});
                                         }),
                                   ),
-                                  const SizedBox(width: 16),
+                                  TextButton.icon(
+                                    icon: const Icon(Icons.open_with,
+                                        color: Colors.white70),
+                                    label: Text(_adjOn ? '收起调字' : '调字',
+                                        style: TextStyle(
+                                            color: Colors.white70)),
+                                    onPressed: () {
+                                      if (_coverName.isEmpty) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(const SnackBar(
+                                                content: Text(
+                                                    '请先叠封面文字合成一次')));
+                                        return;
+                                      }
+                                      _adjOn = !_adjOn;
+                                      setD2(() {});
+                                    },
+                                  ),
+                                  if (_adjOn) ...[
+                                    adjBtn('字－', () {
+                                      _gsc = (_gsc - 0.06).clamp(0.6, 1.8);
+                                      recomp();
+                                    }),
+                                    adjBtn('字＋', () {
+                                      _gsc = (_gsc + 0.06).clamp(0.6, 1.8);
+                                      recomp();
+                                    }),
+                                    adjBtn('←', () {
+                                      _gdx -= W * 0.02;
+                                      recomp();
+                                    }),
+                                    adjBtn('→', () {
+                                      _gdx += W * 0.02;
+                                      recomp();
+                                    }),
+                                    adjBtn('↑', () {
+                                      _gdy -= H * 0.02;
+                                      recomp();
+                                    }),
+                                    adjBtn('↓', () {
+                                      _gdy += H * 0.02;
+                                      recomp();
+                                    }),
+                                    adjBtn('复位', () {
+                                      _gdx = 0;
+                                      _gdy = 0;
+                                      _gsc = 1.0;
+                                      recomp();
+                                    }),
+                                  ],
                                   TextButton.icon(
                                     icon: const Icon(Icons.share,
                                         color: Colors.white70),
                                     label: const Text('转发',
-                                        style: TextStyle(color: Colors.white70)),
+                                        style: TextStyle(
+                                            color: Colors.white70)),
                                     onPressed: () async {
                                       try {
-                                        final tmp = await getTemporaryDirectory();
+                                        final tmp =
+                                            await getTemporaryDirectory();
                                         final f = File(
                                             '${tmp.path}/mj_share_${DateTime.now().millisecondsSinceEpoch}.png');
                                         await f.writeAsBytes(img);
@@ -2558,13 +2681,12 @@ class _SiliconImageState extends State<_SiliconImage> {
                                       }
                                     },
                                   ),
-                                  const SizedBox(width: 16),
                                   TextButton.icon(
                                     icon: const Icon(Icons.save_alt,
                                         color: Colors.white70),
                                     label: const Text('保存到Download',
-                                        style:
-                                            TextStyle(color: Colors.white70)),
+                                        style: TextStyle(
+                                            color: Colors.white70)),
                                     onPressed: () async {
                                       try {
                                         final dir = Directory(
@@ -2579,7 +2701,8 @@ class _SiliconImageState extends State<_SiliconImage> {
                                             '保存PNG ${img.length}B -> ${f.path}');
                                         ScaffoldMessenger.of(context)
                                             .showSnackBar(SnackBar(
-                                                content: Text('已保存：${f.path}')));
+                                                content:
+                                                    Text('已保存：${f.path}')));
                                       } catch (ex) {
                                         ScaffoldMessenger.of(context)
                                             .showSnackBar(const SnackBar(
@@ -2588,11 +2711,12 @@ class _SiliconImageState extends State<_SiliconImage> {
                                       }
                                     },
                                   ),
-                                ]),
+                                  ]),
                               ),
                             ),
-                          ]),
-                            ),
+                          ]);
+                            },
+                          ),
                         ),
                       ),
                     );
@@ -2943,7 +3067,10 @@ class _SiliconImageState extends State<_SiliconImage> {
   void _coverTextDialog(BuildContext ctx, Uint8List baseBytes, _SiliconImageState st,
       {VoidCallback? onDone,
       Uint8List? baseOverride, // v1488：四格切片专用底图（覆盖st._origBytes——切片合成不能动正身）
-      void Function(Uint8List bytes)? onComposed}) {
+      void Function(Uint8List bytes)? onComposed,
+      Map<int, Offset>? charOff, // v1498：按键调字透传
+      Offset? authOff,
+      Map<int, double>? charSc}) {
     final nameCtl = TextEditingController();
     final authorCtl = TextEditingController();
     var font = ''; // v1350：''=系统黑体 KaiShu/XingShu/CaoShu
@@ -3001,9 +3128,9 @@ class _SiliconImageState extends State<_SiliconImage> {
                 final out = await composeCoverText(src0,
                     name, authorCtl.text.trim(),
                     fontFamily: font,
-                    charOffsets: st._charOffsets,
-                    authorOffset: st._authorOffset,
-                    charScales: st._charScales,
+                    charOffsets: charOff ?? st._charOffsets,
+                    authorOffset: authOff ?? st._authorOffset,
+                    charScales: charSc ?? st._charScales,
                     authorScale: st._authorScale);
                 if (out != null) {
                   // v1378：合成实际用的底图记为_origBytes——历史缓存路径_origBytes漏赋值时重合成静默return实证
