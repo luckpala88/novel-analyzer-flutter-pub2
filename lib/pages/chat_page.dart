@@ -1589,8 +1589,10 @@ class _SiliconImageState extends State<_SiliconImage> {
   final Map<int, Offset?> _aDragLast = {}; // v1376：作者拖动起点
   bool _adjustMode = false;
   // v1498：四格全屏按键调字状态（跨全屏重开保留会话内状态）
-  double _gdx = 0, _gdy = 0; // 整块位移
+  double _gdx = 0, _gdy = 0; // 标题位移
   double _gsc = 1.0; // 标题字号倍率
+  double _aDx = 0, _aDy = 0; // v1499：作者独立位移（勾选只调作者时用）
+  bool _adjAuthorOnly = false; // v1499：勾选=方向键只调作者名
   bool _gdyInit = false; // 首次进入下移一档（防顶边裁切）
   bool _adjOn = false; // 按键调字面板开关
   String? _err;
@@ -2544,7 +2546,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                                     _coverAuthor,
                                     fontFamily: _coverFont,
                                     charOffsets: offs,
-                                    authorOffset: Offset(_gdx, _gdy),
+                                    authorOffset: Offset(_aDx, _aDy),
                                     charScales: scl,
                                     authorScale: 1.0);
                                 if (out != null) {
@@ -2600,7 +2602,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                                           for (var k = 0; k < 12; k++)
                                             k: Offset(_gdx, _gdy)
                                         },
-                                        authOff: Offset(_gdx, _gdy),
+                                        authOff: Offset(_aDx, _aDy),
                                         charSc: {
                                           for (var k = 0; k < 12; k++) k: _gsc
                                         },
@@ -2628,33 +2630,69 @@ class _SiliconImageState extends State<_SiliconImage> {
                                     },
                                   ),
                                   if (_adjOn) ...[
-                                    adjBtn('字－', () {
-                                      _gsc = (_gsc - 0.06).clamp(0.6, 1.8);
-                                      recomp();
-                                    }),
-                                    adjBtn('字＋', () {
-                                      _gsc = (_gsc + 0.06).clamp(0.6, 1.8);
-                                      recomp();
-                                    }),
+                                    // v1499：勾选=方向键只调作者名
+                                    TextButton.icon(
+                                        onPressed: () {
+                                          _adjAuthorOnly = !_adjAuthorOnly;
+                                          setD2(() {});
+                                        },
+                                        icon: Icon(
+                                            _adjAuthorOnly
+                                                ? Icons.check_box
+                                                : Icons.check_box_outline_blank,
+                                            color: Colors.white70,
+                                            size: 18),
+                                        label: const Text('只调作者',
+                                            style: TextStyle(
+                                                color: Colors.white70,
+                                                fontSize: 13))),
+                                    if (!_adjAuthorOnly) ...[
+                                      adjBtn('字－', () {
+                                        _gsc = (_gsc - 0.06).clamp(0.6, 1.8);
+                                        recomp();
+                                      }),
+                                      adjBtn('字＋', () {
+                                        _gsc = (_gsc + 0.06).clamp(0.6, 1.8);
+                                        recomp();
+                                      }),
+                                    ],
                                     adjBtn('←', () {
-                                      _gdx -= W * 0.02;
+                                      if (_adjAuthorOnly) {
+                                        _aDx -= W * 0.02;
+                                      } else {
+                                        _gdx -= W * 0.02;
+                                      }
                                       recomp();
                                     }),
                                     adjBtn('→', () {
-                                      _gdx += W * 0.02;
+                                      if (_adjAuthorOnly) {
+                                        _aDx += W * 0.02;
+                                      } else {
+                                        _gdx += W * 0.02;
+                                      }
                                       recomp();
                                     }),
                                     adjBtn('↑', () {
-                                      _gdy -= H * 0.02;
+                                      if (_adjAuthorOnly) {
+                                        _aDy -= H * 0.02;
+                                      } else {
+                                        _gdy -= H * 0.02;
+                                      }
                                       recomp();
                                     }),
                                     adjBtn('↓', () {
-                                      _gdy += H * 0.02;
+                                      if (_adjAuthorOnly) {
+                                        _aDy += H * 0.02;
+                                      } else {
+                                        _gdy += H * 0.02;
+                                      }
                                       recomp();
                                     }),
                                     adjBtn('复位', () {
                                       _gdx = 0;
                                       _gdy = 0;
+                                      _aDx = 0;
+                                      _aDy = 0;
                                       _gsc = 1.0;
                                       recomp();
                                     }),
