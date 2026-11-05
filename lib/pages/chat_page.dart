@@ -2471,6 +2471,21 @@ class _SiliconImageState extends State<_SiliconImage> {
                     // v1481：打印四张子图字节数——若某张异常巨大=切分器实锤
                     AppState.instance.apiLog(
                         'TAP[$i] 子图字节=${_mjGrid!.map((b) => b.length).join(",")}');
+                    // v1485：用户指令——先试解码验证"能不能打开"，能打开才弹全屏
+                    // （小尺寸试解码成本极低；毒图在这里被人赃并获，不再无声冻死）
+                    try {
+                      AppState.instance.apiLog('TAP#5 试解码开始');
+                      final cc = await ui.instantiateImageCodec(
+                          img,
+                          targetWidth: 64);
+                      final fi = await cc.getNextFrame();
+                      AppState.instance.apiLog(
+                          'TAP#6 试解码成功 ${fi.image.width}x${fi.image.height}');
+                    } catch (e) {
+                      AppState.instance.apiLog('⚠️TAP[$i] 试解码失败: $e');
+                      setState(() => _err = '此图无法打开: $e');
+                      return;
+                    }
                     showDialog(
                       context: context,
                       // v1480：二分实验④——原版全屏全量恢复（StatefulBuilder+
