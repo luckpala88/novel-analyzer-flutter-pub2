@@ -3728,7 +3728,7 @@ Widget _chatImage(BuildContext context, String rawSrc) {
     final ff = fontFamily.isEmpty ? null : fontFamily;
     final fallback = fontFamily.isEmpty ? null : const ['WenKai'];
     // 字心横摆模式（相对0.5w系数，参考图神0.42/通0.36/者0.55）
-    const sway = [-0.08, -0.14, 0.05, -0.10, 0.04, -0.08, 0.02, -0.06];
+    const sway = [-0.07, -0.13, 0.06, -0.10, 0.04, -0.08, 0.02, -0.06];
     var cy = img.height * 0.11;
     final centers = <Offset>[]; // v1382：各字真实视觉中心
     // v1495：两遍法——先算每字几何求整列跨度，渐变按全局列跨度反算局部坐标
@@ -3747,9 +3747,7 @@ Widget _chatImage(BuildContext context, String rawSrc) {
         final hasInk = await glyphHasInk(ch, sz, ff, fallback);
         if (!hasInk) useFont = 'WenKai';
       }
-      final rot = (i == chars.length - 1 && chars.length >= 3)
-          ? -0.14
-          : (i % 2 == 0 ? 0.02 : -0.02);
+      final rot = (i == chars.length - 1 && chars.length >= 3) ? -0.14 : 0.0;
       geo.add([ch, sz, cx, cyy, rot, useFont]);
       cy += sz * 0.86;
     }
@@ -3807,48 +3805,56 @@ Widget _chatImage(BuildContext context, String rawSrc) {
       centers.add(Offset(cx, cyy));
     }
 
-    // ===== 作者横排右上 + 著字方印（神通者式） =====
-    var authorCenter = Offset(img.width * 0.70, img.height * 0.22);
+    // ===== 作者竖排右挂首字侧 + 著字方印（v1497参考图实测：竖列贴神字右缘顶对齐） =====
+    var authorCenter = Offset(img.width * 0.62, img.height * 0.22);
     if (author.isNotEmpty) {
-      final aSize = img.width * 0.055;
+      final aChars = author.split('');
+      final aSize = nameSize * 0.24;
       var aUseFont = ff;
       if (ff != null && ff != 'WenKai') {
         final hasInk =
-            await glyphHasInk(author.characters.first, aSize, ff, fallback);
+            await glyphHasInk(aChars.first, aSize, ff, fallback);
         if (!hasInk) aUseFont = 'WenKai';
       }
-      final aTp = TextPainter(
-          text: TextSpan(
-              text: author,
-              style: TextStyle(
-                  fontSize: aSize,
-                  fontFamily: aUseFont,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFFFFF3B0),
-                  shadows: [
-                    Shadow(
-                        blurRadius: 4,
-                        color: Colors.black.withOpacity(0.85)),
-                  ])),
-          textDirection: TextDirection.ltr)
-        ..layout();
-      final axC = img.width * 0.70 + authorOffset.dx;
-      final ayC = img.height * 0.14 + authorOffset.dy;
-      aTp.paint(canvas, ui.Offset(axC - aTp.width / 2, ayC));
-      // 著字方印（深红底+金框金字）
+      // 首字右缘：geo[0]为首字几何
+      final firstCx = geo[0][2] as double;
+      final firstSz = geo[0][1] as double;
+      final firstTop = (geo[0][3] as double) - firstSz / 2;
+      final ax = firstCx + firstSz * 0.62 + authorOffset.dx;
+      var ay = firstTop + aSize * 0.1 + authorOffset.dy;
+      for (final aCh in aChars) {
+        final aTp = TextPainter(
+            text: TextSpan(
+                text: aCh,
+                style: TextStyle(
+                    fontSize: aSize,
+                    fontFamily: aUseFont,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFFFFF3B0),
+                    shadows: [
+                      Shadow(
+                          blurRadius: 4,
+                          color: Colors.black.withOpacity(0.85)),
+                    ])),
+            textDirection: TextDirection.ltr)
+          ..layout();
+        aTp.paint(canvas, ui.Offset(ax - aTp.width / 2, ay));
+        ay += aSize * 1.16;
+      }
+      // 著字方印（深红底+金框金字）收尾
       final zTp = TextPainter(
           text: TextSpan(
               text: '著',
               style: TextStyle(
-                  fontSize: aSize * 0.9,
+                  fontSize: aSize * 0.85,
                   fontFamily: aUseFont,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFFFFD700))),
           textDirection: TextDirection.ltr)
         ..layout();
-      final seal = aSize * 1.2;
-      final sx = axC - aTp.width * 0.30;
-      final sy = ayC + aTp.height + seal * 0.72;
+      final seal = aSize * 1.25;
+      final sx = ax;
+      final sy = ay + seal * 0.65;
       final sealRect = ui.RRect.fromRectAndRadius(
           ui.Rect.fromCenter(
               center: ui.Offset(sx, sy), width: seal, height: seal),
