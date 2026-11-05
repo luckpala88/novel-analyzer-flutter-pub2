@@ -2451,11 +2451,15 @@ class _SiliconImageState extends State<_SiliconImage> {
                     final dk = _curKey;
                     if (dk != null) {
                       try {
+                        // v1484：微秒级括号——v1483实测冻结在TAP与盘读完成之间，
+                        // 每步一埋点，冻结夹在哪两条之间=真凶调用
                         final vf = File(await _diskPath('${dk}_v$i'));
+                        AppState.instance.apiLog('TAP#2 盘路径ok');
                         if (await vf.exists()) {
+                          AppState.instance.apiLog('TAP#3 exists完成');
                           img = await vf.readAsBytes();
                           AppState.instance.apiLog(
-                              'TAP[$i] 盘上图${img.length}B（内存${memImg.length}B）');
+                              'TAP#4 盘读完成${img.length}B（内存${memImg.length}B）');
                         } else {
                           AppState.instance
                               .apiLog('TAP[$i] 盘上无_v$i，回退内存${memImg.length}B');
