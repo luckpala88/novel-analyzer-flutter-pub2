@@ -344,6 +344,7 @@ class AppState extends ChangeNotifier {
   // ===== API日志 =====
   List<String> apiLogs = [];
   File? _logFile; // v1475：日志落盘文件
+  bool _logWriteFailed = false; // v1482：写盘失败标记（只报一次）
   // v1476：日志与全局notify彻底解耦——08:12死机日志实证：四格onTap的apiLog
   // 去抖100ms后notifyListeners→context.watch<AppState>()（chat_page:712+
   // home_page:364）全页rebuild重走MJ楼层渲染链→主线程卡死→全屏builder从未
@@ -532,7 +533,15 @@ class AppState extends ChangeNotifier {
     // 监听logRevision独立刷新，聊天页从此不被日志牵动。
     logRevision.value++;
     // v1475刀②：异步落盘append——死机后日志不丢（启动回填见initLogPersistence）
-    _logFile?.writeAsString('$line\n', mode: FileMode.append).catchError((_) {});
+    // v1482：写盘失败不再静默——失败一次就在终端标记（日志丢失=排查盲区）
+    _logFile
+        ?.writeAsString('$line\n', mode: FileMode.append)
+        .catchError((e) {
+      if (!_logWriteFailed) {
+        _logWriteFailed = true;
+        apiLogs.add('⚠️⚠️ 日志写盘失败: $e');
+      }
+    });
   }
 
   void _setupApiCallbacks() {

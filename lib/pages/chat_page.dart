@@ -1678,7 +1678,20 @@ class _SiliconImageState extends State<_SiliconImage> {
     _sessionStartMs = AppState.instance.chatPageOpenedAt > 0
         ? AppState.instance.chatPageOpenedAt
         : DateTime.now().millisecondsSinceEpoch;
+    // v1482：心跳日志——判"冻结发生在tap之前还是tap触发"（v1481死亡案例
+    // 连TAP日志都没有：要么tap前已冻，要么IO线程也冻。心跳停在哪=冻在哪）
+    _hbTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      AppState.instance.apiLog('❤️${DateTime.now().second}');
+    });
     _load();
+  }
+
+  Timer? _hbTimer; // v1482：心跳
+
+  @override
+  void dispose() {
+    _hbTimer?.cancel();
+    super.dispose();
   }
 
   /// v1451：重新取图——本地有图直接读回（零网络秒出），本地没有才凭票fetch
@@ -1816,6 +1829,7 @@ class _SiliconImageState extends State<_SiliconImage> {
         }
         if (variants.length >= 2) {
           _mjGrid = variants;
+          AppState.instance.apiLog('宫格重建: ${variants.map((b) => b.length).join(",")}');
           _origGrid = origs;
           _mjGridSel = 0;
           _bytes = variants[0];
@@ -2131,6 +2145,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                 }
                 if (dl.length >= 2) {
                   _mjGrid = List<Uint8List>.from(dl);
+                  AppState.instance.apiLog('4图直取: ${dl.map((b) => b.length).join(",")}');
                   _origGrid = List<Uint8List>.from(dl); // v1440：每张无字原图独立追踪
                   _mjGridSel = 0;
                   // v1422：票据铁律——成功也不清ID，MJ没删就永远可重新取图
@@ -2209,6 +2224,7 @@ class _SiliconImageState extends State<_SiliconImage> {
             genBytes = imgRs.bodyBytes;
             // v1400：MJ四宫格自动切分
             _mjGrid = await _splitGrid(genBytes);
+            AppState.instance.apiLog('拼图切分: ${_mjGrid!.map((b) => b.length).join(",")} 原拼图=${genBytes.length}');
                         _origGrid = List<Uint8List>.from(_mjGrid!); // v1457：拼图路径补origGrid（缺它则切宫格后_origBytes误指向合成版→多次叠加字）
             _mjGridSel = 0;
           }
@@ -2785,6 +2801,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                           }
                           if (dl.length >= 2) {
                             _mjGrid = List<Uint8List>.from(dl);
+                           AppState.instance.apiLog('4图直取2: ${dl.map((b) => b.length).join(",")}');
                             _origGrid = List<Uint8List>.from(dl);
                             _mjGridSel = 0;
                             // v1445：浮标链补4张落盘（v1428只加在主链——漏了浮标链致重启后无四图）
