@@ -2488,98 +2488,22 @@ class _SiliconImageState extends State<_SiliconImage> {
                     }
                     showDialog(
                       context: context,
-                      // v1480：二分实验④——原版全屏全量恢复（StatefulBuilder+
-                      // 调字行），仅加probe包裹。v1479图本体同构不死→剩余嫌疑=
-                      // StatefulBuilder/Column+SafeArea+调字行布局/或与具体
-                      // 子图相关（v1476死TAP[3]、v1479生还TAP[2]未交叉）。
-                      // 判读：probe build有+首帧完成无=死在layout/paint；
-                      // probe build无=死在build到达前（与v1479矛盾，另查）
+                      // v1486：用户指令——全屏只放一张图！砍StatefulBuilder/调字行/
+                      // 叠字/移动全部交互，纯Center+InteractiveViewer+Image.memory，
+                      // 点图关闭。v1485实测冻死在#5试解码(64px)——切片字节解码会
+                      // 挂引擎，本版最小化全屏并保留括号链定位
                       builder: (d) => Dialog.fullscreen(
                         backgroundColor: Colors.black,
-                        // v1450：全屏内嵌调字/加标题（StatefulBuilder切_adjustMode，
-                        // 复用_buildAdjustLayout——合成基于当前张的无字原图）
                         child: _FsProbe(
                           tag: 'TAP[$i]',
-                          child: StatefulBuilder(
-                            builder: (d2, setD2) {
-                              AppState.instance.apiLog('四格TAP[$i] 全屏builder构建');
-                              return Column(children: [
-                              Expanded(
-                                child: _adjustMode
-                                    ? _buildAdjustLayout(setD2)
-                                    : GestureDetector(
-                                        onTap: () => Navigator.pop(d),
-                                        child: Center(
-                                          // v1469：方案A——与单图全屏同构（InteractiveViewer+原尺寸解码，
-                                          // 无cacheWidth无frameBuilder——单图v1468实证不死）
-                                          // v1481：全屏解码限流cacheWidth:1024——
-                                          // 疑似TAP[3]子图全尺寸解码炸内存/引擎冻
-                                          // （缩略图cacheWidth:300永不死）
-                                          child: InteractiveViewer(
-                                              child: Image.memory(img,
-                                                  fit: BoxFit.contain,
-                                                  cacheWidth: 1024)),
-                                        ),
-                                      ),
-                              ),
-                              SafeArea(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Wrap(children: [
-                                    if (_adjustMode)
-                                      GestureDetector(
-                                        onTap: () => _coverTextDialog(
-                                            context, _origGrid?[i] ?? img, this,
-                                            onDone: () => setD2(() {})),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 10, vertical: 6),
-                                          decoration: BoxDecoration(
-                                            border: Border.all(
-                                                color: const Color(0xFFFFD700)),
-                                            borderRadius:
-                                                BorderRadius.circular(16),
-                                          ),
-                                          child: const Text('叠封面文字',
-                                              style: TextStyle(
-                                                  fontSize: 13,
-                                                  color: Color(0xFFFFD700))),
-                                        ),
-                                      ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                          _adjustMode
-                                              ? '调字中——先拖放定位，点叠封面文字输入书名'
-                                              : '第${i + 1}张｜金框为使用中',
-                                          style: const TextStyle(
-                                              fontSize: 13,
-                                              color: Colors.white70)),
-                                    ),
-                                    GestureDetector(
-                                      onTap: () =>
-                                          setD2(() => _adjustMode = !_adjustMode),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 12, vertical: 6),
-                                        decoration: BoxDecoration(
-                                          border: Border.all(
-                                              color: const Color(0xFFFFD700)),
-                                          borderRadius:
-                                              BorderRadius.circular(16),
-                                        ),
-                                        child: Text(
-                                            _adjustMode ? '完成' : '✍️调字/加标题',
-                                            style: const TextStyle(
-                                                fontSize: 13,
-                                                color: Color(0xFFFFD700))),
-                                      ),
-                                    ),
-                                  ]),
-                                ),
-                              ),
-                              ]);
-                            },
+                          child: GestureDetector(
+                            onTap: () => Navigator.pop(d),
+                            child: Center(
+                              child: InteractiveViewer(
+                                  child: Image.memory(img,
+                                      fit: BoxFit.contain,
+                                      cacheWidth: 1024)),
+                            ),
                           ),
                         ),
                       ),
