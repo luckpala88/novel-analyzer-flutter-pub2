@@ -2225,6 +2225,15 @@ class _SiliconImageState extends State<_SiliconImage> {
             // v1400：MJ四宫格自动切分
             _mjGrid = await _splitGrid(genBytes);
             AppState.instance.apiLog('拼图切分: ${_mjGrid!.map((b) => b.length).join(",")} 原拼图=${genBytes.length}');
+            // v1483：切片落盘——路径B与路径A对齐（此前切片纯内存：重启四格消失、
+            // 导出0张、叠字底图依赖内存，全链排查无据）
+            for (var n = 0; n < _mjGrid!.length; n++) {
+              try {
+                await File(await _diskPath('${key}_v$n'))
+                    .writeAsBytes(_mjGrid![n]);
+              } catch (_) {}
+            }
+            AppState.instance.apiLog('切片落盘${_mjGrid!.length}张($key)');
                         _origGrid = List<Uint8List>.from(_mjGrid!); // v1457：拼图路径补origGrid（缺它则切宫格后_origBytes误指向合成版→多次叠加字）
             _mjGridSel = 0;
           }
@@ -2432,10 +2441,29 @@ class _SiliconImageState extends State<_SiliconImage> {
             children: [
               for (var i = 0; i < _mjGrid!.length; i++)
                 GestureDetector(
-                  onTap: () {
+                  onTap: () async {
                     // v1474：二分实验①——砍setState+_origBytes，裸开全屏（显示该张，不切正身）
                     AppState.instance.apiLog('四格TAP[$i] 裸开全屏');
-                    final img = _mjGrid![i];
+                    final memImg = _mjGrid![i];
+                    // v1483：用户指令——tap不从内存取图，从盘上读_v$i
+                    // （内存切片若是毒源，这版直接掐断；盘上没有=回退内存+留痕）
+                    Uint8List img = memImg;
+                    final dk = _curKey;
+                    if (dk != null) {
+                      try {
+                        final vf = File(await _diskPath('${dk}_v$i'));
+                        if (await vf.exists()) {
+                          img = await vf.readAsBytes();
+                          AppState.instance.apiLog(
+                              'TAP[$i] 盘上图${img.length}B（内存${memImg.length}B）');
+                        } else {
+                          AppState.instance
+                              .apiLog('TAP[$i] 盘上无_v$i，回退内存${memImg.length}B');
+                        }
+                      } catch (e) {
+                        AppState.instance.apiLog('TAP[$i] 盘读异常: $e');
+                      }
+                    }
                     // v1481：打印四张子图字节数——若某张异常巨大=切分器实锤
                     AppState.instance.apiLog(
                         'TAP[$i] 子图字节=${_mjGrid!.map((b) => b.length).join(",")}');
