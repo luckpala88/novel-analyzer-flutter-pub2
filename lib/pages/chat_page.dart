@@ -2422,7 +2422,29 @@ class _SiliconImageState extends State<_SiliconImage> {
                     final img = _mjGrid![i];
                     showDialog(
                       context: context,
+                      // v1477：二分实验②——全屏child换白屏纯Text（彻底砍
+                      // StatefulBuilder/InteractiveViewer/Image/调字行）。
+                      // v1476实证notify解耦后仍死：TAP+push完成落盘、
+                      // "全屏builder构建"缺位→卡死在push后首帧build到达
+                      // dialog builder之前。白屏还死=凶手在全屏之外（帧/
+                      // 路由层）；白屏不死=凶手在全屏内容，继续二分。
                       builder: (d) => Dialog.fullscreen(
+                        backgroundColor: Colors.white,
+                        child: _FsProbe(
+                          tag: 'TAP[$i]',
+                          child: Center(
+                            child: Text(
+                                'v1477 白屏测试\n不死=凶手在全屏内容',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                    fontSize: 18, color: Colors.black)),
+                          ),
+                        ),
+                      ),
+                    );
+                    /*
+                    // v1450原版全屏（v1477二分暂时封存——白屏实验通过后恢复）
+                    builder: (d) => Dialog.fullscreen(
                         backgroundColor: Colors.black,
                         // v1450：全屏内嵌调字/加标题（StatefulBuilder切_adjustMode，
                         // 复用_buildAdjustLayout——合成基于当前张的无字原图）
@@ -2504,6 +2526,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                         ),
                       ),
                     );
+                    */ // v1477：原版全屏封存结束
                     // v1476：push同步完成后落一条——下次死机时若此条有而
                     // "全屏builder构建"无=死在首帧build；都有=死在全屏内部
                     AppState.instance.apiLog('四格TAP[$i] push完成');
@@ -3756,4 +3779,16 @@ class CoverComposeResult {
   final List<Offset> charCenters;
   final Offset authorCenter;
   CoverComposeResult(this.bytes, this.charCenters, this.authorCenter);
+}
+
+/// v1477：全屏探针——build首行打日志，判首帧build是否到达全屏内容
+class _FsProbe extends StatelessWidget {
+  final String tag;
+  final Widget child;
+  const _FsProbe({required this.tag, required this.child});
+  @override
+  Widget build(BuildContext context) {
+    AppState.instance.apiLog('全屏probe build $tag');
+    return child;
+  }
 }
