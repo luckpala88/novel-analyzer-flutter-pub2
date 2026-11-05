@@ -2422,22 +2422,21 @@ class _SiliconImageState extends State<_SiliconImage> {
                     final img = _mjGrid![i];
                     showDialog(
                       context: context,
-                      // v1477：二分实验②——全屏child换白屏纯Text（彻底砍
-                      // StatefulBuilder/InteractiveViewer/Image/调字行）。
-                      // v1476实证notify解耦后仍死：TAP+push完成落盘、
-                      // "全屏builder构建"缺位→卡死在push后首帧build到达
-                      // dialog builder之前。白屏还死=凶手在全屏之外（帧/
-                      // 路由层）；白屏不死=凶手在全屏内容，继续二分。
+                      // v1479：二分实验③——放回图本体（与单图全屏完全同构：
+                      // Center+InteractiveViewer+Image.memory(切分子图)），
+                      // 仍砍StatefulBuilder/调字行。v1477白屏OK=凶手在全屏
+                      // 内容。这版死=切分子图问题（导出图交叉验证）；不死=
+                      // StatefulBuilder/调字行布局问题。
                       builder: (d) => Dialog.fullscreen(
-                        backgroundColor: Colors.white,
+                        backgroundColor: Colors.black,
                         child: _FsProbe(
                           tag: 'TAP[$i]',
-                          child: Center(
-                            child: Text(
-                                'v1477 白屏测试\n不死=凶手在全屏内容',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                    fontSize: 18, color: Colors.black)),
+                          child: GestureDetector(
+                            onTap: () => Navigator.pop(d),
+                            child: Center(
+                              child: InteractiveViewer(
+                                  child: Image.memory(img, fit: BoxFit.contain)),
+                            ),
                           ),
                         ),
                       ),

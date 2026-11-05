@@ -1200,8 +1200,8 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 1478;
-  static const String _appVersionStr = '1478'; // v1378：显示版（与APK文件名一致，b后缀进显示）
+  static const int _appVersion = 1479;
+  static const String _appVersionStr = '1479'; // v1378：显示版（与APK文件名一致，b后缀进显示）
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';
