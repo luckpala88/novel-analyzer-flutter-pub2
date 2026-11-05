@@ -2488,15 +2488,15 @@ class _SiliconImageState extends State<_SiliconImage> {
                     }
                     showDialog(
                       context: context,
-                      // v1487：极简全屏+表单式叠字——用户指认毒源=拖放画布层
-                      // (_buildAdjustLayout)，叠字回到单图时代的_coverTextDialog
-                      // （纯表单：书名/作者/字体/合成，无拖放无字号）。合成完成
-                      // 关闭全屏回四格看正身。不含StatefulBuilder
+                      // v1488：极简全屏+表单式叠字+保存键——合成后留在全屏看结果
+                      // （cur本地变量刷新），结果同步写_v{i}_c+更新_mjGrid[i]；
+                      // 仍无拖放画布层（_buildAdjustLayout维持封存）
                       builder: (d) => Dialog.fullscreen(
                         backgroundColor: Colors.black,
                         child: _FsProbe(
                           tag: 'TAP[$i]',
-                          child: Column(children: [
+                          child: StatefulBuilder(
+                            builder: (d2, setD2) => Column(children: [
                             Expanded(
                               child: GestureDetector(
                                 onTap: () => Navigator.pop(d),
@@ -2512,6 +2512,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                               child: Padding(
                                 padding: const EdgeInsets.all(12),
                                 child: Wrap(alignment: WrapAlignment.center,
+                                    spacing: 8,
                                     children: [
                                   TextButton.icon(
                                     icon: const Icon(Icons.text_fields,
@@ -2519,13 +2520,61 @@ class _SiliconImageState extends State<_SiliconImage> {
                                     label: const Text('叠封面文字',
                                         style: TextStyle(color: Colors.white70)),
                                     onPressed: () => _coverTextDialog(
-                                        context, img, this,
-                                        onDone: () => Navigator.pop(d)),
+                                        d2, img, this,
+                                        baseOverride: img,
+                                        onComposed: (b) {
+                                          img = b; // 全屏立即显示合成版
+                                          _mjGrid![i] = b; // 四格同步
+                                          // 切片合成版落盘（_v{n}_c语义：合成版，重建段优先读）
+                                          (() async {
+                                            try {
+                                              if (dk != null) {
+                                                await File(await _diskPath(
+                                                        '${dk}_v${i}_c'))
+                                                    .writeAsBytes(b);
+                                                AppState.instance.apiLog(
+                                                    '切片合成版落盘 v${i}_c ${b.length}B');
+                                              }
+                                            } catch (_) {}
+                                          })();
+                                          setD2(() {});
+                                        }),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  TextButton.icon(
+                                    icon: const Icon(Icons.save_alt,
+                                        color: Colors.white70),
+                                    label: const Text('保存到Download',
+                                        style:
+                                            TextStyle(color: Colors.white70)),
+                                    onPressed: () async {
+                                      try {
+                                        final dir = Directory(
+                                            '/storage/emulated/0/Download');
+                                        if (!dir.existsSync()) {
+                                          dir.createSync(recursive: true);
+                                        }
+                                        final f = File(
+                                            '${dir.path}/chat_img_${DateTime.now().millisecondsSinceEpoch}.png');
+                                        await f.writeAsBytes(img);
+                                        AppState.instance.apiLog(
+                                            '保存PNG ${img.length}B -> ${f.path}');
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(SnackBar(
+                                                content: Text('已保存：${f.path}')));
+                                      } catch (ex) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(const SnackBar(
+                                                content:
+                                                    Text('保存失败（需存储授权）')));
+                                      }
+                                    },
                                   ),
                                 ]),
                               ),
                             ),
                           ]),
+                            ),
                         ),
                       ),
                     );
@@ -2874,7 +2923,9 @@ class _SiliconImageState extends State<_SiliconImage> {
 
   /// v1344：封面文字叠加——Canvas+TextPainter画系统字体汉字（AI画不了中文的正解）
   void _coverTextDialog(BuildContext ctx, Uint8List baseBytes, _SiliconImageState st,
-      {VoidCallback? onDone}) {
+      {VoidCallback? onDone,
+      Uint8List? baseOverride, // v1488：四格切片专用底图（覆盖st._origBytes——切片合成不能动正身）
+      void Function(Uint8List bytes)? onComposed}) {
     final nameCtl = TextEditingController();
     final authorCtl = TextEditingController();
     var font = ''; // v1350：''=系统黑体 KaiShu/XingShu/CaoShu
@@ -2917,7 +2968,8 @@ class _SiliconImageState extends State<_SiliconImage> {
           TextButton(onPressed: () => Navigator.pop(d), child: const Text('取消')),
           FilledButton(
             onPressed: () async {
-              final src0 = st._origBytes ?? baseBytes; // v1349：永远从无字底图合成
+              // v1488：baseOverride=切片底图（四格模式，结果走onComposed不碰正身）
+              final src0 = baseOverride ?? st._origBytes ?? baseBytes; // v1349：永远从无字底图合成
               final name = nameCtl.text.trim();
               if (name.isEmpty) {
                 ScaffoldMessenger.of(ctx).showSnackBar(
@@ -2937,11 +2989,17 @@ class _SiliconImageState extends State<_SiliconImage> {
                     authorScale: st._authorScale);
                 if (out != null) {
                   // v1378：合成实际用的底图记为_origBytes——历史缓存路径_origBytes漏赋值时重合成静默return实证
-                  if (st._origBytes == null) st._origBytes = src0;
+                  if (baseOverride == null && st._origBytes == null) {
+                    st._origBytes = src0;
+                  }
                   st._charCenters = out.charCenters; // v1382：圈套真实字位
                   st._authorCenter = out.authorCenter;
                   // v1393：偏移永久累计不清——清了下次重合成字弹回基础位（用户"会弹回"实证）
-                  st.updateBytes(out.bytes);
+                  if (onComposed != null) {
+                    onComposed(out.bytes); // v1488：四格模式——结果回全屏+写_v{n}_c
+                  } else {
+                    st.updateBytes(out.bytes);
+                  }
                   onDone?.call(); // 合成后刷新全屏预览
                 } else {
                   ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
