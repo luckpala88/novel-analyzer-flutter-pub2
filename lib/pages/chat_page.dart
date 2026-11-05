@@ -2488,23 +2488,44 @@ class _SiliconImageState extends State<_SiliconImage> {
                     }
                     showDialog(
                       context: context,
-                      // v1486：用户指令——全屏只放一张图！砍StatefulBuilder/调字行/
-                      // 叠字/移动全部交互，纯Center+InteractiveViewer+Image.memory，
-                      // 点图关闭。v1485实测冻死在#5试解码(64px)——切片字节解码会
-                      // 挂引擎，本版最小化全屏并保留括号链定位
+                      // v1487：极简全屏+表单式叠字——用户指认毒源=拖放画布层
+                      // (_buildAdjustLayout)，叠字回到单图时代的_coverTextDialog
+                      // （纯表单：书名/作者/字体/合成，无拖放无字号）。合成完成
+                      // 关闭全屏回四格看正身。不含StatefulBuilder
                       builder: (d) => Dialog.fullscreen(
                         backgroundColor: Colors.black,
                         child: _FsProbe(
                           tag: 'TAP[$i]',
-                          child: GestureDetector(
-                            onTap: () => Navigator.pop(d),
-                            child: Center(
-                              child: InteractiveViewer(
-                                  child: Image.memory(img,
-                                      fit: BoxFit.contain,
-                                      cacheWidth: 1024)),
+                          child: Column(children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => Navigator.pop(d),
+                                child: Center(
+                                  child: InteractiveViewer(
+                                      child: Image.memory(img,
+                                          fit: BoxFit.contain,
+                                          cacheWidth: 1024)),
+                                ),
+                              ),
                             ),
-                          ),
+                            SafeArea(
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Wrap(alignment: WrapAlignment.center,
+                                    children: [
+                                  TextButton.icon(
+                                    icon: const Icon(Icons.text_fields,
+                                        color: Colors.white70),
+                                    label: const Text('叠封面文字',
+                                        style: TextStyle(color: Colors.white70)),
+                                    onPressed: () => _coverTextDialog(
+                                        context, img, this,
+                                        onDone: () => Navigator.pop(d)),
+                                  ),
+                                ]),
+                              ),
+                            ),
+                          ]),
                         ),
                       ),
                     );
