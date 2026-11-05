@@ -3770,10 +3770,10 @@ Widget _chatImage(BuildContext context, String rawSrc) {
             ui.Offset(t1 * dmath.sin(rot), t1 * dmath.cos(rot)),
             ui.Offset(t2 * dmath.sin(rot), t2 * dmath.cos(rot)),
             const [
-              Color(0xFFFFF3B0),
-              Color(0xFFFFD700),
-              Color(0xFFB8860B),
-            ], [0.0, 0.5, 1.0], TileMode.clamp);
+              Color(0xFFFFFCE0),
+              Color(0xFFFFD900),
+              Color(0xFFE89B00),
+            ], [0.0, 0.45, 1.0], TileMode.clamp);
       // 阴影层
       final sh = TextPainter(
           text: TextSpan(
@@ -3824,7 +3824,7 @@ Widget _chatImage(BuildContext context, String rawSrc) {
                   fontSize: aSize,
                   fontFamily: aUseFont,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFFFFE9A8),
+                  color: const Color(0xFFFFF3B0),
                   shadows: [
                     Shadow(
                         blurRadius: 4,
