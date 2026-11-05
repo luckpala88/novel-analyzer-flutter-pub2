@@ -2422,110 +2422,97 @@ class _SiliconImageState extends State<_SiliconImage> {
                     final img = _mjGrid![i];
                     showDialog(
                       context: context,
-                      // v1479：二分实验③——放回图本体（与单图全屏完全同构：
-                      // Center+InteractiveViewer+Image.memory(切分子图)），
-                      // 仍砍StatefulBuilder/调字行。v1477白屏OK=凶手在全屏
-                      // 内容。这版死=切分子图问题（导出图交叉验证）；不死=
-                      // StatefulBuilder/调字行布局问题。
+                      // v1480：二分实验④——原版全屏全量恢复（StatefulBuilder+
+                      // 调字行），仅加probe包裹。v1479图本体同构不死→剩余嫌疑=
+                      // StatefulBuilder/Column+SafeArea+调字行布局/或与具体
+                      // 子图相关（v1476死TAP[3]、v1479生还TAP[2]未交叉）。
+                      // 判读：probe build有+首帧完成无=死在layout/paint；
+                      // probe build无=死在build到达前（与v1479矛盾，另查）
                       builder: (d) => Dialog.fullscreen(
-                        backgroundColor: Colors.black,
-                        child: _FsProbe(
-                          tag: 'TAP[$i]',
-                          child: GestureDetector(
-                            onTap: () => Navigator.pop(d),
-                            child: Center(
-                              child: InteractiveViewer(
-                                  child: Image.memory(img, fit: BoxFit.contain)),
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                    /*
-                    // v1450原版全屏（v1477二分暂时封存——白屏实验通过后恢复）
-                    builder: (d) => Dialog.fullscreen(
                         backgroundColor: Colors.black,
                         // v1450：全屏内嵌调字/加标题（StatefulBuilder切_adjustMode，
                         // 复用_buildAdjustLayout——合成基于当前张的无字原图）
-                        child: StatefulBuilder(
-                          builder: (d2, setD2) {
-                            AppState.instance.apiLog('四格TAP[$i] 全屏builder构建');
-                            return Column(children: [
-                            Expanded(
-                              child: _adjustMode
-                                  ? _buildAdjustLayout(setD2)
-                                  : GestureDetector(
-                                      onTap: () => Navigator.pop(d),
-                                      child: Center(
-                                        // v1469：方案A——与单图全屏同构（InteractiveViewer+原尺寸解码，
-                                        // 无cacheWidth无frameBuilder——单图v1468实证不死）
-                                        child: InteractiveViewer(
-                                            child: Image.memory(img, fit: BoxFit.contain)),
+                        child: _FsProbe(
+                          tag: 'TAP[$i]',
+                          child: StatefulBuilder(
+                            builder: (d2, setD2) {
+                              AppState.instance.apiLog('四格TAP[$i] 全屏builder构建');
+                              return Column(children: [
+                              Expanded(
+                                child: _adjustMode
+                                    ? _buildAdjustLayout(setD2)
+                                    : GestureDetector(
+                                        onTap: () => Navigator.pop(d),
+                                        child: Center(
+                                          // v1469：方案A——与单图全屏同构（InteractiveViewer+原尺寸解码，
+                                          // 无cacheWidth无frameBuilder——单图v1468实证不死）
+                                          child: InteractiveViewer(
+                                              child: Image.memory(img, fit: BoxFit.contain)),
+                                        ),
                                       ),
+                              ),
+                              SafeArea(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Wrap(children: [
+                                    if (_adjustMode)
+                                      GestureDetector(
+                                        onTap: () => _coverTextDialog(
+                                            context, _origGrid?[i] ?? img, this,
+                                            onDone: () => setD2(() {})),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 10, vertical: 6),
+                                          decoration: BoxDecoration(
+                                            border: Border.all(
+                                                color: const Color(0xFFFFD700)),
+                                            borderRadius:
+                                                BorderRadius.circular(16),
+                                          ),
+                                          child: const Text('叠封面文字',
+                                              style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: Color(0xFFFFD700))),
+                                        ),
+                                      ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                          _adjustMode
+                                              ? '调字中——先拖放定位，点叠封面文字输入书名'
+                                              : '第${i + 1}张｜金框为使用中',
+                                          style: const TextStyle(
+                                              fontSize: 13,
+                                              color: Colors.white70)),
                                     ),
-                            ),
-                            SafeArea(
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Wrap(children: [
-                                  if (_adjustMode)
                                     GestureDetector(
-                                      onTap: () => _coverTextDialog(
-                                          context, _origGrid?[i] ?? img, this,
-                                          onDone: () => setD2(() {})),
+                                      onTap: () =>
+                                          setD2(() => _adjustMode = !_adjustMode),
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(
-                                            horizontal: 10, vertical: 6),
+                                            horizontal: 12, vertical: 6),
                                         decoration: BoxDecoration(
                                           border: Border.all(
                                               color: const Color(0xFFFFD700)),
                                           borderRadius:
                                               BorderRadius.circular(16),
                                         ),
-                                        child: const Text('叠封面文字',
-                                            style: TextStyle(
+                                        child: Text(
+                                            _adjustMode ? '完成' : '✍️调字/加标题',
+                                            style: const TextStyle(
                                                 fontSize: 13,
                                                 color: Color(0xFFFFD700))),
                                       ),
                                     ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                        _adjustMode
-                                            ? '调字中——先拖放定位，点叠封面文字输入书名'
-                                            : '第${i + 1}张｜金框为使用中',
-                                        style: const TextStyle(
-                                            fontSize: 13,
-                                            color: Colors.white70)),
-                                  ),
-                                  GestureDetector(
-                                    onTap: () =>
-                                        setD2(() => _adjustMode = !_adjustMode),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 12, vertical: 6),
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                            color: const Color(0xFFFFD700)),
-                                        borderRadius:
-                                            BorderRadius.circular(16),
-                                      ),
-                                      child: Text(
-                                          _adjustMode ? '完成' : '✍️调字/加标题',
-                                          style: const TextStyle(
-                                              fontSize: 13,
-                                              color: Color(0xFFFFD700))),
-                                    ),
-                                  ),
-                                ]),
+                                  ]),
+                                ),
                               ),
-                            ),
-                            ]);
-                          },
+                              ]);
+                            },
+                          ),
                         ),
                       ),
                     );
-                    */ // v1477：原版全屏封存结束
                     // v1476：push同步完成后落一条——下次死机时若此条有而
                     // "全屏builder构建"无=死在首帧build；都有=死在全屏内部
                     AppState.instance.apiLog('四格TAP[$i] push完成');
@@ -3788,6 +3775,11 @@ class _FsProbe extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     AppState.instance.apiLog('全屏probe build $tag');
+    // v1480：首帧（build+layout+paint）全部完成才打——probe build有而
+    // 此条无=卡死在layout/paint阶段；此条有=帧完整跑完没卡
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppState.instance.apiLog('全屏首帧完成 $tag');
+    });
     return child;
   }
 }
