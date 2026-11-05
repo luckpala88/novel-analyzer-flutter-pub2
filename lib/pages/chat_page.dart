@@ -2420,6 +2420,9 @@ class _SiliconImageState extends State<_SiliconImage> {
                     // v1474：二分实验①——砍setState+_origBytes，裸开全屏（显示该张，不切正身）
                     AppState.instance.apiLog('四格TAP[$i] 裸开全屏');
                     final img = _mjGrid![i];
+                    // v1481：打印四张子图字节数——若某张异常巨大=切分器实锤
+                    AppState.instance.apiLog(
+                        'TAP[$i] 子图字节=${_mjGrid!.map((b) => b.length).join(",")}');
                     showDialog(
                       context: context,
                       // v1480：二分实验④——原版全屏全量恢复（StatefulBuilder+
@@ -2446,8 +2449,13 @@ class _SiliconImageState extends State<_SiliconImage> {
                                         child: Center(
                                           // v1469：方案A——与单图全屏同构（InteractiveViewer+原尺寸解码，
                                           // 无cacheWidth无frameBuilder——单图v1468实证不死）
+                                          // v1481：全屏解码限流cacheWidth:1024——
+                                          // 疑似TAP[3]子图全尺寸解码炸内存/引擎冻
+                                          // （缩略图cacheWidth:300永不死）
                                           child: InteractiveViewer(
-                                              child: Image.memory(img, fit: BoxFit.contain)),
+                                              child: Image.memory(img,
+                                                  fit: BoxFit.contain,
+                                                  cacheWidth: 1024)),
                                         ),
                                       ),
                               ),

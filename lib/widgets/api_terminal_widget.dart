@@ -180,8 +180,8 @@ class _ApiTerminalWidgetState extends State<ApiTerminalWidget> {
           .whereType<File>()
           .where((f) => f.path.endsWith('.png'))) {
         final name = f.uri.pathSegments.last;
-        // 只导四格变体+正身相关的（_v0..v3及_composed），mj_tasks.json等不拷
-        if (!name.contains('_v') && !name.contains('_composed')) continue;
+        // v1481：拷全部si_*.png（拼图原版si_<key>.png也在盘上——切分仅内存）
+        if (!name.startsWith('si_')) continue;
         await f.copy('${dst.path}/$name');
         n++;
       }
