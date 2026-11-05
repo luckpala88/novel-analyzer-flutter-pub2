@@ -1233,8 +1233,11 @@ class _ChatPageState extends State<ChatPage>
                 child: a.isImage
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(6),
-                        child: Image.memory(
-                          base64Decode(a.data),
+                        child: Image(
+                          // v1504：缓存解码结果——同附件只解一次（key=内容哈希）
+                          image: _attImgCache.putIfAbsent(
+                              '${a.data.hashCode}',
+                              () => MemoryImage(base64Decode(a.data))),
                           width: 180,
                           fit: BoxFit.cover,
                           // v860：v846防御补回——坏图片数据显示占位，防启动build反复崩
@@ -1531,6 +1534,7 @@ class _SiliconImageState extends State<_SiliconImage> {
   // =IO风暴实证22:00日志）；同key只读一次盘，后续State直接复用内存
   static final Map<String, List<Uint8List>> _gridCache = {};
   static final Map<String, List<Uint8List>> _origCache = {};
+
   List<Uint8List>? _mjGrid; // v1400：MJ四宫格切分后的4张单图（[i]=当前显示，可能是合成版）
   List<Uint8List>? _origGrid; // v1440：每张变体的无字原图——各张独立加标题的合成底图
   String? _curKey; // v1438：当前图缓存key（重新取图按钮清缓存用）
@@ -3579,6 +3583,10 @@ Future<File?> _findLocalGenImage(String url) async {
     return null;
   }
 }
+
+// v1504：附件图解码缓存——base64Decode+图片解码每次build都跑一遍（MB级大图
+// 同步解码卡UI线程=带附件消息滑不动的元凶），同附件只解一次（顶层：气泡在ChatPage）
+final Map<String, MemoryImage> _attImgCache = {};
 
 /// v1338：pollinations插图（野生API直连URL，CachedNetworkImage）
 Widget _chatImage(BuildContext context, String rawSrc) {
