@@ -3713,43 +3713,48 @@ Widget _chatImage(BuildContext context, String rawSrc) {
     final canvas = ui.Canvas(recorder);
     canvas.drawImage(img, ui.Offset.zero, ui.Paint());
 
-    // ===== 书名竖排（靠右列） =====
+    // ===== 书名错落排布（v1490b神通者式：斜向阶梯+每字独立大小+末字放大倾斜） =====
     final chars = bookName.split('');
-    final nameSize =
-        (img.width / 2.2).clamp(0.0, (img.height * 0.66) / chars.length);
-    // v1369：书名+作者组整体居中（参考图神通者布局——组合宽=nameSize+作者列，中心0.5w）
-    final nameX = img.width * 0.5; // v1490：标题左右居中
-    final y0 = img.height * 0.055;
-    final lineH = nameSize * 1.08;
+    final nameSize = img.width * 0.32; // 参考图神/通≈0.30-0.32w
     final ff = fontFamily.isEmpty ? null : fontFamily;
     final fallback = fontFamily.isEmpty ? null : const ['WenKai'];
-    // 鎏金渐变跨整列
-    final grad = ui.Paint()
-      ..shader = ui.Gradient.linear(
-          ui.Offset(nameX - nameSize / 2, y0),
-          ui.Offset(nameX - nameSize / 2, y0 + chars.length * lineH),
-          const [
-            Color(0xFFFFF3B0),
-            Color(0xFFFFD700),
-            Color(0xFFB8860B),
-          ], [0.0, 0.5, 1.0], TileMode.clamp);
-    var y = y0;
+    // 字心横摆模式（相对0.5w系数，参考图神0.42/通0.36/者0.55）
+    const sway = [-0.08, -0.14, 0.05, -0.10, 0.04, -0.08, 0.02, -0.06];
+    var cy = img.height * 0.11;
     final centers = <Offset>[]; // v1382：各字真实视觉中心
     for (var i = 0; i < chars.length; i++) {
       final ch = chars[i];
-      final sc = charScales[i] ?? 1.0; // v1382：单字缩放
-      // v1367：逐字检测——行书等覆盖小字体缺字空白→回退文楷
+      final sc = (charScales[i] ?? 1.0) *
+          (i == chars.length - 1 && chars.length >= 3 ? 1.16 : 1.0 + (i % 2) * 0.03);
+      final sz = nameSize * sc;
+      final cx = img.width * (0.5 + sway[i % sway.length]) +
+          (charOffsets[i]?.dx ?? 0);
+      final cyy = cy + (charOffsets[i]?.dy ?? 0);
       var useFont = ff;
       if (ff != null && ff != 'WenKai') {
-        final hasInk = await glyphHasInk(ch, nameSize * sc, ff, fallback);
+        final hasInk = await glyphHasInk(ch, sz, ff, fallback);
         if (!hasInk) useFont = 'WenKai';
       }
+      // 末字倾斜（参考图者字斜势），其余微摆
+      final rot = (i == chars.length - 1 && chars.length >= 3)
+          ? -0.14
+          : (i % 2 == 0 ? 0.02 : -0.02);
+      final grad = ui.Paint()
+        ..shader = ui.Gradient.linear(
+            const ui.Offset(0, -1),
+            const ui.Offset(0, 1),
+            const [
+              Color(0xFFFFF3B0),
+              Color(0xFFFFD700),
+              Color(0xFFB8860B),
+            ], [0.0, 0.5, 1.0], TileMode.clamp)
+        ..colorFilter = null;
       // 阴影层
       final sh = TextPainter(
           text: TextSpan(
               text: ch,
               style: TextStyle(
-                  fontSize: nameSize * sc,
+                  fontSize: sz,
                   fontFamily: useFont,
                   fontWeight: FontWeight.w900,
                   foreground: ui.Paint()
@@ -3758,71 +3763,90 @@ Widget _chatImage(BuildContext context, String rawSrc) {
                         const ui.MaskFilter.blur(ui.BlurStyle.normal, 8))),
           textDirection: TextDirection.ltr)
         ..layout();
-      sh.paint(canvas, ui.Offset(nameX - sh.width / 2 + 3, y + 4));
-      // 渐变金字层
+      canvas.save();
+      canvas.translate(cx, cyy);
+      canvas.rotate(rot);
+      sh.paint(canvas, ui.Offset(-sh.width / 2 + 3, -sh.height / 2 + 4));
+      // 渐变金字层（局部坐标：竖向鎏金跨单字）
       final tp = TextPainter(
           text: TextSpan(
               text: ch,
               style: TextStyle(
-                  fontSize: nameSize * sc,
+                  fontSize: sz,
                   fontFamily: useFont,
                   fontWeight: FontWeight.w900,
                   foreground: grad)),
           textDirection: TextDirection.ltr)
         ..layout();
-      final off = charOffsets[i] ?? Offset.zero;
-      tp.paint(canvas,
-          ui.Offset(nameX - tp.width / 2 + off.dx, y + off.dy));
-      centers.add(Offset(
-          nameX + off.dx, y + tp.height / 2 + off.dy)); // v1382：真实视觉中心
-      y += lineH;
+      tp.paint(canvas, ui.Offset(-tp.width / 2, -tp.height / 2));
+      canvas.restore();
+      centers.add(Offset(cx, cyy));
+      cy += sz * 0.86; // 纵向阶梯步进（相邻字重叠错落）
     }
 
-    // ===== 作者竖排“某某著”（书名左侧，末字金圈印章） =====
-    var authorCenter = Offset(img.width * 0.7, img.height * 0.25);
-    final aCenters = <Offset>[];
+    // ===== 作者横排右上 + 著字方印（神通者式） =====
+    var authorCenter = Offset(img.width * 0.70, img.height * 0.22);
     if (author.isNotEmpty) {
-      final aChars = '$author著'.split('');
-      final aSize = nameSize * 0.30;
-      // v1490：作者在书名右下（底部与书名末字对齐），无印章圆圈
-      final ax = nameX + nameSize * 0.55;
-      var ay = (y - aChars.length * aSize * 1.18) > y0
-          ? y - aChars.length * aSize * 1.18
-          : y0;
-      for (var i = 0; i < aChars.length; i++) {
-        var aUseFont = ff;
-        if (ff != null && ff != 'WenKai') {
-          final hasInk =
-              await glyphHasInk(aChars[i], aSize, ff, fallback);
-          if (!hasInk) aUseFont = 'WenKai';
-        }
-        final tp = TextPainter(
-            text: TextSpan(
-                text: aChars[i],
-                style: TextStyle(
-                    fontSize: aSize * authorScale,
-                    fontFamily: aUseFont,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFFFFE9A8),
-                    shadows: [
-                      Shadow(
-                          blurRadius: 4,
-                          color: Colors.black.withOpacity(0.85)),
-                    ])),
-            textDirection: TextDirection.ltr)
-          ..layout();
-        final offA = authorOffset; // v1377b：整列一起移动
-        tp.paint(canvas,
-            ui.Offset(ax - tp.width / 2 + offA.dx, ay + offA.dy));
-        aCenters.add(Offset(ax + offA.dx, ay + tp.height / 2 + offA.dy));
-        ay += aSize * 1.18;
+      final aSize = img.width * 0.055;
+      var aUseFont = ff;
+      if (ff != null && ff != 'WenKai') {
+        final hasInk =
+            await glyphHasInk(author.characters.first, aSize, ff, fallback);
+        if (!hasInk) aUseFont = 'WenKai';
       }
-      // v1382：作者拖块中心=列底部下方（不压名字）
-      authorCenter = Offset(ax + authorOffset.dx, ay + aSize * 1.2);
+      final aTp = TextPainter(
+          text: TextSpan(
+              text: author,
+              style: TextStyle(
+                  fontSize: aSize,
+                  fontFamily: aUseFont,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFFFFE9A8),
+                  shadows: [
+                    Shadow(
+                        blurRadius: 4,
+                        color: Colors.black.withOpacity(0.85)),
+                  ])),
+          textDirection: TextDirection.ltr)
+        ..layout();
+      final axC = img.width * 0.70 + authorOffset.dx;
+      final ayC = img.height * 0.14 + authorOffset.dy;
+      aTp.paint(canvas, ui.Offset(axC - aTp.width / 2, ayC));
+      // 著字方印（深红底+金框金字）
+      final zTp = TextPainter(
+          text: TextSpan(
+              text: '著',
+              style: TextStyle(
+                  fontSize: aSize * 0.9,
+                  fontFamily: aUseFont,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFFFFD700))),
+          textDirection: TextDirection.ltr)
+        ..layout();
+      final seal = aSize * 1.2;
+      final sx = axC - aTp.width * 0.30;
+      final sy = ayC + aTp.height + seal * 0.72;
+      final sealRect = ui.RRect.fromRectAndRadius(
+          ui.Rect.fromCenter(
+              center: ui.Offset(sx, sy), width: seal, height: seal),
+          ui.Radius.circular(seal * 0.14));
+      canvas.drawRRect(
+          sealRect,
+          ui.Paint()
+            ..color = const Color(0xFF7A1F1F)
+            ..style = ui.PaintingStyle.fill);
+      canvas.drawRRect(
+          sealRect,
+          ui.Paint()
+            ..color = const Color(0xFFB8860B)
+            ..style = ui.PaintingStyle.stroke
+            ..strokeWidth = aSize * 0.08);
+      zTp.paint(canvas, ui.Offset(sx - zTp.width / 2, sy - zTp.height / 2));
+      authorCenter = Offset(sx, sy + seal * 0.7);
     }
 
     AppState.instance.apiLog(
-        '合成 fontFamily=${fontFamily.isEmpty ? "系统" : fontFamily} 字数=${bookName.length} 竖排');
+        '合成 fontFamily=${fontFamily.isEmpty ? "系统" : fontFamily} 字数=${bookName.length} 错落(神通者式)');
     final pic = recorder.endRecording();
     final out = await pic.toImage(img.width, img.height);
     final bd = await out.toByteData(format: ui.ImageByteFormat.png);
