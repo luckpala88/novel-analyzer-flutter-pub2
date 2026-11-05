@@ -1527,6 +1527,10 @@ class _SiliconImageState extends State<_SiliconImage> {
   static Map<String, String>? _mjTaskIds;
   static Map<String, String>? _mjTaskEngines; // v1448：src→绘制时引擎（取图按绘制引擎路由，不跟当前切换走）
   static bool _mjTasksLoaded = false;
+  // v1503：宫格重建静态缓存——流式期间聊天页每刷一次State就重建一遍（8盘读/次
+  // =IO风暴实证22:00日志）；同key只读一次盘，后续State直接复用内存
+  static final Map<String, List<Uint8List>> _gridCache = {};
+  static final Map<String, List<Uint8List>> _origCache = {};
   List<Uint8List>? _mjGrid; // v1400：MJ四宫格切分后的4张单图（[i]=当前显示，可能是合成版）
   List<Uint8List>? _origGrid; // v1440：每张变体的无字原图——各张独立加标题的合成底图
   String? _curKey; // v1438：当前图缓存key（重新取图按钮清缓存用）
@@ -1827,6 +1831,14 @@ class _SiliconImageState extends State<_SiliconImage> {
       // v1437/v1440：磁盘变体重建宫格——v{n}=无字原图进_origGrid，
       // v{n}_c=合成版存在则_mjGrid显示合成版（各张独立标题跨重启保留）
       try {
+        // v1503：静态缓存命中——同key不再重复盘读（流式State重建风暴的根治）
+        final ckd = _gridCache[key];
+        if (ckd != null && ckd.length >= 2) {
+          _mjGrid = List<Uint8List>.from(ckd);
+          _origGrid = List<Uint8List>.from(_origCache[key] ?? ckd);
+          _mjGridSel = 0;
+          _bytes = ckd[0];
+        } else {
         final variants = <Uint8List>[];
         final origs = <Uint8List>[];
         for (var n = 0; n < 4; n++) {
@@ -1844,6 +1856,9 @@ class _SiliconImageState extends State<_SiliconImage> {
           _origGrid = origs;
           _mjGridSel = 0;
           _bytes = variants[0];
+          _gridCache[key] = variants;
+          _origCache[key] = origs;
+        }
         }
       } catch (_) {}
       if (_cache.containsKey(key)) {
