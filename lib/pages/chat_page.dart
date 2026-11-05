@@ -2455,6 +2455,7 @@ class _SiliconImageState extends State<_SiliconImage> {
                     // v1494：A/B对照——内存优先读图（v1483是盘读），内存空才读盘。
                     // 若这版不死而v1483死=盘读路径问题；若同样死=与读法无关
                     final memImg = _mjGrid![i];
+                    String tipMsg = ''; // v1500：全屏内部提示条（SnackBar被全屏盖住）
                     Uint8List img;
                     if (memImg.isNotEmpty) {
                       img = memImg;
@@ -2568,6 +2569,21 @@ class _SiliconImageState extends State<_SiliconImage> {
                               }
 
                               return Column(children: [
+                              if (tipMsg.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 40),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 14, vertical: 8),
+                                    decoration: BoxDecoration(
+                                        color: Colors.black.withOpacity(0.65),
+                                        borderRadius:
+                                            BorderRadius.circular(16)),
+                                    child: Text(tipMsg,
+                                        style: const TextStyle(
+                                            color: Color(0xFFFFD900),
+                                            fontSize: 13))),
+                                ),
                               Expanded(
                                 child: GestureDetector(
                                   onTap: () => Navigator.pop(d),
@@ -2713,9 +2729,8 @@ class _SiliconImageState extends State<_SiliconImage> {
                                         await Share.shareXFiles(
                                             [XFile(f.path)]);
                                       } catch (ex) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(const SnackBar(
-                                                content: Text('转发失败')));
+                                        tipMsg = '转发失败';
+                                        setD2(() {});
                                       }
                                     },
                                   ),
@@ -2737,16 +2752,11 @@ class _SiliconImageState extends State<_SiliconImage> {
                                         await f.writeAsBytes(img);
                                         AppState.instance.apiLog(
                                             '保存PNG ${img.length}B -> ${f.path}');
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(SnackBar(
-                                                content:
-                                                    Text('已保存：${f.path}')));
+                                        tipMsg = '已保存到Download（${img.length ~/ 1024}KB）';
                                       } catch (ex) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(const SnackBar(
-                                                content:
-                                                    Text('保存失败（需存储授权）')));
+                                        tipMsg = '保存失败（需存储授权）';
                                       }
+                                      setD2(() {});
                                     },
                                   ),
                                   ]),
@@ -3933,10 +3943,10 @@ Widget _chatImage(BuildContext context, String rawSrc) {
             ui.Offset(t1 * dmath.sin(rot), t1 * dmath.cos(rot)),
             ui.Offset(t2 * dmath.sin(rot), t2 * dmath.cos(rot)),
             const [
-              Color(0xFFFFFCE0),
-              Color(0xFFFFD900),
-              Color(0xFFE89B00),
-            ], [0.0, 0.45, 1.0], TileMode.clamp);
+              Color(0xFFFFFDE7),
+              Color(0xFFFFCE00),
+              Color(0xFFF59B00),
+            ], [0.0, 0.4, 1.0], TileMode.clamp);
       // 阴影层
       final sh = TextPainter(
           text: TextSpan(
