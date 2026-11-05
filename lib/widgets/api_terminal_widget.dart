@@ -1,4 +1,5 @@
 import 'dart:ui' show FontFeature;
+import 'dart:io'; // v1477：导出图File/Directory
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +9,7 @@ import '../utils/v469_style.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../state/app_state.dart';
+import 'package:path_provider/path_provider.dart'; // v1477：导出图定位chat_images
 import '../pages/home_page.dart' show diagTokenRef;
 
 /// 全局API终端组件 — 顶部固定，可折叠
@@ -153,6 +155,40 @@ class _ApiTerminalWidgetState extends State<ApiTerminalWidget> {
   String? _diagToken() {
     // home_page.UpdatePanel.diagToken（public static const）——import获取
     return diagTokenRef;
+  }
+
+  /// v1477：导出聊天图缓存到公共目录——排查四格切分产物
+  /// （APP私有目录/data/data下文件管理器进不去，拷到storage.baseDirPath人工看图）
+  Future<void> _exportGridImages(AppState state) async {
+    try {
+      final docs = (await getApplicationDocumentsDirectory()).path;
+      final src = Directory('$docs/chat_images');
+      if (!src.existsSync()) {
+        state.apiLog('导出图失败：chat_images目录不存在');
+        return;
+      }
+      final base = state.storage.baseDirPath;
+      if (base.isEmpty) {
+        state.apiLog('导出图失败：公共目录未配置（先在存储模式选公共目录）');
+        return;
+      }
+      final dst = Directory('$base/chat_images_export');
+      if (!dst.existsSync()) dst.createSync(recursive: true);
+      var n = 0;
+      for (final f in src
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.png'))) {
+        final name = f.uri.pathSegments.last;
+        // 只导四格变体+正身相关的（_v0..v3及_composed），mj_tasks.json等不拷
+        if (!name.contains('_v') && !name.contains('_composed')) continue;
+        await f.copy('${dst.path}/$name');
+        n++;
+      }
+      state.apiLog('✓ 已导出$n张图到：$base/chat_images_export');
+    } catch (e) {
+      state.apiLog('导出图异常: $e');
+    }
   }
 
   @override
@@ -324,6 +360,32 @@ class _ApiTerminalWidgetState extends State<ApiTerminalWidget> {
                           ),
                           child: const Text(
                             '传日志',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  // v1477：导出四格图（排查切分产物——拷到公共目录人工看图）
+                  if (_expanded)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: GestureDetector(
+                        onTap: () => _exportGridImages(state),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF6B7280),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Text(
+                            '导出图',
                             style: TextStyle(
                               fontSize: 10,
                               color: Colors.white,
