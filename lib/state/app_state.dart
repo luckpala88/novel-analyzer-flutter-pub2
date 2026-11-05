@@ -343,8 +343,13 @@ class AppState extends ChangeNotifier {
 
   // ===== API日志 =====
   List<String> apiLogs = [];
-  Timer? _logNotifyTimer; // v1475：日志notify去抖
   File? _logFile; // v1475：日志落盘文件
+  // v1476：日志与全局notify彻底解耦——08:12死机日志实证：四格onTap的apiLog
+  // 去抖100ms后notifyListeners→context.watch<AppState>()（chat_page:712+
+  // home_page:364）全页rebuild重走MJ楼层渲染链→主线程卡死→全屏builder从未
+  // build（"全屏builder构建"日志缺位）。apiLogs消费端只有终端组件，改用
+  // 独立ValueNotifier精准刷新，任何日志都不再牵动聊天页。
+  final logRevision = ValueNotifier<int>(0);
   bool terminalPinned = false; // 终端常显（点过清理后保持显示空终端，不再自动隐藏）
   // API计时器状态
   // v203：计时器ValueNotifier化——原Timer每100ms notifyListeners让全App
@@ -522,12 +527,10 @@ class AppState extends ChangeNotifier {
     final line = '[$tsStr] $msg';
     apiLogs.add(line);
     if (apiLogs.length > 200) apiLogs.removeAt(0);
-    // v1475刀①：notify去抖100ms——onTap链路里的apiLog不再立刻触发整页rebuild
-    // （四夜死机案：四格onTap首行apiLog→notifyListeners→聊天页整页rebuild→楼层
-    //  渲染链卡死主线程→ANR；单图onTap无apiLog故不死；且UI冻结导致埋点日志永远
-    //  刷不出来=四夜黑盒根源）
-    _logNotifyTimer?.cancel();
-    _logNotifyTimer = Timer(const Duration(milliseconds: 100), notifyListeners);
+    // v1476：不再notifyListeners（去抖也废除）——v1475实证去抖只是把全页
+    // rebuild推迟100ms，四格开全屏的第一帧窗口期照样引爆卡死。终端组件
+    // 监听logRevision独立刷新，聊天页从此不被日志牵动。
+    logRevision.value++;
     // v1475刀②：异步落盘append——死机后日志不丢（启动回填见initLogPersistence）
     _logFile?.writeAsString('$line\n', mode: FileMode.append).catchError((_) {});
   }
@@ -542,7 +545,7 @@ class AppState extends ChangeNotifier {
           '${ts.millisecond.toString().padLeft(3, '0').substring(0, 2)}';
       apiLogs.add('[$tsStr] $msg');
       if (apiLogs.length > 200) apiLogs.removeAt(0);
-      notifyListeners();
+      logRevision.value++; // v1476：同apiLog——不再全局notify
     };
     api.onStartTimer = () {
       apiTimerRunning.value = true;
@@ -606,7 +609,7 @@ class AppState extends ChangeNotifier {
     _apiTimerTimer?.cancel();
     _apiTimerStopwatch?.stop();
     _apiTimerStopwatch?.reset();
-    notifyListeners();
+    logRevision.value++; // v1476：清屏只刷终端，不再全局notify
   }
 
   /// 生成任务前台服务通道（Android原生）

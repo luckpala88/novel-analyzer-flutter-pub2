@@ -22,8 +22,35 @@ class ApiTerminalWidget extends StatefulWidget {
 class _ApiTerminalWidgetState extends State<ApiTerminalWidget> {
   bool _expanded = false;
   final _scrollController = ScrollController();
+  // v1476：日志与全局notify解耦——apiLog不再notifyListeners（08:12死机日志
+  // 实证：notify→context.watch全页rebuild重走MJ楼层渲染链=主线程卡死）。
+  // 终端自己监听logRevision+计时器Notifier精准刷新，不再watch AppState。
+  AppState? _state;
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
 
   @override
+  void initState() {
+    super.initState();
+    _state = AppState.instance
+      ..logRevision.addListener(_refresh)
+      ..apiTimerRunning.addListener(_refresh)
+      ..apiTimerSeconds.addListener(_refresh)
+      ..addListener(_refresh); // 生成状态generationMessage等仍走全局notify
+  }
+
+  @override
+  void dispose() {
+    _state?.logRevision.removeListener(_refresh);
+    _state?.apiTimerRunning.removeListener(_refresh);
+    _state?.apiTimerSeconds.removeListener(_refresh);
+    _state?.removeListener(_refresh);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   /// v1359：诊断日志上传——apiLogs全量+版本号→私有仓logs/目录（Contents API）
   Future<void> _uploadDiagLog(BuildContext context, AppState state) async {
     final ver = DateTime.now();
@@ -128,14 +155,9 @@ class _ApiTerminalWidgetState extends State<ApiTerminalWidget> {
     return diagTokenRef;
   }
 
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
+    final state = _state ?? context.read<AppState>(); // v1476：不再watch
     final hasActivity =
         state.apiLogs.isNotEmpty ||
         state.apiTimerRunning.value ||

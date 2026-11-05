@@ -2504,6 +2504,9 @@ class _SiliconImageState extends State<_SiliconImage> {
                         ),
                       ),
                     );
+                    // v1476：push同步完成后落一条——下次死机时若此条有而
+                    // "全屏builder构建"无=死在首帧build；都有=死在全屏内部
+                    AppState.instance.apiLog('四格TAP[$i] push完成');
                   },
                   child: Container(
                     decoration: BoxDecoration(
