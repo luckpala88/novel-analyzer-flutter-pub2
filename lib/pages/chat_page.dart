@@ -2444,28 +2444,36 @@ class _SiliconImageState extends State<_SiliconImage> {
                   onTap: () async {
                     // v1474：二分实验①——砍setState+_origBytes，裸开全屏（显示该张，不切正身）
                     AppState.instance.apiLog('四格TAP[$i] 裸开全屏');
+                    // v1494：A/B对照——内存优先读图（v1483是盘读），内存空才读盘。
+                    // 若这版不死而v1483死=盘读路径问题；若同样死=与读法无关
                     final memImg = _mjGrid![i];
-                    // v1483：用户指令——tap不从内存取图，从盘上读_v$i
-                    // （内存切片若是毒源，这版直接掐断；盘上没有=回退内存+留痕）
-                    Uint8List img = memImg;
-                    final dk = _curKey;
-                    if (dk != null) {
-                      try {
-                        // v1484：微秒级括号——v1483实测冻结在TAP与盘读完成之间，
-                        // 每步一埋点，冻结夹在哪两条之间=真凶调用
-                        final vf = File(await _diskPath('${dk}_v$i'));
-                        AppState.instance.apiLog('TAP#2 盘路径ok');
-                        if (await vf.exists()) {
-                          AppState.instance.apiLog('TAP#3 exists完成');
-                          img = await vf.readAsBytes();
-                          AppState.instance.apiLog(
-                              'TAP#4 盘读完成${img.length}B（内存${memImg.length}B）');
-                        } else {
-                          AppState.instance
-                              .apiLog('TAP[$i] 盘上无_v$i，回退内存${memImg.length}B');
+                    Uint8List img;
+                    if (memImg.isNotEmpty) {
+                      img = memImg;
+                      AppState.instance.apiLog('TAP[$i] 内存图${img.length}B');
+                    } else {
+                      // v1483：用户指令——tap不从内存取图，从盘上读_v$i
+                      // （内存切片若是毒源，这版直接掐断；盘上没有=回退内存+留痕）
+                      img = memImg;
+                      final dk = _curKey;
+                      if (dk != null) {
+                        try {
+                          // v1484：微秒级括号——v1483实测冻结在TAP与盘读完成之间，
+                          // 每步一埋点，冻结夹在哪两条之间=真凶调用
+                          final vf = File(await _diskPath('${dk}_v$i'));
+                          AppState.instance.apiLog('TAP#2 盘路径ok');
+                          if (await vf.exists()) {
+                            AppState.instance.apiLog('TAP#3 exists完成');
+                            img = await vf.readAsBytes();
+                            AppState.instance.apiLog(
+                                'TAP#4 盘读完成${img.length}B（内存${memImg.length}B）');
+                          } else {
+                            AppState.instance.apiLog(
+                                'TAP[$i] 盘上无_v$i，回退内存${memImg.length}B');
+                          }
+                        } catch (e) {
+                          AppState.instance.apiLog('TAP[$i] 盘读异常: $e');
                         }
-                      } catch (e) {
-                        AppState.instance.apiLog('TAP[$i] 盘读异常: $e');
                       }
                     }
                     // v1481：打印四张子图字节数——若某张异常巨大=切分器实锤
