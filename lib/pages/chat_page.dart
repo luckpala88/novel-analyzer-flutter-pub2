@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:share_plus/share_plus.dart';
 import 'dart:io';
+import 'dart:math' as dmath;
 import 'dart:ui' as ui;
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -3730,6 +3731,9 @@ Widget _chatImage(BuildContext context, String rawSrc) {
     const sway = [-0.08, -0.14, 0.05, -0.10, 0.04, -0.08, 0.02, -0.06];
     var cy = img.height * 0.11;
     final centers = <Offset>[]; // v1382：各字真实视觉中心
+    // v1495：两遍法——先算每字几何求整列跨度，渐变按全局列跨度反算局部坐标
+    // （恢复整列浅金→深金的鎏金跨度，单字内不再各自渐一遍）
+    final geo = <List<dynamic>>[]; // [ch, sz, cx, cyy, rot, useFont]
     for (var i = 0; i < chars.length; i++) {
       final ch = chars[i];
       final sc = (charScales[i] ?? 1.0) *
@@ -3743,20 +3747,33 @@ Widget _chatImage(BuildContext context, String rawSrc) {
         final hasInk = await glyphHasInk(ch, sz, ff, fallback);
         if (!hasInk) useFont = 'WenKai';
       }
-      // 末字倾斜（参考图者字斜势），其余微摆
       final rot = (i == chars.length - 1 && chars.length >= 3)
           ? -0.14
           : (i % 2 == 0 ? 0.02 : -0.02);
+      geo.add([ch, sz, cx, cyy, rot, useFont]);
+      cy += sz * 0.86;
+    }
+    final colTop = img.height * 0.11;
+    final colBottom = cy + nameSize * 0.3;
+    for (final g in geo) {
+      final ch = g[0] as String;
+      final sz = g[1] as double;
+      final cx = g[2] as double;
+      final cyy = g[3] as double;
+      final rot = g[4] as double;
+      final useFont = g[5] as String?;
+      // 全局Y跨度→局部坐标（局部点p映射全局=c+p·R(rot)，取R(-rot)·(0,t)）
+      final t1 = colTop - cyy;
+      final t2 = colBottom - cyy;
       final grad = ui.Paint()
         ..shader = ui.Gradient.linear(
-            const ui.Offset(0, -1),
-            const ui.Offset(0, 1),
+            ui.Offset(t1 * dmath.sin(rot), t1 * dmath.cos(rot)),
+            ui.Offset(t2 * dmath.sin(rot), t2 * dmath.cos(rot)),
             const [
               Color(0xFFFFF3B0),
               Color(0xFFFFD700),
               Color(0xFFB8860B),
-            ], [0.0, 0.5, 1.0], TileMode.clamp)
-        ..colorFilter = null;
+            ], [0.0, 0.5, 1.0], TileMode.clamp);
       // 阴影层
       final sh = TextPainter(
           text: TextSpan(
@@ -3775,7 +3792,6 @@ Widget _chatImage(BuildContext context, String rawSrc) {
       canvas.translate(cx, cyy);
       canvas.rotate(rot);
       sh.paint(canvas, ui.Offset(-sh.width / 2 + 3, -sh.height / 2 + 4));
-      // 渐变金字层（局部坐标：竖向鎏金跨单字）
       final tp = TextPainter(
           text: TextSpan(
               text: ch,
@@ -3789,7 +3805,6 @@ Widget _chatImage(BuildContext context, String rawSrc) {
       tp.paint(canvas, ui.Offset(-tp.width / 2, -tp.height / 2));
       canvas.restore();
       centers.add(Offset(cx, cyy));
-      cy += sz * 0.86; // 纵向阶梯步进（相邻字重叠错落）
     }
 
     // ===== 作者横排右上 + 著字方印（神通者式） =====
