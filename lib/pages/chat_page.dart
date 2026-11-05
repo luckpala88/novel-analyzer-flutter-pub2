@@ -1710,27 +1710,6 @@ class _SiliconImageState extends State<_SiliconImage> {
         _bytes = data;
         _origBytes ??= data;
         _err = null;
-        // v1492：重取时清合成版——旧叠字_c文件会让宫格/正身永远带旧标题
-        // （用户"去不掉了吗"：合成版优先于底图显示，清掉即回底图；_v{n}无字原图不动）
-        try {
-          var cleaned = 0;
-          for (var n = 0; n < 4; n++) {
-            final cf = File(await _diskPath('${key}_v${n}_c'));
-            if (await cf.exists()) {
-              await cf.delete();
-              cleaned++;
-            }
-          }
-          final cfAll = File(await _diskPath('${widget.src}_composed'));
-          if (await cfAll.exists()) {
-            await cfAll.delete();
-            cleaned++;
-          }
-          _mjGrid = null; // 强制下次重切/重建走无字原图
-          if (cleaned > 0) {
-            AppState.instance.apiLog('已清合成版$cleaned个文件，宫格回底图');
-          }
-        } catch (_) {}
         setState(() {});
         AppState.instance.apiLog('重新取图: 本地缓存命中，直接显示（零网络）');
         return;
@@ -1845,8 +1824,8 @@ class _SiliconImageState extends State<_SiliconImage> {
           if (!await vf.exists()) continue;
           final orig = await vf.readAsBytes();
           origs.add(orig);
-          final cf = File(await _diskPath('${key}_v${n}_c'));
-          variants.add(await cf.exists() ? await cf.readAsBytes() : orig);
+          // v1493：用户定稿——宫格只显底图；_v{n}_c合成版文件保留在盘上备用（不删不读）
+          variants.add(orig);
         }
         if (variants.length >= 2) {
           _mjGrid = variants;
