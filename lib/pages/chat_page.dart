@@ -1686,15 +1686,18 @@ class _SiliconImageState extends State<_SiliconImage> {
     _sessionStartMs = AppState.instance.chatPageOpenedAt > 0
         ? AppState.instance.chatPageOpenedAt
         : DateTime.now().millisecondsSinceEpoch;
-    // v1482：心跳日志——判"冻结发生在tap之前还是tap触发"（v1481死亡案例
-    // 连TAP日志都没有：要么tap前已冻，要么IO线程也冻。心跳停在哪=冻在哪）
-    _hbTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      AppState.instance.apiLog('❤️${DateTime.now().second}');
-    });
+    // v1482：心跳日志（侦查期工具）——v1501死机案结案后默认关闭；
+    // 复发排查时把 _hbEnabled 改 true 再编译即可
+    if (_hbEnabled) {
+      _hbTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+        AppState.instance.apiLog('❤️${DateTime.now().second}');
+      });
+    }
     _load();
   }
 
   Timer? _hbTimer; // v1482：心跳
+  static const bool _hbEnabled = false; // v1501：心跳开关（结案默认关，复发排查再开）
 
   @override
   void dispose() {
