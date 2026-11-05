@@ -3718,7 +3718,7 @@ Widget _chatImage(BuildContext context, String rawSrc) {
     final nameSize =
         (img.width / 2.2).clamp(0.0, (img.height * 0.66) / chars.length);
     // v1369：书名+作者组整体居中（参考图神通者布局——组合宽=nameSize+作者列，中心0.5w）
-    final nameX = img.width * 0.585;
+    final nameX = img.width * 0.5; // v1490：标题左右居中
     final y0 = img.height * 0.055;
     final lineH = nameSize * 1.08;
     final ff = fontFamily.isEmpty ? null : fontFamily;
@@ -3784,12 +3784,12 @@ Widget _chatImage(BuildContext context, String rawSrc) {
     if (author.isNotEmpty) {
       final aChars = '$author著'.split('');
       final aSize = nameSize * 0.30;
-      // v1370：作者在书名右上（参考图——竖排小字贴书名右缘顶部起排）
-      final ax = nameX + nameSize * 0.60;
-      var ay = y0 + nameSize * 0.08;
-      final ringR = aSize * 0.78;
+      // v1490：作者在书名右下（底部与书名末字对齐），无印章圆圈
+      final ax = nameX + nameSize * 0.55;
+      var ay = (y - aChars.length * aSize * 1.18) > y0
+          ? y - aChars.length * aSize * 1.18
+          : y0;
       for (var i = 0; i < aChars.length; i++) {
-        final isLast = i == aChars.length - 1;
         var aUseFont = ff;
         if (ff != null && ff != 'WenKai') {
           final hasInk =
@@ -3800,9 +3800,7 @@ Widget _chatImage(BuildContext context, String rawSrc) {
             text: TextSpan(
                 text: aChars[i],
                 style: TextStyle(
-                    fontSize: isLast
-                        ? aSize * 0.62 * authorScale
-                        : aSize * authorScale,
+                    fontSize: aSize * authorScale,
                     fontFamily: aUseFont,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFFFFE9A8),
@@ -3814,20 +3812,10 @@ Widget _chatImage(BuildContext context, String rawSrc) {
             textDirection: TextDirection.ltr)
           ..layout();
         final offA = authorOffset; // v1377b：整列一起移动
-        if (isLast) {
-          // 印章圆圈
-          canvas.drawCircle(
-              ui.Offset(ax + offA.dx, ay + ringR * 0.55 + offA.dy),
-              ringR,
-              ui.Paint()
-                ..color = const Color(0xFFB8860B)
-                ..style = ui.PaintingStyle.stroke
-                ..strokeWidth = aSize * 0.09);
-        }
         tp.paint(canvas,
             ui.Offset(ax - tp.width / 2 + offA.dx, ay + offA.dy));
         aCenters.add(Offset(ax + offA.dx, ay + tp.height / 2 + offA.dy));
-        ay += isLast ? aSize * 0.9 : aSize * 1.18;
+        ay += aSize * 1.18;
       }
       // v1382：作者拖块中心=列底部下方（不压名字）
       authorCenter = Offset(ax + authorOffset.dx, ay + aSize * 1.2);
