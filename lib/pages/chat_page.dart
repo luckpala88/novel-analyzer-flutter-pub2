@@ -1940,10 +1940,8 @@ class _SiliconImageState extends State<_SiliconImage> {
           setState(() => _err = '点顶栏🔑填环网key');
           return;
         }
-        final w0 = int.tryParse(RegExp(r'width=(\d+)').firstMatch(widget.src)?.group(1) ?? '1024');
-        final h0 = int.tryParse(RegExp(r'height=(\d+)').firstMatch(widget.src)?.group(1) ?? '1024');
-        final g = w0 != null && h0 != null && w0 > 0 && h0 > 0 ? w0.gcd(h0) : 1;
-        final ar = w0 != null && h0 != null ? ' --ar ${w0 ~/ g}:${h0 ~/ g}' : '';
+        // v1502：所有引擎默认3:4（神通者参考图画幅，用户定稿）——不再按标签宽高算
+        final ar = ' --ar 3:4';
         var mjPrompt = '$prompt$ar';
         // v1444：mj公强制RELAX——FAST队列全站拥堵240深，提交排队到超时必败
         // （14:30-15:13五连败全"超时失败"实证，RELAX慢车道3单全成）
@@ -2313,7 +2311,7 @@ class _SiliconImageState extends State<_SiliconImage> {
         final body = jsonEncode({
           'model': 'Kwai-Kolors/Kolors',
           'prompt': prompt,
-          'image_size': size,
+          'image_size': '768x1024', // v1502：默认3:4
         });
         final req = http.Request(
             'POST', Uri.parse('https://api.siliconflow.cn/v1/images/generations'))
@@ -3574,7 +3572,7 @@ Widget _chatImage(BuildContext context, String rawSrc) {
     // ——竖版构图要求下方图观感=被拉长，实测证显示层不拉伸、是生成分辨率方的）
     if (url.contains('image.pollinations.ai')) {
       if (!url.contains('width=') && !url.contains('height=')) {
-        url = '$url?width=640&height=960&nologo=true';
+        url = '$url?width=768&height=1024&nologo=true'; // v1502：默认3:4
       }
       // v1452：锁定seed——pollinations无seed时每次请求随机生成新图（19:01用户实证
       // "一看有url就积极干活"），固定seed后同URL永远同一张图，切引擎不再重画
