@@ -2521,24 +2521,33 @@ class _SiliconImageState extends State<_SiliconImage> {
                                         style: TextStyle(color: Colors.white70)),
                                     onPressed: () => _coverTextDialog(
                                         d2, img, this,
-                                        baseOverride: img,
+                                        baseOverride: memImg, // v1489：永远以干净切片为底——重复合成不叠字
                                         onComposed: (b) {
                                           img = b; // 全屏立即显示合成版
-                                          _mjGrid![i] = b; // 四格同步
-                                          // 切片合成版落盘（_v{n}_c语义：合成版，重建段优先读）
-                                          (() async {
-                                            try {
-                                              if (dk != null) {
-                                                await File(await _diskPath(
-                                                        '${dk}_v${i}_c'))
-                                                    .writeAsBytes(b);
-                                                AppState.instance.apiLog(
-                                                    '切片合成版落盘 v${i}_c ${b.length}B');
-                                              }
-                                            } catch (_) {}
-                                          })();
+                                          // v1489：用户定稿——四格只显底图，合成版不回写_mjGrid
                                           setD2(() {});
                                         }),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  TextButton.icon(
+                                    icon: const Icon(Icons.share,
+                                        color: Colors.white70),
+                                    label: const Text('转发',
+                                        style: TextStyle(color: Colors.white70)),
+                                    onPressed: () async {
+                                      try {
+                                        final tmp = await getTemporaryDirectory();
+                                        final f = File(
+                                            '${tmp.path}/mj_share_${DateTime.now().millisecondsSinceEpoch}.png');
+                                        await f.writeAsBytes(img);
+                                        await Share.shareXFiles(
+                                            [XFile(f.path)]);
+                                      } catch (ex) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(const SnackBar(
+                                                content: Text('转发失败')));
+                                      }
+                                    },
                                   ),
                                   const SizedBox(width: 16),
                                   TextButton.icon(
