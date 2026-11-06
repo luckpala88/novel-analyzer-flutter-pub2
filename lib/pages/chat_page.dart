@@ -754,6 +754,17 @@ class _ChatPageState extends State<ChatPage>
                 state.newChatSession();
                 setState(() {});
               }),
+          // v1505：刷新键——从盘上重读会话（保持当前会话），卡顿/丢楼层时点一下救
+          MiniButton(
+              label: '刷新',
+              onTap: () {
+                final cur = state.chatActiveId;
+                state.loadChatSessions();
+                if (state.chatSessions.any((s) => s.id == cur)) {
+                  state.chatActiveId = cur;
+                }
+                setState(() {});
+              }),
           MiniButton(
             label: '⚙ API',
             onTap: () => showV119Sheet(
@@ -2058,7 +2069,7 @@ class _SiliconImageState extends State<_SiliconImage> {
           // v1424：独立4图通道标记——该通道只写genBytes不写imageUrl，
           // 循环后超时检查只看imageUrl会把"已下载成功"误判成超时（11:45实证6秒循环）
           var gotGrid = false;
-          var lastProg = ''; // v1403：进度去重
+          // v1505：进度每轮直打，去重变量退役
           var _fetchFail = 0; // v1431：连续fetch失败计数（留痕限频：前3次+每6次打一条）
           // v1433：轮询无上限——proxy解卡自动出图（14:23用户裁决：还要点占位有点傻）。
           // 99%=MJ画完等proxy收尾（切图传CDN），proxy啥时候交卷啥时候SUCCESS，APP只管每5秒问。
@@ -2213,13 +2224,17 @@ class _SiliconImageState extends State<_SiliconImage> {
                   _err = 'MJ任务失败: ${ftData['failReason'] ?? '未知'}');
               return;
             }
-            final prog = ftData['progress']?.toString() ?? status;
-            if (prog != lastProg) {
-              lastProg = prog;
-              // v1430：绘制中终端同步显示ID+进度（变化时打，不刷屏）
-              AppState.instance
-                  .apiLog('MJ绘制中 $prog（任务$taskId）');
+            // v1505：每轮都打进度（60秒一问不刷屏）——status/progress全空时带响应前120字定位
+            final rawStatus = ftData['status']?.toString() ?? '';
+            final rawProg = ftData['progress']?.toString() ?? '';
+            if (rawStatus.isEmpty && rawProg.isEmpty) {
+              AppState.instance.apiLog(
+                  'MJ轮询响应无状态字段: ${ft.body.length > 120 ? ft.body.substring(0, 120) : ft.body}');
+            } else {
+              AppState.instance.apiLog(
+                  'MJ轮询 status=$rawStatus progress=$rawProg（任务$taskId）');
             }
+            final prog = rawProg.isNotEmpty ? rawProg : (rawStatus.isNotEmpty ? rawStatus : status);
             setState(() =>
                 _err = 'MJ绘制中 $prog…（任务$taskId）');
           }
