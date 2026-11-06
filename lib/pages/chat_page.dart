@@ -1856,7 +1856,6 @@ class _SiliconImageState extends State<_SiliconImage> {
         }
         if (variants.length >= 2) {
           _mjGrid = variants;
-          AppState.instance.apiLog('宫格重建: ${variants.map((b) => b.length).join(",")}');
           _origGrid = origs;
           _mjGridSel = 0;
           _bytes = variants[0];
@@ -2471,7 +2470,6 @@ class _SiliconImageState extends State<_SiliconImage> {
                 GestureDetector(
                   onTap: () async {
                     // v1474：二分实验①——砍setState+_origBytes，裸开全屏（显示该张，不切正身）
-                    AppState.instance.apiLog('四格TAP[$i] 裸开全屏');
                     // v1494：A/B对照——内存优先读图（v1483是盘读），内存空才读盘。
                     // 若这版不死而v1483死=盘读路径问题；若同样死=与读法无关
                     final memImg = _mjGrid![i];
@@ -2479,7 +2477,6 @@ class _SiliconImageState extends State<_SiliconImage> {
                     Uint8List img;
                     if (memImg.isNotEmpty) {
                       img = memImg;
-                      AppState.instance.apiLog('TAP[$i] 内存图${img.length}B');
                     } else {
                       // v1483：用户指令——tap不从内存取图，从盘上读_v$i
                       // （内存切片若是毒源，这版直接掐断；盘上没有=回退内存+留痕）
@@ -2490,36 +2487,21 @@ class _SiliconImageState extends State<_SiliconImage> {
                           // v1484：微秒级括号——v1483实测冻结在TAP与盘读完成之间，
                           // 每步一埋点，冻结夹在哪两条之间=真凶调用
                           final vf = File(await _diskPath('${dk}_v$i'));
-                          AppState.instance.apiLog('TAP#2 盘路径ok');
                           if (await vf.exists()) {
-                            AppState.instance.apiLog('TAP#3 exists完成');
                             img = await vf.readAsBytes();
-                            AppState.instance.apiLog(
-                                'TAP#4 盘读完成${img.length}B（内存${memImg.length}B）');
-                          } else {
-                            AppState.instance.apiLog(
-                                'TAP[$i] 盘上无_v$i，回退内存${memImg.length}B');
                           }
-                        } catch (e) {
-                          AppState.instance.apiLog('TAP[$i] 盘读异常: $e');
-                        }
+                          // v1504：盘读失败/无文件=回退内存，调试日志已撤
+                        } catch (_) {}
                       }
                     }
-                    // v1481：打印四张子图字节数——若某张异常巨大=切分器实锤
-                    AppState.instance.apiLog(
-                        'TAP[$i] 子图字节=${_mjGrid!.map((b) => b.length).join(",")}');
                     // v1485：用户指令——先试解码验证"能不能打开"，能打开才弹全屏
                     // （小尺寸试解码成本极低；毒图在这里被人赃并获，不再无声冻死）
                     try {
-                      AppState.instance.apiLog('TAP#5 试解码开始');
                       final cc = await ui.instantiateImageCodec(
                           img,
                           targetWidth: 64);
-                      final fi = await cc.getNextFrame();
-                      AppState.instance.apiLog(
-                          'TAP#6 试解码成功 ${fi.image.width}x${fi.image.height}');
+                      await cc.getNextFrame();
                     } catch (e) {
-                      AppState.instance.apiLog('⚠️TAP[$i] 试解码失败: $e');
                       setState(() => _err = '此图无法打开: $e');
                       return;
                     }
@@ -2790,7 +2772,6 @@ class _SiliconImageState extends State<_SiliconImage> {
                     );
                     // v1476：push同步完成后落一条——下次死机时若此条有而
                     // "全屏builder构建"无=死在首帧build；都有=死在全屏内部
-                    AppState.instance.apiLog('四格TAP[$i] push完成');
                   },
                   child: Container(
                     decoration: BoxDecoration(
@@ -4098,11 +4079,9 @@ class _FsProbe extends StatelessWidget {
   const _FsProbe({required this.tag, required this.child});
   @override
   Widget build(BuildContext context) {
-    AppState.instance.apiLog('全屏probe build $tag');
     // v1480：首帧（build+layout+paint）全部完成才打——probe build有而
     // 此条无=卡死在layout/paint阶段；此条有=帧完整跑完没卡
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      AppState.instance.apiLog('全屏首帧完成 $tag');
     });
     return child;
   }
