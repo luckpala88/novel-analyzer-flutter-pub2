@@ -293,6 +293,7 @@ class _AppShellState extends State<AppShell> {
       'worldbook',
       'writing',
       'detect',
+      'chat', // v1507：改编页去讨论跳聊天
     ];
     final idx = tabNames.indexOf(state.currentTab);
     if (idx >= 0 && idx != _currentIndex && _pageController.hasClients) {

@@ -169,9 +169,6 @@ class WorldBook {
   String originalBible; // v627：原著圣经（原著因果链+人物对应+事实基准，静态不动，改编圣经初版的推导来源）
   Map<String, String> deduceSkeletons;
   List<WorldbuildingSystem> systems; // 世界观体系设定
-  Map<String, String> arcDeclarations; // per-弧线改编声明（场景功能声明/禁令/行为模式卡，生成条目的指导）
-  Map<String, bool> arcDeclEnabled; // v385：per-弧线声明是否注入生成（默认true，不勾选=声明保留但不注入）
-  Map<String, String> sceneDeclarations; // v573：场景改编声明（key=arcKey_si，场景层注入）
 
   /// v658：弧线/场景重扫后清空改编派生数据——arcStatus等按弧线号存,
   /// 重扫后新弧线撞旧状态会显示"已生成"且增量模式跳过改编(幽灵状态)
@@ -181,17 +178,10 @@ class WorldBook {
     arcRequirements.clear();
     sceneRequirements.clear();
     deduceSkeletons.clear();
-    arcDeclarations.clear();
-    arcDeclEnabled.clear();
-    sceneDeclarations.clear();
     adaptBible = '';
     // originalBible保留：原著圣经源于原著静态因果链,与改编重扫无关
   }
-  Map<String, String> arcRequirementsAI; // v588：弧线改编要求AI优化稿（独立框，勾选才生效）
-  Map<String, String> sceneRequirementsAI; // v588：场景改编要求AI优化稿
   Map<String, bool> reqEnabled; // v588：要求勾选开关 key=u_弧线/a_弧线/u_弧线_si/a_弧线_si（u=用户稿默认勾选 a=AI稿默认不勾）
-  Map<String, String> creationDeclarations; // v582：创作声明（创作页独立生成，替代改编声明注入创作）
-  Map<String, bool> creationDeclEnabled; // v582：创作声明注入开关
   String continueReq; // v766：续写方向（全局，续写模式专用）
   late final Map<String, String> continuePlans; // v766：per-弧线续写规划
   String pageMode; // v765：改编页模式 'adapt'改编 | 'continue'续写（二选一互斥）
@@ -211,52 +201,28 @@ class WorldBook {
     this.originalBible = '',
     this.deduceSkeletons = const {},
     this.systems = const [],
-    Map<String, String>? arcDeclarations,
-    Map<String, bool>? arcDeclEnabled,
-    Map<String, String>? sceneDeclarations,
-    Map<String, String>? arcRequirementsAI,
-    Map<String, String>? sceneRequirementsAI,
     Map<String, bool>? reqEnabled,
-    Map<String, String>? creationDeclarations,
-    Map<String, bool>? creationDeclEnabled,
     this.nameMapping = '',
     this.pageMode = 'adapt',
     this.continueReq = '',
     Map<String, String>? continuePlans,
     this.nameMapReq = '',
     Set<String>? nameMapManual,
-  }) : nameMapManual = nameMapManual ?? {}, arcDeclarations = arcDeclarations ?? {}, continuePlans = continuePlans ?? {},
-       arcDeclEnabled = arcDeclEnabled ?? {},
-       sceneDeclarations = sceneDeclarations ?? {},
-       arcRequirementsAI = arcRequirementsAI ?? {},
-       sceneRequirementsAI = sceneRequirementsAI ?? {},
-       reqEnabled = reqEnabled ?? {},
-       creationDeclarations = creationDeclarations ?? {},
-       creationDeclEnabled = creationDeclEnabled ?? {};
+  }) : nameMapManual = nameMapManual ?? {}, continuePlans = continuePlans ?? {},
+       reqEnabled = reqEnabled ?? {};
 
-  /// v588：生效改编要求——用户稿+AI稿按各自勾选拼接（用户稿默认勾选，AI稿默认不勾）
-  String combinedReq(String userKey, {String? aiKey}) {
-    final a = aiKey ?? userKey;
+  /// v1507：生效改编要求=用户稿按勾选拼接（AI优化稿已废除——聊天页工具直写用户稿）
+  String combinedReq(String userKey) {
     final u = (arcRequirements[userKey] ?? '').trim();
-    final ai = (arcRequirementsAI[a] ?? '').trim();
     final uOn = reqEnabled['u_$userKey'] ?? true;
-    final aiOn = reqEnabled['a_$a'] ?? false;
-    return [
-      if (u.isNotEmpty && uOn) u,
-      if (ai.isNotEmpty && aiOn) ai,
-    ].join('\n');
+    return (u.isNotEmpty && uOn) ? u : '';
   }
 
-  /// v588：场景版生效要求（sceneRequirements/sceneRequirementsAI）
+  /// v1507：场景版生效要求=用户稿按勾选拼接
   String combinedSceneReq(String key) {
     final u = (sceneRequirements[key] ?? '').trim();
-    final ai = (sceneRequirementsAI[key] ?? '').trim();
     final uOn = reqEnabled['u_$key'] ?? true;
-    final aiOn = reqEnabled['a_$key'] ?? false;
-    return [
-      if (u.isNotEmpty && uOn) u,
-      if (ai.isNotEmpty && aiOn) ai,
-    ].join('\n');
+    return (u.isNotEmpty && uOn) ? u : '';
   }
 
   factory WorldBook.fromJson(Map<String, dynamic> json) {
@@ -287,12 +253,7 @@ class WorldBook {
       adaptMode: json['adaptMode'] ?? 'auto',
       adaptBible: json['adaptBible'] ?? '',
       originalBible: json['originalBible'] ?? '',
-      sceneDeclarations: (json['sceneDeclarations'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(k, v.toString())) ?? {},
-      arcRequirementsAI: (json['arcRequirementsAI'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(k, v.toString())) ?? {},
-      sceneRequirementsAI: (json['sceneRequirementsAI'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(k, v.toString())) ?? {},
       reqEnabled: (json['reqEnabled'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(k, v == true)) ?? {},
-      creationDeclarations: (json['creationDeclarations'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(k, v.toString())) ?? {},
-      creationDeclEnabled: (json['creationDeclEnabled'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(k, v == true)) ?? {},
       deduceSkeletons:
           (json['deduceSkeletons'] as Map<String, dynamic>?)?.map(
             (k, v) => MapEntry(k, v.toString()),
@@ -305,21 +266,9 @@ class WorldBook {
               )
               .toList() ??
           [],
-      arcDeclarations: Map.of(
-        (json['arcDeclarations'] as Map<String, dynamic>?)?.map(
-              (k, v) => MapEntry(k, v.toString()),
-            ) ??
-            {},
-      ),
       continuePlans: Map.of(
         (json['continuePlans'] as Map<String, dynamic>?)?.map(
               (k, v) => MapEntry(k, v.toString()),
-            ) ??
-            {},
-      ),
-      arcDeclEnabled: Map.of(
-        (json['arcDeclEnabled'] as Map<String, dynamic>?)?.map(
-              (k, v) => MapEntry(k, v == true),
             ) ??
             {},
       ),
@@ -344,22 +293,10 @@ class WorldBook {
     'adaptMode': adaptMode,
     'adaptBible': adaptBible,
     if (originalBible.isNotEmpty) 'originalBible': originalBible,
-    if (sceneDeclarations.isNotEmpty)
-      'sceneDeclarations': sceneDeclarations,
-    if (arcRequirementsAI.isNotEmpty)
-      'arcRequirementsAI': arcRequirementsAI,
-    if (sceneRequirementsAI.isNotEmpty)
-      'sceneRequirementsAI': sceneRequirementsAI,
     if (reqEnabled.isNotEmpty)
       'reqEnabled': reqEnabled,
-    if (creationDeclarations.isNotEmpty)
-      'creationDeclarations': creationDeclarations,
-    if (creationDeclEnabled.isNotEmpty)
-      'creationDeclEnabled': creationDeclEnabled,
     'deduceSkeletons': deduceSkeletons,
     'systems': systems.map((s) => s.toJson()).toList(),
-    'arcDeclarations': arcDeclarations,
-    'arcDeclEnabled': arcDeclEnabled,
     if (nameMapping.isNotEmpty) 'nameMapping': nameMapping,
     if (nameMapReq.isNotEmpty) 'nameMapReq': nameMapReq,
     if (nameMapManual.isNotEmpty)

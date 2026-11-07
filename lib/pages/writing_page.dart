@@ -616,7 +616,6 @@ class _WritingPageState extends State<WritingPage>
         styleDna: _styleDnaForShot(state, w.arcKey), // v640
         styleSample: styleSample,
         prevShots: prevShots,
-        arcDeclaration: _arcDeclForWriting(state, w.arcKey),
       );
       if (state.writingPromptPreview && mounted) {
         final ok = await PromptPreview.maybePreview(
@@ -1456,68 +1455,6 @@ class _WritingPageState extends State<WritingPage>
     );
   }
 
-  /// v582：创作声明（创作页独立生成，替代改编声明——开关开启才注入，空=未生成）
-  String _arcDeclForWriting(AppState state, String arcKey) {
-    if (state.worldBook?.creationDeclEnabled[arcKey] ?? true) {
-      return state.worldBook?.creationDeclarations[arcKey] ?? '';
-    }
-    return '';
-  }
-
-  /// v582：AI生成本弧线创作声明（依据世界书条目的改编后弧线概述+映射表）
-  Future<void> _generateCreationDecl(AppState state, String arcKey) async {
-    final entryKey = state.worldBook?.entries.keys
-        .where((k) =>
-            state.worldBook!.entries[k]!.arcKey == arcKey &&
-            (state.worldBook!.entries[k]!.sceneTag == null ||
-                state.worldBook!.entries[k]!.sceneTag!.isEmpty))
-        .toList();
-    String arcContext = '';
-    if (entryKey != null && entryKey.isNotEmpty) {
-      final content = state.worldBook!.entries[entryKey.first]!.content;
-      final m = RegExp('场景\\s*1\\s*[：:]').firstMatch(content);
-      arcContext = m == null ? content : content.substring(0, m.start).trim();
-    }
-    if (arcContext.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('世界书中没有该弧线条目，先去改编页生成')));
-      return;
-    }
-    final config = state.getApiConfig('wb');
-    setState(() => _shotGenBusy = true);
-    try {
-      _addLog('📄 生成分弧线$arcKey创作声明…');
-      final result = await state.api.callApi(
-        task: '创作声明生成',  // v824任务级反馈
-        systemPrompt: PromptBuilder.buildCreationDeclSystemPrompt(),
-        userPrompt: PromptBuilder.buildCreationDeclUserPrompt(
-          arcContext: arcContext,
-          mapTable: state.worldBook?.nameMapping.trim() ?? '',
-        ),
-        apiConfig: config,
-      );
-      if (!result.isSuccess) {
-        _addLog('❌ 创作声明生成失败：${result.error}');
-        return;
-      }
-      final decl = TextCleaner.normalizeAiOutput(
-        result.content,
-        jsonMode: config.formatMode == 'json',
-      ).trim();
-      if (decl.isEmpty) {
-        _addLog('⚠️ 创作声明的生成结果为空');
-        return;
-      }
-      state.worldBook!.creationDeclarations[arcKey] = decl;
-      state.worldBook!.creationDeclEnabled[arcKey] = true;
-      state.saveWorldBook();
-      _addLog('✓ 弧线$arcKey创作声明已生成（${decl.length}字）');
-      if (mounted) setState(() {});
-    } finally {
-      if (mounted) setState(() => _shotGenBusy = false);
-    }
-  }
-
   /// 创作弧线列表（四级数据源，v469 getWBAllArcs对齐+世界书兜底）：
   /// ①arcScan中有拆解的弧线 ②arcAnalyses直接 ③世界书条目arcKey集合
   /// ——删章节/重扫清掉扫描数据后，只要世界书还在就能继续创作
@@ -1672,7 +1609,6 @@ class _WritingPageState extends State<WritingPage>
               }),
             ),
             if (expanded) ...[
-              _buildArcDeclSection(state, arcKey),
               for (var si = 0; si < scenes.length; si++)
                 _buildSceneRow(state, arcKey, si, scenes[si]),
             ],
@@ -1911,94 +1847,6 @@ class _WritingPageState extends State<WritingPage>
 
   /// 单场景行（v468：场景名+✓+章节范围+本场景要求+创作按钮）
   /// scene兼容三种：Scene对象/(String name, String range)元组/Map
-  /// v410：弧线改编声明区（样式对齐改编页：开关+就地编辑+自动保存）
-  Widget _buildArcDeclSection(AppState state, String arcKey) {
-    final decl = state.worldBook?.creationDeclarations[arcKey] ?? '';
-    return ExpansionTile(
-      dense: true,
-      tilePadding: const EdgeInsets.symmetric(horizontal: 8),
-      title: Row(
-        children: [
-          if (decl.isNotEmpty) ...[
-            SizedBox(
-              width: 22,
-              height: 22,
-              child: Checkbox(
-                value: state.worldBook?.creationDeclEnabled[arcKey] ?? true,
-                onChanged: (v) {
-                  setState(() =>
-                      state.worldBook?.creationDeclEnabled[arcKey] = v ?? true);
-                  state.saveWorldBook();
-                },
-              ),
-            ),
-            const SizedBox(width: 4),
-          ],
-          Expanded(
-            child: Text(
-              decl.isEmpty
-                  ? '📝 创作声明（未生成——创作方向指导，替代改编声明）'
-                  : '📝 创作声明（${decl.length}字·${state.worldBook?.creationDeclEnabled[arcKey] ?? true ? "创作正文时注入" : "已停用不注入"}）',
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                color: decl.isEmpty ? Colors.grey : const Color(0xFF92400E),
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: _shotGenBusy
-                ? null
-                : () => _generateCreationDecl(state, arcKey),
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              minimumSize: const Size(0, 30),
-              textStyle:
-                  const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-            ),
-            child: Text(decl.isEmpty ? '生成' : '重新生成'),
-          ),
-          if (decl.isNotEmpty)
-            TextButton(
-              onPressed: () {
-                state.worldBook?.creationDeclarations.remove(arcKey);
-                state.saveWorldBook();
-                setState(() {});
-                _addLog('已删除弧线$arcKey创作声明');
-              },
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                minimumSize: const Size(0, 30),
-                textStyle: const TextStyle(fontSize: 11),
-              ),
-              child: const Text('删除',
-                  style: TextStyle(color: Colors.red)),
-            ),
-        ],
-      ),
-      children: [
-        if (decl.isEmpty)
-          const Padding(
-            padding: EdgeInsets.fromLTRB(8, 0, 8, 8),
-            child: Text('点"生成"由AI依据本弧线世界书条目生成创作方向声明（冲突形式/禁止项/人物行为），创作正文时注入',
-                style: TextStyle(fontSize: 10.5, color: Colors.grey)),
-          )
-        else
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-            child: _AutoExpandField(
-              controller: TextEditingController(text: decl)
-                ..selection = TextSelection.collapsed(offset: decl.length),
-              style: const TextStyle(fontSize: 12, height: 1.5),
-              contentPadding: const EdgeInsets.all(8),
-              onChanged: (v) =>
-                  state.worldBook?.creationDeclarations[arcKey] = v,
-            ),
-          ),
-      ],
-    );
-  }
-
   Widget _buildSceneRow(AppState state, String arcKey, int si, dynamic scene) {
     final wkey = '${arcKey}_$si';
     final existing = state.writings[wkey];
@@ -2648,8 +2496,7 @@ class _WritingPageState extends State<WritingPage>
           arcSummary: _arcSummaryForShot(state, arcKey),
           inkHabit: _inkHabitForShot(state, arcKey),
           styleDna: _styleDnaForShot(state, arcKey),
-          arcDeclaration: _arcDeclForWriting(state, arcKey.toString()),
-          styleSample: state.writingImitateAuthor
+            styleSample: state.writingImitateAuthor
               ? _buildChunkSample(state, arcKey, si, cStart, chunkEnd)
               : '',
           styleAtts: state.writingAttachments,
@@ -2723,7 +2570,6 @@ class _WritingPageState extends State<WritingPage>
         arcSummary: _arcSummaryForShot(state, arcKey),
         inkHabit: _inkHabitForShot(state, arcKey),
         styleDna: _styleDnaForShot(state, arcKey), // v640
-        arcDeclaration: _arcDeclForWriting(state, arcKey.toString()),
         // v363：镜级范文优先（有镜级锚点时注入本镜原文段落，无→回退场景切片）
         styleSample: state.writingImitateAuthor
             ? _shotTextOnly(state, arcKey, si, i) // v752
@@ -2847,8 +2693,7 @@ class _WritingPageState extends State<WritingPage>
             arcSummary: _arcSummaryForShot(state, arcKey),
             inkHabit: _inkHabitForShot(state, arcKey),
             styleDna: _styleDnaForShot(state, arcKey),
-            arcDeclaration: _arcDeclForWriting(state, arcKey.toString()),
-            styleSample: state.writingImitateAuthor
+                styleSample: state.writingImitateAuthor
                 ? _shotTextOnly(state, arcKey, si, i) // v752
                 : '',
             styleAtts: state.writingAttachments,
@@ -3362,7 +3207,6 @@ class _WritingPageState extends State<WritingPage>
         writingPrompt: state.writingPrompt,
         scenePrompt: state.writingScenePrompts[wkey] ?? '',
         arcTitle: arcTitle,
-        arcDeclaration: _arcDeclForWriting(state, arcKey.toString()),
         prevEnding: prevEnding,
         prevSource: prevSource,
         sceneName: scene.$1,

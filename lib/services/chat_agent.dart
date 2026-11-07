@@ -1,5 +1,6 @@
 import 'dart:convert';
 import '../models/scene.dart';
+import '../models/world_book.dart';
 import '../state/app_state.dart';
 
 /// v840：聊天agent工具层——AI按约定JSON输出指令，本文件解析执行
@@ -25,12 +26,13 @@ const String agentToolDoc = '''
 6. {"tool":"start_batch_shots"} —— 启动批量拆分镜（全部已划分未拆场景；需用户确认；长任务，去分镜页盯终端进度）
 7. {"tool":"write_scene","args":{"arc":1,"scene":1}} —— 创作指定弧线第N个场景的续写正文（需用户确认；前提：世界书已有该场景条目；长任务，正文写到创作页）
 8. {"tool":"verify_data","args":{"target":"choreo","arc":210}} —— 数据诊断（只读）：target=choreo查交手回合字段落库情况（弧线总纲+逐场景统计，可带arc过滤单条弧线）；target=trick查手法维度（已拆分镜中trick非空的镜数统计，可带arc过滤）——用于验证新版本功能是否落库。注意：choreo/trick分别是"生成弧线(分组)"和"拆分镜"步骤的产物，重扫场景不会产生它们；choreo缺失应重新分组，trick缺失应重拆分镜
-9. {"tool":"get_styles","args":{"name":"作家名"}} —— 个人风格档案（只读）：无name=列全部档案清单；有name=返回该档案全文。档案=某位"作家"的写作风格记忆（文风/句式/trick偏好/讲法习惯），创作/改编/二创页可选用来注入
-10. {"tool":"collect_style"} —— 汇总当前书表述层语料（只读）：弧线目的样本+逐场景目的样本+trick维度样本+文风DNA+用户全局要求（v1205）——供你总结/完善风格档案的素材
-11. {"tool":"update_style","args":{"name":"作家名","content":"档案markdown全文","mode":"append|overwrite|delete"}} —— 风格档案写入（需用户确认）。mode=append(默认,追加合并,新名=新建)/overwrite(整篇覆盖——用户说"修改/重写/精简某档案"用)/delete(删除档案,content可空)。追加时先get_styles读旧档再拼全文；overwrite时content即新档案全文（可基于旧档修改）
-12. {"tool":"get_scene","args":{"scene":1,"full":"0"}} —— 读场景（只读）：scene=全局场景序号（1-based，与弧线页"场景N"对应）。返回场景名/章节范围/概述/正文切片（默认前600字，full="1"返回完整切片）。用户说"读一下第N个场景/第一个场景的内容/某个切片"用这个
-13. {"tool":"get_shots","args":{"arc":1,"scene":2}} —— 读分镜（只读）：arc=弧线号，scene=该弧线内场景序号。返回该场景全部分镜的field/how/end_text清单。用户说"看某弧线某场景的分镜"用这个；读切片用get_scene
-14. {"tool":"search_content","args":{"keyword":"关键词","field":"all","scope":"scenes"}} —— 内容搜索（只读）。scope="scenes"(默认)=已扫描场景流（48章场景切片+概述）；scope="book"=全书章节库原文（含未扫描章节，返回命中章号+摘录，覆盖1670章全库）。field可选"text"/"summary"/"all"(默认，仅scenes模式)。用户问"哪里提到XX/某情节在第几章/找关于XX的场景"用这个——已扫章节优先搜scenes（有场景定位），未扫内容或全书范围用scope="book"；没命中换同义词再搜
+9. {"tool":"save_adapt_req","args":{"layer":"arc","arc":3,"requirement":"聊定的改编要求全文"}} —— 把聊定的改编要求写入用户改编要求（需用户确认）。layer="arc"写弧线改编要求；layer="scene"另带"scene":M写场景改编要求。requirement=纯要求文本，禁止夹带客套/解释/讨论过程
+10. {"tool":"get_styles","args":{"name":"作家名"}} —— 个人风格档案（只读）：无name=列全部档案清单；有name=返回该档案全文。档案=某位"作家"的写作风格记忆（文风/句式/trick偏好/讲法习惯），创作/改编/二创页可选用来注入
+11. {"tool":"collect_style"} —— 汇总当前书表述层语料（只读）：弧线目的样本+逐场景目的样本+trick维度样本+文风DNA+用户全局要求（v1205）——供你总结/完善风格档案的素材
+12. {"tool":"update_style","args":{"name":"作家名","content":"档案markdown全文","mode":"append|overwrite|delete"}} —— 风格档案写入（需用户确认）。mode=append(默认,追加合并,新名=新建)/overwrite(整篇覆盖——用户说"修改/重写/精简某档案"用)/delete(删除档案,content可空)。追加时先get_styles读旧档再拼全文；overwrite时content即新档案全文（可基于旧档修改）
+13. {"tool":"get_scene","args":{"scene":1,"full":"0"}} —— 读场景（只读）：scene=全局场景序号（1-based，与弧线页"场景N"对应）。返回场景名/章节范围/概述/正文切片（默认前600字，full="1"返回完整切片）。用户说"读一下第N个场景/第一个场景的内容/某个切片"用这个
+14. {"tool":"get_shots","args":{"arc":1,"scene":2}} —— 读分镜（只读）：arc=弧线号，scene=该弧线内场景序号。返回该场景全部分镜的field/how/end_text清单。用户说"看某弧线某场景的分镜"用这个；读切片用get_scene
+15. {"tool":"search_content","args":{"keyword":"关键词","field":"all","scope":"scenes"}} —— 内容搜索（只读）。scope="scenes"(默认)=已扫描场景流（48章场景切片+概述）；scope="book"=全书章节库原文（含未扫描章节，返回命中章号+摘录，覆盖1670章全库）。field可选"text"/"summary"/"all"(默认，仅scenes模式)。用户问"哪里提到XX/某情节在第几章/找关于XX的场景"用这个——已扫章节优先搜scenes（有场景定位），未扫内容或全书范围用scope="book"；没命中换同义词再搜
 规则：一次只发一个指令，发出后停止等待结果；任务完成后用自然语言汇报结果；用户闲聊/问功能时不要发指令。
 ''';
 
@@ -370,6 +372,26 @@ Future<AgentToolResult> runTool(AppState state, String tool,
       }
       await state.batchShotStarter!();
       return AgentToolResult(tool, true, '批量拆分镜已执行完毕（结果见分镜页/终端）');
+    case 'save_adapt_req': // v1507：改编讨论聊定要求写回用户改编要求
+      final layer = (args['layer'] ?? 'arc').toString();
+      final reqArc = (args['arc'] as num?)?.toInt() ?? 0;
+      final req = (args['requirement'] ?? '').toString().trim();
+      if (reqArc <= 0 || req.isEmpty) {
+        return AgentToolResult(tool, false, '缺少arc或requirement参数');
+      }
+      final wb = state.worldBook ?? WorldBook();
+      if (layer == 'scene') {
+        final reqScene = (args['scene'] as num?)?.toInt() ?? 0;
+        if (reqScene < 1) {
+          return AgentToolResult(tool, false, 'layer=scene缺少scene参数');
+        }
+        wb.sceneRequirements['${reqArc}_${reqScene - 1}'] = req;
+      } else {
+        wb.arcRequirements['$reqArc'] = req;
+      }
+      state.saveWorldBook();
+      return AgentToolResult(tool, true,
+          '已写入弧线$reqArc${layer == 'scene' ? '场景${(args['scene'] as num?)?.toInt()}' : ''}用户改编要求（${req.length}字）——改编页可见');
     default:
       return AgentToolResult(tool, false, '未知工具：$tool');
   }

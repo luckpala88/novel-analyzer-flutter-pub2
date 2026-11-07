@@ -567,7 +567,7 @@ class _ChatPageState extends State<ChatPage>
   }
 
   // v840：写类工具（需确认）
-  static const _writeTools = {'switch_book', 'start_batch_shots'};
+  static const _writeTools = {'switch_book', 'start_batch_shots', 'save_adapt_req'};
 
   Future<bool> _confirmTool(
       AppState state, String tool, Map<String, dynamic> args) async {
@@ -575,7 +575,9 @@ class _ChatPageState extends State<ChatPage>
         ? '切换当前书目到「${args['name'] ?? '?'}」'
         : tool == 'start_batch_shots'
             ? '启动批量拆分镜（长任务，当前书全部已划分未拆场景）'
-            : '$tool ${args.toString()}';
+            : tool == 'save_adapt_req'
+                ? '把聊定的改编要求写入「弧线${args['arc'] ?? '?'}${args['layer'] == 'scene' ? '场景${args['scene'] ?? '?'}' : ''}」用户改编要求：\n${args['requirement'] ?? ''}'
+                : '$tool ${args.toString()}';
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(

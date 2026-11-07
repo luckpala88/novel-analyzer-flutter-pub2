@@ -77,7 +77,6 @@ class _AdaptPageState extends State<AdaptPage>
   // v768：续写页分层Tab（弧线续写/场景续写）
   late final TabController _continueTabCtrl = TabController(length: 3, vsync: this);
   // v586：场景声明手动展开开关（替代ExpansionTile——ExpansionTile+SelectionArea+TabBarView叠加展开冻死）
-  final Set<String> _declOpen = {};
   @override
   void dispose() {
     _flushScrolls(); // v1069：销毁前立即落盘三层视口（防抖窗口内切书/回收=丢位置）
@@ -1629,93 +1628,6 @@ return true;
     );
   }
 
-  /// 当前弧线的改编声明（空=未生成）
-  String _declarationText(AppState state, dynamic arcNumber) =>
-      state.worldBook?.arcDeclarations[arcNumber.toString()] ?? '';
-
-  /// 声明展示区（就地编辑+自动保存）
-  List<Widget> _buildDeclarationSection(AppState state, dynamic arcNumber) {
-    final decl = _declarationText(state, arcNumber);
-    if (decl.isEmpty) return [];
-    return [
-      const SizedBox(height: 6),
-      ExpansionTile(
-        dense: true,
-        tilePadding: const EdgeInsets.symmetric(horizontal: 8),
-        title: Row(
-          children: [
-            // v385：注入开关——不勾选=声明保留但不注入生成
-            SizedBox(
-              width: 22,
-              height: 22,
-              child: Checkbox(
-                value:
-                    state.worldBook?.arcDeclEnabled[arcNumber.toString()] ??
-                    true,
-                onChanged: (v) {
-                  setState(
-                    () =>
-                        state.worldBook?.arcDeclEnabled[arcNumber.toString()] =
-                            v ?? true,
-                  );
-                  state.saveWorldBook();
-                },
-              ),
-            ),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Text(
-                '📄 弧线改编声明（${decl.length}字·${state.worldBook?.arcDeclEnabled[arcNumber.toString()] ?? true ? "生成条目时注入" : "已停用不注入"}）',
-                style: const TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF92400E),
-                ),
-              ),
-            ),
-          ],
-        ),
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-            child: TextField(
-              controller: TextEditingController(
-                text: _mapPreview
-                    ? NameMap.applyMapping(
-                        decl,
-                        state.worldBook?.nameMapping ?? '',
-                      )
-                    : decl,
-              )..selection = TextSelection.collapsed(offset: decl.length),
-              readOnly: _mapPreview,
-              maxLines: null,
-              minLines: 6,
-              style: const TextStyle(fontSize: 11, height: 1.5),
-              decoration: InputDecoration(
-                isDense: true,
-                border: const OutlineInputBorder(),
-                fillColor: const Color(0xFFFFFBEB),
-                filled: true,
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.delete, size: 14, color: Colors.red),
-                  onPressed: () {
-                    state.worldBook?.arcDeclarations.remove(
-                      arcNumber.toString(),
-                    );
-                    state.saveWorldBook();
-                    state.refresh();
-                  },
-                ),
-              ),
-              onChanged: (v) {
-                state.worldBook?.arcDeclarations[arcNumber.toString()] = v;
-              },
-            ),
-          ),
-        ],
-      ),
-    ];
-  }
   // ===== v767：续写模式独立页面（浅蓝主题，与改编UI零共用） =====
   static const _continueBg = Color(0xFFE8F1FA); // 浅蓝底
 
@@ -4705,105 +4617,6 @@ return true;
     return sb.toString().trim();
   }
 
-  Future<void> _generateDeclaration(AppState state, Arc arc) async {
-    if (state.wbApi.effectiveApiKey.isEmpty && !state.wbApi.useCustom) {
-      // 回退主API也空时提示
-      if (state.mainApi.effectiveApiKey.isEmpty) {
-        _addLog('❌ 请先在⚙设置API');
-        return;
-      }
-    }
-    // 组合要求：全局+弧线
-    final globalReq = state.worldBook?.requirements ?? '';
-    final arcReq = state.worldBook?.combinedReq(arc.number.toString()) ?? '';
-    final combined = [globalReq, arcReq].where((s) => s.isNotEmpty).join('\n');
-    // 弧线分析数据（含场景）
-    // v1269b：summary优先arc_summary_detailed（六维演进版）——改编AI输入用最全概述
-    final analysis = state.arcAnalyses[arc.number.toString()];
-    final _detailSum =
-        ((analysis?.metadata?['arc_summary_detailed'] ?? '') as String?) ?? '';
-    final arcItem = {
-      'title': arc.title,
-      'summary': _detailSum.trim().isNotEmpty
-          ? _detailSum.trim()
-          : (analysis?.arcSummary ?? arc.summary),
-      'scenes':
-          analysis?.scenes
-              .map((s) => {'name': s.name, 'summary': s.summary})
-              .toList() ??
-          [],
-    };
-
-    final sysPrompt = PromptBuilder.buildArcDeclarationSystemPrompt();
-    final bible = state.worldBook?.adaptBible.trim() ?? ''; // v621
-    final userPrompt = PromptBuilder.buildArcDeclarationUserPrompt(
-      arcItem,
-      combined,
-      sceneReqs: state.worldBook?.sceneRequirements,
-      arcKey: arc.number.toString(),
-      bible: bible,
-    );
-
-    // v130：声明生成前预览提示词（确认后才发送）
-    if (mounted) {
-      final confirmed = await PromptPreview.maybePreview(
-        context,
-        sysPrompt: sysPrompt,
-        userPrompt: userPrompt,
-        title: '声明生成词链预览（弧线${arc.number}）',
-        enabled: state.wbPromptPreview,
-      );
-      if (!confirmed) {
-        _addLog('已取消生成声明（弧线${arc.number}）');
-        return;
-      }
-    }
-
-    _addLog('━━ 生成弧线${arc.number}改编声明…');
-    state.api.clearAbort();
-    state.userAborted = false;
-    try {
-      final apiConfig =
-          state.wbApi.effectiveApiKey.isNotEmpty || state.wbApi.useCustom
-          ? state.wbApi
-          : state.mainApi;
-      final response = await state.api.call(
-        apiType: apiConfig.effectiveApiType,
-        baseUrl: apiConfig.effectiveApiBase,
-        apiKey: apiConfig.effectiveApiKey,
-        model: apiConfig.effectiveModel,
-        systemPrompt: sysPrompt,
-        userPrompt: userPrompt,
-        temperature: apiConfig.temperature, // v1220：跟随API面板（此前写死0.4）
-        maxTokens: apiConfig.maxTokens,
-      );
-      // v256：声明输出按API模式分支——声明prompt要求纯文本，但json模式
-      // 的response_format会把输出包装成{"content":"…"}（且\n为转义），
-      // 直接trim透传=整包JSON进声明编辑框。分支解码
-      var declarationRaw = response.content.trim();
-      if (apiConfig.formatMode == 'json') {
-        declarationRaw = TextCleaner.normalizeAiOutput(
-          declarationRaw,
-          jsonMode: true,
-        );
-      } else {
-        declarationRaw = TextCleaner.normalizeAiOutput(declarationRaw);
-      }
-      final declaration = declarationRaw.trim();
-      if (declaration.isEmpty) {
-        _addLog('❌ 声明生成为空');
-        return;
-      }
-      if (state.worldBook == null) state.worldBook = WorldBook();
-      state.worldBook!.arcDeclarations[arc.number.toString()] = declaration;
-      state.saveWorldBook();
-      state.refresh();
-      _addLog('✓ 弧线${arc.number}改编声明已生成（${declaration.length}字），生成条目时自动注入');
-    } catch (e) {
-      _addLog('❌ 声明生成失败：$e');
-    }
-  }
-
   /// 从弧线分析metadata提取原著facts构建体系参照（v127：不再用worldBook.systems汇总，按弧线取）
   /// 体系参照：当前弧线facts优先，缺失的体系从全书其他弧线facts补齐（推演换皮继承结构）
   List<WorldbuildingSystem> _arcFacts(AppState state, dynamic arcNumber) {
@@ -5810,6 +5623,13 @@ return true;
                             style: TextStyle(fontSize: 11),
                           ),
                         ),
+                        // v1507：去聊天页和AI讨论本弧线改编要求
+                        MiniButton(
+                          label: '💬去讨论',
+                          primary: false,
+                          onTap: () => state.openAdaptChat(
+                              isScene: false, arcKey: arcKey),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -5829,71 +5649,6 @@ return true;
                         state.saveWorldBook();
                       }),
                     ),
-                    // v590：AI优化按钮挪到用户框右下
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(0, 2, 0, 6),
-                      child: Row(
-                        children: [
-                          const Spacer(),
-                          MiniButton(
-                            label: '🤖AI优化',
-                            primary: false,
-                            onTap: _isGenerating
-                                ? null
-                                : () => _aiOptimizeArcReq(state, arc),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // v590：AI优化稿框常显（带勾选，可手填）
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: Checkbox(
-                            value:
-                                state.worldBook?.reqEnabled['a_$arcKey'] ??
-                                false,
-                            onChanged: (v) {
-                              setState(
-                                () => state.worldBook?.reqEnabled['a_$arcKey'] =
-                                    v ?? false,
-                              );
-                              state.saveWorldBook();
-                            },
-                          ),
-                        ),
-                        const Expanded(
-                          child: Text(
-                            'AI优化要求（勾选才发给AI，可手填）',
-                            style: TextStyle(fontSize: 11),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    _CollapseReqField(
-                      prefKey: 'arc_ai_$arcKey',
-                      controller: TextEditingController(
-                        text: state.worldBook?.arcRequirementsAI[arcKey] ?? '',
-                      ),
-                      labelText: 'AI优化要求（点上方🤖AI优化生成，或直接手填）',
-                      fontSize: 12,
-                      onChanged: (v) {
-                        state.worldBook!.arcRequirementsAI[arcKey] = v;
-                        state.saveWorldBook();
-                      },
-                      // v1225：清空按键对齐场景改编页同款（v1046模式）
-                      onClear: () => _clearField(null, (v) {
-                        state.worldBook!.arcRequirementsAI[arcKey] = v;
-                        state.saveWorldBook();
-                      }),
-                    ),
-                    const SizedBox(height: 6),
-                  ],
-                  // 生成按钮+声明按钮
                   Row(
                     children: [
                       if (layer == 1) ...[
@@ -5913,14 +5668,6 @@ return true;
                                   autoCapture: true,
                                 ),
                         ),
-                        const SizedBox(width: 6),
-                        MiniButton(
-                          label: '批量生成声明',
-                          primary: false,
-                          onTap: _isGenerating
-                              ? null
-                              : () => _generateSceneDeclarations(state, arc),
-                        ),
                       ],
                       if (layer == 2)
                         FilledButton.tonalIcon(
@@ -5939,32 +5686,6 @@ return true;
                                 ),
                         ),
                       const SizedBox(width: 6),
-                      // v581：弧线声明按钮仅弧线页显示（场景/分镜页用场景声明）
-                      if (layer == 0) ...[
-                        MiniButton(
-                          label: _declarationText(state, arc.number).isNotEmpty
-                              ? '声明✓'
-                              : '生成声明',
-                          onTap: _isGenerating
-                              ? null
-                              : () => _generateDeclaration(state, arc),
-                        ),
-                        if (_declarationText(state, arc.number).isNotEmpty) ...[
-                          const SizedBox(width: 6), // v604：按钮左右间距
-                          MiniButton(
-                            label: '🗑删声明',
-                            primary: false,
-                            onTap: () {
-                              state.worldBook?.arcDeclarations.remove(
-                                arc.number.toString(),
-                              );
-                              state.saveWorldBook();
-                              setState(() {});
-                              _addLog('已删除弧线${arc.number}改编声明');
-                            },
-                          ),
-                        ],
-                      ],
                       const SizedBox(width: 6),
                       const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
                       if (scenes.isNotEmpty)
@@ -5977,10 +5698,6 @@ return true;
                         ),
                     ],
                   ),
-                  // v575：弧线声明区块只在弧线改编页显示（存储与场景声明
-                  // 隔离互不覆盖，但共用编辑区会让误删跨层生效）
-                  if (layer == 0) ...[
-                    ..._buildDeclarationSection(state, arc.number),
                     // v595：改编按键放声明下方（带行间距）
                     const SizedBox(height: 8),
                     Row(
@@ -6156,85 +5873,6 @@ return true;
                                 state.saveWorldBook();
                               },
                             ),
-                            // v590：AI优化按钮挪到用户框右下
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(0, 2, 0, 6),
-                              child: Row(
-                                children: [
-                                  const Spacer(),
-                                  MiniButton(
-                                    label: '🤖AI优化',
-                                    primary: false,
-                                    onTap: _isGenerating
-                                        ? null
-                                        : () => _aiSuggestSceneReq(
-                                            state,
-                                            arc,
-                                            bi,
-                                          ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            // v590：AI优化稿框常显（带勾选，可手填）
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                SizedBox(
-                                  width: 22,
-                                  height: 22,
-                                  child: Checkbox(
-                                    value:
-                                        state
-                                            .worldBook
-                                            ?.reqEnabled['a_$sceneReqKey'] ??
-                                        false,
-                                    onChanged: (v) {
-                                      setState(
-                                        () =>
-                                            state
-                                                    .worldBook
-                                                    ?.reqEnabled['a_$sceneReqKey'] =
-                                                v ?? false,
-                                      );
-                                      state.saveWorldBook();
-                                    },
-                                  ),
-                                ),
-                                const Expanded(
-                                  child: Text(
-                                    'AI优化要求（勾选才发给AI，可手填）',
-                                    style: TextStyle(fontSize: 11),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            _CollapseReqField(
-                              prefKey: 'scene_ai_$sceneReqKey',
-                              controller: TextEditingController(
-                                text:
-                                    state
-                                        .worldBook
-                                        ?.sceneRequirementsAI[sceneReqKey] ??
-                                    '',
-                              ),
-                              labelText: 'AI优化要求（点上方🤖AI优化生成，或直接手填）',
-                              fontSize: 11,
-                              onChanged: (v) {
-                                state
-                                        .worldBook!
-                                        .sceneRequirementsAI[sceneReqKey] =
-                                    v;
-                                state.saveWorldBook();
-                              },
-                              onClear: () => _clearField(null, (v) {
-                                state.worldBook!
-                                    .sceneRequirementsAI[sceneReqKey] = v;
-                                state.saveWorldBook();
-                              }),
-                            ),
-                            const SizedBox(height: 6), // v594：与上方文字框的行间距
                             Row(
                               children: [
                                 Expanded(
@@ -6255,165 +5893,6 @@ return true;
                                 const SizedBox(width: 4),
                               ],
                             ),
-                            // v586：场景改编声明（手动开关替代ExpansionTile——修展开冻死）
-                            Builder(
-                              builder: (ctx) {
-                                final decl0 =
-                                    state
-                                        .worldBook
-                                        ?.sceneDeclarations[sceneReqKey] ??
-                                    '';
-                                final open = _declOpen.contains(sceneReqKey);
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    InkWell(
-                                      onTap: () => setState(() {
-                                        open
-                                            ? _declOpen.remove(sceneReqKey)
-                                            : _declOpen.add(sceneReqKey);
-                                      }),
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 4,
-                                          vertical: 6,
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              open
-                                                  ? Icons.expand_less
-                                                  : Icons.expand_more,
-                                              size: 16,
-                                              color: Colors.grey,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Expanded(
-                                              child: Text(
-                                                decl0.isEmpty
-                                                    ? '📝场景改编声明（未生成，可批量生成或单场景生成）'
-                                                    : '📝场景改编声明✓（${decl0.length}字）',
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: decl0.isEmpty
-                                                      ? Colors.grey
-                                                      : const Color(0xFF92400E),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    // v604：按钮行+内容框真正包进折叠（v586只切了箭头图标没包裹内容=固定展开）
-                                    if (open) ...[
-                                    // v583：单场景生成/删除按钮行
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(
-                                        8,
-                                        0,
-                                        8,
-                                        4,
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          const Spacer(),
-                                          MiniButton(
-                                            label: '生成本场景声明',
-                                            primary: false,
-                                            onTap: _isGenerating
-                                                ? null
-                                                : () =>
-                                                      _generateSingleSceneDecl(
-                                                        state,
-                                                        arc,
-                                                        bi,
-                                                      ),
-                                          ),
-                                          if (decl0.isNotEmpty) ...[
-                                            const SizedBox(width: 6),
-                                            MiniButton(
-                                              label: '🗑删除声明',
-                                              primary: false,
-                                              onTap: () {
-                                                state
-                                                    .worldBook!
-                                                    .sceneDeclarations
-                                                    .remove(sceneReqKey);
-                                                state.saveWorldBook();
-                                                setState(() {});
-                                                _addLog('已删除场景${bi + 1}改编声明');
-                                              },
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                    if (decl0.isEmpty)
-                                      const Padding(
-                                        padding: EdgeInsets.fromLTRB(
-                                          8,
-                                          0,
-                                          8,
-                                          6,
-                                        ),
-                                        child: Text(
-                                          '暂无声明内容（可点上方单独生成，或点"批量生成声明"批量生成）',
-                                          style: TextStyle(
-                                            fontSize: 10.5,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                      )
-                                    else
-                                      Padding(
-                                        padding: const EdgeInsets.fromLTRB(
-                                          8,
-                                          0,
-                                          8,
-                                          6,
-                                        ),
-                                        child: TextField(
-                                          controller: TextEditingController(
-                                            text: _mapPreview
-                                                ? NameMap.applyMapping(
-                                                    decl0,
-                                                    state.worldBook?.nameMapping ?? '',
-                                                  )
-                                                : decl0,
-                                          )
-                                                ..selection =
-                                                    TextSelection.collapsed(
-                                                      offset: decl0.length,
-                                                    ),
-                                          readOnly: _mapPreview,
-                                          maxLines: null,
-                                          minLines: 4,
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            height: 1.4,
-                                          ),
-                                          decoration: InputDecoration(
-                                            isDense: true,
-                                            border: const OutlineInputBorder(),
-                                            fillColor: const Color(0xFFFFFBEB),
-                                            filled: true,
-                                          ),
-                                          onChanged: (v) {
-                                            state
-                                                    .worldBook!
-                                                    .sceneDeclarations[sceneReqKey] =
-                                                v;
-                                            state.saveWorldBook();
-                                          },
-                                        ),
-                                      ),
-                                    ], // v604：折叠区闭合
-                                  ],
-                                );
-                              },
-                            ),
-                            // v595：改编按键放声明下方（带行间距）
                             const SizedBox(height: 6),
                             Row(
                               children: [
@@ -6434,6 +5913,23 @@ return true;
                                     );
                                     if (mounted) setState(() {});
                                   },
+                                ),
+                                // v1507：去聊天页和AI讨论本场景改编要求
+                                TextButton(
+                                  onPressed: () => state.openAdaptChat(
+                                      isScene: true,
+                                      arcKey: arcKey,
+                                      sceneIdx: bi),
+                                  style: TextButton.styleFrom(
+                                    minimumSize: const Size(0, 28),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                    ),
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  child: const Text('💬讨论',
+                                      style: TextStyle(fontSize: 11)),
                                 ),
                                 const Spacer(),
                                 TextButton(
@@ -6710,263 +6206,7 @@ return true;
 
   /// 单弧线生成（v468 generateWorldBookForArc）
   /// v214：该弧线已有条目时先问全量/增量——增量=弧线内补缺（跳过已完成场景）
-  /// v573：生成场景改编声明合集（一次生成整弧线逐场景声明，切段入库）
-  /// v583：单独生成本场景改编声明（key=arcKey_bi）
-  Future<void> _generateSingleSceneDecl(AppState state, Arc arc, int bi) async {
-    final arcKey = arc.number.toString();
-    final sceneReqKey = '${arcKey}_$bi';
-    final entryKey = _arcEntryKey(state, arcKey);
-    if (entryKey == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('该弧线尚无改编概述，先在"弧线改编"页生成')));
-      return;
-    }
-    final scenes = _arcScenesOf(state, arcKey); // v904b
-    if (bi >= scenes.length) return;
-    final scene = scenes[bi];
-    final entryContent = state.worldBook!.entries[entryKey]!.content;
-    final sceneRe0 = RegExp(r'场景\s*\d+\s*[：:]');
-    final firstScene0 = sceneRe0.firstMatch(entryContent);
-    final arcContext = firstScene0 == null
-        ? entryContent
-        : entryContent.substring(0, firstScene0.start).trim();
-    final config = state.getApiConfig('wb');
-    setState(() => _isGenerating = true);
-    try {
-      _addLog('━━ 生成弧线$arcKey场景${bi + 1}改编声明…');
-      final result = await state.api.callApi(
-        task: '单场景声明生成',  // v824任务级反馈
-        systemPrompt: PromptBuilder.buildSceneDeclarationSystemPrompt(),
-        userPrompt: PromptBuilder.buildSceneDeclarationUserPrompt(
-          arcContext: arcContext,
-          mapTable: state.worldBook?.nameMapping.trim() ?? '',
-          sceneName: scene.name,
-          sceneSummary: scene.summary,
-          userReq: state.worldBook!.combinedSceneReq(sceneReqKey),
-        ),
-        apiConfig: config,
-      );
-      if (!result.isSuccess) {
-        _addLog('❌ 场景${bi + 1}声明生成失败：${result.error}');
-        return;
-      }
-      final decl = TextCleaner.normalizeAiOutput(
-        result.content,
-        jsonMode: config.formatMode == 'json',
-      ).trim();
-      if (decl.isEmpty) {
-        _addLog('⚠️ 场景${bi + 1}声明生成为空');
-        return;
-      }
-      state.worldBook!.sceneDeclarations[sceneReqKey] = decl;
-      state.saveWorldBook();
-      _addLog('✓ 场景${bi + 1}改编声明已生成（${decl.length}字）');
-      if (mounted) setState(() {});
-    } finally {
-      if (mounted) setState(() => _isGenerating = false);
-    }
-  }
-
-  /// v585：批量分步生成全场景声明（逐场景一次请求，失败停机+已有跳过）
-  Future<void> _generateSceneDeclarations(AppState state, Arc arc) async {
-    if (_isGenerating) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('正在生成中，请等待')));
-      return;
-    }
-    _addLog('━━ 批量生成场景声明：弧线${arc.number}');
-    final arcKey = arc.number.toString();
-    final entryKey = _arcEntryKey(state, arcKey);
-    if (entryKey == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('该弧线尚无改编概述，先在"弧线改编"页生成')));
-      return;
-    }
-    final scenes = _arcScenesOf(state, arcKey); // v904b
-    if (scenes.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('该弧线无场景数据')));
-      return;
-    }
-    final entryContent = state.worldBook!.entries[entryKey]!.content;
-    final sceneRe0 = RegExp(r'场景\s*\d+\s*[：:]');
-    final firstScene0 = sceneRe0.firstMatch(entryContent);
-    final arcContext = firstScene0 == null
-        ? entryContent
-        : entryContent.substring(0, firstScene0.start).trim();
-    final config = state.getApiConfig('wb');
-    var done = 0, skipped = 0;
-    setState(() => _isGenerating = true);
-    try {
-      for (var bi = 0; bi < scenes.length; bi++) {
-        final sceneReqKey = '${arcKey}_$bi';
-        if ((state.worldBook!.sceneDeclarations[sceneReqKey] ?? '')
-            .trim()
-            .isNotEmpty) {
-          skipped++;
-          continue; // 增量：已有声明跳过
-        }
-        final scene = scenes[bi];
-        _addLog('━━ 批量声明 ${bi + 1}/${scenes.length}：${scene.name}');
-        final result = await state.api.callApi(
-          task: '场景声明批量生成',  // v824任务级反馈
-          systemPrompt: PromptBuilder.buildSceneDeclarationSystemPrompt(),
-          userPrompt: PromptBuilder.buildSceneDeclarationUserPrompt(
-            arcContext: arcContext,
-            mapTable: state.worldBook?.nameMapping.trim() ?? '',
-            sceneName: scene.name,
-            sceneSummary: scene.summary,
-            userReq: state.worldBook!.combinedSceneReq(sceneReqKey),
-          ),
-          apiConfig: config,
-        );
-        if (!result.isSuccess) {
-          // 失败停机铁律：停在原地明示断点，续跑从断点继续（已有跳过）
-          _addLog('❌ 场景${bi + 1}声明生成失败，批量停止：${result.error}');
-          _addLog('断点：场景${bi + 1}——处理后再次点击批量生成，从本场景续跑');
-          state.worldBook!.arcStatus[arcKey] = 'failed';
-          return;
-        }
-        final decl = TextCleaner.normalizeAiOutput(
-          result.content,
-          jsonMode: config.formatMode == 'json',
-        ).trim();
-        if (decl.isEmpty) {
-          _addLog('⚠️ 场景${bi + 1}声明生成为空，批量停止');
-          state.worldBook!.arcStatus[arcKey] = 'failed';
-          return;
-        }
-        state.worldBook!.sceneDeclarations[sceneReqKey] = decl;
-        state.saveWorldBook();
-        done++;
-        _addLog('✓ 场景${bi + 1}声明已生成（${decl.length}字）');
-      }
-      state.worldBook!.arcStatus[arcKey] = 'done';
-      _addLog('✓ 批量声明完成：新生成$done，跳过已有$skipped');
-      if (mounted) setState(() {});
-    } finally {
-      if (mounted) setState(() => _isGenerating = false);
-    }
-  }
-
   /// v581：AI生成本场景改编要求（填入场景要求输入框，用户可改）
-  /// v590：AI优化弧线改编要求——不依赖改编概述（原著拆解摘要兜底），随时可用
-  Future<void> _aiOptimizeArcReq(AppState state, Arc arc) async {
-    final arcKey = arc.number.toString();
-    String arcContext = '';
-    final entryKey = _arcEntryKey(state, arcKey);
-    if (entryKey != null) {
-      final entryContent = state.worldBook!.entries[entryKey]!.content;
-      final sceneRe0 = RegExp(r'场景\s*\d+\s*[：:]');
-      final firstScene0 = sceneRe0.firstMatch(entryContent);
-      arcContext = firstScene0 == null
-          ? entryContent
-          : entryContent.substring(0, firstScene0.start).trim();
-    }
-    arcContext = arcContext.isNotEmpty
-        ? arcContext
-        : (state.arcAnalyses[arcKey]?.arcSummary ?? '');
-    final config = state.getApiConfig('wb');
-    setState(() => _isGenerating = true);
-    try {
-      _addLog('🤖 AI优化弧线$arcKey改编要求…');
-      final result = await state.api.callApi(
-        task: '弧线优化',  // v824任务级反馈
-        systemPrompt: PromptBuilder.buildArcReqSuggestSystemPrompt(),
-        userPrompt: PromptBuilder.buildArcReqSuggestUserPrompt(
-          arcContext: arcContext,
-          mapTable: state.worldBook?.nameMapping.trim() ?? '',
-          declaration: state.worldBook!.arcDeclarations[arcKey] ?? '',
-          userReq: state.worldBook!.arcRequirements[arcKey] ?? '',
-          bible: state.worldBook?.adaptBible.trim() ?? '', // v621
-        ),
-        apiConfig: config,
-      );
-      if (!result.isSuccess) {
-        _addLog('❌ 弧线要求优化失败：${result.error}');
-        return;
-      }
-      var req = TextCleaner.decodeLiteralNewlines( // v746：AI把换行输成字面\n残留
-        TextCleaner.normalizeAiOutput(
-          result.content,
-          jsonMode: config.formatMode == 'json',
-        ),
-      ).trim();
-      if (req.isEmpty) {
-        _addLog('⚠️ 弧线要求优化结果为空');
-        return;
-      }
-      state.worldBook!.arcRequirementsAI[arcKey] = req;
-      state.worldBook!.reqEnabled['a_$arcKey'] = true; // AI稿自动勾选
-      state.saveWorldBook();
-      _addLog('✓ 弧线$arcKey AI优化要求已生成（${req.length}字，已填入AI框可修改）');
-      if (mounted) setState(() {});
-    } finally {
-      if (mounted) setState(() => _isGenerating = false);
-    }
-  }
-
-  Future<void> _aiSuggestSceneReq(AppState state, Arc arc, int sceneIdx) async {
-    final arcKey = arc.number.toString();
-    final sceneReqKey = '${arcKey}_$sceneIdx';
-    final scenes = _arcScenesOf(state, arcKey); // v904b
-    if (sceneIdx >= scenes.length) return;
-    final scene = scenes[sceneIdx];
-    String arcContext = '';
-    final entryKey = _arcEntryKey(state, arcKey);
-    if (entryKey != null) {
-      final entryContent = state.worldBook!.entries[entryKey]!.content;
-      final sceneRe0 = RegExp(r'场景\s*\d+\s*[：:]');
-      final firstScene0 = sceneRe0.firstMatch(entryContent);
-      arcContext = firstScene0 == null
-          ? entryContent
-          : entryContent.substring(0, firstScene0.start).trim();
-    }
-    arcContext = arcContext.isNotEmpty
-        ? arcContext
-        : (state.arcAnalyses[arcKey]?.arcSummary ?? '');
-    final config = state.getApiConfig('wb');
-    setState(() => _isGenerating = true);
-    try {
-      _addLog('🤖 AI生成场景${sceneIdx + 1}改编要求…');
-      final result = await state.api.callApi(
-        task: '场景建议',  // v824任务级反馈
-        systemPrompt: PromptBuilder.buildSceneReqSuggestSystemPrompt(),
-        userPrompt: PromptBuilder.buildSceneReqSuggestUserPrompt(
-          arcContext: arcContext,
-          mapTable: state.worldBook?.nameMapping.trim() ?? '',
-          sceneName: scene.name,
-          sceneSummary: scene.summary,
-          declaration: state.worldBook!.sceneDeclarations[sceneReqKey] ?? '',
-          userReq: state.worldBook!.sceneRequirements[sceneReqKey] ?? '',
-          bible: state.worldBook?.adaptBible.trim() ?? '', // v621
-        ),
-        apiConfig: config,
-      );
-      if (!result.isSuccess) {
-        _addLog('❌ 场景要求生成失败：${result.error}');
-        return;
-      }
-      var req = TextCleaner.decodeLiteralNewlines( // v746：字面\n残留解码
-        TextCleaner.normalizeAiOutput(
-          result.content,
-          jsonMode: config.formatMode == 'json',
-        ),
-      ).trim();
-      if (req.isEmpty) {
-        _addLog('⚠️ 场景要求生成为空');
-        return;
-      }
-      state.worldBook!.sceneRequirementsAI[sceneReqKey] = req;
-      state.worldBook!.reqEnabled['a_$sceneReqKey'] = true; // AI稿自动勾选
-      state.saveWorldBook();
-      _addLog('✓ 场景${sceneIdx + 1}AI优化要求已生成（${req.length}字，已填入AI框可修改）');
-      if (mounted) setState(() {});
-    } finally {
-      if (mounted) setState(() => _isGenerating = false);
-    }
-  }
-
   Future<void> _generateForArc(
     AppState state,
     Arc arc,
@@ -7131,7 +6371,6 @@ return true;
   Future<void> _updateStoryBible(
     AppState state,
     int arcNumber,
-    String declaration,
     String arcEntryRaw,
   ) async {
     try {
@@ -7153,7 +6392,6 @@ return true;
           userPrompt: PromptBuilder.buildBibleUpdateUserPrompt(
             bible: wb.adaptBible,
             arcNumber: arcNumber.toString(),
-            declaration: declaration,
             arcEntry: arcEntry,
           ),
           apiConfig: config,
@@ -7213,7 +6451,6 @@ return true;
                 ? '（原著圣经缺失，按改编要求自行推导，因果链自行担保）'
                 : wb.originalBible,
             globalReq: wb.requirements,
-            declaration: declaration,
           ),
           apiConfig: config,
         );
@@ -7411,13 +6648,9 @@ return true;
       final deduce = state.worldBook!.deduceMode;
 
       final config = state.getApiConfig('wb');
-      final declaration =
-          (state.worldBook?.arcDeclEnabled[arc.number.toString()] ?? true)
-          ? _declarationText(state, arc.number)
-          : ''; // v385：勾选框未勾选=不注入
       final scenes = _arcScenesOf(state, arcKey); // v904b
 
-      // v217：无任何改编要求（全局/弧线/声明全空）=原样整理模式
+      // v1507：无任何改编要求（全局/弧线）=原样整理模式
       // v225：显式选择"原样"模式时强制原样（忽略一切改编要求）
       // v229：显式选换皮/推演=用户明确要改编（哪怕没填要求也执行换皮/推演，
       // 换皮至少换专有名词、推演至少按新设定推内容）；只有auto才按
@@ -7427,7 +6660,7 @@ return true;
           ? false
           : mode == 'reskin' || mode == 'deduce'
           ? true
-          : (combinedReq.trim().isNotEmpty || declaration.trim().isNotEmpty);
+          : combinedReq.trim().isNotEmpty;
 
       // ── 阶段A：弧线总结条目（v214：增量模式已有条目则跳过，不删不重建）──
       // v570分层：arc层=强制全量重改编（级联清空由条目重写天然实现）；
@@ -7455,7 +6688,6 @@ return true;
         final summaryUser = PromptBuilder.buildArcSummaryEntryUserPrompt(
           arcItem,
           combinedReq,
-          declaration,
           scenes.length,
           arc.number,
           bibleAtA, // v621：故事圣经
@@ -7526,7 +6758,6 @@ return true;
         await _updateStoryBible(
           state,
           arc.number,
-          _declarationText(state, arc.number),
           sumResult.content,
         );
         if (layer == 'arc') {
@@ -7604,9 +6835,6 @@ return true;
         }
         final sceneReqKey = '${arcKey}_$si';
         final sceneReq = state.worldBook!.combinedSceneReq(sceneReqKey);
-        // v573：场景改编声明优先（弧线声明退为兜底）
-        final sceneDecl =
-            state.worldBook!.sceneDeclarations[sceneReqKey] ?? declaration;
         var sceneReqAll = combinedReq;
         if (sceneReq.isNotEmpty) {
           sceneReqAll =
@@ -7662,7 +6890,6 @@ return true;
             arcItem,
             si,
             sceneReqAll,
-            declaration,
             arcContext: arcContextBuf.toString(),
             adaptedFrames: adaptedFramesBuf.toString(),
             deduce: deduce,
@@ -7777,7 +7004,6 @@ return true;
               scene: scene.toJson(),
               sceneIdx: si,
               castRoles: castRoles,
-              declaration: sceneDecl,
               requirements: sceneReqAll,
               cast: arcSummaryText,
               deduce: deduce,
@@ -7861,7 +7087,6 @@ return true;
             scene: scene.toJson(),
             sceneIdx: si,
             castRoles: castRoles,
-            declaration: sceneDecl,
             requirements: sceneReqAll,
             cast: arcSummaryText, // v216：改编后弧线总结全文（人设卡+世界观+伏笔等，分镜在其上生长）
             deduce: deduce, // v216：推演模式下分镜内容与原著零重叠
@@ -8043,11 +7268,6 @@ return true;
         state.worldBook!.deduceMode = false;
       final deduce = state.worldBook!.deduceMode;
       final config = state.getApiConfig('wb');
-      // v385：勾选框未勾选=不注入声明
-      final declaration =
-          (state.worldBook?.arcDeclEnabled[arc.number.toString()] ?? true)
-          ? _declarationText(state, arc.number)
-          : '';
 
       // 上下文与批量一致：改编后人设卡优先，无人设卡时原著九件套兜底
       final arcSummaryText = _castFromArcEntry(state, arcKey);
@@ -8089,10 +7309,6 @@ return true;
               .whereType<Map>()
               .map((m) => Map<String, dynamic>.from(m))
               .toList();
-      // v573：场景改编声明优先（弧线声明退为兜底）
-      final sceneDecl =
-          state.worldBook!.sceneDeclarations['${arcKey}_$sceneIdx'] ??
-          declaration;
       // 阶段B：场景框架（v570分层——scene层删旧块强制重改编，shot层跳过）
       var oldBlock = _sceneBlockFromArcEntry(state, arcKey, sceneIdx);
       if (layer == 'scene' && oldBlock.isNotEmpty) {
@@ -8115,7 +7331,6 @@ return true;
           arcItem,
           sceneIdx,
           sceneReqAll,
-          declaration,
           arcContext: arcContextBuf.toString(),
           adaptedFrames: adaptedFramesBuf.toString(),
           deduce: deduce,
@@ -8182,7 +7397,6 @@ return true;
         scene: scene.toJson(),
         sceneIdx: sceneIdx,
         castRoles: castRoles,
-        declaration: sceneDecl,
         requirements: sceneReqAll,
         cast: _castFromArcEntry(state, arcKey),
         deduce: deduce,

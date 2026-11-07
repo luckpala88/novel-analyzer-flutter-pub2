@@ -2186,16 +2186,12 @@ class AppState extends ChangeNotifier {
         existing,
         sourceContent,
         nameReq: worldBook!.nameMapReq,
-        // v707：三份改编要求文本全部注入（用户稿+AI优化稿+声明，v705升格
+        // v1507：用户稿注入（AI优化稿/声明已废除）
         // 等同用户拟名）——新名出处与配对判定依据
         allRequirements: [
           worldBook!.requirements,
           ...worldBook!.arcRequirements.values,
           ...worldBook!.sceneRequirements.values,
-          ...worldBook!.arcRequirementsAI.values,
-          ...worldBook!.sceneRequirementsAI.values,
-          ...worldBook!.arcDeclarations.values,
-          ...worldBook!.sceneDeclarations.values,
         ].where((t) => t.trim().isNotEmpty).join('\n\n'),
         // v635：A方案下改编产物全部用原著原名，素材按原著口径抽取；
         // 右列新名禁收卫兵始终生效防二次映射
@@ -2233,15 +2229,11 @@ class AppState extends ChangeNotifier {
       multiLine: true,
     ).allMatches(existingNow).map((m) => m.group(2)!).toSet();
     final nameReqText = worldBook!.nameMapReq;
-    // v707：判定语料同步恢复三份文本（AI优化稿+声明等同用户拟名）
+    // v1507：判定语料（用户稿；AI优化稿/声明已废除）
     final reqAllText = [
       worldBook!.requirements,
       ...worldBook!.arcRequirements.values,
       ...worldBook!.sceneRequirements.values,
-      ...worldBook!.arcRequirementsAI.values,
-      ...worldBook!.sceneRequirementsAI.values,
-      ...worldBook!.arcDeclarations.values,
-      ...worldBook!.sceneDeclarations.values,
     ].where((t) => t.trim().isNotEmpty).join('\n\n');
     // v636：原著正文语料——"原著名"判定依据（原著出处 > 改编要求）
     final origCorpus = chapters.isEmpty
@@ -2661,6 +2653,72 @@ class AppState extends ChangeNotifier {
   /// 切换Tab
   void switchTab(String tab) {
     currentTab = tab;
+    notifyListeners();
+  }
+
+  /// v1507：改编讨论——从改编页弧线/场景行跳聊天页，自动建定向会话
+  /// （带目标上下文首条消息；AI聊定后用save_adapt_req工具写回用户改编要求）
+  void openAdaptChat({required bool isScene, required String arcKey,
+      int sceneIdx = -1}) {
+    final wb = worldBook;
+    Arc? arc;
+    for (final a in allArcs) {
+      if (a.number.toString() == arcKey) {
+        arc = a;
+        break;
+      }
+    }
+    final buf = StringBuffer();
+    String title;
+    if (isScene) {
+      title = '弧线$arcKey场景${sceneIdx + 1}改编讨论';
+      buf.writeln('【讨论目标】弧线$arcKey 场景${sceneIdx + 1} 的场景改编要求');
+      Scene? sc;
+      final list = arcAnalyses[arcKey]?.scenes ?? const [];
+      if (sceneIdx >= 0 && sceneIdx < list.length) sc = list[sceneIdx];
+      if (sc != null) {
+        buf.writeln('【场景名】${sc.name}');
+        if (sc.summary.isNotEmpty) buf.writeln('【原著场景概述】${sc.summary}');
+        if (sc.text.isNotEmpty) {
+          final t = sc.text.length > 600 ? '${sc.text.substring(0, 600)}…' : sc.text;
+          buf.writeln('【原著切片（前600字）】\n$t');
+        }
+      }
+      final cur = wb?.sceneRequirements['${arcKey}_$sceneIdx'] ?? '';
+      if (cur.trim().isNotEmpty) buf.writeln('【当前用户改编要求】\n$cur');
+      buf.writeln(
+          '\n【任务】与作者多轮讨论，把本场景的改编要求聊具体、聊透（参考改编纪律：冲突形式具体化/禁照搬原著情节模式/新元素沿用原代称禁自拟名/性格内核不变）。'
+          '聊定后（作者确认）用save_adapt_req工具写入：'
+          '{"tool":"save_adapt_req","args":{"layer":"scene","arc":$arcKey,"scene":${sceneIdx + 1},"requirement":"聊定的要求全文"}}。'
+          '写入内容=纯要求文本，禁止夹带客套与解释。');
+    } else {
+      title = '弧线$arcKey改编讨论';
+      buf.writeln('【讨论目标】弧线$arcKey 的弧线改编要求');
+      if (arc != null && arc.summary.trim().isNotEmpty) {
+        buf.writeln('【原著弧线概述】${arc.summary}');
+      }
+      final cur = wb?.arcRequirements[arcKey] ?? '';
+      if (cur.trim().isNotEmpty) buf.writeln('【当前用户改编要求】\n$cur');
+      buf.writeln(
+          '\n【任务】与作者多轮讨论，把本弧线的改编要求聊具体、聊透（参考改编纪律：冲突形式具体化/禁照搬原著情节模式/新元素沿用原代称禁自拟名/性格内核不变）。'
+          '聊定后（作者确认）用save_adapt_req工具写入：'
+          '{"tool":"save_adapt_req","args":{"layer":"arc","arc":$arcKey,"requirement":"聊定的要求全文"}}。'
+          '写入内容=纯要求文本，禁止夹带客套与解释。');
+    }
+    final id = newChatSession();
+    for (final s in chatSessions) {
+      if (s.id == id) {
+        s.title = title;
+        s.messages.add(ChatMessage(
+          role: 'user',
+          content: buf.toString(),
+          ts: DateTime.now().millisecondsSinceEpoch,
+        ));
+        break;
+      }
+    }
+    saveChatSessions();
+    currentTab = 'chat';
     notifyListeners();
   }
 

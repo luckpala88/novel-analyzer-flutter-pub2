@@ -571,15 +571,8 @@ class PromptBuilder {
     List<Map<String, dynamic>>? styleAtts,
     List<Map<String, dynamic>>? contentAtts, // v357：per-scene内容素材
     List<String> prevShots = const [], // v369：本镜之前各分镜概要（focus｜镜头类型）
-      String arcDeclaration = '', // v410
   }) {
     final sb = StringBuffer();
-    // v410：弧线改编声明（题材红线，放最前）
-    if (arcDeclaration.trim().isNotEmpty) {
-      sb.writeln('## 创作声明（必须严格遵守的指导书——声明中的名称/内容均为创作要求即新设定，其中名称是新故事名称，不是原著名称，禁止映射回原著或当原著处理）');
-      sb.writeln(arcDeclaration.trim());
-      sb.writeln();
-    }
     sb.writeln('## 场景（背景参考）');
     sb.writeln(sceneHeader);
     sb.writeln();
@@ -721,7 +714,6 @@ class PromptBuilder {
     List<Map<String, dynamic>>? attachments,
     List<WorldbuildingSystem>? worldbuildingSystems,
     String styleSample = '',
-      String arcDeclaration = '', // v410
   }) {
     final sb = StringBuffer();
     final beatTag = '${arcKey}_$sceneIdx';
@@ -729,12 +721,6 @@ class PromptBuilder {
         ? sceneIdx
         : int.tryParse(sceneIdx.toString()) ?? 0;
 
-    // v410：弧线改编声明（题材红线，放最前）
-    if (arcDeclaration.trim().isNotEmpty) {
-      sb.writeln('## 创作声明（必须严格遵守的指导书——声明中的名称/内容均为创作要求即新设定，其中名称是新故事名称，不是原著名称，禁止映射回原著或当原著处理）');
-      sb.writeln(arcDeclaration.trim());
-      sb.writeln();
-    }
 
     // ── 收集世界书条目（v469分组：本场景专属/本弧线/全局）──
     // 双格式兼容：WBEntry类型化对象（正常路径）+ Map（旧数据/异常容错）
@@ -1180,7 +1166,6 @@ class PromptBuilder {
   static String buildBibleFromOriginalUserPrompt({
     required String originalBible,
     required String globalReq,
-    required String declaration,
   }) {
     final sb = StringBuffer();
     sb.writeln('【原著圣经（因果逻辑担保人——改编不得破坏其因果结构）】');
@@ -1188,11 +1173,6 @@ class PromptBuilder {
     sb.writeln();
     sb.writeln('【用户改编要求（全局+弧线级，换皮方向）】');
     sb.writeln(globalReq.trim().isEmpty ? '（无）' : globalReq.trim());
-    sb.writeln();
-    if (declaration.trim().isNotEmpty) {
-      sb.writeln('【首弧线改编声明】');
-      sb.writeln(declaration.trim());
-    }
     return sb.toString();
   }
 
@@ -1219,18 +1199,12 @@ class PromptBuilder {
 
   static String buildBibleInitUserPrompt({
     required String globalReq,
-    required String declaration,
     required String arcEntry,
   }) {
     final sb = StringBuffer();
     sb.writeln('【用户改编要求（全局+弧线级）】');
     sb.writeln(globalReq.trim().isEmpty ? '（无）' : globalReq.trim());
     sb.writeln();
-    if (declaration.trim().isNotEmpty) {
-      sb.writeln('【弧线改编声明】');
-      sb.writeln(declaration.trim());
-      sb.writeln();
-    }
     sb.writeln('【弧线总结条目（已改编确立的事实，圣经的唯一提炼来源）】');
     sb.writeln(arcEntry.trim());
     return sb.toString();
@@ -1256,7 +1230,6 @@ class PromptBuilder {
   static String buildBibleUpdateUserPrompt({
     required String bible,
     required String arcNumber,
-    required String declaration,
     required String arcEntry,
   }) {
     final sb = StringBuffer();
@@ -1264,11 +1237,6 @@ class PromptBuilder {
     sb.writeln(bible.trim());
     sb.writeln();
     sb.writeln('【刚完成的弧线$arcNumber】');
-    if (declaration.trim().isNotEmpty) {
-      sb.writeln('改编声明：');
-      sb.writeln(declaration.trim());
-      sb.writeln();
-    }
     sb.writeln('弧线总结条目（新事实来源）：');
     sb.writeln(arcEntry.trim());
     return sb.toString();
@@ -1364,7 +1332,6 @@ class PromptBuilder {
     dynamic requirements,
     dynamic sceneReqs, {
     List<WorldbuildingSystem>? worldbuildingSystems,
-    String arcDeclaration = '',
     String adaptedCast = '',
   }) {
     final item = arcItem is Map ? arcItem : <String, dynamic>{};
@@ -1395,12 +1362,6 @@ class PromptBuilder {
       sb.writeln();
     }
 
-    // 弧线改编声明（改编页预生成，正式改编的指导——遵守声明细节）
-    if (arcDeclaration.isNotEmpty) {
-      sb.writeln('## 弧线改编声明（必须严格遵守的指导书——声明中的名称/内容均为改编要求即新设定，其中名称是新故事名称，不是原著名称，禁止映射回原著或当原著处理）');
-      sb.writeln(arcDeclaration);
-      sb.writeln();
-    }
 
     // v215：改编后人设卡（角色名映射基准——有人设卡时角色名以它为准，
     // 主角/配角定位严格对应，防AI就近映射错主角）
@@ -1731,7 +1692,7 @@ class PromptBuilder {
         '2.5 **冲突表现形态必须服从新设定（最高优先级之一）**：冲突的功能（制造张力/推进关系/暴露性格）不变，但表现形式由新场景的物理与社会规则决定——荒野猎捕靠埋伏/动作/环境对抗，二手法器回收靠讨价还价/多次拉扯/搅局搅黄，官场博弈靠话外之音/站队试探。冲突各方怎么"打"这一仗，必须先问"新世界里这种冲突怎么发生"。反例：原著埋伏猎捕妖兽，改编成摊位交易却写成躲在摊位后面埋伏卖家——功能没错但违背常理，属于换了名词没换冲突形态的山寨。正例：主角与卖家多次讨价还价失败→引入搅局者→三方通过对话与报价拉扯爆发冲突\n' +
         '3. **转场手法/篇幅/文笔节奏从骨架继承（冲突形态改变时让位）**：转场是叙事技法可移植；篇幅比例是节奏骨架；文笔节奏的快慢曲线继承——默认从骨架照抄。但当冲突表现形态改变时（如动作猎捕→对话拉扯），节奏与篇幅以新形态为准：猎捕的快节奏长动作段，变成讨价还价的多轮短句交替，骨架只提供比例参考。\n' +
         '4. **内容零重叠**：新内容不得出现原著的人名/地名/法宝/功法，更不得套用原著的行为模式。先理解功能，再找该功能在新设定下最自然的表达——如功能是"高资源新手砸资源暴露无经验"，战斗场=不计成本用法宝，交易场=被激将疯狂加价，两者功能同构但动作零重叠。\n' +
-        '5. **差异声明参照**：如果用户提供了【弧线改编声明】（场景功能声明/场景禁令/人物行为模式卡），必须严格遵守声明细节推演。⚠️ 声明中的名称/内容均为改编要求（新设定）——其中名称是新故事名称，不是原著名称，推演时直接采用，禁止映射回原著或替换。声明由改编页预先生成，不输出到条目content里。\n' +
+        '5. **改编要求纪律（v1507原声明职责并入）**：改编要求是唯一改编指令源——冲突形式必须具体化（具体到买卖/维权/追债这类具体形式，禁空话）；明确禁止照搬原著的情节模式（警惕换名词不换动作的山寨信号）；主要角色行为模式按新设定合理推演（性格内核不变）。要求中出现的名称/内容均为新设定——名称是新故事名称，推演时直接采用，禁止映射回原著或替换。\n' +
         '6. **反检验自检**：推演完逐分镜自检——功能是否等价？内容是否和原著零重叠？有没有"换了名词但动作没换"的山寨信号（打妖兽→打法器=山寨；打妖兽→加价买假货=正确转换）？不合格重写。\n' +
         '7. 连贯成篇+场景名重造+人物/冲突/伏笔按新设定推演（规模参照骨架角色结构）。\n\n' +
         '## 常见错误（禁止）\n' +
@@ -1984,7 +1945,7 @@ class PromptBuilder {
         '- ⚠️ **逐名必起新名+恒等行禁令（v701，与主表v675同款）**：列出的每一个原著专名都必须映射到一个【真新名】——用户改编要求/起名要求里指定了→用用户的；没指定的→你按改编风格自拟（境界名/门派/功法等不需要用户逐个输入）。禁止输出左列=右列的恒等行（如"石尾壁蜥→石尾壁蜥"）；⚠️ 想不出合适新名→输出？确认行，**禁止因想不出新名而静默跳过该专名**（v1219）——静默跳过=漏采，恒等行才是唯一绝对禁区\n'
         '- ⚠️ **描述性称呼不收（v676）**：白痴女/银衫美女/翘臀小美女/绿袍老头/"衣服要多老土有多老土…的家伙"这类**外貌/特征描述短语**不是专有名词——禁止收录成行；只收正式姓名、原著中作为固定称谓反复出现的绰号（如"令狐大师兄"可收）、门派/地名/功法等专名\n'
         '- ⚠️ 只映射原著实有的名称——内容里若出现原著没有的改编新造词（如修真化改编新设的灵石/灵力/丹田/术法名等新世界观术语），它们已经是最终设定用词，禁止为它们生成映射行（替换会破坏新设定）；拿不准是不是原著名称时输出？确认行而不要直接映射\n'
-        '- ⚠️ **新名配对（v707）**：改编要求文本（用户稿/AI优化稿/改编声明）里出现的新名若与切片里的原著专名指向同一对象（如"魏索在改编后是陆志星"）→直接输出配对行"魏索→陆志星"；切片原著专名在三份文本里找不到对应新名的→你按三份文本的命名风格自拟真新名；三份文本里原著正文没有对应物的新名（全新元素如丁小丁）→不收（新元素不需要映射行）\n'
+        '- ⚠️ **新名配对（v707）**：改编要求文本（用户稿）里出现的新名若与切片里的原著专名指向同一对象（如"魏索在改编后是陆志星"）→直接输出配对行"魏索→陆志星"；切片原著专名在要求文本里找不到对应新名的→你按要求文本的命名风格自拟真新名；要求文本里原著正文没有对应物的新名（全新元素如丁小丁）→不收（新元素不需要映射行）\n'
         '- ⚠️ **左列唯一判定法则（v636）**：左列只允许出现来自原著的名称——判定标准=该名称在原著正文中有出处即为原著名（即使改编要求里提到了它，如"把华山派改成商行"里的华山派仍是原著名）；一个名称是新名的唯一依据=它只在用户改编要求里出现、原著正文里找不到。两处出处冲突时以原著出处为准；两边都找不到的名称→？确认行，禁止猜\n\n'
         '## 规则\n'
         '- 已有映射表里已有的原著名不要重复输出（它的其他称呼可以补充，新名与该角色已有行保持一致）\n'
@@ -2043,88 +2004,7 @@ class PromptBuilder {
     return sb.toString();
   }
 
-  /// buildArcDeclarationSystemPrompt — v573：弧线级改编声明（只管弧线整体方向，
-  /// 不逐场景——逐场景声明归场景改编层的buildSceneDeclarationSystemPrompt）
-  static String buildArcDeclarationSystemPrompt() {
-    return '你是一位资深网文改编策划。根据映射表、前情提要、用户改编要求和原著弧线概述，'
-        '生成【弧线改编声明】——本弧线整体的改编方向指导书（供弧线概述改编使用）。\n\n'
-        '$gapTheory'
-        '\n改编设计纪律：改编不是换皮——不是给原著反应找新世界对应物，而是从新世界的因果重新推演。新主线冲突必须保留鸿沟引擎：主角与主要配角的期望要清晰，世界的反应必须出乎他们意料（方向双向：惊喜/惊恐皆可；禁止把鸿沟改编平），意外方向可以与原著不同（原著受挫改编后可走运，反之亦然——保鸿沟功能不保方向），风险升级链在改编后依然成立；反预期反应的具体形式由新世界因果生成。意外、对策、结果的脑洞设计=文章精彩度的核心——原著分析数据里的【压力阶梯】（意外→对策→结果链）=你的创意基准与手法库：学习原著每个意外的设计手法（意外从哪个方向来/在什么时机引爆/与期望的反差幅度多大），改编后编排出同等甚至更出乎意料的意外链——鼓励大胆出人意料的创意，禁止把原著意外改平、禁止可预判的走向。\n\n'
-        '## 声明结构（五段式，照抄段名）\n'
-        '【弧线主线冲突变换】原著主线冲突→新主线冲突（一段话说清这条弧线的故事变成了什么）\n'
-        '【弧线起承转合】起/承/转/合各阶段的改编方向（每阶段1-2句，不下探到具体场景）\n'
-        '【人物弧线变化】本弧线内主要人物的关系/状态/立场怎么变（按映射表新名指称）\n'
-        '【新增元素槽位】本弧线需要引入的新元素及其叙事功能\n'
-        '【弧线级禁令】整条弧线禁止出现的原著情节模式+山寨信号（换名词不换动作的情况）\n'
-        '【原著不足与改进建议】不必迷信原著：原著哪些地方阻力可预期/鸿沟太浅/流水账推进（对照零件提取中标注的无鸿沟段），改编时如何用鸿沟补强——每条写"原著不足→改编改进"，1-3条，无则写"无"\n\n'
-        '## 要求\n'
-        '- 只管弧线整体方向，禁止逐场景展开（场景级细节由场景改编声明负责）\n'
-        '- 与映射表和前情提要保持一致，禁止矛盾\n'
-        '- **新元素禁止自拟真名（v745，替代v705自拟授权）**：映射表和用户要求里没有名字的新元素，一律沿用用户要求中的原代称（如"世家女""银衫美女"），禁止自拟真名——AI自拟名剥夺用户命名权且低温度下高度趋同（实测回回"楚明月"）；同一代称全书指向同一对象，用户后续定名后在映射表统一替换\n' +
-        '- 功能等价非结构同构：冲突形式可以彻底变，叙事功能必须保留\n'
-        '- 输出纯文本，使用上述标记结构';
-  }
 
-  /// buildArcDeclarationUserPrompt — 声明生成的用户提示词
-  /// requirements=全局+弧线要求的组合；sceneReqs=per-scene改编要求（声明必须考虑）
-  static String buildArcDeclarationUserPrompt(
-    dynamic arcItem,
-    dynamic requirements, {
-    Map<String, dynamic>? sceneReqs,
-    String arcKey = '',
-    String bible = '', // v621：故事圣经
-  }) {
-    final arc = arcItem is Map ? arcItem : <String, dynamic>{};
-        final sb = StringBuffer();
-    _writeBibleBlock(sb, bible); // v621
-    sb.writeln('## 用户改编要求（全局+弧线级）');
-    sb.writeln(
-      requirements.toString().isNotEmpty
-          ? requirements.toString()
-          : '（无具体要求，请根据原著结构自行设计改编方向）',
-    );
-    sb.writeln();
-    // 场景专属改编要求（优先级最高，声明必须体现）
-    final sceneReqsMap = sceneReqs ?? <String, dynamic>{};
-    if (sceneReqsMap.isNotEmpty) {
-      sb.writeln('## 用户场景专属改编要求（优先级最高，对应场景的声明必须体现这些要求）');
-      sceneReqsMap.forEach((k, v) {
-        if (v != null &&
-            v.toString().isNotEmpty &&
-            (k.startsWith('${arcKey}_') || arcKey.isEmpty)) {
-          sb.writeln('- $k：$v');
-        }
-      });
-      sb.writeln();
-    }
-    sb.writeln('## 原著弧线数据');
-    sb.writeln('弧线标题：${arc['title'] ?? ''}');
-    final summary = arc['summary'];
-    if (summary != null && summary.toString().isNotEmpty) {
-      sb.writeln('弧线概述：$summary');
-    }
-    // 场景列表（声明的载体）
-    final scenes = arc['scenes'] as List? ?? [];
-    if (scenes.isNotEmpty) {
-      sb.writeln();
-      sb.writeln('## 场景列表（按此逐一声明）');
-      for (var si = 0; si < scenes.length; si++) {
-        final sc = scenes[si];
-        final scMap = sc is Map ? sc : <String, dynamic>{};
-        sb.writeln('场景${si + 1}：${scMap['name'] ?? ''}');
-        if ((scMap['summary'] ?? '').toString().isNotEmpty) {
-          sb.writeln('  概述：${scMap['summary']}');
-        }
-        final sceneReq = sceneReqsMap['${arcKey}_$si'];
-        if (sceneReq != null && sceneReq.toString().isNotEmpty) {
-          sb.writeln('  【本场景专属改编要求】$sceneReq');
-        }
-      }
-    }
-    sb.writeln();
-    sb.writeln('请生成完整的【弧线改编声明】（按场景逐一声明）。');
-    return sb.toString();
-  }
 
   /// v566：改编圣经生成——从弧线拆解素材提炼全书级映射（支持增量合并）
   static String buildAdaptBibleSystemPrompt({bool incremental = false}) {
@@ -2162,183 +2042,10 @@ class PromptBuilder {
     return sb.toString();
   }
 
-  /// v573：场景改编声明（场景层用——单场景功能声明+禁令+冲突对象锁定）
-  static String buildSceneDeclarationSystemPrompt() {
-    return '你是一位资深网文改编策划。根据改编后弧线概述、映射表和本场景原著零件，'
-        '生成【本场景改编声明】——场景改编与分镜改编的执行指导书。\n\n'
-        '$gapTheory'
-        '\n改编设计纪律：本场景的冲突形式变换后必须仍是鸿沟——写清异常先行（v1278）——"开场抛出的异常→随之浮现的期望（+深层动机，动机更晚显露）→世界的反预期反应（方向双向：惊喜/惊恐皆可）→对策→结果（小收益/新代价）"循环逐级加码触达底线。反预期反应从新世界的因果重新推演（不是原著反应的名词替换）；原著此场景有鸿沟时改编后必须保留鸿沟功能（打破预期+赌注升级，反应形式可不同、方向可正可负，禁止改平）。原著流水账段（阻力可预期/鸿沟太浅）不必迷信——明确提出改进建议：原著此处不足在哪意外、对策、结果的脑洞设计=文章精彩度的核心——学习原著此场景意外的设计手法（方向/时机/反差幅度），改编后编排出同等甚至更出乎意料的创意，禁止改平、禁止可预判走向。，改编后从新世界因果设计什么变数补出鸿沟。\n\n'
-        '## 声明结构\n'
-        '### 本场景核心功能\n'
-        '- 一句话：在故事机器里起什么作用\n'
-        '- 冲突形式变换（原著冲突形式→新冲突形式）\n'
-        '- ⚠️ 冲突对象锁定（最强约束）：\n'
-        '  · 原著冲突对象：xxx\n'
-        '  · 改编后冲突对象：xxx\n'
-        '  · 禁令：后续所有分镜的矛盾冲突必须发生在改编后冲突对象上——禁止把原著冲突对象平移进新故事\n'
-        '- 主角行为模式（原著行为→新行为，保持功能等价）\n'
-        '- 新增元素功能槽位\n'
-        '\n### 本场景禁令\n'
-        '- 禁止出现的原著元素（新设定下不该再出现的原著独有内容）\n'
-        '- 禁止的山寨信号（换名词不换动作的情况）\n'
-        '- ⚠️ 声明定位=新故事的指导书：其中的名称/内容都是改编要求，不是原文\n'
-        '\n## 要求\n'
-        '- 与映射表和改编后弧线概述保持一致\n'
-        '- ⚠️ 人物名一律用原著名指称（换名由输出层处理），描述新设定/新情节时保留原著名\n'
-        '- 具体可执行，直接指导分镜改编\n'
-        '- 只输出本场景声明，不要输出其他场景';
-  }
 
-  static String buildSceneDeclarationUserPrompt({
-    required String arcContext,
-    required String mapTable,
-    required String sceneName,
-    required String sceneSummary,
-    required String userReq,
-  }) {
-    final sb = StringBuffer();
-    if (mapTable.isNotEmpty) {
-      sb.writeln('【改编映射表】');
-      sb.writeln(mapTable);
-      sb.writeln();
-    }
-    sb.writeln('【改编后弧线概述（本场景的上层语境，必须一致）】');
-    sb.writeln(arcContext.isEmpty ? '（无）' : arcContext);
-    sb.writeln();
-    sb.writeln('【本场景原著零件】');
-    sb.writeln('场景：$sceneName');
-    sb.writeln(sceneSummary.isEmpty ? '（无摘要）' : sceneSummary);
-    if (userReq.isNotEmpty) {
-      sb.writeln();
-      sb.writeln('【用户本场景改编要求（优先级最高，必须体现）】');
-      sb.writeln(userReq);
-    }
-    return sb.toString();
-  }
 
-  /// v582：创作声明（创作页独立生成——基于世界书条目的创作方向指导）
-  static String buildCreationDeclSystemPrompt() {
-    return '你是网文创作策划。根据改编后的弧线概述、名称映射表和场景零件，'
-        '生成本弧线的【创作声明】——创作正文时的方向指导书。\n\n'
-        '声明格式（3-6行，每行一条具体可执行指令）：\n'
-        '- 冲突形式：本弧线各场景的核心冲突应该围绕什么展开（具体到买卖/维权/追债等具体形式，禁止空话）\n'
-        '- 禁止项：明确禁止照搬原著的哪些情节模式（点名著禁，如"禁止野外打怪夺宝"）\n'
-        '- 人物行为：主要角色按什么行为模式行动\n'
-        '- 一致性：与已创作的前情如何衔接\n'
-        '- **结构照搬（v1209必写一条）**：声明中必须包含一条"结构：改编后各场景保持原著弧线的场景划分与事件递进结构（各场景在弧线中的功能位置对应照搬），具体事件按新世界因果重新安排"——结构不是内容，照搬结构不构成抄袭；事件骨架（讲什么）按新世界灵活适配\n\n'
-        '要求：只输出声明文本，不要标题和解释；名称保留原著（正文由输出层统一换名）。';
-  }
-
-  static String buildCreationDeclUserPrompt({
-    required String arcContext,
-    required String mapTable,
-  }) {
-    final sb = StringBuffer();
-    if (mapTable.isNotEmpty) {
-      sb.writeln('【名称映射表】');
-      sb.writeln(mapTable);
-      sb.writeln();
-    }
-    sb.writeln('【改编后弧线概述与场景零件】');
-    sb.writeln(arcContext.isEmpty ? '（无）' : arcContext);
-    return sb.toString();
-  }
 
   /// v589：AI优化弧线改编要求（同场景版：用户原话为底稿做剧情向优化）
-  static String buildArcReqSuggestSystemPrompt() {
-    return '你是网文改编策划。用户为本弧线写了一版初步改编要求，你的任务是\n'
-        '把用户的原话【优化】成2-4句具体可执行的弧线级改编指令。\n\n'
-        '优化原则：\n'
-        '- 忠于用户原意：用户的意图、方向、偏好一律保留，禁止推翻或替换成你自己的方案\n'
-        '- 剧情向落地：把抽象表述具体化成"整体冲突基调怎么定/题材怎么换/各场景围绕什么展开"\n'
-        '$gapTheory'
-        '- **戏剧骨架五问（v619韩编v1278版，按叙事顺序逐一对照，缺哪项补哪项）**：①开场抛出什么【开场】（异常或意外都算——进程被中断=意外，状态反常=异常；异常先行，开场不写期望动机，顶多日常反差铺垫）②异常之下浮现什么【外在期望】与【深层动机】（动机藏在期望下面，更晚显露甚至隐藏）③压力阶梯怎么展开：【意外】（世界的反预期反应或对手的反预期行为，出乎意料才算）→【对策】（基于期望与动机的应对）→【结果】（小收益/新代价），循环逐级加码，末端触达底线的那级结果标（触底反弹） ④收束怎么落（不可逆变化+收束方式）。优化稿必须能看出这条叙事链\n'
-        '- 补齐遗漏：用户没写到的关键点（与声明的衔接、**结构继承**——改编后各场景划分与功能位置与原著对应，具体事件按新世界推演适配）可补1条，不喧宾夺主\n'
-        '- **新名拟定（v705）**：改编要求里出现的新角色/新组织/新概念名称就是最终设定用词——你优化时为新元素拟出新名：与用户改编要求的风格一致、同一对象全书永远用同一个新名、禁止与原著任何专名重名（重名会被映射表误判成原著词）。这些新名生成映射表时进右列，等同用户拟名\n'
-        '- **新名禁自拟（v744）**：用户要求/改编声明里没有给出名字的新角色/新组织，一律沿用原代称（如“世家女”“银衫美女”），禁止自拟真名——AI自拟名在低温度下高度趋同（实测连续优化回回“楚明月”）且剥夺用户命名权；代称后续由用户定名后替换\n\n'
-        '- **输出形态（v1299韩编八字段简列）**：优化稿按叙事顺序逐字段简列脑洞，每字段一行、每行一句大白话（字段名打头）——异常：…／期望：…／动机：…／意外1：…→对策1：…→结果1：…／意外2：…→…→触底反弹：…（有则列无则跳，禁止硬凑）；字段行后可补1-2行其它关键要求（新名/结构继承等）\n'
-        '- 简练=脑洞点子本身，不展开细节——细节是改编声明和分镜规划的事\n'
-        '- 只输出优化后的要求文本本身，不要标题、解释和对比说明\n\n'
-        '若用户要求为空：才退化为根据概述/声明直接生成初稿要求。';
-  }
-
-  static String buildArcReqSuggestUserPrompt({
-    required String arcContext,
-    required String mapTable,
-    required String declaration,
-    required String userReq,
-    String bible = '', // v621：故事圣经
-  }) {
-    final sb = StringBuffer();
-    sb.writeln('【用户初步要求（底稿——必须忠于其原意做优化）】');
-    sb.writeln(userReq.trim().isEmpty ? '（用户未填写，请直接生成初稿）' : userReq.trim());
-    sb.writeln();
-    _writeBibleBlock(sb, bible); // v621
-    if (mapTable.isNotEmpty) {
-      sb.writeln('【改编映射表】');
-      sb.writeln(mapTable);
-      sb.writeln();
-    }
-    sb.writeln('【改编后弧线概述】');
-    sb.writeln(arcContext.isEmpty ? '（无）' : arcContext);
-    sb.writeln();
-    if (declaration.isNotEmpty) {
-      sb.writeln('【本弧线改编声明（要求必须与其一致）】');
-      sb.writeln(declaration);
-    }
-    return sb.toString();
-  }
-
-  /// v588：AI优化场景改编要求——以用户已输入的要求为底稿做剧情向优化，不是另写声明
-  static String buildSceneReqSuggestSystemPrompt() {
-    return '你是网文改编策划。用户为本场景写了一版初步改编要求，你的任务是\n'
-        '把用户的原话【优化】成2-4句具体可执行的剧情改编指令。\n\n'
-        '优化原则：\n'
-        '- 忠于用户原意：用户的意图、方向、偏好一律保留，禁止推翻或替换成你自己的方案\n'
-        '- 剧情向落地：把抽象表述具体化成"冲突怎么换/情节怎么变/引入什么元素"——指明改编后的剧情走向\n'
-        '$gapTheory'
-        '- **戏剧骨架五问（v619韩编v1278版，按叙事顺序逐一对照，缺哪项补哪项）**：①开场抛出什么【开场】（异常或意外都算——进程被中断=意外，状态反常=异常；异常先行——开场不写期望动机，顶多日常反差铺垫）②异常之下浮现什么【外在期望】与【深层动机】（动机更晚显露甚至隐藏）③压力阶梯：【意外】（世界的反预期反应或对手的反预期行为，出乎意料才算，可预判阻力如实标注）→【对策】（基于期望与动机的应对）→【结果】（小收益/新代价，没有收益写无所得），有第二轮就新意外→新对策→新结果逐级加码 ④有无【B故事补偿】与【推进驱动】（内驱/外驱；有就填没有就不填，禁止硬凑）。优化稿必须能看出这条叙事链\n'
-        '- 补齐遗漏：用户没写到的关键点（与弧线概述/声明的一致性、名称处理、**交手回合继承**——本场景的交手回合节奏与镜内表述手法遵循原著分析结果，事件内容按新世界适配）可以补1条，不喧宾夺主\n'
-        '- **新名拟定（v705）**：新元素拟新名规则同弧线级——风格一致/全书同一对象同一新名/禁止与原著专名重名\n'
-        '- **输出形态（v1299韩编八字段简列）**：优化稿按叙事顺序逐字段简列脑洞，每字段一行、每行一句大白话（字段名打头）——异常：…／期望：…／动机：…／意外1：…→对策1：…→结果1：…／意外2：…→…→触底反弹：…（有则列无则跳，禁止硬凑）；字段行后可补1-2行其它关键要求（新名/冲突对象锁定等）\n'
-        '- 简练=脑洞点子本身，不展开细节——细节是改编声明和分镜规划的事\n'
-        '- 只输出优化后的要求文本本身，不要标题、解释和对比说明\n\n'
-        '若用户要求为空：才退化为根据概述/声明直接生成初稿要求。';
-  }
-
-  static String buildSceneReqSuggestUserPrompt({
-    required String arcContext,
-    required String mapTable,
-    required String sceneName,
-    required String sceneSummary,
-    required String declaration,
-    String userReq = '',
-    String bible = '', // v621：故事圣经
-  }) {
-    final sb = StringBuffer();
-    sb.writeln('【用户初步要求（底稿——必须忠于其原意做优化）】');
-    sb.writeln(userReq.trim().isEmpty ? '（用户未填写，请直接生成初稿）' : userReq.trim());
-    sb.writeln();
-    _writeBibleBlock(sb, bible); // v621
-    if (mapTable.isNotEmpty) {
-      sb.writeln('【改编映射表】');
-      sb.writeln(mapTable);
-      sb.writeln();
-    }
-    sb.writeln('【改编后弧线概述】');
-    sb.writeln(arcContext.isEmpty ? '（无）' : arcContext);
-    sb.writeln();
-    if (declaration.isNotEmpty) {
-      sb.writeln('【本场景改编声明（要求必须与其一致）】');
-      sb.writeln(declaration);
-      sb.writeln();
-    }
-    sb.writeln('【本场景原著零件】');
-    sb.writeln('场景：$sceneName');
-    sb.writeln(sceneSummary.isEmpty ? '（无摘要）' : sceneSummary);
-    return sb.toString();
-  }
-
   /// buildArcSummaryEntrySystemPrompt — 弧线总结条目（逐场景模式的阶段A）
   static String buildArcSummaryEntrySystemPrompt(bool deduce,
       {bool hasRequirements = true}) {
@@ -2371,7 +2078,7 @@ class PromptBuilder {
         '⚠️ 全书统一规则：条目与人设一律使用原著原名（人名/地名/宗派/功法/物品等所有专有名词原样保留，禁止起新名、禁止替换）——改名由名称映射表在输出层统一处理，条目里出现任何新名都是错误\n'
         '【矛盾冲突】冲突类型+描述\n'
         '⚠️ 改编分层原则（骨架不变·血肉重写）：\n'
-        '  · 【人设】保持原著不变——姓名/身份/定位/性格内核原样（只允许按声明的人物行为模式卡调整行为表达，性格与人物关系不改）\n'
+        '  · 【人设】保持原著不变——姓名/身份/定位/性格内核原样（行为表达按改编要求推演适配，性格与人物关系不改）\n'
         '  · 【弧线功能】【不可逆变化】【情绪曲线】保持原著叙事功能不变（这是弧线的骨架）\n'
         '  · 开篇弧线额外检查三律：主线第一引爆点开场（禁世界观铺垫）、压制与底牌露出并存（前置期待法）、敌友群三方情绪落点齐全\n'
         '  · 【世界观设定】【矛盾冲突】【伏笔】【作者脑洞】按改编要求重写具体内容——不是换皮，从新世界因果重新推演；矛盾冲突必须保留鸿沟引擎（期望→反预期反应→风险升级），鸿沟反应形式可变但功能不变\n'
@@ -2392,7 +2099,6 @@ class PromptBuilder {
   static String buildArcSummaryEntryUserPrompt(
     dynamic arcItem,
     String requirements,
-    String declaration,
     int sceneCount,
     int arcNumber, [
     String bible = '', // v621：故事圣经（弧线2+注入，弧线1时圣经尚未生成）
@@ -2406,11 +2112,6 @@ class PromptBuilder {
     if (requirements.isNotEmpty) {
       sb.writeln('## 用户改编要求');
       sb.writeln(requirements);
-      sb.writeln();
-    }
-    if (declaration.isNotEmpty) {
-      sb.writeln('## 弧线改编声明（必须遵守）');
-      sb.writeln(declaration);
       sb.writeln();
     }
     _writeBibleBlock(sb, bible); // v621
@@ -2509,7 +2210,7 @@ class PromptBuilder {
     dynamic arcItem,
     int sceneIdx,
     String requirements,
-    String declaration, {
+{
     String arcContext = '',
     String adaptedFrames = '',
     bool deduce = false,
@@ -2531,11 +2232,6 @@ class PromptBuilder {
     if (requirements.isNotEmpty) {
       sb.writeln('## 用户改编要求');
       sb.writeln(requirements);
-      sb.writeln();
-    }
-    if (declaration.isNotEmpty) {
-      sb.writeln('## 弧线改编声明（场景标题和概述必须符合声明的场景功能声明）');
-      sb.writeln(declaration);
       sb.writeln();
     }
     // v1249：弧线目的段废除——场景交手回合保留（改编节奏设计对齐原著讲法）
@@ -2561,11 +2257,11 @@ class PromptBuilder {
       sb.writeln();
     }
     // v257：推演模式框架隐内容层——场景名/概述/原著焦点节奏全是内容层，
-    // 不进prompt（推演从弧线总结+声明+新设定构思，眼前无原著情节可抄）。
+    // 不进prompt（推演从弧线总结+新设定构思，眼前无原著情节可抄）。
     // 只发章节范围（定位锚点）+分镜数量+各镜功能抽象（功能等价参考）
     if (deduce) {
       sb.writeln('## 场景${sceneIdx + 1}功能定位（推演模式——无原著情节，');
-      sb.writeln('场景标题和概述从弧线既成事实+声明+前序场景推演全新内容）');
+      sb.writeln('场景标题和概述从弧线既成事实+改编要求+前序场景推演全新内容）');
       if ((sc['chapter_range'] ?? '').toString().isNotEmpty) {
         sb.writeln('章节范围：${sc['chapter_range']}（⚠️新场景标题括号内必须原样照抄这个范围）');
       }
@@ -2648,7 +2344,6 @@ class PromptBuilder {
     required String entryContent,
     required Map<String, dynamic> scene,
     required int sceneIdx,
-    String declaration = '',
     String requirements = '',
     String cast = '',
     bool deduce = false,
@@ -2674,11 +2369,6 @@ class PromptBuilder {
       sb.writeln(cast);
       sb.writeln();
       sb.writeln('⚠️ 人名纪律（A方案，最高优先级）：分镜里所有人物/地点/物品一律用**原著名**指称——人设卡/映射表只用于判断角色定位对应（原著分镜里"主角"的动作由卡中定位为主角的那位原著角色执行），禁止把映射表右列的新名写进分镜——新名由输出层统一替换，分镜里出现任何新名=错误');
-      sb.writeln();
-    }
-    if (declaration.isNotEmpty) {
-      sb.writeln('## 弧线改编声明（必须严格遵守——禁令和行为模式）');
-      sb.writeln(declaration);
       sb.writeln();
     }
     if (requirements.isNotEmpty) {
@@ -2738,7 +2428,7 @@ class PromptBuilder {
         sb.writeln('  手法(Trick)：${tr.isNotEmpty ? tr : '（旧数据缺失——按意图与焦点自行设计呈现路径，心法打底）'}');
       }
       sb.writeln();
-      sb.writeln('请为已生成条目中的每个新场景填充分镜明细（推演模式：从功能骨架+新场景内容+声明推演全新具体情节，每镜11维齐全+手法(Trick)行——**原著该镜有trick=呈现路径/直接度/批次/多职设计原样继承**（讲法不变，仅内容按新世界推演）；无trick按四要素自行设计，心法打底）。');
+      sb.writeln('请为已生成条目中的每个新场景填充分镜明细（推演模式：从功能骨架+新场景内容+改编要求推演全新具体情节，每镜11维齐全+手法(Trick)行——**原著该镜有trick=呈现路径/直接度/批次/多职设计原样继承**（讲法不变，仅内容按新世界推演）；无trick按四要素自行设计，心法打底）。');
       return sb.toString();
     }
     sb.writeln('## 原著场景${sceneIdx + 1}分镜骨架（逐镜转换的结构参照）');
@@ -2803,7 +2493,7 @@ class PromptBuilder {
   }
 
   /// buildShotFillSystemPrompt — 填充分镜（两步制第二步）
-  /// 三层参照：原分析分镜骨架（逐镜转换锚点）+已生成场景条目（新内容）+声明（转换约束）
+  /// 三层参照：原分析分镜骨架（逐镜转换锚点）+已生成场景条目（新内容）+改编要求（转换约束）
   static String buildShotFillSystemPrompt(bool deduce,
       {bool hasRequirements = true, bool jsonMode = false}) {
     if (!hasRequirements) {
@@ -2839,13 +2529,13 @@ class PromptBuilder {
         '## 填充规则（逐镜转换，不是凭空创作）\n'
         '0. **人名映射铁律**：用户提供的人设卡（含"原著名→新名"映射表）是角色名唯一基准——原著分镜里"主角"的动作必须由映射表中新主角名执行，原著配角映射到同定位新配角名。判断标准=映射表的定位，不是行为相似度——禁止因配角人设与原著主角行为模式相似就互换角色\n'
         '1. **逐镜对应（结构铁律）**：每个新场景对应原著分析数据中的一个场景，该场景的原著分镜就是你的结构骨架——**分镜数量=原著该场景分镜数，第N改编镜对应第N原著镜，一一对应，禁止增删合并**（数量锁的是叙事节奏，78镜快切被合并成20镜=节奏信息丢失）。原著分镜骨架只锁"这一镜承担哪段功能"（功能位），具体内容完全按新剧情重新推演\n'
-        '2. **功能抽象(Abstract)转换**：照抄原著abstract的**功能语义**（如"心理反应/战斗场面/悬念钩子"这类抽象层），但其中出现的原著专属对象词（妖兽/法器/宗门等）必须替换为改编后对应物（如声明冲突对象锁定指定的卖家/合伙人等）——"与妖兽的战斗"→"与卖家的拉扯"。abstract里出现改编后世界观中不存在的原著名词=错误\n'
-        '3. **焦点(Focus)/投放信息(Info)转换**：参照已生成的新场景内容（概述+声明）推演——原著"打妖兽"在新场景是"与骗子拉扯"就写拉扯的具体焦点，⚠️禁止就近映射（如"验证法器"）\n。⚠️焦点必须有具体内容不可省略——每个分镜头行的焦点(Focus)位置必须填该分镜画面聚焦的人/物/事。⚠️投放信息(Info)必须是**抽象概括的陈述句**（如"读者得知主角对行情一无所知"，30字以内），禁止写成正文式的具体情节叙述——Info是给读者看的元信息提示，不是正文素材：禁止包含具体动作/对白/画面细节，写成可直接抄进正文的句子=错误（创作端会照抄它）\n'
+        '2. **功能抽象(Abstract)转换**：照抄原著abstract的**功能语义**（如"心理反应/战斗场面/悬念钩子"这类抽象层），但其中出现的原著专属对象词（妖兽/法器/宗门等）必须替换为改编后对应物（按新场景内容推演的对应物，如卖家/合伙人等）——"与妖兽的战斗"→"与卖家的拉扯"。abstract里出现改编后世界观中不存在的原著名词=错误\n'
+        '3. **焦点(Focus)/投放信息(Info)转换**：参照已生成的新场景内容（概述+改编要求）推演——原著"打妖兽"在新场景是"与骗子拉扯"就写拉扯的具体焦点，⚠️禁止就近映射（如"验证法器"）\n。⚠️焦点必须有具体内容不可省略——每个分镜头行的焦点(Focus)位置必须填该分镜画面聚焦的人/物/事。⚠️投放信息(Info)必须是**抽象概括的陈述句**（如"读者得知主角对行情一无所知"，30字以内），禁止写成正文式的具体情节叙述——Info是给读者看的元信息提示，不是正文素材：禁止包含具体动作/对白/画面细节，写成可直接抄进正文的句子=错误（创作端会照抄它）\n'
         '4. **镜头类型/视角（形式层推演）**：按新场景的内容重新设计——镜头类型服务新场景的叙事节奏（对话博弈/经营算计/追责冲突各有各的拍法），视角由"该镜谁的戏"决定；原著值仅作节奏风格参照，禁止直接照搬\n'
         '5. **意图/转场/篇幅（形式层推演）**：按新场景的事件链重新设计——转场手法按新场景的镜间因果设计（怎样从上一镜自然过渡），篇幅按新内容的信息量分配（可参照原著比例但禁止照抄）\n'
         '5.5 **文风(Style)三段式（v685统一维度）**：改编镜的文风行必须输出——质感=按新内容重新推演的行文腔调（承接原著该镜语感/文笔节奏语义）；标尺=原著该镜style标尺为基准微调继承（±30%，禁抄原著值也禁凭空乱编，无则按新场景本镜内容统计设计，打斗镜短句密、铺垫镜长句疏；**固定6项且占比带%号**——弧级【文风指纹】13项指标是全弧基线禁止逐镜照抄）；例句=从新场景本镜内容摘一句最有代表性的≤20字（禁抄原著例句）。缺失文风行=创作时退回AI默认文风\n'
-        '6. **遵守弧线改编声明**：声明中的场景禁令和人物行为模式卡必须严格执行\n'
-        '6.5 ⚠️ **冲突对象锁定（最强约束）**：声明中每个场景的"冲突对象锁定"是本分镜冲突的裁定依据——每个分镜的矛盾冲突必须发生在声明的【改编后冲突对象】上；禁止把【原著冲突对象】（如妖兽/验法器/宗门大比）平移成本分镜的冲突。判断标准：这个分镜里主角在跟谁拉扯/对抗/博弈？答案必须是改编后对象，否则该分镜改编错误\n'
+        '6. **遵守改编要求（v1507原声明职责并入）**：改编要求中的禁令与情节模式限制必须严格执行；主要角色行为模式按新设定推演（性格内核不变）\n'
+        '6.5 ⚠️ **冲突对象锁定（最强约束）**：本分镜的矛盾冲突必须发生在改编后新场景的冲突对象上（以已生成新场景内容与改编要求为准）；禁止把原著冲突对象（如妖兽/验法器/宗门大比）平移成本分镜的冲突。判断标准：这个分镜里主角在跟谁拉扯/对抗/博弈？答案必须是改编后对象，否则该分镜改编错误\n'
         '6.6 ⚠️ **概述=内容基准，骨架=数量基准（两者分管不同层）**：本分镜的焦点/投放信息的内容素材优先从"已生成的改编后场景概述"的情节取材——概述说清了本场景发生什么事；但**分镜的数量/顺序/边界只认原著骨架，禁止按概述重新铺分镜列表**（概述300字铺出20镜=丢节奏的错误做法）。禁止绕过概述直接把原著分镜内容平移过来换名词\n'
         '7. **零正文**：只输出结构行，不写正文段落\n'
         '8. **语感锚铁律（v218，最高优先级之一）**：原著分镜的voice只照抄**抽象三段（修饰密度|句式|语域）**，例句部分丢弃——例句仅用于理解腔调，禁止把例句文字搬进改编条目。改写focus/info等维度内容时，行文腔调必须符合语感锚——锚是"极简|短句口语|俚俗"时，你的投放信息也只能用同样糙直的口语表达，**禁止文艺腔加戏**。反例警示：原著"李大开\"诶\"一声叫住和尚"（voice=极简|短句口语|俚俗），换皮写成"李大开缓缓抬起带着扳指的手，轻声叫住了和尚"——这就是AI文艺腔灾难，禁止。原著没写的动作细节/道具/神态一律不准凭空添加。⚠️ voice例句中出现的原著对象词（妖兽/石尾壁蜥等）**仅为腔调参考**——照腔调写正文时内容必须用改编后对象，禁止把例句里的原著生物/物品写进改编后的故事\n'
@@ -2876,11 +2566,9 @@ class PromptBuilder {
   /// buildShotFillUserPrompt — 填充分镜的用户提示词
   /// entryContent=第一步生成的条目content（场景+弧线总结）
   /// analysisData=原著该弧线的完整分析数据（含分镜）
-  /// declaration=弧线改编声明
   static String buildShotFillUserPrompt({
     required String entryContent,
     required Map<String, dynamic> analysisData,
-    String declaration = '',
     String requirements = '',
   }) {
     final sb = StringBuffer();
@@ -2889,11 +2577,6 @@ class PromptBuilder {
     sb.writeln();
     sb.writeln('## ⚠️ 三层表述学习令（v939）：条目含"交手回合："段（交手回合记录）或"设计："段（改编菜单设计，v1218原"编排"）=本场景分镜的入口/节奏链/详略取舍/落点硬约束，全部分镜必须逐条学习执行（讲法对齐交手回合，冲突时调骨架保讲法），禁止无视交手回合段自由发挥');
     sb.writeln();
-    if (declaration.isNotEmpty) {
-      sb.writeln('## 弧线改编声明（必须严格遵守——禁令和行为模式）');
-      sb.writeln(declaration);
-      sb.writeln();
-    }
     if (requirements.isNotEmpty) {
       sb.writeln('## 用户改编要求');
       sb.writeln(requirements);
@@ -2937,12 +2620,12 @@ class PromptBuilder {
     sb.writeln('AI的本能是平均用力，配额就是矫正。intent=铺垫→克制；intent=高潮→打透但同一爽点不打转；intent=钩子→写完就停。');
     sb.writeln();
     sb.writeln();
-    sb.writeln('请为已生成条目中的每个新场景填充分镜明细（逐镜转换原著对应场景的分镜骨架，内容以新场景+声明为准；每个分镜输出含语感(Voice)行）。');
+    sb.writeln('请为已生成条目中的每个新场景填充分镜明细（逐镜转换原著对应场景的分镜骨架，内容以新场景+改编要求为准；每个分镜输出含语感(Voice)行）。');
     sb.writeln();
     sb.writeln('## ⚠️ 改编要求硬约束（与原著骨架冲突时以它为准）');
     sb.writeln('- 用户改编要求/场景概述里的每个事实（行为方式/责任归属/物品真伪/因果顺序/人物位置关系）都是硬约束，禁止为贴合原著分镜骨架扭曲它们');
     sb.writeln('- 输出前逐镜自检：改编要求涉及本场景的每个事实是否已正确体现在对应分镜？谁借谁的摊、演示用的是真品还是仿品、谁掉包谁问责——这些错了就是改编失败');
-    sb.writeln('- ⚠️ 数量自检：输出分镜数必须=原著该场景分镜数（第N镜对应第N原著镜）。发现某镜内容放不进对应功能位=前面概述/声明的表述问题，**调整该镜的内容写法来适配功能位**（保持同姿态同节拍：吐槽位仍是吐槽、投喂位仍是投喂），**禁止砍镜合并来"解决"**');
+    sb.writeln('- ⚠️ 数量自检：输出分镜数必须=原著该场景分镜数（第N镜对应第N原著镜）。发现某镜内容放不进对应功能位=前面概述/新场景内容的表述问题，**调整该镜的内容写法来适配功能位**（保持同姿态同节拍：吐槽位仍是吐槽、投喂位仍是投喂），**禁止砍镜合并来"解决"**');
     return sb.toString();
   }
 
@@ -2954,7 +2637,6 @@ class PromptBuilder {
     dynamic requirements,
     dynamic sceneReqs, {
     List<WorldbuildingSystem>? worldbuildingSystems,
-    String arcDeclaration = '',
   }) {
     final item = arcItem is Map ? arcItem : <String, dynamic>{};
     final arc = (item['analysis']?['arc'] ?? item['arc'] ?? item) as Map? ?? {};
@@ -2985,12 +2667,6 @@ class PromptBuilder {
       sb.writeln();
     }
 
-    // 弧线改编声明（改编页预生成，正式改编的指导——遵守声明细节）
-    if (arcDeclaration.isNotEmpty) {
-      sb.writeln('## 弧线改编声明（必须严格遵守的指导书——声明中的名称/内容均为改编要求即新设定，其中名称是新故事名称，不是原著名称，禁止映射回原著或当原著处理）');
-      sb.writeln(arcDeclaration);
-      sb.writeln();
-    }
 
     _writeArcSkeletonBlock(sb, arc, arcNum, arcKey, sceneReqsMap);
 

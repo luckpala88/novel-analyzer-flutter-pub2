@@ -27,6 +27,14 @@ class ReqField extends StatefulWidget {
 class _ReqFieldState extends State<ReqField> {
   final _focus = FocusNode();
   bool _expanded = false;
+  // v1507：内部稳定controller——调用点（创作页全局要求）传inline新建
+  // controller（每次rebuild换实例），中文输入法合成区被掐断=打不进字
+  // （v1226改编页同族坑）。内部持有稳定实例；didUpdateWidget只在内部
+  // text≠外部text（外部赋值/清空）时同步，用户输入中不打断光标
+  TextEditingController? _ownCtrl;
+
+  TextEditingController get _ctrl =>
+      _ownCtrl ??= TextEditingController(text: widget.controller.text);
 
   @override
   void initState() {
@@ -37,7 +45,16 @@ class _ReqFieldState extends State<ReqField> {
   }
 
   @override
+  void didUpdateWidget(covariant ReqField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_ownCtrl != null && widget.controller.text != _ownCtrl!.text) {
+      _ownCtrl!.text = widget.controller.text;
+    }
+  }
+
+  @override
   void dispose() {
+    _ownCtrl?.dispose();
     _focus.dispose();
     super.dispose();
   }
@@ -49,7 +66,7 @@ class _ReqFieldState extends State<ReqField> {
       curve: Curves.easeOut,
       alignment: Alignment.topLeft,
       child: TextField(
-        controller: widget.controller,
+        controller: _ctrl, // v1507：内部稳定实例（见_ownCtrl注释）
         focusNode: _focus,
         style: TextStyle(fontSize: widget.fontSize),
         maxLines: _expanded ? widget.expandLines : 1,
