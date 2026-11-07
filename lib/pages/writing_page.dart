@@ -5067,6 +5067,32 @@ class _AutoExpandField extends StatefulWidget {
 class _AutoExpandFieldState extends State<_AutoExpandField> {
   final _focus = FocusNode();
   bool _expanded = false;
+  // v1507b：内部稳定controller+外部基准值——调用点传inline新建controller
+  // （每次rebuild换实例掐断输入法合成）；_lastExt只在外部text相对上次真的
+  // 变了（程序化填充/清空）才同步进内部，防稳定外部controller把用户输入
+  // 逐键抹回旧值（v1226按text不等就同步的逻辑漏洞真凶）
+  TextEditingController? _ownCtrl;
+  String? _lastExt;
+
+  TextEditingController get _ctrl {
+    if (_ownCtrl == null) {
+      _ownCtrl = TextEditingController(text: widget.controller.text);
+      _lastExt = widget.controller.text; // v1507b：创建时记基准，防首帧update误同步
+    }
+    return _ownCtrl!;
+  }
+
+  @override
+  void didUpdateWidget(covariant _AutoExpandField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final ext = widget.controller.text;
+    if (_ownCtrl != null && ext != _lastExt) {
+      _lastExt = ext;
+      if (ext != _ownCtrl!.text) _ownCtrl!.text = ext;
+    } else if (_lastExt == null) {
+      _lastExt = ext;
+    }
+  }
 
   @override
   void initState() {
@@ -5078,6 +5104,7 @@ class _AutoExpandFieldState extends State<_AutoExpandField> {
 
   @override
   void dispose() {
+    _ownCtrl?.dispose();
     _focus.dispose();
     super.dispose();
   }
@@ -5085,7 +5112,7 @@ class _AutoExpandFieldState extends State<_AutoExpandField> {
   @override
   Widget build(BuildContext context) {
     return TextField(
-      controller: widget.controller,
+      controller: _ctrl,
       focusNode: _focus,
       style: widget.style,
       maxLines: _expanded ? null : 1,

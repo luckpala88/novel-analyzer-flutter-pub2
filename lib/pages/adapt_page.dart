@@ -7809,15 +7809,30 @@ class _CollapseReqFieldState extends State<_CollapseReqField> {
   // 内部持有稳定实例；didUpdateWidget只在内部text≠外部text（AI生成填充/清空）
   // 时同步，用户输入中外部落库值==内部值不打断光标
   TextEditingController? _ownCtrl;
+  // v1507b：外部controller基准值——只在外部text相对上次真的变了（AI填充/
+  // 清空等程序化改动）时才同步进内部。改编页/续写页全局框传稳定但从不随
+  // 输入更新的外部controller（_reqController/_contReqRawCtrl），用户每敲
+  // 一字onChanged只写state→rebuild→"外部≠内部"→内部被抹回旧值=打不进字
+  // （v1226按text不等就同步的逻辑对稳定外部controller必抹，真凶）
+  String? _lastExt;
 
-  TextEditingController get _ctrl =>
-      _ownCtrl ??= TextEditingController(text: widget.controller.text);
+  TextEditingController get _ctrl {
+    if (_ownCtrl == null) {
+      _ownCtrl = TextEditingController(text: widget.controller.text);
+      _lastExt = widget.controller.text; // v1507b：创建时记基准，防首帧update误同步
+    }
+    return _ownCtrl!;
+  }
 
   @override
   void didUpdateWidget(covariant _CollapseReqField oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_ownCtrl != null && widget.controller.text != _ownCtrl!.text) {
-      _ownCtrl!.text = widget.controller.text;
+    final ext = widget.controller.text;
+    if (_ownCtrl != null && ext != _lastExt) {
+      _lastExt = ext;
+      if (ext != _ownCtrl!.text) _ownCtrl!.text = ext;
+    } else if (_lastExt == null) {
+      _lastExt = ext;
     }
   }
 
