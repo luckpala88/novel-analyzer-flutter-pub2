@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/services.dart' show rootBundle;
 import '../models/scene.dart';
 import '../models/world_book.dart';
 import '../state/app_state.dart';
@@ -33,7 +34,8 @@ const String agentToolDoc = '''
 13. {"tool":"get_scene","args":{"scene":1,"full":"0"}} —— 读场景（只读）：scene=全局场景序号（1-based，与弧线页"场景N"对应）。返回场景名/章节范围/概述/正文切片（默认前600字，full="1"返回完整切片）。用户说"读一下第N个场景/第一个场景的内容/某个切片"用这个
 14. {"tool":"get_shots","args":{"arc":1,"scene":2}} —— 读分镜（只读）：arc=弧线号，scene=该弧线内场景序号。返回该场景全部分镜的field/how/end_text清单。用户说"看某弧线某场景的分镜"用这个；读切片用get_scene
 15. {"tool":"search_content","args":{"keyword":"关键词","field":"all","scope":"scenes"}} —— 内容搜索（只读）。scope="scenes"(默认)=已扫描场景流（48章场景切片+概述）；scope="book"=全书章节库原文（含未扫描章节，返回命中章号+摘录，覆盖1670章全库）。field可选"text"/"summary"/"all"(默认，仅scenes模式)。用户问"哪里提到XX/某情节在第几章/找关于XX的场景"用这个——已扫章节优先搜scenes（有场景定位），未扫内容或全书范围用scope="book"；没命中换同义词再搜
-规则：一次只发一个指令，发出后停止等待结果；任务完成后用自然语言汇报结果；用户闲聊/问功能时不要发指令。
+16. {"tool":"query_help","args":{"topic":"关键词"}} —— 查《功能说明书》（只读）：topic=功能关键词（如"改编""画图""云同步""路径""续写"）；省略topic=返回章节目录。返回1-2个最相关章节全文（含用法+注意点）。用户问"某功能怎么用/要注意什么/文件存哪/和同事解释某功能"时先查手册再回答，答案以手册为准，禁止凭空编造功能细节
+规则：一次只发一个指令，发出后停止等待结果；任务完成后用自然语言汇报结果；用户闲聊时不要发指令；问功能用法/注意点/文件路径时先用query_help查手册再答。
 ''';
 
 /// 解析AI回复中的工具指令（返回null=非指令）
@@ -372,6 +374,25 @@ Future<AgentToolResult> runTool(AppState state, String tool,
       }
       await state.batchShotStarter!();
       return AgentToolResult(tool, true, '批量拆分镜已执行完毕（结果见分镜页/终端）');
+    case 'query_help': // v1522：查《功能说明书》assets离线手册（只读）
+      final topic = (args['topic'] ?? '').toString().trim().toLowerCase();
+      final raw = await rootBundle.loadString('assets/docs/help_manual.md');
+      final sections = raw.split(RegExp(r'(?=\n## )'));
+      final catalog = sections
+          .map((e) => e.trim().split('\n').first.replaceFirst('## ', '').trim())
+          .where((t) => t.isNotEmpty && t != 'APP功能说明书（聊天助手按需查阅）')
+          .join('、');
+      if (topic.isEmpty) {
+        return AgentToolResult(tool, true, '手册章节目录：$catalog。可按关键词再查');
+      }
+      final hits = sections
+          .where((e) => e.toLowerCase().contains(topic))
+          .take(2)
+          .toList();
+      if (hits.isEmpty) {
+        return AgentToolResult(tool, true, '手册无“$topic”相关章节。可用章节：$catalog');
+      }
+      return AgentToolResult(tool, true, hits.join('\n---\n'));
     case 'save_adapt_req': // v1507：改编讨论聊定要求写回用户改编要求
       final layer = (args['layer'] ?? 'arc').toString();
       final reqArc = (args['arc'] as num?)?.toInt() ?? 0;
