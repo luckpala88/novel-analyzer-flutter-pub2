@@ -16,7 +16,7 @@ import '../services/chapter_parser.dart';
 import '../services/file_picker_service.dart';
 import '../utils/encoding_detector.dart';
 import '../widgets/api_config_panel.dart';
-// import '../widgets/cloud_sync_panel.dart'; // v1515云同步下架
+import '../widgets/cloud_sync_panel.dart';
 import '../widgets/chapter_reader_inline.dart';
 import '../widgets/v119_ui.dart';
 
@@ -787,17 +787,16 @@ class _HomePageState extends State<HomePage>
                         onTap: () => _restoreBackup(state),
                       ),
                     ),
-                    // v1515：云同步入口下架（Supabase免费项目7天不活跃反复暂停，停用；
-                    // CloudSyncPanel/Service代码保留，Resume项目后恢复此块即可）
-                    // const Divider(height: 32),
-                    // Padding(
-                    //   padding: const EdgeInsets.fromLTRB(12, 0, 0, 0),
-                    //   child: Text(
-                    //     '云同步',
-                    //     style: Theme.of(context).textTheme.titleSmall,
-                    //   ),
-                    // ),
-                    // CloudSyncPanel(state: state),
+                    const Divider(height: 32),
+                    // 云同步（v285：直接平铺不折叠）
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 0, 0),
+                      child: Text(
+                        '云同步',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                    ),
+                    CloudSyncPanel(state: state),
                     const Divider(height: 32),
                     // 存储+更新
                     Card(
@@ -1201,8 +1200,8 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 1515;
-  static const String _appVersionStr = '1515'; // v1378：显示版（与APK文件名一致，b后缀进显示）
+  static const int _appVersion = 1516;
+  static const String _appVersionStr = '1516'; // v1378：显示版（与APK文件名一致，b后缀进显示）
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';
