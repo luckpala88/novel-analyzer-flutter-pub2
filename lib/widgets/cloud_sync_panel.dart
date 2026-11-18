@@ -16,6 +16,7 @@ class CloudSyncPanel extends StatefulWidget {
 
 class _CloudSyncPanelState extends State<CloudSyncPanel> {
   final _urlController = TextEditingController();
+  final _mgmtController = TextEditingController();
   final _keyController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -46,6 +47,7 @@ class _CloudSyncPanelState extends State<CloudSyncPanel> {
     final prefs = await SharedPreferences.getInstance();
     _urlController.text = widget.state.cloudSync.supabaseUrl;
     _keyController.text = widget.state.cloudSync.anonKey;
+    _mgmtController.text = widget.state.cloudSync.mgmtToken;
     _emailController.text = prefs.getString('cloud_email') ?? '';
     _passwordController.text = prefs.getString('cloud_password') ?? '';
     _rememberMe = prefs.getBool('cloud_remember') ?? true;
@@ -66,6 +68,7 @@ class _CloudSyncPanelState extends State<CloudSyncPanel> {
     _keyController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _mgmtController.dispose();
     _logScrollCtrl.dispose(); // v637
     super.dispose();
   }
@@ -120,6 +123,7 @@ class _CloudSyncPanelState extends State<CloudSyncPanel> {
                             _urlController.text.trim(),
                             _keyController.text.trim(),
                           );
+                          await cs.saveMgmtToken(_mgmtController.text);
                           _log('配置已保存');
                           widget.state.refresh();
                           if (mounted) {
@@ -134,6 +138,17 @@ class _CloudSyncPanelState extends State<CloudSyncPanel> {
                       Text('保存配置'),
                     ],
                   ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _mgmtController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: '管理令牌（sbp_，用于一键恢复暂停项目）',
+                  hintText: 'sbp_...',
+                  border: OutlineInputBorder(),
+                  isDense: true,
                 ),
               ),
             ],

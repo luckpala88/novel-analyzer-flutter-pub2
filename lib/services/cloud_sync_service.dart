@@ -16,6 +16,7 @@ class CloudSyncService {
   String _accessToken = '';
   String _refreshToken = '';
   String _userEmail = '';
+  String _mgmtToken = '';
   bool _loggedIn = false;
 
   String get supabaseUrl => _supabaseUrl;
@@ -32,6 +33,88 @@ class CloudSyncService {
     _refreshToken = prefs.getString('supabase_refresh_token') ?? '';
     _userEmail = prefs.getString('supabase_user_email') ?? '';
     _loggedIn = _accessToken.isNotEmpty && _refreshToken.isNotEmpty;
+    _mgmtToken = prefs.getString('supabase_mgmt_token') ?? '';
+  }
+
+  String get mgmtToken => _mgmtToken;
+  bool get canResume => _mgmtToken.isNotEmpty && _supabaseUrl.isNotEmpty;
+
+  /// 保存管理令牌（sbp_，用于一键恢复暂停项目）
+  Future<void> saveMgmtToken(String token) async {
+    _mgmtToken = token.trim();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('supabase_mgmt_token', _mgmtToken);
+  }
+
+  /// 从Supabase URL提取项目ref
+  String? _projectRef() {
+    if (_supabaseUrl.isEmpty) return null;
+    final m = RegExp(r'https://([a-z0-9]+)\.supabase\.co').firstMatch(_supabaseUrl);
+    return m?.group(1);
+  }
+
+  /// 一键恢复被暂停的项目（管理API）。返回最终状态描述。
+  Future<String> resumeProject({
+    void Function(String)? onLog,
+    Duration timeout = const Duration(minutes: 3),
+  }) async {
+    if (_mgmtToken.isEmpty) return '请先填写管理令牌（sbp_开头）';
+    final ref = _projectRef();
+    if (ref == null) return '无法从URL解析项目ref';
+    onLog?.call('请求恢复项目 $ref ...');
+    try {
+      final resp = await http.post(
+        Uri.parse('https://api.supabase.com/v1/projects/$ref/restore'),
+        headers: {'Authorization': 'Bearer $_mgmtToken'},
+      );
+      final body = resp.body;
+      if (resp.statusCode != 200) {
+        return '恢复请求失败(${resp.statusCode}): ${body.length > 200 ? body.substring(0, 200) : body}';
+      }
+      onLog?.call('恢复请求已受理，等待项目变Active...');
+    } catch (e) {
+      return '恢复请求异常: $e';
+    }
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      await Future.delayed(const Duration(seconds: 10));
+      try {
+        final resp = await http.get(
+          Uri.parse('https://api.supabase.com/v1/projects/$ref'),
+          headers: {'Authorization': 'Bearer $_mgmtToken'},
+        );
+        if (resp.statusCode == 200) {
+          final status = resp.body.contains('ACTIVE_HEALTHY')
+              ? 'ACTIVE_HEALTHY'
+              : (resp.body.contains('"status":"') ? RegExp(r'"status":"([^"]+)"').firstMatch(resp.body)?.group(1) ?? 'PENDING' : 'PENDING');
+          onLog?.call('状态: $status');
+          if (status == 'ACTIVE_HEALTHY') {
+            return '项目已恢复，可以继续云同步上传';
+          }
+        }
+      } catch (_) {}
+      if (DateTime.now().isBefore(deadline) == false) break;
+    }
+    return '等待超时，请稍后在面板点【检查状态】重试';
+  }
+
+  /// 查询项目当前状态（轻量，供按钮轮询）
+  Future<String> projectStatus() async {
+    if (_mgmtToken.isEmpty) return '未配置管理令牌';
+    final ref = _projectRef();
+    if (ref == null) return '无法从URL解析项目ref';
+    try {
+      final resp = await http.get(
+        Uri.parse('https://api.supabase.com/v1/projects/$ref'),
+        headers: {'Authorization': 'Bearer $_mgmtToken'},
+      );
+      if (resp.statusCode != 200) return '查询失败(${resp.statusCode})';
+      return resp.body.contains('ACTIVE_HEALTHY')
+          ? 'ACTIVE_HEALTHY'
+          : (RegExp(r'"status":"([^"]+)"').firstMatch(resp.body)?.group(1) ?? 'UNKNOWN');
+    } catch (e) {
+      return '查询异常: $e';
+    }
   }
 
   /// 保存Supabase配置
@@ -213,7 +296,23 @@ class CloudSyncService {
     await _ensureValidToken();
     onLog?.call('开始上传...');
     // v1198: 上传前探活,DNS失败提前终止(150MB白打31块请求不如先问服务器死活)
-    final probeFail = await _probeServer(onLog: onLog);
+    var probeFail = await _probeServer(onLog: onLog);
+    // v1517: 探活发现项目疑似被暂停 → 有管理令牌则后台自动恢复再续传
+    if (probeFail != null && probeFail.contains('被自动暂停')) {
+      if (_mgmtToken.isEmpty) {
+        onLog?.call('上传中止: $probeFail');
+        return '上传失败: $probeFail\n（在Supabase配置里填入管理令牌sbp_后，我会自动恢复服务器）';
+      }
+      onLog?.call('检测到服务器被暂停，自动激活中（管理令牌）...');
+      final resumeMsg = await resumeProject(onLog: (m) => onLog?.call(m));
+      onLog?.call(resumeMsg);
+      if (resumeMsg.contains('已恢复')) {
+        probeFail = await _probeServer(onLog: onLog);
+      } else {
+        onLog?.call('上传中止: $resumeMsg');
+        return '上传失败: 服务器自动激活未成功——$resumeMsg';
+      }
+    }
     if (probeFail != null) {
       onLog?.call('上传中止: $probeFail');
       return '上传失败: $probeFail';
