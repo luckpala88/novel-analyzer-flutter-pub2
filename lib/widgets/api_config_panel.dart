@@ -540,10 +540,12 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
                           _fetchingBalance
                               ? '余额查询中...'
                               : (_balanceText.isEmpty ? '' : _balanceText),
+                          // v1533：字号×2+加粗醒目（用户裁决：余额是重点信息）
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
                             color: _balanceText.startsWith('查询失败')
-                                ? Colors.red
+                                ? Colors.red.shade700
                                 : Colors.green.shade800,
                           ),
                         ),
@@ -563,9 +565,11 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
                   child: Text(
                     '近${_balanceHistory.length}次：'
                     '${_balanceHistory.reversed.map((e) => "${(e['v'] as num).toStringAsFixed(1)}(${e['t']})").join(' · ')}',
+                    // v1533：字号×2+棕金色醒目
                     style: const TextStyle(
-                      fontSize: 10,
-                      color: Colors.grey,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF9A6B1F),
                     ),
                   ),
                 ),
