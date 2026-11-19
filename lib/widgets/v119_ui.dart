@@ -310,18 +310,77 @@ class _AutoExpansionTileState extends State<AutoExpansionTile> {
 /// v952：作家风格选择按钮（三页复用：创作/改编/二创）——MiniButton显示当前
 /// 作家名（未选="🎭作家"），点击弹底部档案清单（含"不启用"），选定即全局
 /// 生效（state.setWriterStyle持久化，四链sys注入writerStyleBlock）
-/// v1527：SegmentedButton统一压缩规格——与MiniButton同高(26)，
-/// adapt(改编|续写)/writing(撰写|草稿)/detection(全部|一创|二创)三处复用
-const ButtonStyle compactSegmentedStyle = ButtonStyle(
-  visualDensity: VisualDensity.compact,
-  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-  minimumSize: WidgetStatePropertyAll(Size(0, 26)),
-  fixedSize: WidgetStatePropertyAll(Size(0, 26)),
-  padding: WidgetStatePropertyAll(
-    EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-  ),
-  textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 10)),
-);
+
+/// v1528：粘连胶囊段选项
+class SegOption<T> {
+  final T value;
+  final String label;
+  const SegOption(this.value, this.label);
+}
+
+/// v1528：通用粘连胶囊段选——MiniButton同规格（字号10/内边距8x3/圆角12），
+/// 替换SegmentedButton（实测其样式锁高不可靠：三处同款样式adapt缩到26、
+/// writing/detection仍渲染37）——创作页撰写|草稿、正文页全部|一创|二创、
+/// 改续页改编|续写三处统一，外观对齐用户已验收的_ModePair
+class CapsuleSegment<T> extends StatelessWidget {
+  final List<SegOption<T>> options;
+  final T selected;
+  final ValueChanged<T> onChanged;
+
+  const CapsuleSegment({
+    super.key,
+    required this.options,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < options.length; i++) _side(context, i),
+      ],
+    );
+  }
+
+  Widget _side(BuildContext context, int i) {
+    final cs = Theme.of(context).colorScheme;
+    final o = options[i];
+    final sel = o.value == selected;
+    final first = i == 0;
+    final last = i == options.length - 1;
+    final radius = BorderRadius.horizontal(
+      left: first ? const Radius.circular(12) : Radius.zero,
+      right: last ? const Radius.circular(12) : Radius.zero,
+    );
+    return Material(
+      color: sel ? cs.primaryContainer : Colors.transparent,
+      borderRadius: radius,
+      child: InkWell(
+        onTap: sel ? null : () => onChanged(o.value),
+        borderRadius: radius,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: sel ? cs.primaryContainer : cs.outline.withOpacity(0.5),
+            ),
+            borderRadius: radius,
+          ),
+          child: Text(
+            o.label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              color: sel ? cs.primary : cs.onSurface,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 Widget writerStyleButton(BuildContext context, dynamic state) {
   final sel = state.selectedWriterStyle as String;

@@ -1186,26 +1186,15 @@ class _DetectionPageState extends State<DetectionPage>
                 child: Row(
                   children: [
                     // 一创/二创筛选（左移，v469风格文字按钮）
-                    SegmentedButton<int>(
-                      segments: const [
-                        ButtonSegment(
-                          value: 0,
-                          label: Text('全部', style: TextStyle(fontSize: 10)),
-                        ),
-                        ButtonSegment(
-                          value: 1,
-                          label: Text('一创', style: TextStyle(fontSize: 10)),
-                        ),
-                        ButtonSegment(
-                          value: 2,
-                          label: Text('二创', style: TextStyle(fontSize: 10)),
-                        ),
+                    CapsuleSegment<int>(
+                      options: const [
+                        SegOption(0, '全部'),
+                        SegOption(1, '一创'),
+                        SegOption(2, '二创'),
                       ],
-                      selected: {_filterMode},
-                      showSelectedIcon: false,
-                      style: compactSegmentedStyle,
-                      onSelectionChanged: (s) => setState(() {
-                        _filterMode = s.first;
+                      selected: _filterMode,
+                      onChanged: (v) => setState(() {
+                        _filterMode = v;
                         _currentIndex = -1; // 切筛选收起正文
                         _saveUiState();
                       }),

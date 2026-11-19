@@ -361,17 +361,17 @@ class _ScanPageState extends State<ScanPage>
                   // v437：弧线页职责=分组+展示。场景扫描按键在场景页
                   // v445：生成弧线进批量菜单（第一行省空间）；步进改"场景/步"尾注
                   SizedBox(
-                    width: 36,
+                    width: 34,
                     child: TextField(
                       controller: _groupBatchController,
                       keyboardType: TextInputType.number,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 11),
+                      style: const TextStyle(fontSize: 10),
                       decoration: InputDecoration(
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 4,
-                          vertical: 3,
+                          vertical: 2,
                         ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -433,16 +433,17 @@ class _ScanPageState extends State<ScanPage>
                       ),
                     ],
                     child: Container(
+                      // v1528：压到MiniButton规格（v6/字号12.5=比旁键大一圈）
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 6),
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: V469Style.surfaceAlt,
-                        borderRadius: BorderRadius.circular(15),
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: V469Style.border),
                       ),
                       child: const Text(
-                        '批量 ▾',
-                        style: TextStyle(fontSize: 12.5),
+                        '批量▾',
+                        style: TextStyle(fontSize: 10),
                       ),
                     ),
                   ),

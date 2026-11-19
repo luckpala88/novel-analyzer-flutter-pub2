@@ -978,27 +978,13 @@ class _WritingPageState extends State<WritingPage>
                       ContentFont.save('writing_scene', v);
                     },
                   ),
-                  SegmentedButton<int>(
-                    // v996：压缩到与MiniButton同高（此前默认高度大一圈=排版乱源）
-                    style: const ButtonStyle(
-                      visualDensity: VisualDensity.compact,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      minimumSize: WidgetStatePropertyAll(Size(0, 26)),
-                      fixedSize: WidgetStatePropertyAll(Size(0, 26)),
-                      padding: WidgetStatePropertyAll(
-                        EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                      ),
-                      textStyle: WidgetStatePropertyAll(
-                        TextStyle(fontSize: 10),
-                      ),
-                    ),
-                    segments: const [
-                      ButtonSegment(value: 0, label: Text('撰写')),
-                      ButtonSegment(value: 1, label: Text('草稿')),
-                    ],
-                    selected: {_viewMode},
-                    showSelectedIcon: false,
-                    onSelectionChanged: (s) {
+                  CapsuleSegment<int>(
+                  options: const [
+                    SegOption(0, '撰写'),
+                    SegOption(1, '草稿'),
+                  ],
+                  selected: _viewMode,
+                  onChanged: (v) {
                       // v1088：切走时场景列表整棵移出树（position detach=丢位置）
                       // ——切走前立即落盘当前offset，切回撰写时postFrame恢复
                       if (_viewMode == 0 && _sceneListCtl.hasClients) {
@@ -1010,17 +996,17 @@ class _WritingPageState extends State<WritingPage>
                       }
                       _scrollSaveTimer?.cancel();
                       setState(() {
-                        _viewMode = s.first;
+                        _viewMode = v;
                         _viewerKey = null; // 切视图收起viewer
                         _viewerEditing = false;
                         _viewerOverride = null;
                       });
-                      if (s.first == 0) {
+                      if (v == 0) {
                         WidgetsBinding.instance.addPostFrameCallback(
                             (_) => _restoreScroll(retries: 8));
                       }
-                    },
-                  ),
+                  },
+                ),
                   MiniButton(
                     label: '⚙ API',
                     onTap: () => showV119Sheet(

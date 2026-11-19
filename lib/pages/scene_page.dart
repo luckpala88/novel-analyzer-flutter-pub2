@@ -304,12 +304,12 @@ class _ScenePageState extends State<ScenePage>
                       controller: _sceneStepController,
                       keyboardType: TextInputType.number,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 11),
+                      style: const TextStyle(fontSize: 10),
                       decoration: InputDecoration(
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 4,
-                          vertical: 3,
+                          vertical: 2,
                         ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),

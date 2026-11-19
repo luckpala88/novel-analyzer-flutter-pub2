@@ -1667,23 +1667,13 @@ return true;
                 runSpacing: 6,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(
-                        value: 'adapt',
-                        label: Text('改编', style: TextStyle(fontSize: 11)),
-                      ),
-                      ButtonSegment(
-                        value: 'continue',
-                        label: Text('续写', style: TextStyle(fontSize: 11)),
-                      ),
+                  CapsuleSegment<String>(
+                    options: const [
+                      SegOption('adapt', '改编'),
+                      SegOption('continue', '续写'),
                     ],
-                    selected: {'continue'},
-                    showSelectedIcon: false,
-                    style: const ButtonStyle(
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    onSelectionChanged: (_) {
+                    selected: 'continue',
+                    onChanged: (_) {
                       setState(() => wb?.pageMode = 'adapt');
                       state.saveWorldBook();
                       _addLog('🎭 已切换到改编模式');
@@ -5149,30 +5139,21 @@ return true;
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   // v765：改编/续写模式切换（二选一互斥，书级持久化）
-                  SegmentedButton<String>(
-                    // v1013：压到MiniButton同规格（此前默认尺寸偏大=排版松散）
-                    segments: const [
-                      ButtonSegment(
-                        value: 'adapt',
-                        label: Text('改编', style: TextStyle(fontSize: 10)),
-                      ),
-                      ButtonSegment(
-                        value: 'continue',
-                        label: Text('续写', style: TextStyle(fontSize: 10)),
-                      ),
-                    ],
-                    selected: {state.worldBook?.pageMode ?? 'adapt'},
-                    showSelectedIcon: false,
-                    style: compactSegmentedStyle,
-                    onSelectionChanged: (sel) {
+                  CapsuleSegment<String>(
+                  options: const [
+                    SegOption('adapt', '改编'),
+                    SegOption('continue', '续写'),
+                  ],
+                  selected: state.worldBook?.pageMode ?? 'adapt',
+                  onChanged: (v) {
                       setState(() {
                         final wb =
                             state.worldBook ?? (state.worldBook = WorldBook());
-                        wb.pageMode = sel.first;
+                        wb.pageMode = v;
                       });
                       state.saveWorldBook();
                       _addLog(
-                        sel.first == 'continue'
+                        v == 'continue'
                             ? '📄 已切换到续写模式（原样世界书续推新场景，自由创作）'
                             : '🎭 已切换到改编模式',
                       );
@@ -5180,7 +5161,7 @@ return true;
                       // detach/reattach归零——切换后补恢复当前视图浏览位置
                       Future.delayed(const Duration(milliseconds: 400), () {
                         if (!mounted) return;
-                        if (sel.first == 'continue') {
+                        if (v == 'continue') {
                           final i = _continueTabCtrl.index;
                           final keys = ['arc', 'scene', 'shot'];
                           final ctls = [_contArcCtl, _contSceneCtl, _shotCtl];
@@ -5193,8 +5174,8 @@ return true;
                               retries: 6);
                         }
                       });
-                    },
-                  ),
+                  },
+                ),
                   MiniButton(
                     label: _isGenerating
                         ? '生成中…'
