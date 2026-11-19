@@ -1150,6 +1150,9 @@ Future<void> groupArcsFromScenes({
             }
             state.saveArcScan();
             state.saveArcAnalyses();
+            // v1525：落盘即刷新——此前只写盘不notify，弧线页列表全程停在
+            // 旧快照（重扫时列表一直空），要等切页面才带出来
+            state.refresh();
             log('💾 弧线${a.number}成果已保存（${arcs.length}条弧线落盘）');
           }
         }
