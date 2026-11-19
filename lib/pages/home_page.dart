@@ -1200,8 +1200,8 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 1531;
-  static const String _appVersionStr = '1531'; // v1378：显示版（与APK文件名一致，b后缀进显示）
+  static const int _appVersion = 1532;
+  static const String _appVersionStr = '1532'; // v1378：显示版（与APK文件名一致，b后缀进显示）
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';
@@ -1214,6 +1214,9 @@ class _HomePageState extends State<HomePage>
   };
   
   /// v302: 双仓库查询latest release，取版本号最高的仓库（token与仓库配对）
+  /// v1532：改查releases列表取tag数值最大——不再依赖/releases/latest的
+  /// published_at排序（v1531实证：三版并发转存时release创建顺序与tag数值
+  /// 脱钩，晚创建的v1530盖住v1531的"最新"标，APP端更新检查拿错版本）
   /// 返回null=两个仓库都失败；silent=true不写apiLog（启动静默检查用）
   Future<({String repo, String token, int build})?> _queryBestRelease(
       {bool silent = false}) async {
@@ -1225,7 +1228,7 @@ class _HomePageState extends State<HomePage>
         final resp = await http
             .get(
               Uri.parse(
-                'https://api.github.com/repos/${entry.key}/releases/latest',
+                'https://api.github.com/repos/${entry.key}/releases?per_page=15',
               ),
               headers: {
                 'Authorization': 'token ${entry.value}',
@@ -1239,14 +1242,20 @@ class _HomePageState extends State<HomePage>
                 .apiLog('${entry.key} 检查失败: HTTP ${resp.statusCode}');
           continue;
         }
-        // 读latest release的tag（而非pubspec：发版窗口期pubspec已更新但APK未发布，会误报新版本）
-        final jsonObj = jsonDecode(resp.body) as Map<String, dynamic>;
-        final tagName = jsonObj['tag_name'] as String? ?? '';
-        final match = RegExp(r'^v(\d+)$').firstMatch(tagName.trim());
-        if (match == null) continue;
-        final remoteBuild = int.tryParse(match.group(1)!) ?? 0;
-        if (remoteBuild > bestBuild) {
-          bestBuild = remoteBuild;
+        // 读release列表里tag数值最大的（非draft），而非latest的published_at排序
+        final arr = jsonDecode(resp.body) as List;
+        int repoMax = 0;
+        for (final item in arr) {
+          if (item is! Map) continue;
+          if (item['draft'] == true) continue; // 草稿不可下载，跳过
+          final tagName = item['tag_name'] as String? ?? '';
+          final match = RegExp(r'^v(\d+)$').firstMatch(tagName.trim());
+          if (match == null) continue;
+          final b = int.tryParse(match.group(1)!) ?? 0;
+          if (b > repoMax) repoMax = b;
+        }
+        if (repoMax > bestBuild) {
+          bestBuild = repoMax;
           bestRepo = entry.key;
           bestToken = entry.value;
         }
