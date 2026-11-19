@@ -138,7 +138,12 @@ class ApiConfig {
     'gyz1': 'https://gcli.ggchan.dev/',
     'gyz2': 'https://gcli.ggchan.dev/',
     'gyz3': 'https://gcli.ggchan.dev/',
+    'qingtian': 'http://www.qingtian.pro/v1',
   };
+
+  /// v1529：擎天余额查询端点（站点配套查询页，POST {key}→remaining_quota）
+  static const String qingtianBalanceUrl =
+      'https://chaxun-zongzhan.qingtian.pro/api/query';
 
   /// baseUrl允许修改的内置提供商（公益站）：修改值存builtinStash[provider]['baseUrl']
   static const Set<String> editableBaseProviders = {'gyz1', 'gyz2', 'gyz3'};
@@ -153,6 +158,7 @@ class ApiConfig {
     'gyz1': '公益站1',
     'gyz2': '公益站2',
     'gyz3': '公益站3',
+    'qingtian': '擎天',
   };
 
   /// 读取指定内置提供商的可编辑baseUrl（公益站用），空=未改过

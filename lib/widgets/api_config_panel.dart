@@ -39,6 +39,9 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
   final _modelCtrl = TextEditingController();
   // v1224：公益站baseUrl可编辑（默认gcli.ggchan.dev，改值存builtinStash[provider]['baseUrl']）
   final _gyzBaseCtrl = TextEditingController();
+  // v1529：擎天余额显示（进面板自动查一次+查余额键手动刷新）
+  String _balanceText = '';
+  bool _fetchingBalance = false;
 
   @override
   void initState() {
@@ -50,6 +53,40 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
       Future.microtask(() {
         if (mounted) _fetchModels(auto: true);
       });
+    }
+    // v1529：擎天供应商进面板自动查一次余额（用户裁决：点进去就看）
+    if (_config.provider == 'qingtian' && _config.effectiveApiKey.isNotEmpty) {
+      Future.microtask(() {
+        if (mounted) _fetchBalance();
+      });
+    }
+  }
+
+  /// v1529：擎天余额查询——POST key到站点查询页，显示剩余额度
+  Future<void> _fetchBalance() async {
+    final key = _config.effectiveApiKey;
+    if (key.isEmpty) {
+      setState(() => _balanceText = '先填Key');
+      return;
+    }
+    setState(() => _fetchingBalance = true);
+    try {
+      final msg = await context.read<AppState>().api.fetchQingtianBalance(
+            apiKey: key,
+          );
+      if (mounted) {
+        setState(() {
+          _balanceText = msg;
+          _fetchingBalance = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _balanceText = '查询失败：$e';
+          _fetchingBalance = false;
+        });
+      }
     }
   }
 
@@ -111,8 +148,15 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
       _gyzBaseCtrl.text = _config.effectiveApiBase; // v1224：公益站baseUrl随provider切换刷新
       _fetchStatus = '';
       _fetchedModels = [];
+      _balanceText = ''; // v1529：切供应商清旧余额显示
     });
     _saveNow();
+    // v1529：切到擎天且有key→自动查余额
+    if (k == 'qingtian' && _config.effectiveApiKey.isNotEmpty) {
+      Future.microtask(() {
+        if (mounted) _fetchBalance();
+      });
+    }
     // 4. 恢复出key→自动拉取模型列表
     if (_config.apiKey.isNotEmpty) {
       _scheduleAutoFetch();
@@ -166,6 +210,12 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
     if (_config.effectiveApiKey.isEmpty) return;
     _autoFetchDebounce = Timer(const Duration(milliseconds: 800), () {
       if (mounted && !_fetchingModels) _fetchModels(auto: true);
+      // v1529：擎天key填完→余额也跟着自动刷新（换key即见新key余额）
+      if (mounted &&
+          _config.provider == 'qingtian' &&
+          !_fetchingBalance) {
+        _fetchBalance();
+      }
     });
   }
 
@@ -414,6 +464,33 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
                   _scheduleAutoFetch(); // 模型不写死：key填完自动拉/models
                 },
               ),
+              // v1529：擎天余额行——进面板自动查+查余额键手动刷新
+              if (_config.provider == 'qingtian')
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _fetchingBalance
+                              ? '余额查询中...'
+                              : (_balanceText.isEmpty ? '' : _balanceText),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: _balanceText.startsWith('查询失败')
+                                ? Colors.red
+                                : Colors.green.shade800,
+                          ),
+                        ),
+                      ),
+                      MiniButton(
+                        label: '查余额',
+                        enabled: true,
+                        onTap: _fetchingBalance ? null : _fetchBalance,
+                      ),
+                    ],
+                  ),
+                ),
               const SizedBox(height: 4),
               // v1224：公益站baseUrl允许修改（改值存stash随provider走）
               if (ApiConfig.editableBaseProviders.contains(_config.provider))

@@ -932,6 +932,24 @@ class ApiService {
   }
 
   /// 获取模型列表（GET /models）
+  /// v1529：擎天余额查询——POST {key}→{success,message,remaining_quota}
+  Future<String> fetchQingtianBalance({required String apiKey}) async {
+    final response = await http.post(
+      Uri.parse(ApiConfig.qingtianBalanceUrl),
+      headers: const {'Content-Type': 'application/json'},
+      body: '{"key":"$apiKey"}',
+    );
+    if (response.statusCode != 200) {
+      throw Exception('HTTP ${response.statusCode}');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    if (data['success'] != true) {
+      throw Exception(data['message']?.toString() ?? '查询失败');
+    }
+    return data['message']?.toString() ??
+        '剩余额度：${data['remaining_quota']}';
+  }
+
   Future<List<String>> fetchModels({
     required String baseUrl,
     required String apiKey,
