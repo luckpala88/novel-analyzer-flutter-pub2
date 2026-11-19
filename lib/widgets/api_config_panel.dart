@@ -42,6 +42,8 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
   // v1529：擎天余额显示（进面板自动查一次+查余额键手动刷新）
   String _balanceText = '';
   bool _fetchingBalance = false;
+  // v1530：余额历史（最近3次，全局存储按key掩码隔离，换key自动重置）
+  List<Map<String, dynamic>> _balanceHistory = [];
 
   @override
   void initState() {
@@ -56,10 +58,33 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
     }
     // v1529：擎天供应商进面板自动查一次余额（用户裁决：点进去就看）
     if (_config.provider == 'qingtian' && _config.effectiveApiKey.isNotEmpty) {
+      // v1530：先载入历史余额显示（不等查询返回）
+      _loadBalanceHistory();
       Future.microtask(() {
         if (mounted) _fetchBalance();
       });
     }
+  }
+
+  /// v1530：从全局存储载入余额历史（仅同key掩码的有效）
+  void _loadBalanceHistory() {
+    try {
+      final raw = context
+          .read<AppState>()
+          .storage
+          .readGlobalJson('qingtian_balance_history');
+      final list = (raw is List)
+          ? raw
+                .whereType<Map>()
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList()
+          : <Map<String, dynamic>>[];
+      if (list.isNotEmpty &&
+          list.last['key'] != _maskKey(_config.effectiveApiKey)) {
+        return; // 换key了，旧历史不显示
+      }
+      _balanceHistory = list;
+    } catch (_) {}
   }
 
   /// v1529：擎天余额查询——POST key到站点查询页，显示剩余额度
@@ -71,14 +96,16 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
     }
     setState(() => _fetchingBalance = true);
     try {
-      final msg = await context.read<AppState>().api.fetchQingtianBalance(
-            apiKey: key,
-          );
+      final (msg, remaining) = await context
+          .read<AppState>()
+          .api
+          .fetchQingtianBalance(apiKey: key);
       if (mounted) {
         setState(() {
           _balanceText = msg;
           _fetchingBalance = false;
         });
+        if (remaining >= 0) _recordBalance(key, remaining);
       }
     } catch (e) {
       if (mounted) {
@@ -87,6 +114,44 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
           _fetchingBalance = false;
         });
       }
+    }
+  }
+
+  /// v1530：余额历史落盘+差额计算——全局存储（余额跟着key不跟书），
+  /// key掩码不一致=换了key，历史重置；最多存3次
+  void _recordBalance(String key, double remaining) {
+    try {
+      final storage = context.read<AppState>().storage;
+      final masked = _maskKey(key);
+      final now = DateTime.now();
+      final t =
+          '${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} '
+          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+      dynamic raw = storage.readGlobalJson('qingtian_balance_history');
+      var list = (raw is List)
+          ? raw
+                .whereType<Map>()
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList()
+          : <Map<String, dynamic>>[];
+      // 换key：旧历史属于旧key，差额对比无意义→重置
+      if (list.isNotEmpty && list.last['key'] != masked) list = [];
+      final prev = list.isNotEmpty ? (list.last['v'] as num).toDouble() : null;
+      final diff = prev == null ? null : remaining - prev;
+      list.add({'v': remaining, 't': t, 'key': masked});
+      while (list.length > 3) {
+        list.removeAt(0);
+      }
+      storage.writeGlobalJson('qingtian_balance_history', list);
+      final diffStr = diff == null
+          ? ''
+          : '（较上次${diff >= 0 ? '+' : ''}${diff.toStringAsFixed(1)}）';
+      setState(() {
+        _balanceText = '剩余额度：${remaining.toStringAsFixed(1)}$diffStr';
+        _balanceHistory = list;
+      });
+    } catch (_) {
+      // 历史读写失败不影响余额显示
     }
   }
 
@@ -489,6 +554,19 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
                         onTap: _fetchingBalance ? null : _fetchBalance,
                       ),
                     ],
+                  ),
+                ),
+              if (_config.provider == 'qingtian' &&
+                  _balanceHistory.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    '近${_balanceHistory.length}次：'
+                    '${_balanceHistory.reversed.map((e) => "${(e['v'] as num).toStringAsFixed(1)}(${e['t']})").join(' · ')}',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Colors.grey,
+                    ),
                   ),
                 ),
               const SizedBox(height: 4),
