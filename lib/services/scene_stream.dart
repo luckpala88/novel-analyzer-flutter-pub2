@@ -646,6 +646,32 @@ void showGlobalScenesViewer(BuildContext context, AppState state) {
     );
   }
 
+/// v1524：弧线↔场景流一致性卫兵——幽灵弧线检测
+/// 弧线声称的场景范围与实际场景落库章号对不上=分组数据过期（历史时点
+/// 旧分组残留，场景流已重扫但弧线未重分），调用方红字提示重新生成
+List<String> arcSceneConsistencyWarnings(AppState state) {
+  final gs = state.globalScenes;
+  final arcs = state.arcScan?.arcs ?? const <Arc>[];
+  final warns = <String>[];
+  if (gs.isEmpty) return warns;
+  for (final a in arcs) {
+    if (a.sceneFrom < 1 || a.sceneTo > gs.length || a.sceneTo < a.sceneFrom) {
+      continue;
+    }
+    final sCh = gs[a.sceneFrom - 1].startChapter;
+    final eCh = gs[a.sceneTo - 1].endChapter;
+    if (a.startChapter > 0 && sCh > 0 && a.startChapter != sCh) {
+      warns.add('🚨 弧线${a.number}「${a.title}」声称从第${a.startChapter}章起，'
+          '但场景${a.sceneFrom}实际在第$sCh章——分组数据过期，请到弧线页批量→重新生成全部弧线');
+    }
+    if (a.endChapter > 0 && eCh > 0 && a.endChapter != eCh) {
+      warns.add('🚨 弧线${a.number}「${a.title}」声称到第${a.endChapter}章止，'
+          '但场景${a.sceneTo}实际到第$eCh章——分组数据过期，请到弧线页批量→重新生成全部弧线');
+    }
+  }
+  return warns;
+}
+
   // ===== v431：弧线分组扫描（第二步：读场景序列划弧线）=====
 
   /// 闭合判定规则（用户裁决）：弧线处理到场景M时，看场景M+1——
@@ -1212,6 +1238,11 @@ Future<void> groupArcsFromScenes({
           '覆盖${gs.length}场景，耗时${(sw.elapsed.inSeconds / 60).toStringAsFixed(1)}分钟，'
           '零件提取${extractedArcs.length}/${arcs.length}条',
         );
+        // v1524：分组收尾自检——卫兵红字提示幽灵弧线（理论上分组后应为空，
+        // 有输出=分组映射或场景数据有洞，当场暴露）
+        for (final w in arcSceneConsistencyWarnings(state)) {
+          log(w);
+        }
       }
     } catch (err) {
       log('异常：$err');

@@ -90,6 +90,13 @@ class _ScanPageState extends State<ScanPage>
     _listCtl.addListener(_scheduleListSave);
     WidgetsBinding.instance.addPostFrameCallback(
         (_) => _restoreList(retries: 8));
+    // v1524：幽灵弧线卫兵——页面打开时校验弧线章号vs场景落库章号
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ws = arcSceneConsistencyWarnings(AppState.instance);
+      for (final w in ws) {
+        _addLog(w);
+      }
+    });
     ContentFont.load('arc').then((v) {
       if (mounted) setState(() => _fontScale = v);
     });
@@ -359,14 +366,16 @@ class _ScanPageState extends State<ScanPage>
                       controller: _groupBatchController,
                       keyboardType: TextInputType.number,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 13),
-                      decoration: const InputDecoration(
+                      style: const TextStyle(fontSize: 11),
+                      decoration: InputDecoration(
                         isDense: true,
-                        contentPadding: EdgeInsets.symmetric(
+                        contentPadding: const EdgeInsets.symmetric(
                           horizontal: 4,
-                          vertical: 8,
+                          vertical: 3,
                         ),
-                        border: OutlineInputBorder(),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                       onChanged: (_) => _saveGroupBatch(state),
                       onSubmitted: (_) => _saveGroupBatch(state, persist: true),

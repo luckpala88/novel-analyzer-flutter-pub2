@@ -57,6 +57,13 @@ class _ScenePageState extends State<ScenePage>
 
   @override
   void initState() {
+    // v1524：幽灵弧线卫兵——场景流变动后旧分组残留当场暴露
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ws = arcSceneConsistencyWarnings(AppState.instance);
+      for (final w in ws) {
+        _addLog(w);
+      }
+    });
     super.initState();
     // v1134：列表滚动位置持久化——有记录恢复，无记录默认跳底部（最新内容）
     _listCtl.addListener(_scheduleListSave);
@@ -290,6 +297,33 @@ class _ScenePageState extends State<ScenePage>
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
               child: Row(
                 children: [
+                  // v1523b：步进框移到批量键左侧（对齐弧线页），样式对齐MiniButton胶囊
+                  SizedBox(
+                    width: 34,
+                    child: TextField(
+                      controller: _sceneStepController,
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 11),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 3,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onChanged: (_) => _saveSceneStep(state),
+                      onSubmitted: (_) => _saveSceneStep(state, persist: true),
+                    ),
+                  ),
+                  Text(
+                    '章/步',
+                    style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                  ),
+                  const SizedBox(width: 6),
                   PopupMenuButton<String>(
                     // v434：新流程（场景流/分组）不依赖旧弧线存在，仅划分时禁用
                     enabled: !_isDividing,
@@ -390,32 +424,6 @@ class _ScenePageState extends State<ScenePage>
                       ContentFont.save('scene', v);
                     },
                   ),
-                  const SizedBox(width: 5),
-                  // v464：步进胶囊改"章/步"文字尾注（v445此处replace静默失配）
-                  SizedBox(
-                    width: 44,
-                    child: TextField(
-                      controller: _sceneStepController,
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 13),
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 8,
-                        ),
-                        border: OutlineInputBorder(),
-                      ),
-                      onChanged: (_) => _saveSceneStep(state),
-                      onSubmitted: (_) => _saveSceneStep(state, persist: true),
-                    ),
-                  ),
-                  Text(
-                    '章/步',
-                    style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-                  ),
-                  const SizedBox(width: 6),
 const Spacer(), // ⚙API推到最右
                   MiniButton(
                     label: '⚙ API',
