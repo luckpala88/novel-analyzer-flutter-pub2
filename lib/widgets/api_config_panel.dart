@@ -456,7 +456,7 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
               children: [
                 const Text('服务提供商:'),
                 ...['zhipu', 'deepseek', 'gemini', 'siliconflow', 'openrouter',
-                  'gyz1', 'gyz2', 'gyz3'].map(
+                  'gyz1', 'gyz2', 'gyz3', 'qingtian'].map(
                   (k) => Padding(
                     padding: const EdgeInsets.only(left: 4),
                     child: ChoiceChip(
