@@ -1203,9 +1203,7 @@ class _DetectionPageState extends State<DetectionPage>
                       ],
                       selected: {_filterMode},
                       showSelectedIcon: false,
-                      style: const ButtonStyle(
-                        visualDensity: VisualDensity.compact,
-                      ),
+                      style: compactSegmentedStyle,
                       onSelectionChanged: (s) => setState(() {
                         _filterMode = s.first;
                         _currentIndex = -1; // 切筛选收起正文
@@ -1477,11 +1475,11 @@ class _DetectionPageState extends State<DetectionPage>
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 8,
                                   ),
-                                  minimumSize: const Size(44, 30),
+                                  minimumSize: const Size(32, 26),
                                 ),
                                 child: Text(
                                   _ttsPaused ? '继续' : '暂停',
-                                  style: const TextStyle(fontSize: 13),
+                                  style: const TextStyle(fontSize: 11),
                                 ),
                               ),
                             TextButton(
@@ -1492,16 +1490,16 @@ class _DetectionPageState extends State<DetectionPage>
                                         : _startTTS(state),
                               style: TextButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
+                                  horizontal: 6,
                                 ),
-                                minimumSize: const Size(44, 30),
+                                minimumSize: const Size(32, 26),
                                 foregroundColor: _ttsPlaying
                                     ? const Color(0xFF8B6914)
                                     : null,
                               ),
                               child: Text(
                                 _ttsPlaying ? '停止' : '朗读',
-                                style: const TextStyle(fontSize: 13),
+                                style: const TextStyle(fontSize: 11),
                               ),
                             ),
                             // v388：换名开关——按映射表替换原著名后显示/复制/朗读
@@ -1513,16 +1511,16 @@ class _DetectionPageState extends State<DetectionPage>
                                   ),
                               style: TextButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
+                                  horizontal: 6,
                                 ),
-                                minimumSize: const Size(44, 30),
+                                minimumSize: const Size(32, 26),
                                 foregroundColor: state.nameReplaceEnabled
                                     ? const Color(0xFF8B6914)
                                     : Colors.grey,
                               ),
                               child: Text(
                                 state.nameReplaceEnabled ? '换名✓' : '换名',
-                                style: const TextStyle(fontSize: 13),
+                                style: const TextStyle(fontSize: 11),
                               ),
                             ),
                             // v382：复制按钮——复制当前文件全文（剥[模型/温度]头），点击正文可就地编辑
@@ -1560,13 +1558,13 @@ class _DetectionPageState extends State<DetectionPage>
                               },
                               style: TextButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
+                                  horizontal: 6,
                                 ),
-                                minimumSize: const Size(44, 30),
+                                minimumSize: const Size(32, 26),
                               ),
                               child: const Text(
                                 '复制',
-                                style: TextStyle(fontSize: 13),
+                                style: TextStyle(fontSize: 11),
                               ),
                             ),
                             TextButton(
@@ -1578,13 +1576,13 @@ class _DetectionPageState extends State<DetectionPage>
                               ),
                               style: TextButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
+                                  horizontal: 6,
                                 ),
-                                minimumSize: const Size(36, 30),
+                                minimumSize: const Size(32, 26),
                               ),
                               child: const Text(
                                 'A-',
-                                style: TextStyle(fontSize: 13),
+                                style: TextStyle(fontSize: 11),
                               ),
                             ),
                             TextButton(
@@ -1596,13 +1594,13 @@ class _DetectionPageState extends State<DetectionPage>
                               ),
                               style: TextButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
+                                  horizontal: 6,
                                 ),
-                                minimumSize: const Size(36, 30),
+                                minimumSize: const Size(32, 26),
                               ),
                               child: const Text(
                                 'A+',
-                                style: TextStyle(fontSize: 13),
+                                style: TextStyle(fontSize: 11),
                               ),
                             ),
                             // 模式切换（v469 dt-mode-btn：📑翻页↔📜滚动）
@@ -1610,16 +1608,16 @@ class _DetectionPageState extends State<DetectionPage>
                               onPressed: _switchMode,
                               style: TextButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
+                                  horizontal: 6,
                                 ),
-                                minimumSize: const Size(44, 30),
+                                minimumSize: const Size(32, 26),
                                 foregroundColor: _pageMode
                                     ? Colors.green.shade700
                                     : null,
                               ),
                               child: Text(
                                 _pageMode ? '📜滚动' : '📑翻页',
-                                style: const TextStyle(fontSize: 13),
+                                style: const TextStyle(fontSize: 11),
                               ),
                             ),
                             TextButton(
@@ -1628,13 +1626,13 @@ class _DetectionPageState extends State<DetectionPage>
                                   : () => _findProblems(state, content),
                               style: TextButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
+                                  horizontal: 6,
                                 ),
-                                minimumSize: const Size(50, 30),
+                                minimumSize: const Size(46, 26),
                               ),
                               child: const Text(
                                 '找问题',
-                                style: TextStyle(fontSize: 13),
+                                style: TextStyle(fontSize: 11),
                               ),
                             ),
                             TextButton(
@@ -1645,13 +1643,13 @@ class _DetectionPageState extends State<DetectionPage>
                                   : null,
                               style: TextButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
+                                  horizontal: 6,
                                 ),
-                                minimumSize: const Size(50, 30),
+                                minimumSize: const Size(46, 26),
                               ),
                               child: const Text(
                                 '换名体检',
-                                style: TextStyle(fontSize: 13),
+                                style: TextStyle(fontSize: 11),
                               ),
                             ),
                             TextButton(
@@ -1660,15 +1658,15 @@ class _DetectionPageState extends State<DetectionPage>
                                   : () => _rewrite(state, content),
                               style: TextButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
+                                  horizontal: 6,
                                 ),
-                                minimumSize: const Size(44, 30),
+                                minimumSize: const Size(32, 26),
                                 foregroundColor: V469Style.accent,
                               ),
                               child: const Text(
                                 '二创',
                                 style: TextStyle(
-                                  fontSize: 13,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -1679,15 +1677,15 @@ class _DetectionPageState extends State<DetectionPage>
                               onPressed: () => _shareCurrentFile(),
                               style: TextButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
+                                  horizontal: 6,
                                 ),
-                                minimumSize: const Size(44, 30),
+                                minimumSize: const Size(32, 26),
                                 foregroundColor: V469Style.accent,
                               ),
                               child: const Text(
                                 '转发',
                                 style: TextStyle(
-                                  fontSize: 13,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -1893,7 +1891,7 @@ class _DetectionPageState extends State<DetectionPage>
                               style: TextButton.styleFrom(
                                 minimumSize: const Size(0, 28),
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
+                                  horizontal: 6,
                                 ),
                               ),
                               onPressed: () => _pickAttachment('style'),
@@ -1907,7 +1905,7 @@ class _DetectionPageState extends State<DetectionPage>
                               style: TextButton.styleFrom(
                                 minimumSize: const Size(0, 28),
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
+                                  horizontal: 6,
                                 ),
                               ),
                               onPressed: () => _pickAttachment('content'),

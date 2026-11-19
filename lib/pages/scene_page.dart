@@ -398,7 +398,7 @@ class _ScenePageState extends State<ScenePage>
                       child: Text(
                         '批量▾',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: FontWeight.w500,
                           color: Theme.of(context).colorScheme.primary,
                         ),

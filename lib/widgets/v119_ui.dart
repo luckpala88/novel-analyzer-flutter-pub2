@@ -310,6 +310,19 @@ class _AutoExpansionTileState extends State<AutoExpansionTile> {
 /// v952：作家风格选择按钮（三页复用：创作/改编/二创）——MiniButton显示当前
 /// 作家名（未选="🎭作家"），点击弹底部档案清单（含"不启用"），选定即全局
 /// 生效（state.setWriterStyle持久化，四链sys注入writerStyleBlock）
+/// v1527：SegmentedButton统一压缩规格——与MiniButton同高(26)，
+/// adapt(改编|续写)/writing(撰写|草稿)/detection(全部|一创|二创)三处复用
+const ButtonStyle compactSegmentedStyle = ButtonStyle(
+  visualDensity: VisualDensity.compact,
+  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  minimumSize: WidgetStatePropertyAll(Size(0, 26)),
+  fixedSize: WidgetStatePropertyAll(Size(0, 26)),
+  padding: WidgetStatePropertyAll(
+    EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+  ),
+  textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 10)),
+);
+
 Widget writerStyleButton(BuildContext context, dynamic state) {
   final sel = state.selectedWriterStyle as String;
   return MiniButton(

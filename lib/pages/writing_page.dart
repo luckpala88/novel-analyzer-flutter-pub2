@@ -983,9 +983,10 @@ class _WritingPageState extends State<WritingPage>
                     style: const ButtonStyle(
                       visualDensity: VisualDensity.compact,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      minimumSize: WidgetStatePropertyAll(Size(0, 28)),
+                      minimumSize: WidgetStatePropertyAll(Size(0, 26)),
+                      fixedSize: WidgetStatePropertyAll(Size(0, 26)),
                       padding: WidgetStatePropertyAll(
-                        EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                        EdgeInsets.symmetric(horizontal: 8, vertical: 0),
                       ),
                       textStyle: WidgetStatePropertyAll(
                         TextStyle(fontSize: 10),

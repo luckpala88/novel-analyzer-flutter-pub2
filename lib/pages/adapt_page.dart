@@ -5163,17 +5163,7 @@ return true;
                     ],
                     selected: {state.worldBook?.pageMode ?? 'adapt'},
                     showSelectedIcon: false,
-                    style: const ButtonStyle(
-                      visualDensity: VisualDensity.compact,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      minimumSize: WidgetStatePropertyAll(Size(0, 28)),
-                      padding: WidgetStatePropertyAll(
-                        EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                      ),
-                      textStyle: WidgetStatePropertyAll(
-                        TextStyle(fontSize: 10),
-                      ),
-                    ),
+                    style: compactSegmentedStyle,
                     onSelectionChanged: (sel) {
                       setState(() {
                         final wb =

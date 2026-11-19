@@ -364,7 +364,7 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
 
   ButtonStyle _btnStyle({Color? foreground}) {
     return TextButton.styleFrom(
-      minimumSize: const Size(32, 36),
+      minimumSize: const Size(28, 26),
       padding: const EdgeInsets.symmetric(horizontal: 4),
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       foregroundColor: foreground,
@@ -398,7 +398,7 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
                     _saveReaderStyle(); // v351
                   }),
                   style: _btnStyle(),
-                  child: const Text('A-', style: TextStyle(fontSize: 13)),
+                  child: const Text('A-', style: TextStyle(fontSize: 11)),
                 ),
                 // 字体大小显示
                 Text(
@@ -415,7 +415,7 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
                     _saveReaderStyle(); // v351
                   }),
                   style: _btnStyle(),
-                  child: const Text('A+', style: TextStyle(fontSize: 13)),
+                  child: const Text('A+', style: TextStyle(fontSize: 11)),
                 ),
                 // TTS播放/暂停（独立按钮）
                 if (_ttsPlaying)
@@ -424,7 +424,7 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
                     style: _btnStyle(),
                     child: Text(
                       _ttsPaused ? '继续' : '暂停',
-                      style: const TextStyle(fontSize: 13),
+                      style: const TextStyle(fontSize: 11),
                     ),
                   ),
                 // TTS朗读/停止
@@ -435,7 +435,7 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
                   ),
                   child: Text(
                     _ttsPlaying ? '停止' : '朗读',
-                    style: const TextStyle(fontSize: 13),
+                    style: const TextStyle(fontSize: 11),
                   ),
                 ),
                 // 设置（行距/TTS设置）
@@ -454,7 +454,7 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
                   ],
                   child: const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 6),
-                    child: Text('设置', style: TextStyle(fontSize: 13)),
+                    child: Text('设置', style: TextStyle(fontSize: 11)),
                   ),
                 ),
                 // v417：就地编辑开关（仅滚动模式；编辑中亮色+锁定模式切换）
@@ -471,7 +471,7 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
                     ),
                     child: Text(
                       _scrollEditing ? '完成' : '编辑',
-                      style: const TextStyle(fontSize: 13),
+                      style: const TextStyle(fontSize: 11),
                     ),
                   ),
                 // 翻页/滚动切换（编辑中锁定防丢内容，v95约定）
@@ -485,14 +485,14 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
                   style: _btnStyle(),
                   child: Text(
                     _pageMode ? '滚动' : '翻页',
-                    style: const TextStyle(fontSize: 13),
+                    style: const TextStyle(fontSize: 11),
                   ),
                 ),
                 // 章节列表
                 TextButton(
                   onPressed: () => _showChapterList(),
                   style: _btnStyle(),
-                  child: const Text('目录', style: TextStyle(fontSize: 13)),
+                  child: const Text('目录', style: TextStyle(fontSize: 11)),
                 ),
                 // v193：章节标题+页码（目录右边，更小字号，信息行不占正文空间）
                 const SizedBox(width: 4),
