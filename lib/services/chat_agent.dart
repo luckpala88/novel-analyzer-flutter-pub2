@@ -411,6 +411,7 @@ Future<AgentToolResult> runTool(AppState state, String tool,
         wb.arcRequirements['$reqArc'] = req;
       }
       state.saveWorldBook();
+      state.refresh(); // v1526：世界书直写落盘即刷新
       return AgentToolResult(tool, true,
           '已写入弧线$reqArc${layer == 'scene' ? '场景${(args['scene'] as num?)?.toInt()}' : ''}用户改编要求（${req.length}字）——改编页可见');
     default:

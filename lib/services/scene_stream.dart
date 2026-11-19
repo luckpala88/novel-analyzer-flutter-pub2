@@ -94,6 +94,7 @@ Future<void> regenSceneSummary({
   });
   state.saveGlobalScenes();
   state.saveArcAnalyses();
+  state.refresh(); // v1526：落盘即刷新
   log('✓ 场景${index + 1}概述已重生成（${newSummary.length}字，changes：${newChanges.isEmpty ? "无变化" : newChanges}）——边界/弧线/分组未动');
 }
 
@@ -531,6 +532,7 @@ Future<void> runGlobalSceneScan({
         }
         state.globalSceneScannedUpTo = wTo;
         state.saveGlobalScenes();
+        state.refresh(); // v1526：逐窗口落盘即刷新（场景列表/统计行实时长）
         log(
           '✓ 第$wFrom-$wTo章：${winScenes.length}场景（累计${state.globalScenes.length}）',
         );
@@ -548,6 +550,7 @@ Future<void> runGlobalSceneScan({
         );
       }
       state.saveGlobalScenes();
+      state.refresh(); // v1526：收尾刷新
     } catch (err) {
       log('异常：$err');
       if (err is Error) log('   堆栈：${err.stackTrace}');
@@ -745,6 +748,7 @@ Future<void> groupArcsFromScenes({
           state.saveArcAnalyses();
           state.saveArcScenes();
           state.saveGlobalScenes();
+          state.refresh(); // v1526：回滚落盘即刷新
           log('↻ 增量前置：自动减掉不完整弧线${drop.number}「${drop.title}」（场景${drop.sceneFrom}-${drop.sceneTo}），从场景${state.globalGroupedUpTo + 1}重分（账本已回滚）');
         }
         final oldArcs = state.arcScan!.arcs;
@@ -771,6 +775,7 @@ Future<void> groupArcsFromScenes({
             final stale = state.globalGroupedUpTo;
             state.globalGroupedUpTo = lastTo;
             state.saveGlobalScenes();
+            state.refresh(); // v1526：落盘即刷新
             log('ℹ 账面断点($stale)与弧线尾($lastTo)不一致——已按弧线平铺修正断点，增量续跑');
           }
         arcs.addAll(state.arcScan!.arcs);
@@ -1134,6 +1139,7 @@ Future<void> groupArcsFromScenes({
                 state.globalGroupedUpTo =
                     arcs.last.sceneTo.clamp(0, gs.length);
                 state.saveGlobalScenes();
+                state.refresh(); // v1526：清空落盘即刷新
                 return;
               }
             }
@@ -1159,6 +1165,7 @@ Future<void> groupArcsFromScenes({
         cursor = to;
         state.globalGroupedUpTo = cursor;
         state.saveGlobalScenes();
+        state.refresh(); // v1526：进度落盘即刷新
         log('分组进度：$cursor/${gs.length}场景，共${arcs.length}弧线');
       }
       groupCompleted = true;
@@ -1183,6 +1190,7 @@ Future<void> groupArcsFromScenes({
             state.saveArcAnalyses();
             state.globalGroupedUpTo = rollback;
             state.saveGlobalScenes();
+            state.refresh(); // v1526：落盘即刷新
             log('💾 已保存${arcs.length}条弧线成果，断点回退到场景${rollback + 1}——点"批量"增量续跑');
           }
           log('⛔ 已中断——请用"重来"或"批量"继续');
@@ -1196,6 +1204,7 @@ Future<void> groupArcsFromScenes({
         );
         state.saveArcScan();
         state.saveArcAnalyses();
+        state.refresh(); // v1526：分组完成落盘即刷新
         log(
           '=== 弧线分组完成：${arcs.length}条弧线，覆盖${gs.length}场景 ===',
         );
@@ -1869,6 +1878,7 @@ Future<bool> extractArcParts({
       analysis.metadata = old.metadata;
     }
     state.saveArcAnalyses(); // v1185：清键状态落盘（重启后判缺依然成立，幂等重跑）
+    state.refresh(); // v1526：清键落盘即刷新
     log('⛔ 弧线${arc.number}状态对账失败——零件未落盘，增量续跑可从本弧线重来');
     return false;
   }
