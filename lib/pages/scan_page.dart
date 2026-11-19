@@ -354,7 +354,7 @@ class _ScanPageState extends State<ScanPage>
                   // v437：弧线页职责=分组+展示。场景扫描按键在场景页
                   // v445：生成弧线进批量菜单（第一行省空间）；步进改"场景/步"尾注
                   SizedBox(
-                    width: 44,
+                    width: 36,
                     child: TextField(
                       controller: _groupBatchController,
                       keyboardType: TextInputType.number,
@@ -453,9 +453,6 @@ class _ScanPageState extends State<ScanPage>
                     enabled: true,
                     onTap: () => showStateLedger(context, state),
                   ),
-                  const SizedBox(width: 5),
-                  const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
-                  const SizedBox(width: 4),
                   const SizedBox(width: 4),
                   ContentFontButtons(
                     pageKey: 'arc',
