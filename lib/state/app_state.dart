@@ -254,8 +254,16 @@ class AppState extends ChangeNotifier {
   // 开=送审原文（扫描窗口/分镜切片/零件提取切片/弧线分组场景行）先过词表；
   // 关=原文直送。AI产出入库净化恒开（另一层兜底，不受此开关控）
   bool sanitizeEnabled = true;
+  bool nightMode = false; // v1549：夜间模式（全局存储，根watch切ThemeMode）
   String sanitizePairsText = ''; // 每行"敏感词=替换词"；空=用TextCleaner.defaultPairsText
   bool jitterEnabled = true; // v1333：句内标点微空格扰动（每次请求token序列随机，分类器漂移+判重失效）
+
+  /// v1549：夜间模式开关（全局存储）
+  void setNightMode(bool v) {
+    nightMode = v;
+    storage.writeGlobal('night_mode_flag', v ? '1' : '0');
+    notifyListeners();
+  }
 
   void setSanitizeEnabled(bool v) {
     sanitizeEnabled = v;
@@ -1413,6 +1421,7 @@ class AppState extends ChangeNotifier {
     // v1330：词面净化开关+词表（默认开；词表空=用内置默认表）
     final se = storage.readGlobal('sanitize_enabled');
     sanitizeEnabled = se != '0';
+    nightMode = storage.readGlobal('night_mode_flag') == '1';
     final sp = storage.readGlobal('sanitize_pairs');
     if (sp != null) sanitizePairsText = sp;
     TextCleaner.updateFromText(

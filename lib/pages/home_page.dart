@@ -151,8 +151,10 @@ class _HomePageState extends State<HomePage>
                   ),
                   const SizedBox(width: 4),
                   // v1330：词面净化开关+词表面板（开=送审原文过通用词表替换）
+                  // v1549：文字固定'净化'，金底=开（颜色表达开关态）
                   MiniButton(
-                    label: '净化${state.sanitizeEnabled ? '开' : '关'}',
+                    label: '净化',
+                    primary: state.sanitizeEnabled,
                     onTap: () => _showSanitizeDialog(context, state),
                   ),
                   // v1354：版本更新快捷键（有新版时红底高亮——免进设置三层点击）
@@ -185,6 +187,40 @@ class _HomePageState extends State<HomePage>
                           Icons.settings_outlined,
                           size: 15,
                           color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+                  ),
+                  // v1549：夜间模式键（月亮；金底=夜间开）
+                  Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      onTap: () =>
+                          context.read<AppState>().setNightMode(
+                              !state.nightMode),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: state.nightMode
+                              ? Theme.of(context).colorScheme.primaryContainer
+                              : Colors.transparent,
+                          border: Border.all(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .outline
+                                .withOpacity(0.5),
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.dark_mode_outlined,
+                          size: 15,
+                          color: state.nightMode
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                     ),
@@ -1223,8 +1259,8 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 1548;
-  static const String _appVersionStr = '1548'; // v1378：显示版（与APK文件名一致，b后缀进显示）
+  static const int _appVersion = 1549;
+  static const String _appVersionStr = '1549'; // v1378：显示版（与APK文件名一致，b后缀进显示）
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';

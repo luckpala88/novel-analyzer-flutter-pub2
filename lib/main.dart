@@ -32,8 +32,131 @@ void main() {
   runApp(const NovelAnalyzerApp());
 }
 
-class NovelAnalyzerApp extends StatelessWidget {
+class NovelAnalyzerApp extends StatefulWidget {
   const NovelAnalyzerApp({super.key});
+  @override
+  State<NovelAnalyzerApp> createState() => _NovelAnalyzerAppState();
+}
+
+class _NovelAnalyzerAppState extends State<NovelAnalyzerApp> {
+  // v1549：夜间模式——AppState.nightMode驱动（loadSettings载入+setNightMode通知）
+  @override
+  void initState() {
+    super.initState();
+    AppState.instance.addListener(_onAppState);
+  }
+
+  @override
+  void dispose() {
+    AppState.instance.removeListener(_onAppState);
+    super.dispose();
+  }
+
+  void _onAppState() {
+    if (mounted) setState(() {});
+  }
+
+  /// v1549：浅色主题静态化——阅读器正文锁纸面用
+  static ThemeData get lightTheme => ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF8B6914), // v318金棕色
+          brightness: Brightness.light,
+          surface: const Color(0xFFFFFFFF),
+        ),
+        scaffoldBackgroundColor: const Color(0xFFFAF7F2), // v318暖色背景
+        cardColor: const Color(0xFFFFFFFF),
+        primaryColor: const Color(0xFF8B6914),
+        useMaterial3: true,
+        fontFamily: V469Style.uiFont,
+        appBarTheme: const AppBarTheme(
+          centerTitle: false,
+          elevation: 0,
+          backgroundColor: Color(0xFFFFFFFF),
+          foregroundColor: Color(0xFF000000),
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          backgroundColor: const Color(0xFFFFFFFF),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFFC9A85C), width: 0.8),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFFC9A85C), width: 1.2),
+          ),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: ButtonStyle(
+            side: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.disabled)) {
+                return const BorderSide(
+                  color: Color(0xFFE0D8CC),
+                  width: 0.8,
+                ); // 禁用淡边框
+              }
+              return const BorderSide(
+                color: Color(0xFFC9A85C),
+                width: 0.8,
+              ); // 金棕描边
+            }),
+            shape: WidgetStateProperty.all(
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+          ),
+        ),
+        dividerColor: const Color(0xFFE8E0D5),
+      );
+
+  /// v1549：暖暗色板——深棕黑底+金棕强调（v318暖色调的夜间版）
+  static ThemeData get darkTheme => ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF8B6914),
+          brightness: Brightness.dark,
+          surface: const Color(0xFF26221C),
+        ),
+        scaffoldBackgroundColor: const Color(0xFF1E1A15),
+        cardColor: const Color(0xFF26221C),
+        primaryColor: const Color(0xFFD4A84A),
+        useMaterial3: true,
+        fontFamily: V469Style.uiFont,
+        appBarTheme: const AppBarTheme(
+          centerTitle: false,
+          elevation: 0,
+          backgroundColor: Color(0xFF26221C),
+          foregroundColor: Color(0xFFEFE7DA),
+        ),
+        textTheme: const TextTheme(
+          bodyMedium: TextStyle(color: Color(0xFFEFE7DA)),
+          bodySmall: TextStyle(color: Color(0xFFEFE7DA)),
+          labelSmall: TextStyle(color: Color(0xFF9A8B80)),
+        ),
+        inputDecorationTheme: const InputDecorationTheme(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(8)),
+            borderSide: BorderSide(color: Color(0xFF3A342B)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(8)),
+            borderSide: BorderSide(color: Color(0xFFD4A84A)),
+          ),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: ButtonStyle(
+            side: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.disabled)) {
+                return const BorderSide(color: Color(0xFF3A342B), width: 0.8);
+              }
+              return const BorderSide(color: Color(0xFFC9A85C), width: 0.8);
+            }),
+            shape: WidgetStateProperty.all(
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+          ),
+        ),
+        dividerColor: const Color(0xFF3A342B),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -42,81 +165,12 @@ class NovelAnalyzerApp extends StatelessWidget {
       child: MaterialApp(
         title: '网文拆解器',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF8B6914), // v318金棕色
-            brightness: Brightness.light,
-            surface: const Color(0xFFFFFFFF),
-          ),
-          scaffoldBackgroundColor: const Color(0xFFFAF7F2), // v318暖色背景
-          cardColor: const Color(0xFFFFFFFF),
-          primaryColor: const Color(0xFF8B6914),
-          useMaterial3: true,
-          // v200：字体统一走V469Style.uiFont（Windows雅黑，Android默认Noto）
-          fontFamily: V469Style.uiFont,
-          appBarTheme: const AppBarTheme(
-            centerTitle: false,
-            elevation: 0,
-            backgroundColor: Color(0xFFFFFFFF),
-            foregroundColor: Color(0xFF000000), // v1219纯黑（AppBar前景）
-          ),
-          navigationBarTheme: NavigationBarThemeData(
-            backgroundColor: const Color(0xFFFFFFFF),
-            indicatorColor: const Color(0xFFFDF6E8),
-            labelTextStyle: WidgetStateProperty.resolveWith((states) {
-              return const TextStyle(fontSize: 11);
-            }),
-          ),
-          inputDecorationTheme: const InputDecorationTheme(
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.all(Radius.circular(8)),
-              borderSide: BorderSide(color: Color(0xFFE8E0D5)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.all(Radius.circular(8)),
-              borderSide: BorderSide(color: Color(0xFFD4A84A)),
-            ),
-          ),
-          cardTheme: const CardThemeData(
-            color: Color(0xFFFFFFFF),
-            elevation: 0.5,
-            margin: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          ),
-          textTheme: const TextTheme(
-            bodyMedium: TextStyle(color: Color(0xFF000000)), // v1219纯黑
-            bodySmall: TextStyle(color: Color(0xFF000000)), // v1222纯黑（与原textSec同款=大量内容渲染层）
-            labelSmall: TextStyle(color: Color(0xFF9A8B80)), // v1222保持原色（用户裁决：只改最大量内容色）
-          ),
-          // 文字按钮描边（不加尺寸）：让它看起来是按键而不是纯文字
-          textButtonTheme: TextButtonThemeData(
-            style: ButtonStyle(
-              side: WidgetStateProperty.resolveWith((states) {
-                if (states.contains(WidgetState.disabled)) {
-                  return const BorderSide(
-                    color: Color(0xFFE0D8CC),
-                    width: 0.8,
-                  ); // 禁用淡边框
-                }
-                return const BorderSide(
-                  color: Color(0xFFC9A85C),
-                  width: 0.8,
-                ); // 金棕描边
-              }),
-              shape: WidgetStateProperty.all(
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-              ),
-            ),
-          ),
-          dividerColor: const Color(0xFFE8E0D5),
-        ),
-        darkTheme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF8B6914),
-            brightness: Brightness.dark,
-          ),
-          useMaterial3: true,
-        ),
-        themeMode: ThemeMode.light,
+        theme: lightTheme,
+        darkTheme: darkTheme,
+        // v1549：夜间模式随AppState.nightMode
+        themeMode: AppState.instance.nightMode
+            ? ThemeMode.dark
+            : ThemeMode.light,
         home: const AppShell(),
       ),
     );
