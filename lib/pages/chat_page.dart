@@ -20,6 +20,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http; // v1342：硅基Kolors生成调用
 import 'package:path_provider/path_provider.dart'; // v1343：磁盘缓存目录
 import '../widgets/api_config_panel.dart';
+import '../utils/prompt_preview.dart';
 import '../widgets/v119_ui.dart'; // showV119Sheet / MiniButton
 
 /// v833：AI聊天页——独立会话/独立API/单条复制/流式回复
@@ -515,6 +516,20 @@ class _ChatPageState extends State<ChatPage>
         state.saveChatSessions();
         _jumpBottom();
         final replyIdx = state.chatActive!.messages.length - 1;
+        // v1545：词链开关——Gemini误判敏感词时人工检查发出去的prompt
+        if (state.chatPromptPreview && mounted) {
+          final ok = await PromptPreview.maybePreview(
+            context,
+            sysPrompt: sys,
+            userPrompt: usr,
+            title: '聊天词链 · 第${round + 1}轮',
+            enabled: true,
+          );
+          if (!ok) {
+            setState(() => _sending = false);
+            return;
+          }
+        }
         final r = await _chatApi.callApi(
           task: '聊天回复',
           systemPrompt: sys,
@@ -760,6 +775,12 @@ class _ChatPageState extends State<ChatPage>
                   child: ApiModelButton(config: state.getApiConfig('chat'), section: 'chat', title: 'API设置 · AI聊天'),
                 ),
               ),
+          // v1545：词链开关（背景色=开，与其余页一致）
+          MiniButton(
+            label: '词链',
+            primary: state.chatPromptPreview,
+            onTap: () => state.setChatPromptPreview(!state.chatPromptPreview),
+          ),
           // v1011：会话切换键（替代原Expanded下拉，点开弹层看全标题）
           MiniButton(
             label: '会话 ▾',

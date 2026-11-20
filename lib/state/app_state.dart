@@ -198,6 +198,7 @@ class AppState extends ChangeNotifier {
   bool scanPromptPreview = false; // v1157：弧线页词链开关（分组/零件提取/目的分析共用）
   bool wbPromptPreview = false;
   bool detectPromptPreview = false;
+  bool chatPromptPreview = false; // v1545：聊天词链开关——Gemini误判敏感词时人工检查prompt
   // v1041：概述/规划文言文开关（用户实测文言阅读困难，关=通俗白话）
   bool promptWenyan = true;
   // v1048：设计自审开关——生成草稿后独立AI审核设计是否落实为符合作家风格的（v1218原"编排自审"）
@@ -1279,6 +1280,8 @@ class AppState extends ChangeNotifier {
     }
     detectPromptPreview =
         storage.readFile('${p}detect_prompt_preview.flag') == 'true';
+    chatPromptPreview =
+        storage.readFile('${p}chat_prompt_preview.flag') == 'true';
     final wsp = storage.readFile('${p}writing_scene_prompts.json');
     if (wsp != null && wsp.isNotEmpty) {
       try {
@@ -2354,6 +2357,12 @@ class AppState extends ChangeNotifier {
   void setDetectPromptPreview(bool v) {
     detectPromptPreview = v;
     _setPreviewFlag('detect', v);
+  }
+
+  /// v1545：聊天词链开关
+  void setChatPromptPreview(bool v) {
+    chatPromptPreview = v;
+    _setPreviewFlag('chat', v);
   }
 
   /// 保存单场景创作要求
