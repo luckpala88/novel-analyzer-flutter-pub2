@@ -979,6 +979,8 @@ class _ChatPageState extends State<ChatPage>
                               ]),
                             ),
                             body,
+                            // v1539：楼层间距——消息挤在一起不好读
+                            const SizedBox(height: 10),
                           ],
                         ),
                       );
