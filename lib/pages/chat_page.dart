@@ -5,6 +5,7 @@ import 'dart:math' as dmath;
 import 'dart:ui' as ui;
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart'; // v1542: RenderProxyBox
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:scroll_to_index/scroll_to_index.dart'; // v861：楼层跳转
@@ -1167,6 +1168,9 @@ class _ChatPageState extends State<ChatPage>
     );
   }
 
+  /// v1542：楼层内容实测高度（操作行删除键按"超半屏才显示"用）
+  final Map<int, double> _floorBodyH = {};
+
   /// v1537：单条删除——楼层头与操作行两个入口共用
   Future<void> _deleteFloor(AppState state, int i) async {
     final okDel = await showDialog<bool>(
@@ -1204,9 +1208,25 @@ class _ChatPageState extends State<ChatPage>
             ? CrossAxisAlignment.end
             : CrossAxisAlignment.start,
         children: [
-          _bubbleBody(state, m, isUser),
+          // v1542：实测内容高度——超半屏才显示操作行删除键（满屏删除太违和）
+          MeasureSize(
+            onChange: (sz) {
+              if (!mounted) return;
+              if (_floorBodyH[idx] != sz.height) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  setState(() => _floorBodyH[idx] = sz.height);
+                });
+              }
+            },
+            child: _bubbleBody(state, m, isUser),
+          ),
           // v863：气泡下操作行——复制（全部消息）+重新回答（AI消息）
-          if (!_sending && m.content != '…')
+          // v1542：删除键只给超半屏的长消息（短消息用楼层头小删除键）
+          if (!_sending &&
+              m.content != '…' &&
+              (_floorBodyH[idx] ?? 0) >
+                  MediaQuery.of(context).size.height * 0.5)
             Padding(
               padding: const EdgeInsets.only(top: 2),
               child: Wrap(
@@ -1250,13 +1270,6 @@ class _ChatPageState extends State<ChatPage>
                       Share.share('$title\n$plain');
                     },
                   ),
-                  // v1537：操作行加删除胶囊（与楼层头同款danger）
-                  MiniButton(
-                    dense: true,
-                    danger: true,
-                    label: '删除',
-                    onTap: () => _deleteFloor(state, idx),
-                  ),
                   // v1537：用户消息重答——清掉之后的回答重新生成
                   if (isUser)
                     MiniButton(
@@ -1279,6 +1292,13 @@ class _ChatPageState extends State<ChatPage>
                       onTap: () => _regen(state, idx),
                     ),
                   ],
+                  // v1542：删除键放最右；只给超半屏的长消息（短消息用楼层头小删除键）
+                  MiniButton(
+                    dense: true,
+                    danger: true,
+                    label: '删除',
+                    onTap: () => _deleteFloor(state, idx),
+                  ),
                 ],
               ),
             ),
@@ -4167,5 +4187,34 @@ class _FsProbe extends StatelessWidget {
     WidgetsBinding.instance.addPostFrameCallback((_) {
     });
     return child;
+  }
+}
+
+// v1542：子组件尺寸探测（RenderProxyBox布局时回调，尺寸变化才发）
+class MeasureSize extends SingleChildRenderObjectWidget {
+  final ValueChanged<Size> onChange;
+  const MeasureSize({super.key, required this.onChange, required super.child});
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _MeasureSizeRender(onChange);
+  @override
+  void updateRenderObject(
+      BuildContext context, covariant _MeasureSizeRender renderObject) {
+    renderObject.onChange = onChange;
+  }
+}
+
+class _MeasureSizeRender extends RenderProxyBox {
+  ValueChanged<Size> onChange;
+  Size? _prev;
+  _MeasureSizeRender(this.onChange);
+  @override
+  void performLayout() {
+    super.performLayout();
+    final sz = child?.size;
+    if (sz != null && sz != _prev) {
+      _prev = sz;
+      onChange(sz);
+    }
   }
 }
