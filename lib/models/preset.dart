@@ -20,6 +20,7 @@ class Preset {
   String custom2Model;
   String customSlot; // 'custom'(默认)/'custom2'
   String formatMode; // 'json'/'compatible'
+  bool streamEnabled; // v1575：传输方式独立开关（true=流式默认）
   int rpmLimit; // 0=不限
   Map<String, dynamic> builtinStash; // per-provider key/model stash
   Map<String, dynamic> paramStash; // per-provider参数stash
@@ -41,6 +42,7 @@ class Preset {
     this.custom2Model = '',
     this.customSlot = 'custom',
     this.formatMode = 'compatible',
+    this.streamEnabled = true,
     this.rpmLimit = 0,
     Map<String, dynamic>? builtinStash,
     Map<String, dynamic>? paramStash,
@@ -66,6 +68,7 @@ class Preset {
       custom2Model: json['custom2Model'] ?? '',
       customSlot: json['customSlot'] ?? 'custom',
       formatMode: json['formatMode'] ?? 'compatible',
+      streamEnabled: json['streamEnabled'] ?? true,
       rpmLimit: json['rpmLimit'] ?? 0,
       builtinStash: json['builtinStash'] != null
           ? Map<String, dynamic>.from(json['builtinStash'] as Map)
@@ -94,6 +97,7 @@ class Preset {
     'custom2Model': custom2Model,
     'customSlot': customSlot,
     'formatMode': formatMode,
+    'streamEnabled': streamEnabled,
     'rpmLimit': rpmLimit,
     if (builtinStash.isNotEmpty) 'builtinStash': builtinStash,
     if (paramStash.isNotEmpty) 'paramStash': paramStash,
@@ -119,6 +123,7 @@ class Preset {
       custom2Model: config.custom2Model,
       customSlot: config.customSlot,
       formatMode: config.formatMode,
+      streamEnabled: config.streamEnabled,
       rpmLimit: config.rpmLimit,
       builtinStash: config.builtinStash.isEmpty
           ? {}
@@ -143,6 +148,7 @@ class Preset {
       maxTokens: maxTokens,
       // v983：不再写死compatible——恢复存时的真实值；补全自定义2/槽位/限流/stash
       formatMode: formatMode,
+      streamEnabled: streamEnabled,
       apiType: apiType,
       custom2ApiKey: custom2ApiKey,
       custom2ApiBase: custom2ApiBase,

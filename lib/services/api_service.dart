@@ -279,6 +279,7 @@ class ApiService {
       temperature: effTemp,
       maxTokens: apiConfig.maxTokens,
       formatMode: apiConfig.formatMode,
+      streamEnabled: apiConfig.streamEnabled, // v1575：传输方式独立开关
       onChunk: onChunk,
       images: images,
       task: task, // v1242：透传任务名——全景提取类重任务首字看门狗放宽180秒
@@ -306,6 +307,7 @@ class ApiService {
     double temperature = 0.3,
     int maxTokens = 8192,
     String formatMode = 'compatible',
+    bool streamEnabled = true, // v1575：true=流式（默认防CF 524）false=整包
     void Function(String chunk)? onChunk,
     List<({String mime, String base64})> images = const [], // v838：vision图片
     String task = '', // v1242：重任务（全景提取）首字看门狗放宽到180秒
@@ -427,31 +429,28 @@ class ApiService {
           // json模式（Gemini严格输出）：流式+json_object
           // （Gemini thinking>100s不吐首字节会被CF掐524——流式+重试兜底）
           body['stream'] = true;
-          // v1574：擎天carbon渠道对response_format json_object永久挂死
-          // （同刻A/B实证：不带18.8s首字通/带挂死零字节；聊天+拆解全JSON模式故全挂180秒）
-          // ——擎天不发该参数，JSON格式靠prompt约束兜底
+          // v1574：擎天carbon渠道不发response_format json_object
+          // （23:32复测流式+json_object其实可用，但v1574当日A/B整包+json挂死零字节
+          // ——保守维持不发，JSON格式靠prompt约束兜底，扫描不受影响）
           if (!baseUrl.contains('qingtian')) {
             body['response_format'] = {'type': 'json_object'};
           }
         } else {
-          // 兼容模式：整包stream:false（同HTML版——中转整包路径成熟；
-          // v169曾改全流式反而在gcli假流式中转上空响应/截断频发，v175回退）
-          body['stream'] = false;
+          // v1575：兼容模式传输方式独立开关——默认流式（CF对无首字节>100s的连接
+          // 掐524，公益站7000字聊天整包两连挂/流式9分钟存活实证），可切整包
+          body['stream'] = streamEnabled;
         }
       }
 
-      // v1220：参数日志=实际发送值（组装完body后从body读，防"设置≠发送"漂移——用户裁决）
+      // v1575：传输模式分流——流式=用户开关开或json模式或Claude；
+      // CF系错误自动重试：524=首字节>100s被掐（Gemini thinking阶段常见，
+      // 上游往往仍在跑，重试第二次通常命中快路径）；520/522/525/527同类
+      final useStream = isClaude || formatMode == 'json' || streamEnabled;
       _log(
         '发送参数：模型${body['model']}｜温度${body['temperature']}'
         '｜max_tokens${body['max_tokens']}${body['stream'] == true ? '｜流式' : '｜整包'}',
       );
       _log('发送请求...');
-      // 传输模式分流（v175对齐HTML版）：
-      // - json模式/Claude：流式（Gemini thinking防CF 524；Claude原生流）
-      // - 兼容模式：整包（中转整包路径成熟，假流式中转的SSE路径反而脆）
-      // CF系错误自动重试：524=首字节>100s被掐（Gemini thinking阶段常见，
-      // 上游往往仍在跑，重试第二次通常命中快路径）；520/522/525/527同类
-      final useStream = isClaude || formatMode == 'json';
       // v1299b：首字看门狗统一180秒（用户裁决17:23——分镜拆解90秒被掐
       // 实证1.5分钟白烧，全景提取类此前已放宽；思考期长是常态，90秒判死
       // 弊大于利，全部放宽到180秒）

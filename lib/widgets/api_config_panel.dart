@@ -990,27 +990,25 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
 
             const SizedBox(height: 12),
 
-            // 输出格式（v204：选项文字缩短防超格——技术细节放helperText）
+            // 输出格式（v204缩文字防超格；v1575：传输方式拆独立开关——
+            // 流式/整包与输出格式正交，公益站整包长回复被CF掐524实证）
             DropdownButtonFormField<String>(
               value: _config.formatMode,
               decoration: const InputDecoration(
                 labelText: '输出格式',
                 border: OutlineInputBorder(),
-                helperText: 'JSON严格模式仅Gemini支持'
-                    '（response_format:json_object），其他模型用兼容模式',
+                helperText: 'JSON严格=request_format:json_object，'
+                    '不支持的中转（如擎天整包路径）用兼容模式',
               ),
               items: const [
                 DropdownMenuItem(
                   value: 'compatible',
-                  child: Text(
-                    '兼容模式（流式，通用）',
-                    style: TextStyle(fontSize: 12),
-                  ),
+                  child: Text('兼容模式（通用）', style: TextStyle(fontSize: 12)),
                 ),
                 DropdownMenuItem(
                   value: 'json',
                   child: Text(
-                    'JSON严格模式（仅Gemini）',
+                    'JSON严格模式（json_object）',
                     style: TextStyle(fontSize: 12),
                   ),
                 ),
@@ -1019,6 +1017,39 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
                 _config.formatMode = v ?? 'compatible';
                 _saveNow();
               }),
+            ),
+
+            const SizedBox(height: 8),
+
+            // 传输方式（v1575：流式默认——连接持续有字节，CF不掐100s空闲；
+            // 整包仅短回复场景或特殊中转用）
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                const Text('传输方式:'),
+                ChoiceChip(
+                  label: const Text('流式'),
+                  selected: _config.streamEnabled,
+                  onSelected: (_) {
+                    setState(() => _config.streamEnabled = true);
+                    _saveNow();
+                  },
+                ),
+                ChoiceChip(
+                  label: const Text('整包'),
+                  selected: !_config.streamEnabled,
+                  onSelected: (_) {
+                    setState(() => _config.streamEnabled = false);
+                    _saveNow();
+                  },
+                ),
+                const Text(
+                  '流式=长回复不被掐，推荐',
+                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+              ],
             ),
 
             const SizedBox(height: 16),

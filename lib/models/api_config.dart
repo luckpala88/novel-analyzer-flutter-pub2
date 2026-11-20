@@ -18,6 +18,9 @@ class ApiConfig {
   double temperature;
   int maxTokens;
   String formatMode; // 'json' or 'compatible'
+  // v1575：传输方式独立开关（与formatMode解耦）——true=流式（默认，防CF 100s
+  // 掐长回复连接524），false=整包；json严格模式强制流式不受此开关影响
+  bool streamEnabled;
   String apiType; // 'openai' or 'claude'
   int rpmLimit; // 每分钟最大请求数（0=不限流；中转站RPM限制用）
   // v679：per-provider参数stash——{providerId: {temperature,maxTokens,formatMode,apiType,rpmLimit}}
@@ -32,6 +35,7 @@ class ApiConfig {
       'temperature': temperature,
       'maxTokens': maxTokens,
       'formatMode': formatMode,
+      'streamEnabled': streamEnabled,
       'apiType': apiType,
       'rpmLimit': rpmLimit,
     };
@@ -44,6 +48,7 @@ class ApiConfig {
     if (p['temperature'] != null) temperature = (p['temperature'] as num).toDouble();
     if (p['maxTokens'] != null) maxTokens = p['maxTokens'] as int;
     if (p['formatMode'] != null) formatMode = p['formatMode'] as String;
+    if (p['streamEnabled'] != null) streamEnabled = p['streamEnabled'] as bool;
     if (p['apiType'] != null) apiType = p['apiType'] as String;
     if (p['rpmLimit'] != null) rpmLimit = p['rpmLimit'] as int;
   }
@@ -64,6 +69,7 @@ class ApiConfig {
     this.temperature = 0.3,
     this.maxTokens = 8192,
     this.formatMode = 'compatible',
+    this.streamEnabled = true,
     this.apiType = 'openai',
     this.rpmLimit = 5,
     Map<String, dynamic>? paramStash,
@@ -89,6 +95,7 @@ class ApiConfig {
       temperature: (json['temperature'] ?? 0.3).toDouble(),
       maxTokens: json['maxTokens'] ?? 8192,
       formatMode: json['formatMode'] ?? 'compatible',
+      streamEnabled: json['streamEnabled'] ?? true,
       apiType: json['apiType'] ?? 'openai',
       rpmLimit: json['rpmLimit'] ?? 5,
       paramStash: json['paramStash'] is Map
@@ -112,6 +119,7 @@ class ApiConfig {
     'temperature': temperature,
     'maxTokens': maxTokens,
     'formatMode': formatMode,
+    'streamEnabled': streamEnabled,
     'rpmLimit': rpmLimit,
     'apiType': apiType,
     'builtinStash': builtinStash,
