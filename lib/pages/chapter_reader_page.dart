@@ -527,6 +527,7 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
               chapter: widget.chapters[_currentIndex],
               fontSize: _fontSize,
               lineHeight: _lineHeight,
+              textColor: V469Style.textMain, // v1558
               onPrev: _currentIndex > 0
                   ? () => _goToChapter(_currentIndex - 1, toLastPage: true)
                   : null,
@@ -1080,6 +1081,7 @@ class _PagedChapterView extends StatefulWidget {
   final Chapter chapter;
   final double fontSize;
   final double lineHeight;
+  final Color textColor; // v1558
   final VoidCallback? onPrev;
   final VoidCallback? onNext;
   final void Function(List<String> pages, int currentPage)? onPagesComputed;
@@ -1093,6 +1095,7 @@ class _PagedChapterView extends StatefulWidget {
     required this.chapter,
     required this.fontSize,
     required this.lineHeight,
+    required this.textColor, // v1558：夜间切换触发重排版
     this.onPrev,
     this.onNext,
     this.onPagesComputed,
@@ -1190,7 +1193,7 @@ class _PagedChapterViewState extends State<_PagedChapterView> {
     final style = TextStyle(
       fontSize: widget.fontSize,
       height: widget.lineHeight,
-      color: V469Style.textMain,
+      color: widget.textColor, // v1558：参数化——夜间切换即重排
       fontFamily: V469Style.uiFont, // v200统一入口
     );
     _tp?.dispose();
@@ -1334,7 +1337,8 @@ class _PagedChapterViewState extends State<_PagedChapterView> {
     super.didUpdateWidget(oldWidget);
     // v195：字号/行距变化→保持位置重分页（不再跳回开头）
     if (oldWidget.fontSize != widget.fontSize ||
-        oldWidget.lineHeight != widget.lineHeight) {
+        oldWidget.lineHeight != widget.lineHeight ||
+        oldWidget.textColor != widget.textColor) {
       final keep = _pageStarts.isNotEmpty &&
               _currentPage < _pageStarts.length
           ? _pageStarts[_currentPage]
@@ -1349,7 +1353,7 @@ class _PagedChapterViewState extends State<_PagedChapterView> {
       final style = TextStyle(
         fontSize: widget.fontSize,
         height: widget.lineHeight,
-        color: V469Style.textMain, // v196：CustomPaint不继承主题，显式黑色
+        color: widget.textColor, // v1558：参数化
         fontFamily: V469Style.uiFont, // v200统一入口
       );
       _tp?.dispose();
