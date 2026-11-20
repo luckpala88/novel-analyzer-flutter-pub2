@@ -294,8 +294,17 @@ class _ScenePageState extends State<ScenePage>
           children: [
             // v210：单行工具栏（批量+四芯片+⚙API）——原两行占高且芯片被挤出屏
             Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: ApiModelButton(config: state.sceneApi, section: 'scene', title: 'API设置 · 场景页'),
+              ),
+            ),
+            Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-              child: Row(
+              child: Wrap(
+                spacing: 4,
+                runSpacing: 4,
                 children: [
                   // v1523b：步进框移到批量键左侧（对齐弧线页），样式对齐MiniButton胶囊
                   SizedBox(
@@ -424,20 +433,6 @@ class _ScenePageState extends State<ScenePage>
                       ContentFont.save('scene', v);
                     },
                   ),
-const Spacer(), // ⚙API推到最右
-                  MiniButton(
-                    label: '⚙ API',
-                    onTap: () => showV119Sheet(
-                      context,
-                      title: 'API设置 · 场景页',
-                      child: ApiConfigPanel(
-                        config: state.sceneApi,
-                        section: 'scene',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  ApiMiniLabel(config: state.sceneApi),
                 ],
               ),
             ),

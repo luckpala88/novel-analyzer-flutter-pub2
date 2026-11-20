@@ -753,6 +753,13 @@ class _ChatPageState extends State<ChatPage>
               runSpacing: 2,
               spacing: 4, // v1013：按键间距（此前紧贴）
               children: [
+              SizedBox(
+                width: double.infinity, // v1544：独占一行——API模型胶囊顶行最左
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: ApiModelButton(config: state.getApiConfig('chat'), section: 'chat', title: 'API设置 · AI聊天'),
+                ),
+              ),
           // v1011：会话切换键（替代原Expanded下拉，点开弹层看全标题）
           MiniButton(
             label: '会话 ▾',
@@ -786,19 +793,6 @@ class _ChatPageState extends State<ChatPage>
                 }
                 setState(() {});
               }),
-          MiniButton(
-            label: '⚙ API',
-            onTap: () => showV119Sheet(
-              context,
-              title: 'API设置 · AI聊天',
-              child: ApiConfigPanel(
-                config: state.getApiConfig('chat'),
-                section: 'chat',
-              ),
-            ),
-          ),
-          const SizedBox(width: 4),
-          ApiMiniLabel(config: state.getApiConfig('chat')),
           // v1358：插图三键原子组（同转行不拆散，粘一起用户裁决）
           SizedBox(
             child: Row(mainAxisSize: MainAxisSize.min, spacing: 4, children: [

@@ -8,6 +8,103 @@ import '../models/preset.dart';
 import '../state/app_state.dart';
 import 'v119_ui.dart';
 
+/// v1544：API模型胶囊——页顶独立一行最左；键面=当前模型名（去"⚙ API"字样）；
+/// 擎天供应商顺带显示余额数字（绿色，直读API设置面板同一份余额历史，同key掩码校验）
+class ApiModelButton extends StatelessWidget {
+  final ApiConfig config;
+  final String section;
+  final String title;
+  const ApiModelButton({
+    super.key,
+    required this.config,
+    required this.section,
+    required this.title,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final model = config.useCustom
+        ? (config.customSlot == 'custom2'
+              ? config.custom2Model
+              : config.customModel)
+        : config.model;
+    String bal = '';
+    if (config.provider == 'qingtian') {
+      try {
+        final raw = context
+            .read<AppState>()
+            .storage
+            .readGlobalJson('qingtian_balance_history');
+        final list = (raw is List)
+            ? raw
+                  .whereType<Map>()
+                  .map((e) => Map<String, dynamic>.from(e))
+                  .toList()
+            : <Map<String, dynamic>>[];
+        if (list.isNotEmpty &&
+            list.last['key'] ==
+                _ApiConfigPanelStateAccess.maskKey(config.effectiveApiKey)) {
+          final v = (list.last['v'] as num?)?.toDouble();
+          if (v != null && v >= 0) bal = v.toStringAsFixed(1);
+        }
+      } catch (_) {}
+    }
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: () => showV119Sheet(
+          context,
+          title: title,
+          child: ApiConfigPanel(config: config, section: section),
+        ),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: model.isEmpty ? '⚙' : model,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+                if (bal.isNotEmpty)
+                  TextSpan(
+                    text: '  $bal',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.green.shade800,
+                    ),
+                  ),
+              ],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// v1544：maskKey对外开放壳（ApiModelButton同文件复用）
+class _ApiConfigPanelStateAccess {
+  static String maskKey(String k) {
+    if (k.length <= 8) return '•' * k.length;
+    return '${k.substring(0, 4)}••••${k.substring(k.length - 4)}';
+  }
+}
+
 class ApiConfigPanel extends StatefulWidget {
   final ApiConfig config;
   final String section;

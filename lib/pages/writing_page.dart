@@ -953,6 +953,13 @@ class _WritingPageState extends State<WritingPage>
           children: [
             // v357：顶栏两行——第一行操作键，第二行四个开关（颜色表开关态）
             Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: ApiModelButton(config: state.writingApi, section: 'writing', title: 'API设置 · 创作'),
+              ),
+            ),
+            Padding(
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1007,19 +1014,6 @@ class _WritingPageState extends State<WritingPage>
                       }
                   },
                 ),
-                  MiniButton(
-                    label: '⚙ API',
-                    onTap: () => showV119Sheet(
-                      context,
-                      title: 'API设置 · 创作',
-                      child: ApiConfigPanel(
-                        config: state.writingApi,
-                        section: 'writing',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  ApiMiniLabel(config: state.writingApi),
                   ],
                   ),
                 ),

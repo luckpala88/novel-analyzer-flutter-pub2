@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../models/api_config.dart';
 
 /// v119新UI公共组件库
 /// 设计原则：内容为王，控件让路。
@@ -162,33 +161,6 @@ void showV119Sheet(
 }
 
 /// 长文本面板（限定高度框内滚动，类似电子书高度）
-/// v1541：API设置键右侧的当前供应商·模型微型标签（极小字fs8）
-class ApiMiniLabel extends StatelessWidget {
-  final ApiConfig config;
-  const ApiMiniLabel({super.key, required this.config});
-
-  @override
-  Widget build(BuildContext context) {
-    final name = config.useCustom
-        ? (config.customSlot == 'custom2' ? '自定义2' : '自定义')
-        : (ApiConfig.providerLabels[config.provider] ?? '智谱');
-    final model = config.useCustom
-        ? (config.customSlot == 'custom2'
-            ? config.custom2Model
-            : config.customModel)
-        : config.model;
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 140),
-      child: Text(
-        '$name·$model',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 8, color: Color(0xFF9B8F7A)),
-      ),
-    );
-  }
-}
-
 class TextPanel extends StatelessWidget {
   final String text;
   final double maxHeight;

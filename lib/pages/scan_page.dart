@@ -354,10 +354,17 @@ class _ScanPageState extends State<ScanPage>
             // 顶行：高频操作（v192横向单行：放不下时横滑不折行，省纵向空间）
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: ApiModelButton(config: state.getApiConfig('arc'), section: 'arc', title: 'API设置 · 弧线扫描'),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
+              child: Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children: [
                   // v437：弧线页职责=分组+展示。场景扫描按键在场景页
                   // v445：生成弧线进批量菜单（第一行省空间）；步进改"场景/步"尾注
                   SizedBox(
@@ -473,21 +480,7 @@ class _ScanPageState extends State<ScanPage>
                     },
                   ),
                   const SizedBox(width: 4),
-                  MiniButton(
-                    label: '⚙ API',
-                    onTap: () => showV119Sheet(
-                      context,
-                      title: 'API设置 · 弧线扫描',
-                      child: ApiConfigPanel(
-                        config: state.getApiConfig('arc'),
-                        section: 'arc',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  ApiMiniLabel(config: state.getApiConfig('arc')),
                   ],
-                ),
               ),
             ),
             // 第二行：状态（v441旧按章步进撤——场景/分组步进各自在对应页）

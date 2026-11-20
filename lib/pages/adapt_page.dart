@@ -1667,6 +1667,13 @@ return true;
                 runSpacing: 6,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
+                SizedBox(
+                  width: double.infinity, // v1544：独占一行——API模型胶囊顶行最左
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: ApiModelButton(config: state.wbApi, section: 'wb', title: 'API设置 · 续写'),
+                  ),
+                ),
                   CapsuleSegment<String>(
                     options: const [
                       SegOption('adapt', '改编'),
@@ -1696,16 +1703,6 @@ return true;
                       ContentFont.save('continue', v);
                     },
                   ),
-                  MiniButton(
-                    label: '⚙ API',
-                    onTap: () => showV119Sheet(
-                      context,
-                      title: 'API设置 · 续写',
-                      child: ApiConfigPanel(config: state.wbApi, section: 'wb'),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  ApiMiniLabel(config: state.wbApi),
                   MiniButton(
                     label: '词链',
                     primary: state.wbPromptPreview,
@@ -5140,6 +5137,13 @@ return true;
                 runSpacing: 5,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
+                SizedBox(
+                  width: double.infinity, // v1544：独占一行——API模型胶囊顶行最左
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: ApiModelButton(config: state.wbApi, section: 'wb', title: 'API设置 · 改编'),
+                  ),
+                ),
                   // v765：改编/续写模式切换（二选一互斥，书级持久化）
                   CapsuleSegment<String>(
                   options: const [
@@ -5210,16 +5214,6 @@ return true;
                       ContentFont.save('adapt', v);
                     },
                   ),
-                  MiniButton(
-                    label: '⚙ API',
-                    onTap: () => showV119Sheet(
-                      context,
-                      title: 'API设置 · 改编',
-                      child: ApiConfigPanel(config: state.wbApi, section: 'wb'),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  ApiMiniLabel(config: state.wbApi),
                   // v379：词链+模式排上移顶栏（原独立Padding区删除）
                   MiniButton(
                     label: '词链',

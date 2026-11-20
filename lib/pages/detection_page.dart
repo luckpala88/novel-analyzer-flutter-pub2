@@ -1148,8 +1148,17 @@ class _DetectionPageState extends State<DetectionPage>
             children: [
               // 顶行：高频操作（v210单行紧凑：找问题/二创/预览/刷新/选文件/⚙）
               Padding(
+                padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: ApiModelButton(config: state.detectApi, section: 'detect', title: 'API设置 · 二创'),
+                ),
+              ),
+              Padding(
                 padding: const EdgeInsets.fromLTRB(8, 2, 8, 1),
-                child: Row(
+                child: Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
                   children: [
                     // 预览开关（轻量文字按钮，省 FilterChip 的宽 padding）
                     // v377：统一词链开关（MiniButton背景色=开，与创作页一致）
@@ -1161,23 +1170,9 @@ class _DetectionPageState extends State<DetectionPage>
                       ),
                     ),
                     writerStyleButton(context, state), // v952：作家风格选择
-                    const Spacer(),
                     // v638：刷新按钮移除（initState+_stateListener签名防抖已自动刷新）
                     MiniButton(label: '选文件', onTap: () => _pickFile(state)),
                     const SizedBox(width: 4),
-                    MiniButton(
-                      label: '⚙ API',
-                      onTap: () => showV119Sheet(
-                        context,
-                        title: 'API设置 · 二创',
-                        child: ApiConfigPanel(
-                          config: state.detectApi,
-                          section: 'detect',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    ApiMiniLabel(config: state.detectApi),
                   ],
                 ),
               ),

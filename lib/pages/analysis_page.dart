@@ -338,6 +338,13 @@ class _AnalysisPageState extends State<AnalysisPage>
             // 顶行：拆解+芯片+导出+⚙（v235两行Wrap紧凑排列不超宽）
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: ApiModelButton(config: state.analysisApi, section: 'analysis', title: 'API设置 · 分镜拆解'),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -431,19 +438,6 @@ class _AnalysisPageState extends State<AnalysisPage>
                   ],
                     ),
                   ),
-                  MiniButton(
-                    label: '⚙ API',
-                    onTap: () => showV119Sheet(
-                      context,
-                      title: 'API设置 · 分镜拆解',
-                      child: ApiConfigPanel(
-                        config: state.analysisApi,
-                        section: 'analysis',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  ApiMiniLabel(config: state.analysisApi),
                 ],
               ),
             ),
