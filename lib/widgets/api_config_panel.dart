@@ -997,8 +997,7 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
               decoration: const InputDecoration(
                 labelText: '输出格式',
                 border: OutlineInputBorder(),
-                helperText: 'JSON严格=request_format:json_object，'
-                    '不支持的中转（如擎天整包路径）用兼容模式',
+                helperText: 'JSON严格=response_format:json_object（防JSON乱字符）',
               ),
               items: const [
                 DropdownMenuItem(
@@ -1015,6 +1014,14 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
               ],
               onChanged: (v) => setState(() {
                 _config.formatMode = v ?? 'compatible';
+                // v1579：擎天选JSON严格自动帮勾流式——聪明默认值非代办
+                // （钩子仍可手动去掉；整包+json在擎天实测挂死503）
+                if (_config.formatMode == 'json' &&
+                    (_config.providerId.contains('qingtian') ||
+                        _config.effectiveApiBase.contains('qingtian')) &&
+                    !_config.streamEnabled) {
+                  _config.streamEnabled = true;
+                }
                 _saveNow();
               }),
             ),
