@@ -1180,7 +1180,7 @@ class _ChatPageState extends State<ChatPage>
                   const SizedBox(width: 6),
                   MiniButton(
                     label: '发送',
-                    primary: true,
+                    primary: false, // v1560统一描边：颜色只留给开关态胶囊
                     onTap: _sending ? null : () => _send(state),
                   ),
                 ],

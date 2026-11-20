@@ -160,7 +160,7 @@ class _HomePageState extends State<HomePage>
                       if (v == 'file') _uploadFile(state);
                       if (v == 'paste') _pasteText(state);
                     },
-                    child: const MiniButton(label: '加载 ▾', primary: true, enabled: true), // v993：PopupMenu包裹onTap=null，强制可用外观
+                    child: const MiniButton(label: '加载 ▾', primary: false, enabled: true), // v1560统一描边 // v993：PopupMenu包裹onTap=null，强制可用外观
                     itemBuilder: (ctx) => [
                       const PopupMenuItem(
                         value: 'file',
@@ -1286,8 +1286,8 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 1560;
-  static const String _appVersionStr = '1560'; // v1378：显示版（与APK文件名一致，b后缀进显示）
+  static const int _appVersion = 1561;
+  static const String _appVersionStr = '1561'; // v1378：显示版（与APK文件名一致，b后缀进显示）
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';

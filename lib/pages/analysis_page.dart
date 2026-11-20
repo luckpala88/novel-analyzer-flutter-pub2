@@ -385,7 +385,7 @@ class _AnalysisPageState extends State<AnalysisPage>
                         ),
                       ),
                     ],
-                    child: const MiniButton(label: '批量 ▾', primary: true, enabled: true), // v1000：PopupMenu包裹onTap=null渲染灰字=误禁用，强制可用外观（v993同款）
+                    child: const MiniButton(label: '批量 ▾', primary: false, enabled: true), // v1560统一描边 // v1000：PopupMenu包裹onTap=null渲染灰字=误禁用，强制可用外观（v993同款）
                   ),
                   // v377：统一词链开关（MiniButton背景色=开，与创作页一致）
                   MiniButton(
@@ -399,7 +399,7 @@ class _AnalysisPageState extends State<AnalysisPage>
                   if (state.arcAnalyses.isNotEmpty) ...[
                     MiniButton(
                       label: '直写世界书',
-                      primary: true,
+                      primary: false, // v1560统一描边：颜色只留给开关态胶囊
                       onTap: () => _writeOriginalToWB(state),
                     ),
                     // v1154：世界状态账本查看（实体状态单一事实源，滚动对账产物）

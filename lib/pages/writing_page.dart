@@ -971,7 +971,7 @@ class _WritingPageState extends State<WritingPage>
                   children: [
                   MiniButton(
                     label: '批量',
-                    primary: true,
+                    primary: false, // v1560统一描边：颜色只留给开关态胶囊
                     onTap: _isGenerating || arcs.isEmpty
                         ? null
                         : () => _showBatchDialog(state),

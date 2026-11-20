@@ -1758,7 +1758,7 @@ return true;
                               child: Center(
                                 child: MiniButton(
                                   label: '生成新弧线条目草稿',
-                                  primary: true,
+                                  primary: false, // v1560统一描边：颜色只留给开关态胶囊
                                   // v824：0弧线也可添加——开新书从弧线1起步
                                   onTap: _isGenerating
                                       ? null
@@ -1848,7 +1848,7 @@ return true;
                                     Center(
                                       child: MiniButton(
                                         label: '📝 弧线条目写入世界书',
-                                        primary: true,
+                                        primary: false, // v1560统一描边：颜色只留给开关态胶囊
                                         onTap: _isGenerating
                                             ? null
                                             : () => _writeArcEntryDraft(
@@ -1918,7 +1918,7 @@ return true;
                                   child: Center(
                                     child: MiniButton(
                                       label: '生成新场景条目草稿',
-                                      primary: true,
+                                      primary: false, // v1560统一描边：颜色只留给开关态胶囊
                                       onTap: _isGenerating
                                           ? null
                                           : () => _genSceneEntryDraft(
@@ -2409,7 +2409,7 @@ return true;
           Center(
             child: MiniButton(
               label: '🤖AI帮想新弧线',
-              primary: true,
+              primary: false, // v1560统一描边：颜色只留给开关态胶囊
               onTap: _isGenerating ? null : () => _continueOptimizeReq(state),
             ),
           ),
@@ -3045,7 +3045,7 @@ return true;
           Center(
             child: MiniButton(
               label: '🤖AI帮想新场景',
-              primary: true,
+              primary: false, // v1560统一描边：颜色只留给开关态胶囊
               onTap: _isGenerating
                   ? null
                   : () => _optimizeNewScenePlan(state, arc),
@@ -3138,7 +3138,7 @@ return true;
           Center(
             child: MiniButton(
               label: '📝 场景条目写入世界书',
-              primary: true,
+              primary: false, // v1560统一描边：颜色只留给开关态胶囊
               onTap: _isGenerating
                   ? null
                   : () => _writeSceneEntryDraft(state, arcKey),
@@ -3301,7 +3301,7 @@ return true;
           Center(
             child: MiniButton(
               label: '📝分镜写入条目',
-              primary: true,
+              primary: false, // v1560统一描边：颜色只留给开关态胶囊
               onTap: _isGenerating
                   ? null
                   : () => _writeShotPlanToEntry(state, arc,
@@ -5188,7 +5188,7 @@ return true;
                     label: _isGenerating
                         ? '生成中…'
                         : ['批量·概述', '批量·场景', '批量·分镜'][_adaptLayer],
-                    primary: true,
+                    primary: false, // v1560统一描边：颜色只留给开关态胶囊
                     onTap: _isGenerating || allArcs.isEmpty
                         ? null
                         : () => _showGenDialog(state, allArcs, generatedCount),
