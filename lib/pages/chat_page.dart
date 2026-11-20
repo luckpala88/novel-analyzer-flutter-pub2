@@ -1149,6 +1149,13 @@ class _ChatPageState extends State<ChatPage>
     );
   }
 
+  /// v1534：楼层时间戳格式化——同分钟合并无必要，固定MM-dd HH:mm紧凑显示
+  static String _fmtMsgTs(int ts) {
+    final d = DateTime.fromMillisecondsSinceEpoch(ts);
+    String p2(int v) => v.toString().padLeft(2, '0');
+    return '${d.month.toString().padLeft(2, '0')}-${p2(d.day)} ${p2(d.hour)}:${p2(d.minute)}';
+  }
+
   Widget _bubble(AppState state, ChatMessage m, bool isUser, int idx) {
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
@@ -1157,6 +1164,18 @@ class _ChatPageState extends State<ChatPage>
             ? CrossAxisAlignment.end
             : CrossAxisAlignment.start,
         children: [
+          // v1534：楼层时间戳（毫秒ts为0的旧消息不显示）
+          if (m.ts > 0)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 1),
+              child: Text(
+                _fmtMsgTs(m.ts),
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey,
+                ),
+              ),
+            ),
           _bubbleBody(state, m, isUser),
           // v863：气泡下操作行——复制（全部消息）+重新回答（AI消息）
           if (!_sending && m.content != '…')
