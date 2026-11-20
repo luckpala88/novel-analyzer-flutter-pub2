@@ -427,7 +427,12 @@ class ApiService {
           // json模式（Gemini严格输出）：流式+json_object
           // （Gemini thinking>100s不吐首字节会被CF掐524——流式+重试兜底）
           body['stream'] = true;
-          body['response_format'] = {'type': 'json_object'};
+          // v1574：擎天carbon渠道对response_format json_object永久挂死
+          // （同刻A/B实证：不带18.8s首字通/带挂死零字节；聊天+拆解全JSON模式故全挂180秒）
+          // ——擎天不发该参数，JSON格式靠prompt约束兜底
+          if (!baseUrl.contains('qingtian')) {
+            body['response_format'] = {'type': 'json_object'};
+          }
         } else {
           // 兼容模式：整包stream:false（同HTML版——中转整包路径成熟；
           // v169曾改全流式反而在gcli假流式中转上空响应/截断频发，v175回退）
