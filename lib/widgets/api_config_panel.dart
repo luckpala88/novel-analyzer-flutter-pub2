@@ -154,13 +154,16 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
         if (mounted) _fetchModels(auto: true);
       });
     }
-    // v1529：擎天供应商进面板自动查一次余额（用户裁决：点进去就看）
-    if (_config.provider == 'qingtian' && _config.effectiveApiKey.isNotEmpty) {
-      // v1530：先载入历史余额显示（不等查询返回）
+    // v1581：进面板不再自动查余额（自动查询改为请求收尾后触发）——
+    // 只载入历史显示上次查得的余额，手动"查余额"键随时刷新
+    if (_config.provider == 'qingtian') {
       _loadBalanceHistory();
-      Future.microtask(() {
-        if (mounted) _fetchBalance();
-      });
+      // 显示上次记录值（没有记录=还没查过）
+      if (_balanceHistory.isNotEmpty) {
+        final last = _balanceHistory.last;
+        _balanceText =
+            '剩余额度：${(last['v'] as num).toStringAsFixed(1)}（${last['t']}查得）';
+      }
     }
   }
 
@@ -318,11 +321,16 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
       _balanceText = ''; // v1529：切供应商清旧余额显示
     });
     _saveNow();
-    // v1529：切到擎天且有key→自动查余额
+    // v1581：切到擎天不再自动查余额（请求收尾后自动查）——载入历史显示上次记录
     if (k == 'qingtian' && _config.effectiveApiKey.isNotEmpty) {
-      Future.microtask(() {
-        if (mounted) _fetchBalance();
-      });
+      _loadBalanceHistory();
+      if (_balanceHistory.isNotEmpty) {
+        final last = _balanceHistory.last;
+        setState(() {
+          _balanceText =
+              '剩余额度：${(last['v'] as num).toStringAsFixed(1)}（${last['t']}查得）';
+        });
+      }
     }
     // 4. 恢复出key→自动拉取模型列表
     if (_config.apiKey.isNotEmpty) {
@@ -377,12 +385,7 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
     if (_config.effectiveApiKey.isEmpty) return;
     _autoFetchDebounce = Timer(const Duration(milliseconds: 800), () {
       if (mounted && !_fetchingModels) _fetchModels(auto: true);
-      // v1529：擎天key填完→余额也跟着自动刷新（换key即见新key余额）
-      if (mounted &&
-          _config.provider == 'qingtian' &&
-          !_fetchingBalance) {
-        _fetchBalance();
-      }
+      // v1581：余额自动查询已改为请求收尾后触发（key填完不再自动查）
     });
   }
 
@@ -665,15 +668,23 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
                   _balanceHistory.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    '近${_balanceHistory.length}次：'
-                    '${_balanceHistory.reversed.map((e) => "${(e['v'] as num).toStringAsFixed(1)}(${e['t']})").join(' · ')}',
-                    // v1533：字号×2+棕金色醒目
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF9A6B1F),
-                    ),
+                  // v1581：历史记录分行显示（最新在上）——每条一行"余额（时间）"
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final e in _balanceHistory.reversed)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 2),
+                          child: Text(
+                            '${(e['v'] as num).toStringAsFixed(1)}（${e['t']}）',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF9A6B1F),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               const SizedBox(height: 4),

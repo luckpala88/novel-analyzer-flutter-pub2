@@ -562,7 +562,42 @@ class AppState extends ChangeNotifier {
     });
   }
 
+  /// v1581：擎天请求收尾自动查得的余额——有变动才落新记录（与v1536面板去重同规则），
+  /// 同key掩码隔离，最多存5条；落盘后notifyListeners——页顶API胶囊余额即时刷新
+  void _recordQingtianBalanceAuto(String apiKey, double remaining) {
+    try {
+      final masked = apiKey.length <= 8
+          ? '•' * apiKey.length
+          : '${apiKey.substring(0, 4)}••••${apiKey.substring(apiKey.length - 4)}';
+      final now = DateTime.now();
+      final t =
+          '${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} '
+          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+      dynamic raw = storage.readGlobalJson('qingtian_balance_history');
+      var list = (raw is List)
+          ? raw
+                .whereType<Map>()
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList()
+          : <Map<String, dynamic>>[];
+      // 换key：旧历史差额对比无意义→重置
+      if (list.isNotEmpty && list.last['key'] != masked) list = [];
+      final prev = list.isNotEmpty
+          ? (list.last['v'] as num).toDouble()
+          : null;
+      if (prev == remaining) return; // 无变动：不落盘不刷新
+      list.add({'v': remaining, 't': t, 'key': masked});
+      while (list.length > 5) {
+        list.removeAt(0);
+      }
+      storage.writeGlobalJson('qingtian_balance_history', list);
+      notifyListeners(); // 页顶API胶囊（ApiModelButton）build时直读历史→立即显示新余额
+    } catch (_) {}
+  }
+
   void _setupApiCallbacks() {
+    // v1581：擎天请求收尾自动查余额——变动才落盘（与面板手动查询同一份历史）
+    api.onQingtianBalance = _recordQingtianBalanceAuto;
     api.onLog = (msg) {
       final ts = DateTime.now();
       final tsStr =

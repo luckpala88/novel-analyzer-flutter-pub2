@@ -96,6 +96,8 @@ class ApiService {
   // 批量循环任务（扫描/拆解/生成）停止。此前abort只断当前请求，
   // v213的call()入口自清_aborted让下一请求照发=循环停不下来
   void Function()? onUserAbort;
+  // v1581：擎天请求收尾自动查余额回调（AppState注入：变动才落盘+notifyListeners刷新胶囊）
+  void Function(String apiKey, double remaining)? onQingtianBalance;
   bool _busy = false; // 全局忙锁：同时只允许一个生成任务（禁止并行，数据安全）
   // v1242用户裁决：call内换模型重试废除+对应开关删除——看门狗断开保留，
   // 失败交上层任务级重试接力（等60秒躲冷却重发）
@@ -337,6 +339,8 @@ class ApiService {
         ? baseUrl.substring(0, 40)
         : baseUrl;
     _log('API -> $model [$apiType] @ $baseUrlShort');
+    // v1581：擎天请求前查一次余额（与请求并发不阻塞）——收尾再查算扣除金额
+    _preBalanceQuery(baseUrl, apiKey);
     _startTimer();
     _startGen('正在生成中...');
 
@@ -533,7 +537,52 @@ class ApiService {
       _stopGen();
       _stopTimer(); // v783：异常路径计时器也归零（此前catch路径漏调→切书被拒"计时器未归零"）
       _activeClient = null;
+      // v1581：擎天请求收尾（完成/失败/中断都算——请求已发生，额度可能已消耗）自动查余额
+      _autoBalanceAfterCall(baseUrl, apiKey);
     }
+  }
+
+  /// v1581：擎天请求收尾后自动查余额——fire-and-forget不阻塞返回；
+  /// 与请求前余额配对：终端显示 请求前→请求后→本次扣除；
+  /// 变动才落盘的逻辑在AppState回调里（与面板手动查询同一份历史存储）
+  double? _qtPreBalance; // 请求前余额缓存（收尾查得后算差值）
+
+  /// v1581：擎天请求前查一次余额（与请求并发，不阻塞）
+  void _preBalanceQuery(String baseUrl, String apiKey) {
+    _qtPreBalance = null;
+    if (!baseUrl.contains('qingtian') || apiKey.isEmpty) return;
+    Future(() async {
+      try {
+        final (_, v) = await fetchQingtianBalance(apiKey: apiKey);
+        if (v >= 0) _qtPreBalance = v;
+      } catch (_) {
+        // 请求前查询失败：收尾显示无差值版本
+      }
+    });
+  }
+
+  void _autoBalanceAfterCall(String baseUrl, String apiKey) {
+    if (!baseUrl.contains('qingtian') || apiKey.isEmpty) return;
+    Future(() async {
+      try {
+        final (msg, remaining) = await fetchQingtianBalance(apiKey: apiKey);
+        if (remaining >= 0) {
+          final pre = _qtPreBalance;
+          if (pre != null) {
+            final cost = pre - remaining;
+            _log('💰 余额：${pre.toStringAsFixed(1)} → '
+                '${remaining.toStringAsFixed(1)}（本次扣除${cost.toStringAsFixed(1)}）');
+          } else {
+            _log('💰 $msg（请求后自动查）');
+          }
+          onQingtianBalance?.call(apiKey, remaining);
+        } else {
+          _log('💰 余额查询：$msg');
+        }
+      } catch (_) {
+        // 自动查询失败不打扰终端（下次请求后还会再查）
+      }
+    });
   }
 
   /// 流式请求
