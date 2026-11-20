@@ -1401,7 +1401,7 @@ class _AnalysisPageState extends State<AnalysisPage>
                 ),
                 child: Text(
                   '分镜$idx',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     color: V469Style.shotBadgeFg,

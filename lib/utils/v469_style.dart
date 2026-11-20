@@ -19,13 +19,17 @@ class V469Style {
   // ── 色板（v469 :root变量）──
   static const accent = Color(0xFF8B6914); // 金棕
   static const accentLight = Color(0xFFD4A84A);
-  static const accentBg = Color(0xFFFDF6E8);
+  static Color get accentBg =>
+      _night ? const Color(0xFF3A3226) : const Color(0xFFFDF6E8); // v1554
   static const complete = Color(0xFF2D6A4F); // 绿
   static const completeBg = Color(0xFFE8F5EE);
   static const incomplete = Color(0xFFC44536); // 红
   static const incompleteBg = Color(0xFFFBEAE8);
-  static const surface = Color(0xFFFFFFFF);
-  static const surfaceAlt = Color(0xFFF5F0E8); // 暖灰
+  // v1554：夜间跟随（浅色=原值不变）
+  static Color get surface =>
+      _night ? const Color(0xFF26221C) : const Color(0xFFFFFFFF);
+  static Color get surfaceAlt =>
+      _night ? const Color(0xFF2E2822) : const Color(0xFFF5F0E8);
   // v1550b：夜间模式跟随——浅色=纯黑（v1219/v1222用户裁决不变），夜间=暖棕
   static bool _night = false;
   static void setNight(bool v) => _night = v;
@@ -35,13 +39,19 @@ class V469Style {
       _night ? const Color(0xFFB9A68C) : const Color(0xFF000000);
   static Color get textMuted =>
       _night ? const Color(0xFF8A7A64) : const Color(0xFF9A8B80);
-  static const border = Color(0xFFE8E0D5);
+  static Color get border =>
+      _night ? const Color(0xFF3A342B) : const Color(0xFFE8E0D5); // v1554
 
   // ── 分镜卡专用（v469 slate系）──
-  static const shotBg = Color(0xFFF8FAFC);
-  static const shotBorder = Color(0xFFE2E8F0);
-  static const shotBadgeBg = Color(0xFFE2E8F0);
-  static const shotBadgeFg = Color(0xFF0F172A);
+  // v1554：分镜卡夜间跟随
+  static Color get shotBg =>
+      _night ? const Color(0xFF26221C) : const Color(0xFFF8FAFC);
+  static Color get shotBorder =>
+      _night ? const Color(0xFF3A342B) : const Color(0xFFE2E8F0);
+  static Color get shotBadgeBg =>
+      _night ? const Color(0xFF3A342B) : const Color(0xFFE2E8F0);
+  static Color get shotBadgeFg =>
+      _night ? const Color(0xFFB9A68C) : const Color(0xFF0F172A);
 
   /// 镜头类型色（v469 shTypeColors，8类+默认）
   static Color shotTypeColor(String? type) {

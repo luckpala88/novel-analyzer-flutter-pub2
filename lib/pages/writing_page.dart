@@ -3920,7 +3920,7 @@ class _WritingPageState extends State<WritingPage>
                     children: [
                       TextSpan(
                         text: '分镜${sh.group(1) ?? shotCount} ',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
                           color: V469Style.shotBadgeFg,
@@ -3928,7 +3928,7 @@ class _WritingPageState extends State<WritingPage>
                       ),
                       TextSpan(
                         text: sh.group(2) ?? '',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10.5,
                           color: V469Style.shotBadgeFg,
                           height: 1.4,
@@ -4584,7 +4584,7 @@ class _WritingPageState extends State<WritingPage>
         final inline = <InlineSpan>[
           TextSpan(
             text: '【分镜${sh.group(1) ?? shotCount}】',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
               color: V469Style.shotBadgeFg,
