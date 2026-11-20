@@ -1156,7 +1156,10 @@ class _DetectionPageState extends State<DetectionPage>
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(8, 2, 8, 1),
-                child: Wrap(
+                // v1553：Align左对齐
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
                   spacing: 4,
                   runSpacing: 4,
                   children: [
@@ -1174,6 +1177,7 @@ class _DetectionPageState extends State<DetectionPage>
                     MiniButton(label: '选文件', onTap: () => _pickFile(state)),
                     const SizedBox(width: 4),
                   ],
+                  ),
                 ),
               ),
               // 文件列表（可折叠，默认展开；一创/二创筛选）

@@ -361,7 +361,10 @@ class _ScanPageState extends State<ScanPage>
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
-              child: Wrap(
+              // v1553：Align左对齐
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
                 spacing: 4,
                 runSpacing: 4,
                 children: [
@@ -369,7 +372,7 @@ class _ScanPageState extends State<ScanPage>
                   // v445：生成弧线进批量菜单（第一行省空间）；步进改"场景/步"尾注
                   SizedBox(
                     width: 34,
-                    height: 22, // v1548：与胶囊同高
+                    height: 20, // v1553：与胶囊同高（20）
                     child: Center(
                     child: TextField(
                       controller: _groupBatchController,
@@ -398,11 +401,13 @@ class _ScanPageState extends State<ScanPage>
                   ),
                   ),
                   Text(
-                    '%s',
+                    '场景/步',
                     style: TextStyle(fontSize: 10, color: Colors.grey[600]),
                   ),
                   const SizedBox(width: 4),
                   PopupMenuButton<String>(
+                    // v1553：收紧默认padding
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
                     enabled: !state.sceneStreamBusy && state.globalScenes.isNotEmpty,
                     tooltip: '批量操作',
                     position: PopupMenuPosition.under,
@@ -495,6 +500,7 @@ class _ScanPageState extends State<ScanPage>
                   ),
                   const SizedBox(width: 4),
                   ],
+                ),
               ),
             ),
             // 第二行：状态（v441旧按章步进撤——场景/分组步进各自在对应页）

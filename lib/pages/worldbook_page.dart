@@ -228,7 +228,10 @@ class _WorldBookPageState extends State<WorldBookPage>
             // 顶行：清空+导出+⚙
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
-              child: Wrap(
+              // v1553：Align左对齐（顶层Column默认center会居中Wrap）
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
                 spacing: 4,
                 runSpacing: 6,
                 crossAxisAlignment: WrapCrossAlignment.center,
@@ -292,6 +295,7 @@ class _WorldBookPageState extends State<WorldBookPage>
                   ),
 const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
                 ],
+                ),
               ),
             ),
             // 条目列表

@@ -1030,7 +1030,10 @@ class _WritingPageState extends State<WritingPage>
             if (!_toolbarCollapsed)
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
-              child: Wrap(
+              // v1553：Align左对齐（顶层Column默认center会居中Wrap）
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
                   spacing: 5,
                   runSpacing: 6,
                   children: [
@@ -1129,6 +1132,7 @@ class _WritingPageState extends State<WritingPage>
                     },
                   ),
                   ],
+                ),
               ),
             ),
             // 进度条（细条，状态文字在终端里）

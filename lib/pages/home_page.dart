@@ -108,7 +108,10 @@ class _HomePageState extends State<HomePage>
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
               // Wrap：桌面8栏窄栏宽下自动换行不挤爆
-              child: Wrap(
+              // v1553：Align左对齐（顶层Column默认center会居中Wrap）
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
                 spacing: 4,
                 runSpacing: 2,
                 crossAxisAlignment: WrapCrossAlignment.center,
@@ -227,6 +230,7 @@ class _HomePageState extends State<HomePage>
                     ),
                   ),
                 ],
+                ),
               ),
             ),
             // 正文：空态=加载引导；有章节=阅读器
@@ -1260,8 +1264,8 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 1552;
-  static const String _appVersionStr = '1552'; // v1378：显示版（与APK文件名一致，b后缀进显示）
+  static const int _appVersion = 1553;
+  static const String _appVersionStr = '1553'; // v1378：显示版（与APK文件名一致，b后缀进显示）
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';

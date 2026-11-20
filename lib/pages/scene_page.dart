@@ -302,14 +302,17 @@ class _ScenePageState extends State<ScenePage>
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-              child: Wrap(
-                spacing: 4,
-                runSpacing: 4,
+              // v1553：Align左对齐——顶层Column默认center会把Wrap整体居中
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
                 children: [
                   // v1523b：步进框移到批量键左侧（对齐弧线页），样式对齐MiniButton胶囊
                   SizedBox(
                     width: 34,
-                    height: 22, // v1548：与胶囊同高
+                    height: 20, // v1553：与胶囊同高（20）
                     child: Center(
                     child: TextField(
                       controller: _sceneStepController,
@@ -338,11 +341,13 @@ class _ScenePageState extends State<ScenePage>
                   ),
                   ),
                   Text(
-                    '%s',
+                    '章/步',
                     style: TextStyle(fontSize: 10, color: Colors.grey[600]),
                   ),
                   const SizedBox(width: 4),
                   PopupMenuButton<String>(
+                    // v1553：收紧默认padding（默认h16把间距撑大）
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
                     // v434：新流程（场景流/分组）不依赖旧弧线存在，仅划分时禁用
                     enabled: !_isDividing,
                     tooltip: '批量操作',
@@ -443,6 +448,7 @@ class _ScenePageState extends State<ScenePage>
                     },
                   ),
                 ],
+                ),
               ),
             ),
             // v442：统计行——已扫章数/总章+N场景（对齐旧版信息密度）

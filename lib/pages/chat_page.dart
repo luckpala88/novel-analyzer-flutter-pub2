@@ -693,7 +693,10 @@ class _ChatPageState extends State<ChatPage>
                 final cur = state.chatActive!;
                 return Padding(
                 padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
-                child: Wrap(
+                // v1553：Align左对齐
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
                   spacing: 6,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
@@ -734,6 +737,7 @@ class _ChatPageState extends State<ChatPage>
                       },
                     ),
                   ],
+                ),
                 ),
               );
               }),
