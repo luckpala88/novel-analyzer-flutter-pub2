@@ -63,15 +63,16 @@ class MiniButton extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(dense ? 9 : 12),
           child: Container(
+            // v1539：danger+dense（楼层删除）再缩一档
             padding: EdgeInsets.symmetric(
-                horizontal: dense ? 6 : 8, vertical: dense ? 2 : 3),
+                horizontal: dense ? 5 : 8, vertical: dense ? 1 : 3),
             decoration: BoxDecoration(
               border: Border.all(color: Colors.red.withOpacity(0.6)),
-              borderRadius: BorderRadius.circular(dense ? 9 : 12),
+              borderRadius: BorderRadius.circular(dense ? 8 : 12),
             ),
             child: Text(
               label,
-              style: TextStyle(fontSize: dense ? 9 : 10, color: Colors.red),
+              style: TextStyle(fontSize: dense ? 8 : 10, color: Colors.red),
             ),
           ),
         ),

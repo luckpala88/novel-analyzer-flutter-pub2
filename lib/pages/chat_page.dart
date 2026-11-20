@@ -500,13 +500,15 @@ class _ChatPageState extends State<ChatPage>
     _jumpBottom();
     try {
       // v840：agent循环
+      final cfg = state.getApiConfig('chat');
       for (var round = 0; round < 4; round++) {
-        // 追加assistant占位
+        // 追加assistant占位（v1539：带模型名供楼层头显示）
         setState(() {
           state.chatActive?.messages.add(ChatMessage(
             role: 'assistant',
             content: '…',
             ts: DateTime.now().millisecondsSinceEpoch,
+            model: cfg.model,
           ));
         });
         state.saveChatSessions();
@@ -516,7 +518,7 @@ class _ChatPageState extends State<ChatPage>
           task: '聊天回复',
           systemPrompt: sys,
           userPrompt: usr,
-          apiConfig: state.getApiConfig('chat'),
+          apiConfig: cfg,
           images: imgs,
           onChunk: (chunk) {
             if (!mounted) return;
@@ -960,12 +962,20 @@ class _ChatPageState extends State<ChatPage>
                                     style: const TextStyle(
                                         fontSize: 10,
                                         color: Color(0xFFB8AF9F))),
-                                // v1537：时间戳并入楼层行（原独占一行）
+                                // v1537：时间戳并入楼层行；v1539字号缩到9+AI消息带模型名
                                 if (m.ts > 0) ...[
                                   const SizedBox(width: 6),
                                   Text(_fmtMsgTs(m.ts),
                                       style: const TextStyle(
-                                          fontSize: 10,
+                                          fontSize: 9,
+                                          color: Color(0xFFB8AF9F))),
+                                ],
+                                if (m.role == 'assistant' &&
+                                    m.model.isNotEmpty) ...[
+                                  const SizedBox(width: 5),
+                                  Text(m.model,
+                                      style: const TextStyle(
+                                          fontSize: 9,
                                           color: Color(0xFFB8AF9F))),
                                 ],
                                 const SizedBox(width: 6),
