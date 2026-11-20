@@ -201,8 +201,9 @@ class _HomePageState extends State<HomePage>
                               !state.nightMode),
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
+                        // v1552：紧凑化——不挤出行
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
+                            horizontal: 6, vertical: 3),
                         decoration: BoxDecoration(
                           color: state.nightMode
                               ? Theme.of(context).colorScheme.primaryContainer
@@ -217,7 +218,7 @@ class _HomePageState extends State<HomePage>
                         ),
                         child: Icon(
                           Icons.dark_mode_outlined,
-                          size: 15,
+                          size: 13,
                           color: state.nightMode
                               ? Theme.of(context).colorScheme.primary
                               : Theme.of(context).colorScheme.onSurface,
@@ -1259,8 +1260,8 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 1551;
-  static const String _appVersionStr = '1551'; // v1378：显示版（与APK文件名一致，b后缀进显示）
+  static const int _appVersion = 1552;
+  static const String _appVersionStr = '1552'; // v1378：显示版（与APK文件名一致，b后缀进显示）
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';
