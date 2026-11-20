@@ -354,13 +354,6 @@ class _ScanPageState extends State<ScanPage>
             // 顶行：高频操作（v192横向单行：放不下时横滑不折行，省纵向空间）
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: ApiModelButton(config: state.getApiConfig('arc'), section: 'arc', title: 'API设置 · 弧线扫描'),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
               // v1553：Align左对齐
               child: Align(
                 alignment: Alignment.centerLeft,
@@ -369,6 +362,8 @@ class _ScanPageState extends State<ScanPage>
                 runSpacing: 4,
                 children: [
                   // v437：弧线页职责=分组+展示。场景扫描按键在场景页
+                  // v1567：API键并入工具行（省一行，Wrap自动换行）
+                  ApiModelButton(config: state.getApiConfig('arc'), section: 'arc', title: 'API设置 · 弧线扫描'),
                   // v445：生成弧线进批量菜单（第一行省空间）；步进改"场景/步"尾注
                   SizedBox(
                     width: 34,

@@ -294,13 +294,6 @@ class _ScenePageState extends State<ScenePage>
           children: [
             // v210：单行工具栏（批量+四芯片+⚙API）——原两行占高且芯片被挤出屏
             Padding(
-              padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: ApiModelButton(config: state.sceneApi, section: 'scene', title: 'API设置 · 场景页'),
-              ),
-            ),
-            Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
               // v1553：Align左对齐——顶层Column默认center会把Wrap整体居中
               child: Align(
@@ -310,6 +303,8 @@ class _ScenePageState extends State<ScenePage>
                   runSpacing: 4,
                 children: [
                   // v1523b：步进框移到批量键左侧（对齐弧线页），样式对齐MiniButton胶囊
+                  // v1567：API键并入工具行（省一行，Wrap自动换行）
+                  ApiModelButton(config: state.sceneApi, section: 'scene', title: 'API设置 · 场景页'),
                   SizedBox(
                     width: 34,
                     height: 20, // v1553：与胶囊同高（20）

@@ -1148,13 +1148,6 @@ class _DetectionPageState extends State<DetectionPage>
             children: [
               // 顶行：高频操作（v210单行紧凑：找问题/二创/预览/刷新/选文件/⚙）
               Padding(
-                padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: ApiModelButton(config: state.detectApi, section: 'detect', title: 'API设置 · 二创'),
-                ),
-              ),
-              Padding(
                 padding: const EdgeInsets.fromLTRB(8, 2, 8, 1),
                 // v1553：Align左对齐
                 child: Align(
@@ -1164,6 +1157,8 @@ class _DetectionPageState extends State<DetectionPage>
                   runSpacing: 4,
                   children: [
                     // 预览开关（轻量文字按钮，省 FilterChip 的宽 padding）
+                  // v1567：API键并入工具行（省一行，Wrap自动换行）
+                  ApiModelButton(config: state.detectApi, section: 'detect', title: 'API设置 · 二创'),
                     // v377：统一词链开关（MiniButton背景色=开，与创作页一致）
                     MiniButton(
                       label: '词链',

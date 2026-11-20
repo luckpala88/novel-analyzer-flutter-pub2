@@ -1668,13 +1668,8 @@ return true;
                 runSpacing: 6,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                SizedBox(
-                  width: double.infinity, // v1544：独占一行——API模型胶囊顶行最左
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: ApiModelButton(config: state.wbApi, section: 'wb', title: 'API设置 · 续写'),
-                  ),
-                ),
+                // v1567：不独占一行——与其他键挤一行，Wrap自动换行
+                ApiModelButton(config: state.wbApi, section: 'wb', title: 'API设置 · 续写'),
                   CapsuleSegment<String>(
                     options: const [
                       SegOption('adapt', '改编'),
@@ -5177,13 +5172,8 @@ return true;
                 runSpacing: 5,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                SizedBox(
-                  width: double.infinity, // v1544：独占一行——API模型胶囊顶行最左
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: ApiModelButton(config: state.wbApi, section: 'wb', title: 'API设置 · 改编'),
-                  ),
-                ),
+                // v1567：不独占一行——与其他键挤一行，Wrap自动换行
+                ApiModelButton(config: state.wbApi, section: 'wb', title: 'API设置 · 改编'),
                   // v765：改编/续写模式切换（二选一互斥，书级持久化）
                   CapsuleSegment<String>(
                   options: const [

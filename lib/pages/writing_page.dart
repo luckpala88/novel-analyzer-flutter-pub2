@@ -953,13 +953,6 @@ class _WritingPageState extends State<WritingPage>
           children: [
             // v357：顶栏两行——第一行操作键，第二行四个开关（颜色表开关态）
             Padding(
-              padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: ApiModelButton(config: state.writingApi, section: 'writing', title: 'API设置 · 创作'),
-              ),
-            ),
-            Padding(
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -969,6 +962,8 @@ class _WritingPageState extends State<WritingPage>
                   spacing: 5,
                   runSpacing: 4,
                   children: [
+                  // v1567：API键并入工具行（省一行，Wrap自动换行）
+                  ApiModelButton(config: state.writingApi, section: 'writing', title: 'API设置 · 创作'),
                   MiniButton(
                     label: '批量',
                     primary: false, // v1560统一描边：颜色只留给开关态胶囊

@@ -338,13 +338,6 @@ class _AnalysisPageState extends State<AnalysisPage>
             // 顶行：拆解+芯片+导出+⚙（v235两行Wrap紧凑排列不超宽）
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: ApiModelButton(config: state.analysisApi, section: 'analysis', title: 'API设置 · 分镜拆解'),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -354,6 +347,8 @@ class _AnalysisPageState extends State<AnalysisPage>
                       spacing: 5,
                       runSpacing: 4,
                       children: [
+                  // v1567：API键并入工具行（省一行）
+                  ApiModelButton(config: state.analysisApi, section: 'analysis', title: 'API设置 · 分镜拆解'),
                   // 拆解菜单（v290：一步拆解已删——必须先划分场景才能拆分镜，
                   // 只保留两步；弧线页仍保留扫描+一步拆解）
                   PopupMenuButton<String>(
