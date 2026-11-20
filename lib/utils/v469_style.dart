@@ -56,6 +56,15 @@ class V469Style {
   // v1569：输入框纸面（夜间改深，白底刺眼难读）
   static Color get inputPaper =>
       _night ? const Color(0xFF2E2822) : const Color(0xFFFFFFFF);
+  // v1570：聊天输出内嵌块（JSON卡片/代码块）——夜间深底不刺眼，白天原样
+  static Color get jsonCardBg =>
+      _night ? const Color(0xFF2E2822) : const Color(0xFFF5F1E6);
+  static Color get jsonCardBorder =>
+      _night ? const Color(0xFF4A4238) : const Color(0xFFE2D9C6);
+  static Color get jsonKeyFg =>
+      _night ? const Color(0xFFD4A84A) : const Color(0xFF8B5E1E);
+  static Color get codeBlockBg =>
+      _night ? const Color(0xFF2A251E) : const Color(0xFFF0EBDD);
   // v1557：续写页浅蓝底夜间跟随
   static Color get continueBg =>
       _night ? const Color(0xFF26221C) : const Color(0xFFE8F1FA);

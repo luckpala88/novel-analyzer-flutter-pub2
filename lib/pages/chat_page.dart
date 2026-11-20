@@ -3868,9 +3868,9 @@ Widget _chatImage(BuildContext context, String rawSrc) {
               TextSpan(children: [
                 TextSpan(
                     text: '${_zhKey(e.key)}：',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF8B5E1E))),
+                        color: V469Style.jsonKeyFg)), // v1570：夜间亮金
                 TextSpan(text: '$v'),
               ]),
               style: const TextStyle(fontSize: 14, height: 1.5),
@@ -3893,9 +3893,10 @@ Widget _chatImage(BuildContext context, String rawSrc) {
                 width: double.infinity,
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF5F1E6),
+                  // v1570：夜间深底不刺眼
+                  color: V469Style.jsonCardBg,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFE2D9C6)),
+                  border: Border.all(color: V469Style.jsonCardBorder),
                 ),
                 child: _jsonWidget(item, inCard: true),
               ),
@@ -3916,10 +3917,10 @@ Widget _chatImage(BuildContext context, String rawSrc) {
         Padding(
           padding: const EdgeInsets.only(top: 4, bottom: 3),
           child: Text(_zhKey(key),
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 14.5,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF8B5E1E))),
+                  color: V469Style.jsonKeyFg)), // v1570：夜间亮金
         ),
         body,
       ],
@@ -3943,7 +3944,7 @@ Widget _chatImage(BuildContext context, String rawSrc) {
         margin: const EdgeInsets.symmetric(vertical: 4),
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: const Color(0xFFF0EBDD),
+          color: V469Style.codeBlockBg, // v1570：夜间深底
           borderRadius: BorderRadius.circular(6),
         ),
         child: SelectableText(s.trimRight(),
