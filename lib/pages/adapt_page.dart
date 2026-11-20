@@ -2850,6 +2850,8 @@ return true;
                       ? '🧩 已规划待写入'
                       : '◻ 分镜未规划',
               style: TextStyle(
+
+
                 fontSize: 10,
                 color: shotCount > 0
                     ? const Color(0xFF4A7B4A)
@@ -2904,14 +2906,14 @@ return true;
                 children: [
                   Text(expanded ? '▾' : '▸',
                       style: TextStyle(
-                          fontSize: 13, color: V469Style.textMuted)),
+                          fontSize: _cf(13), color: V469Style.textMuted)),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
                         '🎭 弧线$arcKey：${_brief(arc.title, 20)}'
                         '${entry == null ? '（无条目——先在场景续写层规划）' : '（${spans.length}场景）'}',
-                        style: const TextStyle(
-                            fontSize: 12.5, fontWeight: FontWeight.bold)),
+                        style: TextStyle(
+                            fontSize: _cf(12.5), fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -2943,8 +2945,8 @@ return true;
                 Padding(
                   padding: EdgeInsets.only(left: 10, top: 4),
                   child: Text('（该弧线条目尚无场景块——先在场景续写层规划写入）',
-                      style:
-                          TextStyle(fontSize: 10.5, color: V469Style.textMuted)),
+                      style: TextStyle(
+                          fontSize: _cf(10.5), color: V469Style.textMuted)),
                 ),
               const SizedBox(height: 8),
             ],
@@ -5546,7 +5548,9 @@ return true;
                                 child: const Text(
                                   '复制',
                                   style: const TextStyle(
-                                    fontSize: 10,
+                    
+
+                fontSize: 10,
                                     color: Colors.white, // 金底白字保留
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -5762,7 +5766,9 @@ return true;
                                         child: const Text(
                                           '复制',
                                           style: const TextStyle(
-                                            fontSize: 10,
+                            
+
+                fontSize: 10,
                                             color: Colors.white, // 金底白字保留
                                             fontWeight: FontWeight.w500,
                                           ),
