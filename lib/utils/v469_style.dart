@@ -41,6 +41,18 @@ class V469Style {
       _night ? const Color(0xFF8A7A64) : const Color(0xFF9A8B80);
   static Color get border =>
       _night ? const Color(0xFF3A342B) : const Color(0xFFE8E0D5); // v1554
+  // v1566：聊天页背景恢复原版（白天FAF6EE/F3E9D4，夜间=全APP统一黑棕系）
+  static Color get chatBg =>
+      _night ? const Color(0xFF1E1A15) : const Color(0xFFFAF6EE);
+  static Color get chatBarBg =>
+      _night ? const Color(0xFF2E2822) : const Color(0xFFF3E9D4);
+  // v1566：聊天气泡——白天恢复原版绿气泡，夜间绿边加亮可辨
+  static Color get userBubbleBg =>
+      _night ? const Color(0xFF2B3630) : const Color(0xFFDCEBDD);
+  static Color get userBubbleBorder =>
+      _night ? const Color(0xFF8FB49A) : const Color(0xFFB7D3B9);
+  static Color get aiBubbleBorder =>
+      _night ? const Color(0xFF554B3E) : const Color(0xFFE2D9C6);
   // v1557：续写页浅蓝底夜间跟随
   static Color get continueBg =>
       _night ? const Color(0xFF26221C) : const Color(0xFFE8F1FA);

@@ -755,11 +755,10 @@ class _ChatPageState extends State<ChatPage>
     final sess = state.chatActive;
 
     return Scaffold(
-      // v1557：夜间跟随
-      backgroundColor: V469Style.accentBg,
+      // v1566：恢复原版白天色+夜间统一黑棕
+      backgroundColor: V469Style.chatBg,
       appBar: AppBar(
-        // v1557：夜间跟随
-        backgroundColor: V469Style.surfaceAlt,
+        backgroundColor: V469Style.chatBarBg,
         titleSpacing: 0,
         toolbarHeight: 76, // v1358：两行收紧
         // v1011：会话标题不占工具栏（用户裁决：标题挤瘪右侧按键）——
@@ -1338,15 +1337,13 @@ class _ChatPageState extends State<ChatPage>
         constraints: BoxConstraints(
             maxWidth: MediaQuery.of(context).size.width * 0.82),
         decoration: BoxDecoration(
-          // v1557：夜间跟随
-          color: isUser
-              ? (V469Style.accentBg)
-              : V469Style.surface,
+          // v1566：白天恢复原版绿气泡；夜间深绿底+绿边可辨
+          color: isUser ? V469Style.userBubbleBg : V469Style.surface,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
               color: isUser
-                  ? V469Style.border
-                  : V469Style.border), // v1557夜间跟随
+                  ? V469Style.userBubbleBorder
+                  : V469Style.aiBubbleBorder),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
