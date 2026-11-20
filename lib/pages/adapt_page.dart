@@ -2826,7 +2826,8 @@ return true;
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('📍$titleLine',
-                style: const TextStyle(
+                // v1555：const去掉——_cf是方法调用
+                style: TextStyle(
                     fontSize: _cf(11.5), fontWeight: FontWeight.w600)),
             if (summaryLine.isNotEmpty)
               // v1039：完整场景概述（去60字截断）
