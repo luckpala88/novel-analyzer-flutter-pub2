@@ -1014,14 +1014,6 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
               ],
               onChanged: (v) => setState(() {
                 _config.formatMode = v ?? 'compatible';
-                // v1579：擎天选JSON严格自动帮勾流式——聪明默认值非代办
-                // （钩子仍可手动去掉；整包+json在擎天实测挂死503）
-                if (_config.formatMode == 'json' &&
-                    (_config.providerId.contains('qingtian') ||
-                        _config.effectiveApiBase.contains('qingtian')) &&
-                    !_config.streamEnabled) {
-                  _config.streamEnabled = true;
-                }
                 _saveNow();
               }),
             ),
@@ -1059,8 +1051,9 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
               ],
             ),
 
-            // v1577：擎天专属提示（JSON严格+整包实测挂死503——开关全权用户，
-            // 代码不代办，只提示不自改）；内置qingtian或自定义槽填了qingtian地址都命中
+            // v1580：擎天专属警告（json_object实测挂死——v1580定案：23:32那次
+            // 39秒成功属偶发，01:01三连测带response_format全挂0字节，对照去掉
+            // 立通；流式/整包都挂，唯一正解=兼容模式。只警告不代办）
             if (_config.providerId.contains('qingtian') ||
                 _config.effectiveApiBase.contains('qingtian'))
               const Padding(
@@ -1068,8 +1061,11 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    '擎天提示：JSON严格须配流式（整包+json会挂死503）',
-                    style: TextStyle(fontSize: 11, color: Colors.orange),
+                    '擎天警告：JSON严格实测挂死，建议用兼容模式',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.orange,
+                        fontWeight: FontWeight.w600),
                   ),
                 ),
               ),

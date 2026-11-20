@@ -504,6 +504,10 @@ class _ChatPageState extends State<ChatPage>
     try {
       // v840：agent循环
       final cfg = state.getApiConfig('chat');
+      // v1580：楼层meta标记传输·格式（与callApi口径一致：Claude原生流是API类型行为）
+      final chatMeta =
+          '${(cfg.apiType == 'claude' || cfg.streamEnabled) ? '流式' : '整包'}'
+          '·${cfg.formatMode == 'json' ? 'JSON严格' : '兼容'}';
       for (var round = 0; round < 4; round++) {
         // 追加assistant占位（v1539：带模型名供楼层头显示）
         setState(() {
@@ -512,6 +516,7 @@ class _ChatPageState extends State<ChatPage>
             content: '…',
             ts: DateTime.now().millisecondsSinceEpoch,
             model: cfg.model,
+            meta: chatMeta,
           ));
         });
         state.saveChatSessions();
@@ -993,6 +998,15 @@ class _ChatPageState extends State<ChatPage>
                                     m.model.isNotEmpty) ...[
                                   const SizedBox(width: 5),
                                   Text(m.model,
+                                      style: const TextStyle(
+                                          fontSize: 9,
+                                          color: Color(0xFFB8AF9F))),
+                                ],
+                                // v1580：传输·格式标记（流式·兼容等，旧消息空=不显示）
+                                if (m.role == 'assistant' &&
+                                    m.meta.isNotEmpty) ...[
+                                  const SizedBox(width: 4),
+                                  Text(m.meta,
                                       style: const TextStyle(
                                           fontSize: 9,
                                           color: Color(0xFFB8AF9F))),

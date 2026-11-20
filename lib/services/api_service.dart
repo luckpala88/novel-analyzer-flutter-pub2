@@ -440,7 +440,8 @@ class ApiService {
       final useStream = isClaude || streamEnabled;
       _log(
         '发送参数：模型${body['model']}｜温度${body['temperature']}'
-        '｜max_tokens${body['max_tokens']}${body['stream'] == true ? '｜流式' : '｜整包'}',
+        '｜max_tokens${body['max_tokens']}${body['stream'] == true ? '｜流式' : '｜整包'}'
+        '${body['response_format'] != null ? '｜JSON严格' : '｜兼容'}',
       );
       _log('发送请求...');
       // v1299b：首字看门狗统一180秒（用户裁决17:23——分镜拆解90秒被掐

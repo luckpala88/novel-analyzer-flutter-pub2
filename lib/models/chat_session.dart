@@ -29,6 +29,7 @@ class ChatMessage {
   String content;
   int ts; // 毫秒时间戳
   String model; // v1539：AI回答所用模型名（楼层头显示，旧消息空=不显示）
+  String meta; // v1580：传输·格式标记（楼层头显示"流式·兼容"等，旧消息空=不显示）
   List<ChatAttachment> attachments; // v838
 
   ChatMessage({
@@ -36,6 +37,7 @@ class ChatMessage {
     required this.content,
     required this.ts,
     this.model = '',
+    this.meta = '',
     List<ChatAttachment>? attachments,
   }) : attachments = attachments ?? [];
 
@@ -44,6 +46,7 @@ class ChatMessage {
         'content': content,
         'ts': ts,
         if (model.isNotEmpty) 'model': model,
+        if (meta.isNotEmpty) 'meta': meta,
         if (attachments.isNotEmpty)
           'attachments': attachments.map((a) => a.toJson()).toList(),
       };
@@ -53,6 +56,7 @@ class ChatMessage {
         content: (j['content'] ?? '').toString(),
         ts: (j['ts'] as num?)?.toInt() ?? 0,
         model: (j['model'] ?? '').toString(),
+        meta: (j['meta'] ?? '').toString(),
         attachments: ((j['attachments'] as List?) ?? [])
             .map((e) => ChatAttachment.fromJson(e as Map<String, dynamic>))
             .toList(),
