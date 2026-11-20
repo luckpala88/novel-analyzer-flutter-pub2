@@ -944,33 +944,21 @@ class _ChatPageState extends State<ChatPage>
                                     style: const TextStyle(
                                         fontSize: 10,
                                         color: Color(0xFFB8AF9F))),
+                                // v1537：时间戳并入楼层行（原独占一行）
+                                if (m.ts > 0) ...[
+                                  const SizedBox(width: 6),
+                                  Text(_fmtMsgTs(m.ts),
+                                      style: const TextStyle(
+                                          fontSize: 10,
+                                          color: Color(0xFFB8AF9F))),
+                                ],
                                 const SizedBox(width: 6),
-                                // v861：单条删除——整理聊天记录用
-                                GestureDetector(
-                                  onTap: () async {
-                                    final okDel = await showDialog<bool>(
-                                        context: context,
-                                        builder: (d) => AlertDialog(
-                                            title: const Text('删除这条消息'),
-                                            content: Text('删除第${i + 1}楼（不影响其他楼层）'),
-                                            actions: [
-                                              TextButton(
-                                                  onPressed: () =>
-                                                      Navigator.pop(d, false),
-                                                  child: const Text('取消')),
-                                              FilledButton(
-                                                  onPressed: () =>
-                                                      Navigator.pop(d, true),
-                                                  child: const Text('删除')),
-                                            ]));
-                                    if (okDel != true || !mounted) return;
-                                    setState(() {
-                                      state.chatActive!.messages.removeAt(i);
-                                    });
-                                    state.saveChatSessions();
-                                  },
-                                  child: const Icon(Icons.close,
-                                      size: 12, color: Color(0xFFB8AF9F)),
+                                // v1537：删除键×图标→danger胶囊好按；操作行也加同款
+                                MiniButton(
+                                  dense: true,
+                                  danger: true,
+                                  label: '删除',
+                                  onTap: () => _deleteFloor(state, i),
                                 ),
                               ]),
                             ),
@@ -1149,6 +1137,28 @@ class _ChatPageState extends State<ChatPage>
     );
   }
 
+  /// v1537：单条删除——楼层头与操作行两个入口共用
+  Future<void> _deleteFloor(AppState state, int i) async {
+    final okDel = await showDialog<bool>(
+        context: context,
+        builder: (d) => AlertDialog(
+            title: const Text('删除这条消息'),
+            content: Text('删除第${i + 1}楼（不影响其他楼层）'),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(d, false),
+                  child: const Text('取消')),
+              FilledButton(
+                  onPressed: () => Navigator.pop(d, true),
+                  child: const Text('删除')),
+            ]));
+    if (okDel != true || !mounted) return;
+    setState(() {
+      state.chatActive!.messages.removeAt(i);
+    });
+    state.saveChatSessions();
+  }
+
   /// v1534：楼层时间戳格式化——v1535按用户要求带年份和秒
   static String _fmtMsgTs(int ts) {
     final d = DateTime.fromMillisecondsSinceEpoch(ts);
@@ -1164,18 +1174,6 @@ class _ChatPageState extends State<ChatPage>
             ? CrossAxisAlignment.end
             : CrossAxisAlignment.start,
         children: [
-          // v1534：楼层时间戳（毫秒ts为0的旧消息不显示）
-          if (m.ts > 0)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 1),
-              child: Text(
-                _fmtMsgTs(m.ts),
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: Colors.grey,
-                ),
-              ),
-            ),
           _bubbleBody(state, m, isUser),
           // v863：气泡下操作行——复制（全部消息）+重新回答（AI消息）
           if (!_sending && m.content != '…')
@@ -1187,6 +1185,7 @@ class _ChatPageState extends State<ChatPage>
                 children: [
                   MiniButton(
                     compact: true,
+                    dense: true,
                     label: '复制',
                     onTap: () {
                       Clipboard.setData(
@@ -1199,6 +1198,7 @@ class _ChatPageState extends State<ChatPage>
                   // v864：转发——调系统分享面板（微信/QQ等已安装应用）
                   MiniButton(
                     compact: true,
+                    dense: true,
                     label: '转发',
                     onTap: () {
                       final plain = _copyPlain(m.content);
@@ -1220,14 +1220,23 @@ class _ChatPageState extends State<ChatPage>
                       Share.share('$title\n$plain');
                     },
                   ),
+                  // v1537：操作行加删除胶囊（与楼层头同款danger）
+                  MiniButton(
+                    dense: true,
+                    danger: true,
+                    label: '删除',
+                    onTap: () => _deleteFloor(state, idx),
+                  ),
                   if (!isUser && idx > 0) ...[
                     MiniButton(
                       compact: true,
+                      dense: true,
                       label: '重答',
                       onTap: () => _redit(state, idx),
                     ),
                     MiniButton(
                       compact: true,
+                      dense: true,
                       label: '再答',
                       onTap: () => _regen(state, idx),
                     ),

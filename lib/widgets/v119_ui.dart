@@ -13,6 +13,7 @@ class MiniButton extends StatelessWidget {
   final bool primary;
   final bool danger;
   final bool compact; // v990：更紧凑（聊天页气泡操作行用）
+  final bool dense; // v1537：再缩一档（聊天页操作行/楼层删除，用户要求缩小一点点）
   final bool? enabled; // v993：强制可用外观（PopupMenu包裹的键onTap=null但可用）
 
   const MiniButton({
@@ -22,6 +23,7 @@ class MiniButton extends StatelessWidget {
     this.primary = false,
     this.danger = false,
     this.compact = false,
+    this.dense = false,
     this.enabled,
   });
 
@@ -34,16 +36,17 @@ class MiniButton extends StatelessWidget {
     if (primary) {
       return Material(
         color: _looksEnabled ? cs.primaryContainer : cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(dense ? 9 : 12),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(dense ? 9 : 12),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            padding: EdgeInsets.symmetric(
+                horizontal: dense ? 6 : 8, vertical: dense ? 2 : 3),
             child: Text(
               label,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: dense ? 9 : 10,
                 fontWeight: FontWeight.w500,
                 color: _looksEnabled ? cs.primary : Colors.grey,
               ),
@@ -55,19 +58,20 @@ class MiniButton extends StatelessWidget {
     if (danger) {
       return Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(dense ? 9 : 12),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(dense ? 9 : 12),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            padding: EdgeInsets.symmetric(
+                horizontal: dense ? 6 : 8, vertical: dense ? 2 : 3),
             decoration: BoxDecoration(
               border: Border.all(color: Colors.red.withOpacity(0.6)),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(dense ? 9 : 12),
             ),
             child: Text(
               label,
-              style: const TextStyle(fontSize: 10, color: Colors.red),
+              style: TextStyle(fontSize: dense ? 9 : 10, color: Colors.red),
             ),
           ),
         ),
@@ -75,24 +79,25 @@ class MiniButton extends StatelessWidget {
     }
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(dense ? 9 : 12),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(dense ? 9 : 12),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          padding: EdgeInsets.symmetric(
+                horizontal: dense ? 6 : 8, vertical: dense ? 2 : 3),
           decoration: BoxDecoration(
             border: Border.all(
               color: _looksEnabled
                   ? cs.outline.withOpacity(0.5)
                   : Colors.grey.withOpacity(0.3),
             ),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(dense ? 9 : 12),
           ),
           child: Text(
             label,
             style: TextStyle(
-              fontSize: 10,
+              fontSize: dense ? 9 : 10,
               color: _looksEnabled ? cs.onSurface : Colors.grey,
             ),
           ),
