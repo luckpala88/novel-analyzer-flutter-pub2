@@ -1149,11 +1149,11 @@ class _ChatPageState extends State<ChatPage>
     );
   }
 
-  /// v1534：楼层时间戳格式化——同分钟合并无必要，固定MM-dd HH:mm紧凑显示
+  /// v1534：楼层时间戳格式化——v1535按用户要求带年份和秒
   static String _fmtMsgTs(int ts) {
     final d = DateTime.fromMillisecondsSinceEpoch(ts);
     String p2(int v) => v.toString().padLeft(2, '0');
-    return '${d.month.toString().padLeft(2, '0')}-${p2(d.day)} ${p2(d.hour)}:${p2(d.minute)}';
+    return '${d.year}-${p2(d.month)}-${p2(d.day)} ${p2(d.hour)}:${p2(d.minute)}:${p2(d.second)}';
   }
 
   Widget _bubble(AppState state, ChatMessage m, bool isUser, int idx) {
