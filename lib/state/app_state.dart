@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/api_config.dart';
@@ -262,6 +263,14 @@ class AppState extends ChangeNotifier {
   void setNightMode(bool v) {
     nightMode = v;
     storage.writeGlobal('night_mode_flag', v ? '1' : '0');
+    // v1562：状态栏/导航栏图标明暗跟随主题（边到边下内容透出）
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.transparent,
+      statusBarIconBrightness: v ? Brightness.light : Brightness.dark,
+      systemNavigationBarIconBrightness:
+          v ? Brightness.light : Brightness.dark,
+    ));
     notifyListeners();
   }
 

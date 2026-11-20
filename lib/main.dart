@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'dart:convert';
 
@@ -29,6 +30,12 @@ void main() {
           style: const TextStyle(fontSize: 11, color: Colors.red),
         ),
       );
+  // v1562：边到边——系统导航栏区域透出Scaffold背景色（白边根治）
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    systemNavigationBarColor: Colors.transparent,
+    statusBarColor: Colors.transparent,
+  ));
   runApp(const NovelAnalyzerApp());
 }
 
