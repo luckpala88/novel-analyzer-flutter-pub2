@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
 
 import '../state/app_state.dart';
+import '../utils/v469_style.dart';
 import '../models/chapter.dart';
 import '../models/preset.dart';
 import '../services/chapter_parser.dart';
@@ -116,22 +117,43 @@ class _HomePageState extends State<HomePage>
                 runSpacing: 2,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  SizedBox(
-                    width: 110,
-                    child: Text(
-                      state.currentBook.isNotEmpty
-                          ? '${state.currentBook} · ${state.chapters.length}章'
-                          : '未选择书目',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.grey[700],
+                  // v1560：书名+章数并入书目胶囊（最小字号9），原左侧110宽文字块删除
+                  Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      onTap: () => _showBookDialog(state),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .outline
+                                .withOpacity(0.5),
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          state.currentBook.isNotEmpty
+                              ? (state.currentBook.length > 8
+                                      ? '${state.currentBook.substring(0, 8)}…'
+                                      : state.currentBook) +
+                                  ' · ${state.chapters.length}章'
+                              : '书目',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w500,
+                            color: V469Style.textSec,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                  MiniButton(label: '书目', onTap: () => _showBookDialog(state)),
                   PopupMenuButton<String>(
                     position: PopupMenuPosition.under,
                     onSelected: (v) {
@@ -1264,8 +1286,8 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 1559;
-  static const String _appVersionStr = '1559'; // v1378：显示版（与APK文件名一致，b后缀进显示）
+  static const int _appVersion = 1560;
+  static const String _appVersionStr = '1560'; // v1378：显示版（与APK文件名一致，b后缀进显示）
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';
