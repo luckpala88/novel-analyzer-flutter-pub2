@@ -452,9 +452,20 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
                     const PopupMenuItem(value: 'font', child: Text('行距设置')),
                     const PopupMenuItem(value: 'tts', child: Text('TTS设置')),
                   ],
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 6),
-                    child: Text('设置', style: TextStyle(fontSize: 11)),
+                  // v1547：加与旁边按键同款的边框胶囊
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .outline
+                            .withOpacity(0.5),
+                      ),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: const Text('设置', style: TextStyle(fontSize: 11)),
                   ),
                 ),
                 // v417：就地编辑开关（仅滚动模式；编辑中亮色+锁定模式切换）
