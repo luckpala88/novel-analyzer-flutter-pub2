@@ -1470,7 +1470,7 @@ class AppState extends ChangeNotifier {
     tts.engine = ttsEngine ?? 'silicon';
     final ttsKey = storage.readGlobal('silicon_tts_key');
     tts.siliconKey =
-        ttsKey ?? 'sk-ooauhnezueiyargefmbeyqdpetuflidpqdgqelnuylljklqd';
+        ttsKey ?? 'sk-ucstyxvfruuyjfxrexssgfgihkadxhyfgfadbvpcbayfirfz';
     final ttsVoice = storage.readGlobal('silicon_voice');
     tts.siliconVoice = ttsVoice ?? 'alex';
 

@@ -28,7 +28,7 @@ class TTSService {
 
   // 配置
   String engine = 'silicon'; // 'silicon' or 'native'
-  String siliconKey = 'sk-ooauhnezueiyargefmbeyqdpetuflidpqdgqelnuylljklqd';
+  String siliconKey = 'sk-ucstyxvfruuyjfxrexssgfgihkadxhyfgfadbvpcbayfirfz';
   String siliconVoice = 'alex';
 
   bool get isPlaying => _playing;
