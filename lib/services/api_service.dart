@@ -425,25 +425,19 @@ class ApiService {
           'temperature': temperature,
           'max_tokens': maxTokens,
         };
+        // v1577：传输方式全权由用户开关决定（流式/整包），代码不代办——
+        // JSON严格+整包在擎天会挂（503）是用户自行设置的结果，踩坑自调；
+        // 输出格式只决定response_format是否携带
+        body['stream'] = streamEnabled;
         if (formatMode == 'json') {
-          // json模式（Gemini严格输出）：流式+json_object
-          // （Gemini thinking>100s不吐首字节会被CF掐524——流式+重试兜底）
-          // v1576：擎天恢复发response_format——v1574拉黑依据=整包+json挂死，
-          // 但23:32复测流式+json_object可用（39s首字干净json），且v1575后
-          // json模式强制流式永远不踩整包挂死路线
-          body['stream'] = true;
           body['response_format'] = {'type': 'json_object'};
-        } else {
-          // v1575：兼容模式传输方式独立开关——默认流式（CF对无首字节>100s的连接
-          // 掐524，公益站7000字聊天整包两连挂/流式9分钟存活实证），可切整包
-          body['stream'] = streamEnabled;
         }
       }
 
-      // v1575：传输模式分流——流式=用户开关开或json模式或Claude；
+      // v1577：传输模式分流——流式只看用户开关（Claude例外：原生流是API类型行为）；
       // CF系错误自动重试：524=首字节>100s被掐（Gemini thinking阶段常见，
       // 上游往往仍在跑，重试第二次通常命中快路径）；520/522/525/527同类
-      final useStream = isClaude || formatMode == 'json' || streamEnabled;
+      final useStream = isClaude || streamEnabled;
       _log(
         '发送参数：模型${body['model']}｜温度${body['temperature']}'
         '｜max_tokens${body['max_tokens']}${body['stream'] == true ? '｜流式' : '｜整包'}',
