@@ -1009,14 +1009,21 @@ class _WritingPageState extends State<WritingPage>
                       }
                   },
                 ),
+                  // v1568：折叠键去外框并入Wrap末尾（省宽度让撰写|草稿上首行）
+                  GestureDetector(
+                    onTap: () =>
+                        setState(() => _toolbarCollapsed = !_toolbarCollapsed),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: Text(
+                        _toolbarCollapsed ? '▼' : '▲',
+                        style: TextStyle(
+                            fontSize: 14, color: V469Style.textSec),
+                      ),
+                    ),
+                  ),
                   ],
                   ),
-                ),
-                const SizedBox(width: 4),
-                // v995：折叠键固定第一行最右（不参与Wrap换行）
-                MiniButton(
-                  label: _toolbarCollapsed ? '▼' : '▲',
-                  onTap: () => setState(() => _toolbarCollapsed = !_toolbarCollapsed),
                 ),
                 ],
               ),
