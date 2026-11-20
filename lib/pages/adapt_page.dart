@@ -1704,6 +1704,8 @@ return true;
                       child: ApiConfigPanel(config: state.wbApi, section: 'wb'),
                     ),
                   ),
+                  const SizedBox(width: 4),
+                  ApiMiniLabel(config: state.wbApi),
                   MiniButton(
                     label: '词链',
                     primary: state.wbPromptPreview,
@@ -5216,6 +5218,8 @@ return true;
                       child: ApiConfigPanel(config: state.wbApi, section: 'wb'),
                     ),
                   ),
+                  const SizedBox(width: 4),
+                  ApiMiniLabel(config: state.wbApi),
                   // v379：词链+模式排上移顶栏（原独立Padding区删除）
                   MiniButton(
                     label: '词链',

@@ -436,6 +436,8 @@ const Spacer(), // ⚙API推到最右
                       ),
                     ),
                   ),
+                  const SizedBox(width: 4),
+                  ApiMiniLabel(config: state.sceneApi),
                 ],
               ),
             ),

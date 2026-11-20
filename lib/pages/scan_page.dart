@@ -484,6 +484,8 @@ class _ScanPageState extends State<ScanPage>
                       ),
                     ),
                   ),
+                  const SizedBox(width: 4),
+                  ApiMiniLabel(config: state.getApiConfig('arc')),
                   ],
                 ),
               ),

@@ -1176,6 +1176,8 @@ class _DetectionPageState extends State<DetectionPage>
                         ),
                       ),
                     ),
+                    const SizedBox(width: 4),
+                    ApiMiniLabel(config: state.detectApi),
                   ],
                 ),
               ),

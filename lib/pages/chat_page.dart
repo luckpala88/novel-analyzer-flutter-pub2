@@ -796,6 +796,8 @@ class _ChatPageState extends State<ChatPage>
               ),
             ),
           ),
+          const SizedBox(width: 4),
+          ApiMiniLabel(config: state.getApiConfig('chat')),
           // v1358：插图三键原子组（同转行不拆散，粘一起用户裁决）
           SizedBox(
             child: Row(mainAxisSize: MainAxisSize.min, spacing: 4, children: [

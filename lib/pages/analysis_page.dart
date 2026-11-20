@@ -442,6 +442,8 @@ class _AnalysisPageState extends State<AnalysisPage>
                       ),
                     ),
                   ),
+                  const SizedBox(width: 4),
+                  ApiMiniLabel(config: state.analysisApi),
                 ],
               ),
             ),

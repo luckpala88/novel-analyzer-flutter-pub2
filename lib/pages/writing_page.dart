@@ -1018,6 +1018,8 @@ class _WritingPageState extends State<WritingPage>
                       ),
                     ),
                   ),
+                  const SizedBox(width: 4),
+                  ApiMiniLabel(config: state.writingApi),
                   ],
                   ),
                 ),
