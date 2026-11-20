@@ -138,11 +138,15 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
       if (list.isNotEmpty && list.last['key'] != masked) list = [];
       final prev = list.isNotEmpty ? (list.last['v'] as num).toDouble() : null;
       final diff = prev == null ? null : remaining - prev;
-      list.add({'v': remaining, 't': t, 'key': masked});
-      while (list.length > 3) {
-        list.removeAt(0);
+      // v1536：与上次余额相同=期间无消耗，不落新记录——进面板自动查询
+      // 不再把更老的记录冲掉（差额对比窗口保持有意义）
+      if (prev != remaining) {
+        list.add({'v': remaining, 't': t, 'key': masked});
+        while (list.length > 5) {
+          list.removeAt(0);
+        }
+        storage.writeGlobalJson('qingtian_balance_history', list);
       }
-      storage.writeGlobalJson('qingtian_balance_history', list);
       final diffStr = diff == null
           ? ''
           : '（较上次${diff >= 0 ? '+' : ''}${diff.toStringAsFixed(1)}）';
@@ -542,8 +546,8 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
                               : (_balanceText.isEmpty ? '' : _balanceText),
                           // v1533：字号×2+加粗醒目（用户裁决：余额是重点信息）
                           style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
                             color: _balanceText.startsWith('查询失败')
                                 ? Colors.red.shade700
                                 : Colors.green.shade800,
@@ -567,7 +571,7 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
                     '${_balanceHistory.reversed.map((e) => "${(e['v'] as num).toStringAsFixed(1)}(${e['t']})").join(' · ')}',
                     // v1533：字号×2+棕金色醒目
                     style: const TextStyle(
-                      fontSize: 20,
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: Color(0xFF9A6B1F),
                     ),
