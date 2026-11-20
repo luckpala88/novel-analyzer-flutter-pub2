@@ -53,6 +53,9 @@ class V469Style {
       _night ? const Color(0xFF8FB49A) : const Color(0xFFB7D3B9);
   static Color get aiBubbleBorder =>
       _night ? const Color(0xFF554B3E) : const Color(0xFFE2D9C6);
+  // v1569：输入框纸面（夜间改深，白底刺眼难读）
+  static Color get inputPaper =>
+      _night ? const Color(0xFF2E2822) : const Color(0xFFFFFFFF);
   // v1557：续写页浅蓝底夜间跟随
   static Color get continueBg =>
       _night ? const Color(0xFF26221C) : const Color(0xFFE8F1FA);

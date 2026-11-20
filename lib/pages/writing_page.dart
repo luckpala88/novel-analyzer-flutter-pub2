@@ -4286,10 +4286,10 @@ class _WritingPageState extends State<WritingPage>
                         fontSize: _viewerFontSize.clamp(10, 16),
                         height: 1.7,
                       ),
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        border: const OutlineInputBorder(),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: V469Style.inputPaper, // v1569：夜间改深
                       ),
                     ),
                   )

@@ -1163,7 +1163,7 @@ class _ChatPageState extends State<ChatPage>
                         isDense: true,
                         hintText: '输入消息…',
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: V469Style.inputPaper, // v1569：夜间改深
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 8),
                         border: OutlineInputBorder(
