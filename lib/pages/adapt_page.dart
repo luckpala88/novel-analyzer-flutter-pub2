@@ -2678,30 +2678,33 @@ return true;
                 ),
               )
             else ...[
-              // v781：弧线概述（补，可复制）
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    // v1297b：字段彩色（弧线靛蓝）
-                    child: FieldColoredText(
-                      text: overview.isEmpty ? '（无概述）' : overview,
-                      fontSize: _cf(11),
-                      height: 1.4,
-                      baseColor: const Color(0xFF5B7A99),
-                      variant: 'arc',
-                    ),
+              // v1556：复制概述键放概述上方按键行（原挤在文字右侧占一列，用户截图点名）
+              if (overview.isNotEmpty)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      MiniButton(
+                        label: '📋复制概述',
+                        primary: false,
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(text: overview));
+                          _addLog('📋 弧线${arc.number}概述已复制');
+                        },
+                      ),
+                    ],
                   ),
-                  if (overview.isNotEmpty)
-                    MiniButton(
-                      label: '📋复制概述',
-                      primary: false,
-                      onTap: () {
-                        Clipboard.setData(ClipboardData(text: overview));
-                        _addLog('📋 弧线${arc.number}概述已复制');
-                      },
-                    ),
-                ],
+                ),
+              // v781：弧线概述（补，可复制）
+              // v1297b：字段彩色（弧线靛蓝）
+              FieldColoredText(
+                text: overview.isEmpty ? '（无概述）' : overview,
+                fontSize: _cf(11),
+                height: 1.4,
+                baseColor: const Color(0xFF5B7A99),
+                variant: 'arc',
               ),
               const SizedBox(height: 4),
               ...an.scenes.asMap().entries.map(
