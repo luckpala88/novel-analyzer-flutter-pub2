@@ -73,6 +73,14 @@ class _NovelAnalyzerAppState extends State<NovelAnalyzerApp> {
         ),
         scaffoldBackgroundColor: const Color(0xFFFAF7F2), // v318暖色背景
         cardColor: const Color(0xFFFFFFFF),
+        // v1564：卡片统一描边（白天=淡轮廓）
+        cardTheme: CardThemeData(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+                color: const Color(0xFF8B6914).withOpacity(0.35)),
+          ),
+        ),
         primaryColor: const Color(0xFF8B6914),
         useMaterial3: true,
         fontFamily: V469Style.uiFont,
@@ -127,6 +135,14 @@ class _NovelAnalyzerAppState extends State<NovelAnalyzerApp> {
         ),
         scaffoldBackgroundColor: const Color(0xFF1E1A15),
         cardColor: const Color(0xFF26221C),
+        // v1564：夜间卡片描边加亮一档（黑底上轮廓可辨）
+        cardTheme: CardThemeData(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+                color: const Color(0xFFB9A68C).withOpacity(0.55)),
+          ),
+        ),
         primaryColor: const Color(0xFFD4A84A),
         useMaterial3: true,
         fontFamily: V469Style.uiFont,
