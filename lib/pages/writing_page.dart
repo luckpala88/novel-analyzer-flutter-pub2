@@ -1039,6 +1039,22 @@ class _WritingPageState extends State<WritingPage>
                   spacing: 5,
                   runSpacing: 6,
                   children: [
+                  // v1571：模式二选一提到折叠栏第一位（用户裁决）
+                  // v814：顶层模式二选一（用户定稿）——改编创作/续写创作，无第三态，默认改编创作
+                  // v999：模式二选一粘连对（用户定稿：去"创作"字样+二选一粘连）
+                  _ModePair(
+                    isXu: state.writingFreeMode && state.writingFreeContinue,
+                    onSelectAdapt: () {
+                      state.setWritingFreeMode(false);
+                      state.setWritingFreeContinue(false);
+                      _addLog('🔀 创作模式→改编（条目链：语料不注入，原著切片只作文风参考）');
+                    },
+                    onSelectXu: () {
+                      state.setWritingFreeMode(true);
+                      state.setWritingFreeContinue(true);
+                      _addLog('🔀 创作模式→续写（独立续写链：续写语料+衔接锚点+原著切片）');
+                    },
+                  ),
                   MiniButton(
                     label: '逐镜',
                     primary: state.writingShotByShot,
@@ -1097,21 +1113,6 @@ class _WritingPageState extends State<WritingPage>
                     onTap: _isGenerating
                         ? null
                         : () => _cleanAllWritings(state),
-                  ),
-                  // v814：顶层模式二选一（用户定稿）——改编创作/续写创作，无第三态，默认改编创作
-                  // v999：模式二选一粘连对（用户定稿：去"创作"字样+二选一粘连）
-                  _ModePair(
-                    isXu: state.writingFreeMode && state.writingFreeContinue,
-                    onSelectAdapt: () {
-                      state.setWritingFreeMode(false);
-                      state.setWritingFreeContinue(false);
-                      _addLog('🔀 创作模式→改编（条目链：语料不注入，原著切片只作文风参考）');
-                    },
-                    onSelectXu: () {
-                      state.setWritingFreeMode(true);
-                      state.setWritingFreeContinue(true);
-                      _addLog('🔀 创作模式→续写（独立续写链：续写语料+衔接锚点+原著切片）');
-                    },
                   ),
                   // v1063：自由子开关两链都可用——续写链下条目可能有分镜（分镜续写
                   // 层写入），不再强制自由：自由关=沿分镜，自由开=自由续写
