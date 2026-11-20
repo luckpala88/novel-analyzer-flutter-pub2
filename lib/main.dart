@@ -115,6 +115,7 @@ class _NovelAnalyzerAppState extends State<NovelAnalyzerApp> {
           seedColor: const Color(0xFF8B6914),
           brightness: Brightness.dark,
           surface: const Color(0xFF26221C),
+          onSurface: const Color(0xFFB9A68C), // v1550：正文暖棕（黑底棕字不刺眼）
         ),
         scaffoldBackgroundColor: const Color(0xFF1E1A15),
         cardColor: const Color(0xFF26221C),
@@ -125,12 +126,12 @@ class _NovelAnalyzerAppState extends State<NovelAnalyzerApp> {
           centerTitle: false,
           elevation: 0,
           backgroundColor: Color(0xFF26221C),
-          foregroundColor: Color(0xFFEFE7DA),
+          foregroundColor: Color(0xFFB9A68C),
         ),
         textTheme: const TextTheme(
-          bodyMedium: TextStyle(color: Color(0xFFEFE7DA)),
-          bodySmall: TextStyle(color: Color(0xFFEFE7DA)),
-          labelSmall: TextStyle(color: Color(0xFF9A8B80)),
+          bodyMedium: TextStyle(color: Color(0xFFB9A68C)),
+          bodySmall: TextStyle(color: Color(0xFFB9A68C)),
+          labelSmall: TextStyle(color: Color(0xFF8A7A64)),
         ),
         inputDecorationTheme: const InputDecorationTheme(
           border: OutlineInputBorder(
