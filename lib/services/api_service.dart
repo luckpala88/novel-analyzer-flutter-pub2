@@ -428,13 +428,11 @@ class ApiService {
         if (formatMode == 'json') {
           // json模式（Gemini严格输出）：流式+json_object
           // （Gemini thinking>100s不吐首字节会被CF掐524——流式+重试兜底）
+          // v1576：擎天恢复发response_format——v1574拉黑依据=整包+json挂死，
+          // 但23:32复测流式+json_object可用（39s首字干净json），且v1575后
+          // json模式强制流式永远不踩整包挂死路线
           body['stream'] = true;
-          // v1574：擎天carbon渠道不发response_format json_object
-          // （23:32复测流式+json_object其实可用，但v1574当日A/B整包+json挂死零字节
-          // ——保守维持不发，JSON格式靠prompt约束兜底，扫描不受影响）
-          if (!baseUrl.contains('qingtian')) {
-            body['response_format'] = {'type': 'json_object'};
-          }
+          body['response_format'] = {'type': 'json_object'};
         } else {
           // v1575：兼容模式传输方式独立开关——默认流式（CF对无首字节>100s的连接
           // 掐524，公益站7000字聊天整包两连挂/流式9分钟存活实证），可切整包
