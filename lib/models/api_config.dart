@@ -146,7 +146,7 @@ class ApiConfig {
       'https://chaxun-zongzhan.qingtian.pro/api/query';
 
   /// baseUrl允许修改的内置提供商（公益站）：修改值存builtinStash[provider]['baseUrl']
-  static const Set<String> editableBaseProviders = {'gyz1', 'gyz2', 'gyz3'};
+  static const Set<String> editableBaseProviders = {'gyz1', 'gyz2', 'gyz3', 'qingtian'};
 
   /// 内置提供商显示名（单一事实源：面板chips/摘要/标签统一引用）
   static const Map<String, String> providerLabels = {
