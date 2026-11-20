@@ -2712,8 +2712,10 @@ return true;
                 (e) {
                   final sc = e.value;
                   final ov = sc.summary.trim();
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 2),
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 4),
+                    child: Padding(
+                    padding: const EdgeInsets.all(6),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -2732,6 +2734,7 @@ return true;
                                 sc.text),
                           ),
                       ],
+                    ),
                     ),
                   );
                 },
@@ -5728,8 +5731,10 @@ return true;
                         arcKey,
                         bi,
                       ).contains('分镜');
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 6),
+                        child: Padding(
+                        padding: const EdgeInsets.all(8),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -5935,6 +5940,7 @@ return true;
                               ],
                             ),
                           ],
+                        ),
                         ),
                       );
                     }).toList(),
