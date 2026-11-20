@@ -1052,6 +1052,21 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
               ],
             ),
 
+            // v1577：擎天专属提示（JSON严格+整包实测挂死503——开关全权用户，
+            // 代码不代办，只提示不自改）；内置qingtian或自定义槽填了qingtian地址都命中
+            if (_config.providerId.contains('qingtian') ||
+                _config.effectiveApiBase.contains('qingtian'))
+              const Padding(
+                padding: EdgeInsets.only(top: 2),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '擎天提示：JSON严格须配流式（整包+json会挂死503）',
+                    style: TextStyle(fontSize: 11, color: Colors.orange),
+                  ),
+                ),
+              ),
+
             const SizedBox(height: 16),
 
             // 高级设置（v292：平铺不折叠——温度/maxTokens/RPM是常用参数）
