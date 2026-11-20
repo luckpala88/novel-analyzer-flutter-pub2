@@ -1238,11 +1238,7 @@ class _ChatPageState extends State<ChatPage>
             child: _bubbleBody(state, m, isUser),
           ),
           // v863：气泡下操作行——复制（全部消息）+重新回答（AI消息）
-          // v1542：删除键只给超半屏的长消息（短消息用楼层头小删除键）
-          if (!_sending &&
-              m.content != '…' &&
-              (_floorBodyH[idx] ?? 0) >
-                  MediaQuery.of(context).size.height * 0.5)
+          if (!_sending && m.content != '…')
             Padding(
               padding: const EdgeInsets.only(top: 2),
               child: Wrap(
@@ -1308,13 +1304,15 @@ class _ChatPageState extends State<ChatPage>
                       onTap: () => _regen(state, idx),
                     ),
                   ],
-                  // v1542：删除键放最右；只给超半屏的长消息（短消息用楼层头小删除键）
-                  MiniButton(
-                    dense: true,
-                    danger: true,
-                    label: '删除',
-                    onTap: () => _deleteFloor(state, idx),
-                  ),
+                  // v1542：删除键放最右，只给超半屏的长消息（短消息用楼层头x键）
+                  if ((_floorBodyH[idx] ?? 0) >
+                      MediaQuery.of(context).size.height * 0.5)
+                    MiniButton(
+                      dense: true,
+                      danger: true,
+                      label: '删除',
+                      onTap: () => _deleteFloor(state, idx),
+                    ),
                 ],
               ),
             ),
