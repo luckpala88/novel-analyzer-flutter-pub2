@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/api_config.dart';
+import '../utils/v469_style.dart';
 import '../models/preset.dart';
 import '../state/app_state.dart';
 import 'v119_ui.dart';
@@ -487,7 +488,8 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
                 padding: const EdgeInsets.all(8),
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF8E7),
+                  // v1554：夜间跟随
+                  color: V469Style.accentBg,
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(color: const Color(0xFFE0C88F)),
                 ),

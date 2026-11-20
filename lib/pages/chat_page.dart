@@ -5,6 +5,7 @@ import 'dart:math' as dmath;
 import 'dart:ui' as ui;
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../utils/v469_style.dart';
 import 'package:flutter/rendering.dart'; // v1542: RenderProxyBox
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
@@ -1369,7 +1370,8 @@ class _ChatPageState extends State<ChatPage>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF5F1E6),
+                          // v1554：夜间跟随
+                          color: V469Style.accentBg,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text('📄 ${a.name}',

@@ -1393,7 +1393,7 @@ return true;
               children: [
                 Text(
                   '每行"原著名→新名（定位）"——生成端保持原著名，二创页「换名」开启时输出替换',
-                  style: TextStyle(fontSize: 11.5, color: Colors.grey[600]),
+                  style: TextStyle(fontSize: _cf(11.5), color: Colors.grey[600]),
                 ),
                 // v393：起名要求（指定主角新名/命名规范，生成与增量抽取共用）
                 TextField(
@@ -1535,7 +1535,7 @@ return true;
                               ? Text(
                                   '无匹配行',
                                   style: TextStyle(
-                                    fontSize: 11.5,
+                                    fontSize: _cf(11.5),
                                     color: Colors.grey[600],
                                   ),
                                 )
@@ -2393,7 +2393,7 @@ return true;
               controller: _contReqRawCtrl,
               labelText: '全局续写方向（接下来写什么/收束哪条弧线/开什么新弧线）',
               hintText: '如：收束灵器弧线\n开启秘境探索新弧线\n主角修为突破到金丹',
-              fontSize: 11.5,
+              fontSize: _cf(11.5),
               onChanged: (v) {
                 wb?.continueReq = v;
                 state.saveWorldBook();
@@ -2424,7 +2424,7 @@ return true;
               controller: _contReqOptCtrl,
               labelText: 'AI帮想的新弧线方向（可手改，勾选后生效）',
               hintText: 'AI优化稿会出现在这里，可手动修改',
-              fontSize: 11.5,
+              fontSize: _cf(11.5),
               onChanged: (v) {
                 wb?.continuePlans['req_opt'] = v;
                 state.saveWorldBook();
@@ -2516,7 +2516,7 @@ return true;
             SelectionArea(
               child: FieldColoredText(
                 text: _brief(arc.summary, 250),
-                fontSize: 11.5,
+                fontSize: _cf(11.5),
                 height: 1.4,
                 baseColor: const Color(0xFF5B7A99),
                 variant: 'arc',
@@ -2532,7 +2532,7 @@ return true;
             SelectionArea(
               child: FieldColoredText(
                 text: overview.isEmpty ? '（无概述）' : overview,
-                fontSize: 11.5,
+                fontSize: _cf(11.5),
                 height: 1.4,
                 baseColor: const Color(0xFF5B7A99),
                 variant: 'arc',
@@ -2637,7 +2637,7 @@ return true;
                     // v1297b：字段彩色（弧线靛蓝）
                     child: FieldColoredText(
                       text: arc.summary,
-                      fontSize: 11,
+                      fontSize: _cf(11),
                       height: 1.4,
                       baseColor: const Color(0xFF5B7A99),
                       variant: 'arc',
@@ -2686,7 +2686,7 @@ return true;
                     // v1297b：字段彩色（弧线靛蓝）
                     child: FieldColoredText(
                       text: overview.isEmpty ? '（无概述）' : overview,
-                      fontSize: 11,
+                      fontSize: _cf(11),
                       height: 1.4,
                       baseColor: const Color(0xFF5B7A99),
                       variant: 'arc',
@@ -2827,7 +2827,7 @@ return true;
           children: [
             Text('📍$titleLine',
                 style: const TextStyle(
-                    fontSize: 11.5, fontWeight: FontWeight.w600)),
+                    fontSize: _cf(11.5), fontWeight: FontWeight.w600)),
             if (summaryLine.isNotEmpty)
               // v1039：完整场景概述（去60字截断）
               Text(summaryLine,
@@ -2924,7 +2924,7 @@ return true;
                 SelectionArea(
                   child: FieldColoredText(
                     text: _brief(arc.summary, 400),
-                    fontSize: 11,
+                    fontSize: _cf(11),
                     height: 1.4,
                     baseColor: const Color(0xFF5B7A99),
                     variant: 'arc',
@@ -3001,7 +3001,7 @@ return true;
               controller: _scenePlanMatCtrl.putIfAbsent(
                   arcKey, () => TextEditingController()),
               labelText: '素材内容（设定/物品/灵感片段——AI规划时有机融入场景）',
-              fontSize: 11.5,
+              fontSize: _cf(11.5),
               onChanged: (v) =>
                   state.worldBook?.continuePlans[_plannerMatKey(arcKey)] = v,
               onClear: () => _clearField(
@@ -3025,7 +3025,7 @@ return true;
                   arcKey, () => TextEditingController()),
               labelText: '新场景规划（想怎么写就写什么，一两句话也行）',
               hintText: '如：主角夜探禁地发现上古阵法\n引出守阵老者这条暗线',
-              fontSize: 11.5,
+              fontSize: _cf(11.5),
               onChanged: (v) =>
                   state.worldBook?.continuePlans[_plannerRawKey(arcKey)] = v,
               onClear: () => _clearField(
@@ -3058,7 +3058,7 @@ return true;
                   arcKey, () => TextEditingController()),
               labelText: 'AI帮想的新场景规划（可手改，勾选后生效）',
               hintText: 'AI优化稿会出现在这里，可手动修改',
-              fontSize: 11.5,
+              fontSize: _cf(11.5),
               onChanged: (v) =>
                   state.worldBook?.continuePlans[_plannerOptKey(arcKey)] = v,
               onClear: () => _clearField(

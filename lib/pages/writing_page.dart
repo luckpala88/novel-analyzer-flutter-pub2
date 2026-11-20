@@ -4053,7 +4053,8 @@ class _WritingPageState extends State<WritingPage>
       height: MediaQuery.of(context).size.height * 0.78,
       margin: const EdgeInsets.fromLTRB(8, 4, 8, 4),
       decoration: BoxDecoration(
-        color: const Color(0xFFFAF7F2),
+        // v1554：夜间跟随
+        color: Theme.of(context).scaffoldBackgroundColor,
         border: Border.all(color: V469Style.border),
         borderRadius: BorderRadius.circular(8),
       ),
