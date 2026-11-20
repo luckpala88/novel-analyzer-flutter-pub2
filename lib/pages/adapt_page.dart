@@ -1709,16 +1709,11 @@ return true;
                     onTap: () =>
                         state.setWbPromptPreview(!state.wbPromptPreview),
                   ),
-                  // v791：续写映射表两键移顶栏（原弧线Tab列表末尾）
+                  // v1548：映射表单键对齐改编页——直接开查看/编辑弹窗（弹窗内有重新生成）
                   MiniButton(
                     label: '映射表',
                     primary: state.worldBook?.nameMapping.isNotEmpty ?? false,
-                    onTap: _isGenerating ? null : () => _batchGenNameMap(state),
-                  ),
-                  MiniButton(
-                    label: '查看',
-                    primary: false,
-                    onTap: () => _showMasterOutlineDialog(state),
+                    onTap: _isGenerating ? null : () => _showMasterOutlineDialog(state),
                   ),
                 ],
               ),

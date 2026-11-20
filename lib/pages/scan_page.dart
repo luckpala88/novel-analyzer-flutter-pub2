@@ -369,6 +369,8 @@ class _ScanPageState extends State<ScanPage>
                   // v445：生成弧线进批量菜单（第一行省空间）；步进改"场景/步"尾注
                   SizedBox(
                     width: 34,
+                    height: 22, // v1548：与胶囊同高
+                    child: Center(
                     child: TextField(
                       controller: _groupBatchController,
                       keyboardType: TextInputType.number,
@@ -382,17 +384,24 @@ class _ScanPageState extends State<ScanPage>
                         ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .outline
+                                .withOpacity(0.5),
+                          ),
                         ),
                       ),
                       onChanged: (_) => _saveGroupBatch(state),
                       onSubmitted: (_) => _saveGroupBatch(state, persist: true),
                     ),
                   ),
+                  ),
                   Text(
-                    '场景/步',
+                    '%s',
                     style: TextStyle(fontSize: 10, color: Colors.grey[600]),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 4),
                   PopupMenuButton<String>(
                     enabled: !state.sceneStreamBusy && state.globalScenes.isNotEmpty,
                     tooltip: '批量操作',
@@ -444,18 +453,23 @@ class _ScanPageState extends State<ScanPage>
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: V469Style.surfaceAlt,
+                        // v1548：与MiniButton-primary同规格（金底）
+                        color: Theme.of(context).colorScheme.primaryContainer,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: V469Style.border),
                       ),
-                      child: const Text(
-                        '批量▾',
-                        style: TextStyle(fontSize: 10),
+                      child: Text(
+                        "批量▾",
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                       ),
                     ),
                   ),
+
                   // v1157：恢复弧线页词链开关（分组/零件提取/目的分析发前弹预览）
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 4),
                   MiniButton(
                     label: '词链',
                     primary: state.scanPromptPreview,

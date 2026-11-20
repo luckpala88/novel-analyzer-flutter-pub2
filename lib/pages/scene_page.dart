@@ -309,6 +309,8 @@ class _ScenePageState extends State<ScenePage>
                   // v1523b：步进框移到批量键左侧（对齐弧线页），样式对齐MiniButton胶囊
                   SizedBox(
                     width: 34,
+                    height: 22, // v1548：与胶囊同高
+                    child: Center(
                     child: TextField(
                       controller: _sceneStepController,
                       keyboardType: TextInputType.number,
@@ -322,17 +324,24 @@ class _ScenePageState extends State<ScenePage>
                         ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .outline
+                                .withOpacity(0.5),
+                          ),
                         ),
                       ),
                       onChanged: (_) => _saveSceneStep(state),
                       onSubmitted: (_) => _saveSceneStep(state, persist: true),
                     ),
                   ),
+                  ),
                   Text(
-                    '章/步',
+                    '%s',
                     style: TextStyle(fontSize: 10, color: Colors.grey[600]),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 4),
                   PopupMenuButton<String>(
                     // v434：新流程（场景流/分组）不依赖旧弧线存在，仅划分时禁用
                     enabled: !_isDividing,
@@ -397,7 +406,7 @@ class _ScenePageState extends State<ScenePage>
                     ],
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
+                        horizontal: 8,
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
@@ -414,7 +423,7 @@ class _ScenePageState extends State<ScenePage>
                       ),
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 4),
                   // v377：统一词链开关（v465：适配全局场景扫描预览）
                   MiniButton(
                     label: '词链',
