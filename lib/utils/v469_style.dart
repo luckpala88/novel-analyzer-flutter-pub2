@@ -41,6 +41,9 @@ class V469Style {
       _night ? const Color(0xFF8A7A64) : const Color(0xFF9A8B80);
   static Color get border =>
       _night ? const Color(0xFF3A342B) : const Color(0xFFE8E0D5); // v1554
+  // v1557：续写页浅蓝底夜间跟随
+  static Color get continueBg =>
+      _night ? const Color(0xFF26221C) : const Color(0xFFE8F1FA);
 
   // ── 分镜卡专用（v469 slate系）──
   // v1554：分镜卡夜间跟随

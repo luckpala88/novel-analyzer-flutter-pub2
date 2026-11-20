@@ -755,9 +755,11 @@ class _ChatPageState extends State<ChatPage>
     final sess = state.chatActive;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFAF6EE),
+      // v1557：夜间跟随
+      backgroundColor: V469Style.accentBg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF3E9D4),
+        // v1557：夜间跟随
+        backgroundColor: V469Style.surfaceAlt,
         titleSpacing: 0,
         toolbarHeight: 76, // v1358：两行收紧
         // v1011：会话标题不占工具栏（用户裁决：标题挤瘪右侧按键）——
@@ -1107,7 +1109,8 @@ class _ChatPageState extends State<ChatPage>
                           Container(
                             padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              // v1557：夜间跟随
+                              color: V469Style.surface,
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(color: const Color(0xFFE2D9C6)),
                             ),
@@ -1335,10 +1338,15 @@ class _ChatPageState extends State<ChatPage>
         constraints: BoxConstraints(
             maxWidth: MediaQuery.of(context).size.width * 0.82),
         decoration: BoxDecoration(
-          color: isUser ? const Color(0xFFDCEBDD) : Colors.white,
+          // v1557：夜间跟随
+          color: isUser
+              ? (V469Style.accentBg)
+              : V469Style.surface,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-              color: isUser ? const Color(0xFFB7D3B9) : const Color(0xFFE2D9C6)),
+              color: isUser
+                  ? V469Style.border
+                  : V469Style.border), // v1557夜间跟随
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

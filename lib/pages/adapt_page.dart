@@ -1654,7 +1654,8 @@ return true;
   Widget _buildContinuePage(AppState state, List<Arc> allArcs) {
     final wb = state.worldBook;
     return Scaffold(
-      backgroundColor: _continueBg,
+      // v1557：夜间跟随
+      backgroundColor: V469Style.continueBg,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -2365,7 +2366,7 @@ return true;
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: V469Style.surface, // v1557夜间跟随
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: const Color(0xFFB8CFE5)),
       ),
@@ -2454,7 +2455,7 @@ return true;
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: V469Style.surface, // v1557夜间跟随
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: const Color(0xFFB8CFE5)),
       ),
@@ -2881,7 +2882,7 @@ return true;
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: V469Style.surface, // v1557夜间跟随
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: const Color(0xFFB8CFE5)),
       ),
@@ -2978,7 +2979,7 @@ return true;
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: V469Style.surface, // v1557夜间跟随
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: const Color(0xFFB8CFE5)),
       ),
@@ -5446,7 +5447,7 @@ return true;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: V469Style.surface, // v1557夜间跟随
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: const Color(0xFFE0CB8C)),
       ),
@@ -5544,9 +5545,9 @@ return true;
                                 ),
                                 child: const Text(
                                   '复制',
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 10,
-                                    color: Colors.white,
+                                    color: Colors.white, // 金底白字保留
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
@@ -5760,9 +5761,9 @@ return true;
                                         ),
                                         child: const Text(
                                           '复制',
-                                          style: TextStyle(
+                                          style: const TextStyle(
                                             fontSize: 10,
-                                            color: Colors.white,
+                                            color: Colors.white, // 金底白字保留
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
