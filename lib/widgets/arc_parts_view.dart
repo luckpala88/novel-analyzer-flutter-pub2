@@ -76,7 +76,7 @@ class ArcParts {
             ),
             TextSpan(
               text: rule,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12.5,
                 color: V469Style.textSec,
                 height: 1.5,
@@ -85,7 +85,7 @@ class ArcParts {
             if (func.isNotEmpty)
               TextSpan(
                 text: '\n  功能：$func',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   color: V469Style.textMuted,
                   height: 1.4,
@@ -140,7 +140,7 @@ class ArcParts {
                       children: [
                         TextSpan(
                           text: name,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color: V469Style.textMain,
@@ -177,7 +177,7 @@ class ArcParts {
                       padding: const EdgeInsets.only(top: 3),
                       child: Text(
                         identity,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           color: V469Style.textSec,
                         ),
@@ -188,7 +188,7 @@ class ArcParts {
                       padding: const EdgeInsets.only(top: 2),
                       child: Text(
                         traits,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11.5,
                           color: V469Style.textMuted,
                           fontStyle: FontStyle.italic,
@@ -201,7 +201,7 @@ class ArcParts {
                       padding: const EdgeInsets.only(top: 2),
                       child: Text(
                         '🔗 $relation',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11.5,
                           color: V469Style.textSec,
                         ),
@@ -283,7 +283,7 @@ class ArcParts {
             ],
             TextSpan(
               text: desc,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12.5,
                 color: V469Style.textSec,
                 height: 1.5,
@@ -309,7 +309,7 @@ class ArcParts {
           _metaItem([
             TextSpan(
               text: content,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
                 color: V469Style.textMain,
@@ -318,14 +318,14 @@ class ArcParts {
             if (plantedAt.isNotEmpty)
               TextSpan(
                 text: ' ($plantedAt种下)',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   color: V469Style.textMuted,
                 ),
               ),
             TextSpan(
               text: ' → ',
-              style: const TextStyle(fontSize: 12.5, color: V469Style.textSec),
+              style: TextStyle(fontSize: 12.5, color: V469Style.textSec),
             ),
             TextSpan(
               text: payoff,
@@ -370,13 +370,13 @@ class ArcParts {
           if (plantedAt.isNotEmpty)
             TextSpan(
               text: ' ($plantedAt种下)',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 color: V469Style.textMuted,
               ),
             ),
           if (paid && payoff.isNotEmpty) ...[
-            const TextSpan(
+            TextSpan(
               text: ' → ',
               style: TextStyle(fontSize: 12, color: V469Style.textSec),
             ),
@@ -418,7 +418,7 @@ class ArcParts {
           _metaItem([
             TextSpan(
               text: _asStr(f),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12.5,
                 color: V469Style.textSec,
                 height: 1.5,
@@ -438,7 +438,7 @@ class ArcParts {
           padding: const EdgeInsets.only(right: 12),
           child: Text(
             irreversible,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12.5,
               height: 1.6,
               color: V469Style.textSec,
@@ -477,7 +477,7 @@ class ArcParts {
           _metaItem([
             TextSpan(
               text: _asStr(f),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12.5,
                 color: V469Style.textSec,
                 height: 1.5,
@@ -497,7 +497,7 @@ class ArcParts {
           _metaItem([
             TextSpan(
               text: _asStr(p),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12.5,
                 color: V469Style.textSec,
                 height: 1.5,
@@ -533,7 +533,7 @@ class _ForeOwnCollapsibleState extends State<_ForeOwnCollapsible> {
             padding: const EdgeInsets.only(left: 14, top: 3, bottom: 3),
             child: Text(
               '${_open ? '▾' : '▸'} 本弧线新种${widget.items.length}条（点${_open ? '收起' : '开'}查看）',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 color: V469Style.textMuted,
                 fontStyle: FontStyle.italic,

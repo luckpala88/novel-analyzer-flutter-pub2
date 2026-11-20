@@ -614,7 +614,7 @@ class _ScanPageState extends State<ScanPage>
                               ),
                               title: Text(
                                 arc.title,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 13.5,
                                   fontWeight: FontWeight.w600,
                                   color: V469Style.textMain,
@@ -636,7 +636,7 @@ class _ScanPageState extends State<ScanPage>
                                           arc.sceneFrom >= 0
                                               ? '场景${arc.sceneFrom}-${arc.sceneTo} · ${arc.chapterRange}'
                                               : arc.chapterRange,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 11,
                                             color: V469Style.textMuted,
                                           ),
@@ -803,7 +803,7 @@ const SizedBox(height: 8),
                                         ),
                                         Text(
                                           arc.closureEvent!,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 12,
                                             height: 1.5,
                                             color: V469Style.textSec,
@@ -914,7 +914,7 @@ const SizedBox(height: 8),
                                         ),
                                         Text(
                                           arc.coreChange,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 12.5,
                                             height: 1.5,
                                             color: V469Style.textSec,
@@ -1034,7 +1034,7 @@ const SizedBox(height: 8),
                                             final an =
                                                 state.arcAnalyses[arc.number.toString()];
                                             if (an == null || an.metadata == null) {
-                                              return const Text('暂无零件——点「批量」菜单提取',
+                                              return Text('暂无零件——点「批量」菜单提取',
                                                   style: TextStyle(
                                                       fontSize: 11.5,
                                                       color: V469Style.textMuted));

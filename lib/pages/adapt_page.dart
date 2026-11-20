@@ -2831,7 +2831,7 @@ return true;
             if (summaryLine.isNotEmpty)
               // v1039：完整场景概述（去60字截断）
               Text(summaryLine,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 10.5, color: V469Style.textMuted)),
             // v974：徽章三态（已写/已规划待写入/未规划）
             Text(
@@ -2898,7 +2898,7 @@ return true;
               child: Row(
                 children: [
                   Text(expanded ? '▾' : '▸',
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 13, color: V469Style.textMuted)),
                   const SizedBox(width: 4),
                   Expanded(
@@ -2935,7 +2935,7 @@ return true;
               // 场景列表（分镜状态在场景下面）
               ...sceneTiles,
               if (spans.isEmpty)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(left: 10, top: 4),
                   child: Text('（该弧线条目尚无场景块——先在场景续写层规划写入）',
                       style:

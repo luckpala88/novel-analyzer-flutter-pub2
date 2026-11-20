@@ -1312,7 +1312,7 @@ class _DetectionPageState extends State<DetectionPage>
                                             ),
                                             child: Text(
                                               '${f['wordCount']}字',
-                                              style: const TextStyle(
+                                              style: TextStyle(
                                                 fontSize: 11,
                                                 color: V469Style.textMuted,
                                               ),
@@ -1359,7 +1359,7 @@ class _DetectionPageState extends State<DetectionPage>
                                         padding: const EdgeInsets.only(top: 1),
                                         child: Text(
                                           '${_modelNoteOf(f['content'])}',
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 11,
                                             color: V469Style.textMuted,
                                           ),
@@ -1709,7 +1709,7 @@ class _DetectionPageState extends State<DetectionPage>
                                       ),
                                       child: Text(
                                         '[模型：${_modelNoteOf(file!['content'])}]',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 11,
                                           color: V469Style.textMuted,
                                         ),
@@ -1838,7 +1838,7 @@ class _DetectionPageState extends State<DetectionPage>
                                       const SizedBox(width: 4),
                                       Text(
                                         '${a['name']}',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 10,
                                           color: V469Style.textMain,
                                         ),

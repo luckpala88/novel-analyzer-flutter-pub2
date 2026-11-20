@@ -89,7 +89,7 @@ class PromptPreview {
                     ),
                     child: SingleChildScrollView(
                       child: SelectableText(sysPrompt,
-                          style: const TextStyle(fontSize: 10.5, height: 1.6, color: V469Style.textMuted)),
+                          style: TextStyle(fontSize: 10.5, height: 1.6, color: V469Style.textMuted)),
                     ),
                   ),
                 ],
@@ -120,10 +120,10 @@ class PromptPreview {
                         initiallyExpanded: i == 0,
                         title: Text(
                           '第${i + 1}块：$secTitle（${sec.value.length}字）',
-                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: V469Style.textSec),
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: V469Style.textSec),
                         ),
                         subtitle: chunks.length > 1
-                            ? Text('${chunks.length}段×3000字', style: const TextStyle(fontSize: 9.5, color: V469Style.textMuted))
+                            ? Text('${chunks.length}段×3000字', style: TextStyle(fontSize: 9.5, color: V469Style.textMuted))
                             : null,
                         children: [
                           for (var ci = 0; ci < chunks.length; ci++)
@@ -143,11 +143,11 @@ class PromptPreview {
                                     Padding(
                                       padding: const EdgeInsets.only(bottom: 4),
                                       child: Text('段${ci + 1}/${chunks.length}',
-                                          style: const TextStyle(fontSize: 9.5, color: V469Style.textMuted)),
+                                          style: TextStyle(fontSize: 9.5, color: V469Style.textMuted)),
                                     ),
                                   SelectableText(
                                     chunks[ci],
-                                    style: const TextStyle(fontSize: 10.5, height: 1.6, color: V469Style.textSec),
+                                    style: TextStyle(fontSize: 10.5, height: 1.6, color: V469Style.textSec),
                                   ),
                                 ],
                               ),

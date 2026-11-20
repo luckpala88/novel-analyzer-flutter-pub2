@@ -598,7 +598,7 @@ class _AnalysisPageState extends State<AnalysisPage>
                 for (var i = 0; i < paras.length; i++) ...[
                   if (i > 0) const SizedBox(height: 4),
                   Text(paras[i],
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11.5,
                         height: 1.5,
                         color: V469Style.textSec,
@@ -699,7 +699,7 @@ class _AnalysisPageState extends State<AnalysisPage>
           ),
           title: Text(
             arc.title ?? '',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13.5,
               fontWeight: FontWeight.w600,
               color: V469Style.textMain,
@@ -721,7 +721,7 @@ class _AnalysisPageState extends State<AnalysisPage>
                       (arc.sceneFrom ?? -1) >= 0
                           ? '场景${arc.sceneFrom}-${arc.sceneTo} · ${arc.chapterRange ?? ''}'
                           : (arc.chapterRange ?? ''),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         color: V469Style.textMuted,
                         fontWeight: FontWeight.w400,
@@ -1069,7 +1069,7 @@ class _AnalysisPageState extends State<AnalysisPage>
                     children: [
                       TextSpan(
                         text: sceneName,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: V469Style.textMain,
@@ -1078,7 +1078,7 @@ class _AnalysisPageState extends State<AnalysisPage>
                       if (chapterRange.isNotEmpty)
                         TextSpan(
                           text: ' ($chapterRange)',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             color: V469Style.textMuted,
                             fontWeight: FontWeight.w400,
@@ -1267,7 +1267,7 @@ class _AnalysisPageState extends State<AnalysisPage>
                     const SizedBox(width: 4),
                     Text(
                       '分镜/Shots ${shots.length} 条',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w700,
                         color: V469Style.textSec,

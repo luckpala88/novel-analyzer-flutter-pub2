@@ -666,7 +666,7 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
                 ),
                 Text(
                   choreoTxt,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     height: 1.4,
                     color: V469Style.textMain,
@@ -707,7 +707,7 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
                   const SizedBox(width: 4),
                   Text(
                     '分镜/Shots $shotCount 条',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w700,
                       color: V469Style.textSec,
@@ -811,7 +811,7 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
             spans.add(
               TextSpan(
                 text: fm.group(2),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11.5,
                   color: V469Style.textSec,
                   height: 1.5,
@@ -824,7 +824,7 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
             spans.add(const TextSpan(text: '\n　'));
             spans.add(TextSpan(
               text: t,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 10.5,
                 color: V469Style.textSec,
                 height: 1.5,
@@ -839,7 +839,7 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
             if (nm != null) {
               spans.add(TextSpan(
                 text: '▸ ${nm.group(1)}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w700,
                   color: V469Style.textMain,
@@ -847,7 +847,7 @@ const SizedBox(width: 8), // Wrap内Spacer失效，用定宽占位
               ));
               spans.add(TextSpan(
                 text: '，${nm.group(2)}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   color: V469Style.textSec,
                   height: 1.5,

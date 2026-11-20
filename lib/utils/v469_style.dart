@@ -26,9 +26,15 @@ class V469Style {
   static const incompleteBg = Color(0xFFFBEAE8);
   static const surface = Color(0xFFFFFFFF);
   static const surfaceAlt = Color(0xFFF5F0E8); // 暖灰
-  static const textMain = Color(0xFF000000); // v1219：纯黑（用户裁决，原深棕0xFF2C1810——4K屏可读性）
-  static const textSec = Color(0xFF000000); // v1222：纯黑（用户点名：场景/弧线/分镜主要内容=textSec渲染层，原暖灰棕0xFF6B5D54看着不黑）
-  static const textMuted = Color(0xFF9A8B80); // v1222：保持原浅灰棕不动（用户裁决：只改最大量内容色，标注/辅助不动）
+  // v1550b：夜间模式跟随——浅色=纯黑（v1219/v1222用户裁决不变），夜间=暖棕
+  static bool _night = false;
+  static void setNight(bool v) => _night = v;
+  static Color get textMain =>
+      _night ? const Color(0xFFB9A68C) : const Color(0xFF000000);
+  static Color get textSec =>
+      _night ? const Color(0xFFB9A68C) : const Color(0xFF000000);
+  static Color get textMuted =>
+      _night ? const Color(0xFF8A7A64) : const Color(0xFF9A8B80);
   static const border = Color(0xFFE8E0D5);
 
   // ── 分镜卡专用（v469 slate系）──

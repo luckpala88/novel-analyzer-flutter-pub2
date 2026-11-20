@@ -71,7 +71,7 @@ class SceneCardItem extends StatelessWidget {
               Expanded(
                 child: Text(
                   scene.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: V469Style.textMain,
@@ -152,7 +152,7 @@ class SceneCardItem extends StatelessWidget {
             children: [
               Text(
                 scene.chapterRange,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 10, color: V469Style.textMuted),
               ),
               const Spacer(),

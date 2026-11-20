@@ -53,6 +53,7 @@ class _NovelAnalyzerAppState extends State<NovelAnalyzerApp> {
   }
 
   void _onAppState() {
+    V469Style.setNight(AppState.instance.nightMode); // v1550b：内容渲染层文字色跟随
     if (mounted) setState(() {});
   }
 

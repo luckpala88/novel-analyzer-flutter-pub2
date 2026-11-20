@@ -1419,14 +1419,14 @@ class _WritingPageState extends State<WritingPage>
             Expanded(
               child: Text(
                 '$name（$len字）',
-                style: const TextStyle(fontSize: 11, color: V469Style.textMain),
+                style: TextStyle(fontSize: 11, color: V469Style.textMain),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
             GestureDetector(
               onTap: () => state.removeWritingAttachment(index),
-              child: const Icon(
+              child: Icon(
                 Icons.close,
                 size: 14,
                 color: V469Style.textMuted,
@@ -1902,7 +1902,7 @@ class _WritingPageState extends State<WritingPage>
                     children: [
                       Text(
                         sceneName,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: V469Style.textMain,
@@ -1914,7 +1914,7 @@ class _WritingPageState extends State<WritingPage>
                       if (sceneSummary.trim().isNotEmpty)
                         Text(
                           sceneSummary.trim(),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 10,
                             color: V469Style.textMuted,
                           ),
@@ -1939,7 +1939,7 @@ class _WritingPageState extends State<WritingPage>
                 const SizedBox(width: 4),
                 Text(
                   chapterRange,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10,
                     color: V469Style.textMuted,
                   ),
@@ -1983,11 +1983,11 @@ class _WritingPageState extends State<WritingPage>
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.menu_book, size: 12, color: V469Style.textMuted),
+                          Icon(Icons.menu_book, size: 12, color: V469Style.textMuted),
                           const SizedBox(width: 3),
                           Text(
                             '内容素材${(state.sceneAttachments[wkey] ?? []).isNotEmpty ? "(${(state.sceneAttachments[wkey] ?? []).length})" : ""}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 10,
                               color: V469Style.textSec,
                             ),
@@ -2008,7 +2008,7 @@ class _WritingPageState extends State<WritingPage>
                           Expanded(
                             child: Text(
                               '· ${(state.sceneAttachments[wkey] ?? [])[mi]['name']}（${((state.sceneAttachments[wkey] ?? [])[mi]['content'] ?? '').toString().length}字）',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 10,
                                 color: V469Style.textMuted,
                               ),
@@ -2019,7 +2019,7 @@ class _WritingPageState extends State<WritingPage>
                           GestureDetector(
                             onTap: () =>
                                 state.removeSceneAttachment(wkey, mi),
-                            child: const Icon(
+                            child: Icon(
                               Icons.close,
                               size: 12,
                               color: V469Style.textMuted,
@@ -3791,7 +3791,7 @@ class _WritingPageState extends State<WritingPage>
                     child: SingleChildScrollView(
                       child: SelectableText(
                         sysPrompt,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10.5,
                           height: 1.5,
                           color: V469Style.textMuted,
@@ -3983,7 +3983,7 @@ class _WritingPageState extends State<WritingPage>
                   ),
                   TextSpan(
                     text: value,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       color: V469Style.textSec,
                       height: 1.4,
@@ -4080,7 +4080,7 @@ class _WritingPageState extends State<WritingPage>
                         '${w.model.isNotEmpty ? " · ${w.model}@${w.temperature}" : ""}'
                         '${w.genMode.isNotEmpty ? " · ${w.genMode}" : ""}'
                         '${w.draft ? " · 草稿" : ""}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10.5,
                           color: V469Style.textMuted,
                         ),
@@ -4306,7 +4306,7 @@ class _WritingPageState extends State<WritingPage>
                               '[模型：${w.model} · 温度${w.temperature}'
                               '${w.genMode.isNotEmpty ? " · ${w.genMode}" : ""}'
                               ' · v${w.version}]',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
                                 color: V469Style.textMuted,
                               ),
@@ -4538,7 +4538,7 @@ class _WritingPageState extends State<WritingPage>
                   if (range.isNotEmpty)
                     TextSpan(
                       text: ' ($range)',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         color: V469Style.textMuted,
                       ),
@@ -4608,7 +4608,7 @@ class _WritingPageState extends State<WritingPage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     '编辑分镜（首行=分镜头，随后维度行；保存时结构写回世界书）',
                     style: TextStyle(fontSize: 10, color: V469Style.textMuted),
                   ),
@@ -4781,7 +4781,7 @@ class _WritingPageState extends State<WritingPage>
                   ),
                   TextSpan(
                     text: val,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       color: V469Style.textSec,
                       fontWeight: FontWeight.w400,
