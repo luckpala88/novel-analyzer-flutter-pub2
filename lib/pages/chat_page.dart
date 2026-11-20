@@ -791,7 +791,7 @@ class _ChatPageState extends State<ChatPage>
           // v1011：会话切换键（替代原Expanded下拉，点开弹层看全标题）
           MiniButton(
             label: '会话 ▾',
-            primary: sess != null,
+            primary: false, // v1565：动作键不填色（会话有无不作为颜色态）
             onTap: () => _showSessionPicker(state),
           ),
           ContentFontButtons(

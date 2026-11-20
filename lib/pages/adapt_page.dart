@@ -1713,7 +1713,7 @@ return true;
                   // v1548：映射表单键对齐改编页——直接开查看/编辑弹窗（弹窗内有重新生成）
                   MiniButton(
                     label: '映射表',
-                    primary: state.worldBook?.nameMapping.isNotEmpty ?? false,
+                    primary: false, // v1565：映射表=动作键不填色
                     onTap: _isGenerating ? null : () => _showMasterOutlineDialog(state),
                   ),
                 ],
@@ -2712,26 +2712,60 @@ return true;
                 (e) {
                   final sc = e.value;
                   final ov = sc.summary.trim();
+                  final scKey = '${arcKey}_${e.key}';
+                  final scOpen = _contSceneExpanded.contains(scKey);
                   return Card(
                     margin: const EdgeInsets.only(bottom: 4),
                     child: Padding(
                     padding: const EdgeInsets.all(6),
-                    child: Row(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Text(
-                            '场景${e.key + 1}：${sc.name}\n　　${ov.length > 60 ? '${ov.substring(0, 60)}…' : ov}',
-                            style: TextStyle(fontSize: _cf(11)),
+                        // v1565：名字行点击展开/收起——收起=60字摘要，展开=完整八字段彩色
+                        InkWell(
+                          onTap: () => setState(() {
+                            scOpen
+                                ? _contSceneExpanded.remove(scKey)
+                                : _contSceneExpanded.add(scKey);
+                          }),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '场景${e.key + 1}：${sc.name}'
+                                  '${scOpen ? '' : '\n　　${ov.length > 60 ? '${ov.substring(0, 60)}…' : ov}'}',
+                                  style: TextStyle(fontSize: _cf(11)),
+                                ),
+                              ),
+                              Text(scOpen ? '▾' : '▸',
+                                  style: TextStyle(
+                                      fontSize: _cf(12),
+                                      color: V469Style.textMuted)),
+                            ],
                           ),
                         ),
+                        if (scOpen && ov.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: FieldColoredText(
+                              text: ov,
+                              fontSize: _cf(11),
+                              height: 1.4,
+                              baseColor: V469Style.textSec,
+                              variant: 'scene',
+                            ),
+                          ),
                         if (sc.text.trim().isNotEmpty)
-                          MiniButton(
-                            label: '🔍切片',
-                            primary: false,
-                            onTap: () => _showSliceDialog(
-                                '场景${e.key + 1}：${sc.name}（切片）',
-                                sc.text),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: MiniButton(
+                              label: '🔍切片',
+                              primary: false,
+                              onTap: () => _showSliceDialog(
+                                  '场景${e.key + 1}：${sc.name}（切片）',
+                                  sc.text),
+                            ),
                           ),
                       ],
                     ),
@@ -4687,6 +4721,7 @@ return true;
   final Set<String> _shotArcExpanded = {}; // v960：分镜续写层弧线卡展开状态
   final Set<String> _shotPlanPreviewOpen = {}; // v973：分镜规划预览卡展开状态
   final Set<String> _contArcExpanded = {};
+  final Set<String> _contSceneExpanded = {}; // v1565：续写场景行展开完整八字段
   // v1035：弧线条目草稿手改控制器（per-弧线号）
   final Map<String, TextEditingController> _arcEntryDraftCtl = {};
   // v1089：写入世界书后草稿框保留内容（不再自动清空，用户手动清）——
@@ -5230,7 +5265,7 @@ return true;
                   MiniButton(
                     // v1013：✓去掉——选中态用金底表达，省宽
                     label: '映射表',
-                    primary: state.worldBook?.nameMapping.isNotEmpty ?? false,
+                    primary: false, // v1565：映射表=动作键不填色
                     onTap: () => _showMasterOutlineDialog(state),
                   ),
                   Text(

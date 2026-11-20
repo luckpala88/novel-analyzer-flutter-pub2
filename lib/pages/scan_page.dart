@@ -458,8 +458,13 @@ class _ScanPageState extends State<ScanPage>
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        // v1548：与MiniButton-primary同规格（金底）
-                        color: Theme.of(context).colorScheme.primaryContainer,
+                        // v1565：动作键统一描边（颜色只留给开关态）
+                        border: Border.all(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .outline
+                              .withOpacity(0.5),
+                        ),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
