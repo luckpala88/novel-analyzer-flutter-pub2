@@ -432,6 +432,22 @@ class _ChatPageState extends State<ChatPage>
     await _generate(state, text, hist);
   }
 
+  /// v1537：用户消息重答——清掉该提问之后的所有回答（可能多轮）再重新生成
+  Future<void> _rerespondFromUser(AppState state, int userIdx) async {
+    if (_sending) return;
+    final sess = state.chatActive;
+    if (sess == null || userIdx < 0 || userIdx >= sess.messages.length) return;
+    final text = sess.messages[userIdx].content;
+    if (text.isEmpty) return;
+    if (userIdx + 1 < sess.messages.length) {
+      sess.messages.removeRange(userIdx + 1, sess.messages.length);
+      state.saveChatSessions();
+      setState(() {});
+    }
+    final hist = _histText(sess.messages, userIdx);
+    await _generate(state, text, hist);
+  }
+
   /// v836：生成核心（追加assistant占位→流式更新→落盘），供_send/_regen共用
   /// v838：atts——文本类附件注入prompt，图片附件走vision
   /// v840：agent循环——AI输出工具指令→执行（写类确认）→结果回喂→继续，最多4轮
@@ -1227,6 +1243,14 @@ class _ChatPageState extends State<ChatPage>
                     label: '删除',
                     onTap: () => _deleteFloor(state, idx),
                   ),
+                  // v1537：用户消息重答——清掉之后的回答重新生成
+                  if (isUser)
+                    MiniButton(
+                      compact: true,
+                      dense: true,
+                      label: '重答',
+                      onTap: () => _rerespondFromUser(state, idx),
+                    ),
                   if (!isUser && idx > 0) ...[
                     MiniButton(
                       compact: true,
