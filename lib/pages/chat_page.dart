@@ -983,10 +983,11 @@ class _ChatPageState extends State<ChatPage>
                                 ],
                                 const SizedBox(width: 6),
                                 // v1537：删除键×图标→danger胶囊好按；操作行也加同款
+                                // v1543：楼层头删除文字回退'x'（v1537的'删除'太占地）
                                 MiniButton(
                                   dense: true,
                                   danger: true,
-                                  label: '删除',
+                                  label: 'x',
                                   onTap: () => _deleteFloor(state, i),
                                 ),
                               ]),
