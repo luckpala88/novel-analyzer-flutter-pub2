@@ -149,30 +149,43 @@ class ApiModelButton extends StatelessWidget {
                   left: Radius.circular(11)),
               child: Padding(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                child: Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: model.isEmpty ? '⚙' : model,
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                      ),
-                      if (bal.isNotEmpty)
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                // v1587：模型名前加回小齿轮——设置入口可辨识（用户朋友找不到）
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.settings_outlined,
+                        size: 11,
+                        color: Theme.of(context).colorScheme.onSurface),
+                    const SizedBox(width: 3),
+                    Flexible(
+                      child: Text.rich(
                         TextSpan(
-                          text: '  $bal',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.green.shade800,
-                          ),
+                          children: [
+                            TextSpan(
+                              text: model.isEmpty ? 'API' : model,
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color:
+                                    Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                            if (bal.isNotEmpty)
+                              TextSpan(
+                                text: '  $bal',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.green.shade800,
+                                ),
+                              ),
+                          ],
                         ),
-                    ],
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
