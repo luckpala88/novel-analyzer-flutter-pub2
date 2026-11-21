@@ -570,12 +570,23 @@ class ApiService {
           final pre = _qtPreBalance;
           if (pre != null) {
             final cost = pre - remaining;
+            // v1589措辞：平台扣费有延迟——紧跟请求的查询常拿未入账余额，
+            // 差额0.0≠免费，扣的钱通常记到下一次查询头上
             _log('💰 余额：${pre.toStringAsFixed(1)} → '
-                '${remaining.toStringAsFixed(1)}（本次扣除${cost.toStringAsFixed(1)}）');
+                '${remaining.toStringAsFixed(1)}（差额${cost.toStringAsFixed(1)}，'
+                '平台扣费有延迟——差额通常对应上一次调用）');
           } else {
             _log('💰 $msg（请求后自动查）');
           }
           onQingtianBalance?.call(apiKey, remaining);
+          // v1589：延迟复查——等30秒让平台账单入账，拿到扣费后的真余额
+          // （变了才落盘刷新胶囊+终端一行，没变保持安静）
+          await Future.delayed(const Duration(seconds: 30));
+          final (_, late2) = await fetchQingtianBalance(apiKey: apiKey);
+          if (late2 >= 0 && late2 != remaining) {
+            _log('💰 复查：${late2.toStringAsFixed(1)}（扣费已入账）');
+            onQingtianBalance?.call(apiKey, late2);
+          }
         } else {
           _log('💰 余额查询：$msg');
         }
