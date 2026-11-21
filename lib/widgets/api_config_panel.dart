@@ -9,6 +9,82 @@ import '../models/preset.dart';
 import '../state/app_state.dart';
 import 'v119_ui.dart';
 
+/// v1585：模型快切——熔接在API胶囊右侧的半个胶囊（▼裸键，外框由
+/// ApiModelButton统一供；v1585b用户裁决：粘连不独立）。读section模型列表
+/// 缓存（⚙面板拉取成功时落盘api_models_<section>）直接选模型切换，免进面板
+class ApiModelDropdown extends StatelessWidget {
+  final ApiConfig config;
+  final String section;
+  const ApiModelDropdown({
+    super.key,
+    required this.config,
+    required this.section,
+  });
+
+  static String _current(ApiConfig c) {
+    if (c.useCustom) {
+      return c.customSlot == 'custom2' ? c.custom2Model : c.customModel;
+    }
+    return c.model;
+  }
+
+  void _apply(BuildContext context, String m) {
+    final state = context.read<AppState>();
+    final c = state.getApiConfig(section);
+    if (c.useCustom) {
+      if (c.customSlot == 'custom2') {
+        c.custom2Model = m;
+      } else {
+        c.customModel = m;
+      }
+    } else {
+      c.model = m;
+    }
+    state.saveApiConfig(section, c);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    List<String> models = [];
+    try {
+      final raw = context
+          .read<AppState>()
+          .storage
+          .readGlobalJson('api_models_$section');
+      if (raw is List) models = raw.whereType<String>().toList();
+    } catch (_) {}
+    final cur = _current(config);
+    return PopupMenuButton<String>(
+      tooltip: '切换模型',
+      padding: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+        child: Icon(Icons.arrow_drop_down, size: 14),
+      ),
+      itemBuilder: (ctx) => [
+        if (models.isEmpty)
+          const PopupMenuItem(
+              enabled: false,
+              height: 40,
+              child: Text('暂无模型列表，先在⚙面板获取',
+                  style: TextStyle(fontSize: 12))),
+        ...models.map((m) => PopupMenuItem<String>(
+              value: m,
+              height: 36,
+              child: Text(
+                m,
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: m == cur ? FontWeight.w700 : FontWeight.w400),
+              ),
+            )),
+      ],
+      onSelected: (m) => _apply(context, m),
+    );
+  }
+}
+
 /// v1544：API模型胶囊——页顶独立一行最左；键面=当前模型名（去"⚙ API"字样）；
 /// 擎天供应商顺带显示余额数字（绿色，直读API设置面板同一份余额历史，同key掩码校验）
 class ApiModelButton extends StatelessWidget {
@@ -50,49 +126,64 @@ class ApiModelButton extends StatelessWidget {
         }
       } catch (_) {}
     }
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: () => showV119Sheet(
-          context,
-          title: title,
-          child: ApiConfigPanel(config: config, section: section),
+    return Container(
+      // v1585b：双段熔接胶囊——左段=模型名（点开API设置），右半=▼快切
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
         ),
         borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
-            ),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: model.isEmpty ? '⚙' : model,
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
-                if (bal.isNotEmpty)
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => showV119Sheet(
+                context,
+                title: title,
+                child: ApiConfigPanel(config: config, section: section),
+              ),
+              borderRadius: const BorderRadius.horizontal(
+                  left: Radius.circular(11)),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                child: Text.rich(
                   TextSpan(
-                    text: '  $bal',
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.green.shade800,
-                    ),
+                    children: [
+                      TextSpan(
+                        text: model.isEmpty ? '⚙' : model,
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                      if (bal.isNotEmpty)
+                        TextSpan(
+                          text: '  $bal',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.green.shade800,
+                          ),
+                        ),
+                    ],
                   ),
-              ],
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
-        ),
+          Container(
+            width: 1,
+            height: 13,
+            color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
+          ),
+          ApiModelDropdown(config: config, section: section),
+        ],
       ),
     );
   }
@@ -429,6 +520,13 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
           ? '获取失败（Key无效或网络不通？URL：$baseUrl/models）'
           : '获取到${models.length}个模型';
     });
+    // v1585：模型列表按section落盘缓存——页顶模型快切下拉（ApiModelDropdown）直接读这份
+    if (models.isNotEmpty) {
+      try {
+        context.read<AppState>().storage
+            .writeGlobalJson('api_models_${widget.section}', models);
+      } catch (_) {}
+    }
     // 拉取成功且当前模型为空或不在列表中：自动选第一个（不写死默认值）
     if (models.isNotEmpty && !_fetchedModels.contains(_config.model)) {
       setState(() {
