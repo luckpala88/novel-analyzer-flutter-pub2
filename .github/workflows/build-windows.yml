@@ -60,13 +60,16 @@ jobs:
           restore-keys: win-build-
 
       # v368fix：清旧产物——restore-keys会捡到上个tag的缓存，增量编译
-      # 判断失效时exe还是旧代码（v368 zip内装v366事故）。删Release强制重编
+      # 判断失效时exe还是旧代码（v368 zip内装v366事故）。
+      # v1582实证：同版本多连推tag时，restore回来的旧中间产物会让
+      # cmake INSTALL秒挂（MSB3073，构建开始1ms内exit 1）——
+      # 只删Release不够，必须删整个x64构建树让cmake全新configure
       - name: Clean stale build outputs
         shell: pwsh
         run: |
-          if (Test-Path "build/windows/x64/runner/Release") {
-            Remove-Item "build/windows/x64/runner/Release" -Recurse -Force
-            Write-Host "STALE Release removed"
+          if (Test-Path "build/windows/x64") {
+            Remove-Item "build/windows/x64" -Recurse -Force
+            Write-Host "STALE x64 build tree removed"
           }
 
       - name: Build Windows
