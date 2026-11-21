@@ -818,7 +818,7 @@ class _ChatPageState extends State<ChatPage>
               spacing: 4, // v1013：按键间距（此前紧贴）
               children: [
               // v1567：不独占一行——与其他键挤一行，Wrap自动换行
-              ApiModelButton(config: state.getApiConfig('chat'), section: 'chat', title: 'API设置 · AI聊天'), section: 'chat'),
+              ApiModelButton(config: state.getApiConfig('chat'), section: 'chat', title: 'API设置 · AI聊天'),
           // v1545：词链开关（背景色=开，与其余页一致）
           MiniButton(
             label: '词链',

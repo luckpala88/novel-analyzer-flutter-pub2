@@ -363,7 +363,7 @@ class _ScanPageState extends State<ScanPage>
                 children: [
                   // v437：弧线页职责=分组+展示。场景扫描按键在场景页
                   // v1567：API键并入工具行（省一行，Wrap自动换行）
-                  ApiModelButton(config: state.getApiConfig('arc'), section: 'arc', title: 'API设置 · 弧线扫描'), section: 'arc'),
+                  ApiModelButton(config: state.getApiConfig('arc'), section: 'arc', title: 'API设置 · 弧线扫描'),
                   // v445：生成弧线进批量菜单（第一行省空间）；步进改"场景/步"尾注
                   SizedBox(
                     width: 34,
