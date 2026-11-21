@@ -375,30 +375,9 @@ Future<void> runGlobalSceneScan({
           }
         }
         if (failMsg != null) {
-          if (winRetries < 1) {
-            if (state.userAborted) {
-              log('已终止场景扫描（已保留${state.globalScenes.length}场景）');
-              break;
-            }
-            winRetries++;
-            log('↻ $failMsg——等60秒后自动重试本窗口（1/1）……');
-            // v1230b：等待可中断——10秒一段检查终止标志，手动终止立即退出
-            var aborted = false;
-            for (var i = 0; i < 6; i++) {
-              await Future.delayed(const Duration(seconds: 10));
-              if (state.userAborted) {
-                aborted = true;
-                break;
-              }
-            }
-            if (aborted) {
-              log('已终止场景扫描（已保留${state.globalScenes.length}场景）');
-              break;
-            }
-            continue;
-          }
+          // v1584用户裁决：生成请求失败即中断任务——不再等60秒冷却自动重试
           log(
-            '⛔ $failMsg——自动重试仍失败，已暂停（已完成${state.globalScenes.length}场景，进度第$wFrom章），稍后点"扫描场景"续跑',
+            '⛔ $failMsg——失败即停不自动重试（已完成${state.globalScenes.length}场景，进度第$wFrom章），稍后点"扫描场景"续跑',
           );
           break;
         }
@@ -455,31 +434,8 @@ Future<void> runGlobalSceneScan({
           searchFrom = endPos;
         }
         if (matFail) {
-          // v1230：分界句定位失败纳入窗口级重试（AI引述不准重发本窗口
-          // 重新输出end_text，第二次机会通常能过）
-          if (winRetries < 1) {
-            if (state.userAborted) {
-              log('已终止场景扫描（已保留${state.globalScenes.length}场景）');
-              break;
-            }
-            winRetries++;
-            log('↻ 分界句定位失败——等60秒后自动重试本窗口（1/1）……');
-            // v1230b：等待可中断——10秒一段检查终止标志
-            var aborted = false;
-            for (var i = 0; i < 6; i++) {
-              await Future.delayed(const Duration(seconds: 10));
-              if (state.userAborted) {
-                aborted = true;
-                break;
-              }
-            }
-            if (aborted) {
-              log('已终止场景扫描（已保留${state.globalScenes.length}场景）');
-              break;
-            }
-            continue;
-          }
-          log('⛔ 分界句定位失败自动重试仍不匹配——已暂停，点"扫描场景"续跑本窗口');
+          // v1584用户裁决：失败即中断——分界句定位失败不再等60秒冷却自动重试
+          log('⛔ 分界句定位失败——失败即停不自动重试，已暂停，点"扫描场景"续跑本窗口');
           break;
         }
         // v535b：切片纯正文——剔除窗口家具（章标记+标题行）。家具是窗口喂
@@ -901,36 +857,17 @@ Future<void> groupArcsFromScenes({
             '以下是场景$cursor+1-$to的序列：\n\n$sb\n\n'
             '请将场景${cursor + 1}-$to归组。scene_from/scene_to用全局场景序号（1-based）';
         final config = state.getApiConfig('arc');
-        // v1241：分组请求失败自动重试一次（90秒无首字中转挂起实证18:40日志
-        // ——直接break暂停等手动续跑，中转冷却期内连发全灭）——等60秒躲冷却
-        // 重发本批，再失败才暂停；等待可中断（10秒一段查终止标志）
+        // v1584用户裁决：失败即中断——分组请求失败不再等60秒冷却自动重试
+        // （v1241废除：等60秒躲冷却重发本批的等待链）
         var result = await state.api.callApi(
           systemPrompt: systemPrompt,
           userPrompt: userPrompt,
           apiConfig: config,
         );
-        if (!result.isSuccess && !state.userAborted) {
-          log('↻ 分组请求失败（${result.error}）——等60秒躲中转冷却后自动重试（1/1）……');
-          var aborted = false;
-          for (var i = 0; i < 6; i++) {
-            await Future.delayed(const Duration(seconds: 10));
-            if (state.userAborted) {
-              aborted = true;
-              break;
-            }
-          }
-          if (!aborted) {
-            result = await state.api.callApi(
-              systemPrompt: systemPrompt,
-              userPrompt: userPrompt,
-              apiConfig: config,
-            );
-          }
-        }
         if (!result.isSuccess) {
           log(state.userAborted
               ? '⛔ 用户终止——分组已停止'
-              : '⛔ 分组请求失败：${result.error}——自动重试仍失败，已暂停，成果已落盘，稍后点"批量"续跑');
+              : '⛔ 分组请求失败：${result.error}——失败即停不自动重试，成果已落盘，稍后点"批量"续跑');
           break;
         }
         if (state.userAborted) {
@@ -1790,26 +1727,10 @@ Future<bool> extractArcParts({
         }
       }
       if (part != null) break;
-      if (attempt < 3) {
-        if (state.userAborted) {
-          log('已终止——弧线${arc.number}${t.$1}不再重试');
-          return false;
-        }
-        // v1229：中转连续请求冷却实证——重试前等60秒（+90秒超时≈2.5分钟间隔）躲开冷却期
-        log('↻ 弧线${arc.number}${t.$1}重试（$attempt/2）——等60秒躲中转冷却……');
-        var aborted = false;
-        for (var i = 0; i < 6; i++) {
-          await Future.delayed(const Duration(seconds: 10));
-          if (state.userAborted) {
-            aborted = true;
-            break;
-          }
-        }
-        if (aborted) {
-          log('已终止——弧线${arc.number}${t.$1}不再重试');
-          return false;
-        }
-      }
+      // v1584用户裁决：失败即中断——弧线零件不再等60秒冷却自动重试
+      // v1172产物原子性：三任务没齐不落盘（对账快照读analysis，半落盘被增量误跳=缺口永久化）
+      log('⛔ 弧线${arc.number}${t.$1}失败（${state.userAborted ? "用户终止" : "不自动重试"}）——任务已中断，增量续跑可从本弧线重来');
+      return false;
     }
     if (part == null) {
       // v1172产物原子性：三任务没齐不落盘（对账快照读analysis，半落盘被增量误跳=缺口永久化）
