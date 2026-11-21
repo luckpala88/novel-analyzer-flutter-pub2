@@ -1286,8 +1286,8 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== 检查更新 =====
-  static const int _appVersion = 1582;
-  static const String _appVersionStr = '1582'; // v1378：显示版（与APK文件名一致，b后缀进显示）
+  static const int _appVersion = 1583;
+  static const String _appVersionStr = '1583'; // v1378：显示版（与APK文件名一致，b后缀进显示）
   // v497：token占位符——私有仓存占位符，镜像仓Actions编译时用secret注入
   // （公开镜像源码零token；APK下载仍走私有仓Release）
   static const String _updateToken = '__UPD_TOKEN_OLD__';
@@ -1314,7 +1314,7 @@ class _HomePageState extends State<HomePage>
         final resp = await http
             .get(
               Uri.parse(
-                'https://api.github.com/repos/${entry.key}/releases?per_page=15',
+                'https://api.github.com/repos/${entry.key}/releases?per_page=15&_ts=${DateTime.now().millisecondsSinceEpoch}',
               ),
               headers: {
                 'Authorization': 'token ${entry.value}',
@@ -1340,6 +1340,7 @@ class _HomePageState extends State<HomePage>
           final b = int.tryParse(match.group(1)!) ?? 0;
           if (b > repoMax) repoMax = b;
         }
+        if (!silent && mounted) AppState.instance.apiLog('${entry.key}: HTTP ${resp.statusCode} ${arr.length}条 最大v$repoMax');
         if (repoMax > bestBuild) {
           bestBuild = repoMax;
           bestRepo = entry.key;
