@@ -1723,9 +1723,16 @@ return true;
                 Tab(text: '分镜续写'),
               ],
               labelStyle: const TextStyle(fontSize: 12),
-              labelColor: const Color(0xFF2C5E8E),
-              unselectedLabelColor: const Color(0xFF5B7A99),
-              indicatorColor: const Color(0xFF2C5E8E),
+              // v1581：夜间跟随——深蓝标签在暗底下发暗难读，夜间换暖亮色
+              labelColor: V469Style.isNight
+                  ? const Color(0xFFD4C6A8)
+                  : const Color(0xFF2C5E8E),
+              unselectedLabelColor: V469Style.isNight
+                  ? const Color(0xFF8A7A64)
+                  : const Color(0xFF5B7A99),
+              indicatorColor: V469Style.isNight
+                  ? const Color(0xFFD4C6A8)
+                  : const Color(0xFF2C5E8E),
             ),
             Expanded(
               child: TabBarView(
@@ -2552,11 +2559,16 @@ return true;
     final sliceText = an?.arc?.text ?? arc.text;
     // v963：ExpansionTile在TabBarView里冻死打不开（v586已知问题）→分镜卡同款手动折叠
     final expanded = _contArcExpanded.contains(arcKey);
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Column(
+    // v1581：Card→Container统一弧线卡样式（surface底+B8CFE5边——Card默认米黄底与弧线tab不一致，用户截图点名）
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: V469Style.surface, // v1557夜间跟随
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFB8CFE5)),
+      ),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             InkWell(
@@ -2619,6 +2631,16 @@ return true;
                   onTap: () => _showSliceDialog(
                       '弧线${arc.number}：${arc.title}（切片）', sliceText),
                 ),
+              // v1581：复制概述并入按钮行（与弧线tab同款，不再单独占一行——用户截图点名）
+              if (overview.isNotEmpty)
+                MiniButton(
+                  label: '📋复制概述',
+                  primary: false,
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: overview));
+                    _addLog('📋 弧线${arc.number}概述已复制');
+                  },
+                ),
               ],
             ),
             // v963：原ExpansionTile children→条件渲染（手动折叠）
@@ -2674,25 +2696,6 @@ return true;
                 ),
               )
             else ...[
-              // v1556：复制概述键放概述上方按键行（原挤在文字右侧占一列，用户截图点名）
-              if (overview.isNotEmpty)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: [
-                      MiniButton(
-                        label: '📋复制概述',
-                        primary: false,
-                        onTap: () {
-                          Clipboard.setData(ClipboardData(text: overview));
-                          _addLog('📋 弧线${arc.number}概述已复制');
-                        },
-                      ),
-                    ],
-                  ),
-                ),
               // v781：弧线概述（补，可复制）
               // v1297b：字段彩色（弧线靛蓝）
               FieldColoredText(
@@ -2772,7 +2775,6 @@ return true;
             ],
           ],
         ),
-      ),
     );
   }
 

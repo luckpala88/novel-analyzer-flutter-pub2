@@ -33,6 +33,8 @@ class V469Style {
   // v1550b：夜间模式跟随——浅色=纯黑（v1219/v1222用户裁决不变），夜间=暖棕
   static bool _night = false;
   static void setNight(bool v) => _night = v;
+  /// v1581：夜间开关公开（页面局部控件如TabBar按此切色）
+  static bool get isNight => _night;
   static Color get textMain =>
       _night ? const Color(0xFFB9A68C) : const Color(0xFF000000);
   static Color get textSec =>
