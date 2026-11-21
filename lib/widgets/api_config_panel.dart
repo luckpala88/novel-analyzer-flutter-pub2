@@ -45,14 +45,6 @@ class ApiModelDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    List<String> models = [];
-    try {
-      final raw = context
-          .read<AppState>()
-          .storage
-          .readGlobalJson('api_models_$section');
-      if (raw is List) models = raw.whereType<String>().toList();
-    } catch (_) {}
     final cur = _current(config);
     return PopupMenuButton<String>(
       tooltip: '切换模型',
@@ -62,24 +54,37 @@ class ApiModelDropdown extends StatelessWidget {
         padding: EdgeInsets.symmetric(horizontal: 4, vertical: 5),
         child: Icon(Icons.arrow_drop_down, size: 14),
       ),
-      itemBuilder: (ctx) => [
-        if (models.isEmpty)
-          const PopupMenuItem(
-              enabled: false,
-              height: 40,
-              child: Text('暂无模型列表，先在⚙面板获取',
-                  style: TextStyle(fontSize: 12))),
-        ...models.map((m) => PopupMenuItem<String>(
-              value: m,
-              height: 36,
-              child: Text(
-                m,
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: m == cur ? FontWeight.w700 : FontWeight.w400),
-              ),
-            )),
-      ],
+      // v1588：模型列表在菜单打开瞬间才读缓存——页面构建时读会拿旧值
+      // （v1587用户实证：面板拉69个模型后▼仍"暂无"，页面没重建）
+      itemBuilder: (ctx) {
+        List<String> models = [];
+        try {
+          final raw = context
+              .read<AppState>()
+              .storage
+              .readGlobalJson('api_models_$section');
+          if (raw is List) models = raw.whereType<String>().toList();
+        } catch (_) {}
+        return [
+          if (models.isEmpty)
+            const PopupMenuItem(
+                enabled: false,
+                height: 40,
+                child: Text('暂无模型列表，先在⚙面板获取',
+                    style: TextStyle(fontSize: 12))),
+          ...models.map((m) => PopupMenuItem<String>(
+                value: m,
+                height: 36,
+                child: Text(
+                  m,
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight:
+                          m == cur ? FontWeight.w700 : FontWeight.w400),
+                ),
+              )),
+        ];
+      },
       onSelected: (m) => _apply(context, m),
     );
   }
@@ -539,6 +544,11 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
         context.read<AppState>().storage
             .writeGlobalJson('api_models_${widget.section}', models);
       } catch (_) {}
+    }
+    // v1588：拉取成功顺手刷新——页顶▼菜单读缓存的时机在打开瞬间，
+    // 页面不重建就拿不到新缓存（v1587用户实证：拉69个模型后▼仍"暂无"）
+    if (mounted) {
+      context.read<AppState>().refresh();
     }
     // 拉取成功且当前模型为空或不在列表中：自动选第一个（不写死默认值）
     if (models.isNotEmpty && !_fetchedModels.contains(_config.model)) {
