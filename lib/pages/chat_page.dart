@@ -665,7 +665,9 @@ class _ChatPageState extends State<ChatPage>
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
-        child: ListView(
+        // v1585：每条会话行加删除键——删除后弹层原地刷新（删除当前会话自动切第一个）
+        child: StatefulBuilder(
+        builder: (sheetCtx, setSheet) => ListView(
           shrinkWrap: true,
           children: [
             const Padding(
@@ -684,9 +686,44 @@ class _ChatPageState extends State<ChatPage>
               ListTile(
                 dense: true,
                 title: Text(s0.title, style: const TextStyle(fontSize: 13.5)),
-                trailing: s0.id == state.chatActiveId
-                    ? const Icon(Icons.check, size: 18)
-                    : null,
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      color: Colors.redAccent,
+                      tooltip: '删除会话',
+                      onPressed: () async {
+                        final ok = await showDialog<bool>(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            title: const Text('删除会话'),
+                            content: Text(
+                                '删除「${s0.title}」？聊天记录不可恢复。'),
+                            actions: [
+                              TextButton(
+                                  onPressed: () =>
+                                      Navigator.pop(context, false),
+                                  child: const Text('取消')),
+                              TextButton(
+                                  onPressed: () =>
+                                      Navigator.pop(context, true),
+                                  child: const Text('删除')),
+                            ],
+                          ),
+                        );
+                        if (ok == true) {
+                          state.deleteChatSession(s0.id);
+                          setState(() {});
+                          setSheet(() {});
+                        }
+                      },
+                    ),
+                    if (s0.id == state.chatActiveId)
+                      const Icon(Icons.check, size: 18),
+                  ],
+                ),
                 onTap: () {
                   _didOpenJump = false;
                   setState(() => state.chatActiveId = s0.id);
@@ -748,6 +785,7 @@ class _ChatPageState extends State<ChatPage>
               );
               }),
           ],
+        ),
         ),
       ),
     );
