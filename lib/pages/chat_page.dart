@@ -415,6 +415,18 @@ class _ChatPageState extends State<ChatPage>
       ),
     );
     if (text == null || text.trim().isEmpty || !mounted) return;
+    // v1604b：AI读页回传——插原文楼层+转交AI自行提取需要的内容
+    if (text.startsWith('AI_READ::')) {
+      final raw = text.substring(9).trim();
+      _insertRankFloor(state, '📄页面原文（内置浏览器·AI读页）\n$raw');
+      if (!mounted) return;
+      final prompt = '以下是内置浏览器读取的网页文本。请提取其中的榜单/书目类数据：'
+          '序号+书名+数据（点击/收藏/字数等），有作者、类别、简介就带上。'
+          '去掉导航、登录提示、广告、页脚等杂讯。只输出提取结果的紧凑文本列表，不要评论。'
+          '\n\n网页内容：\n$raw';
+      await _generate(state, prompt, '');
+      return;
+    }
     _insertRankFloor(state, '📉$floorHeader（内置浏览器提取）\n$text');
   }
 

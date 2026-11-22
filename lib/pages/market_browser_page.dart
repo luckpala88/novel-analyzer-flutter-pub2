@@ -101,7 +101,9 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
     });
   }
 
-  Future<void> _extract() async {
+  /// v1604b：ai=true时回传AI_READ::前缀——聊天页转交AI提取（读什么内容由AI判断，
+  /// 不依赖各站DOM结构）；ai=false走原路：原始innerText直接回填楼层
+  Future<void> _extract({bool ai = false}) async {
     if (_done) return;
     try {
       // 全页innerText——榜单页导航杂讯Dart侧清洗，宽容优先（结构变了也不空转）
@@ -129,7 +131,9 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
       }
       if (text.length > 6000) text = text.substring(0, 6000);
       _done = true;
-      if (mounted) Navigator.pop(context, text);
+      if (mounted) {
+        Navigator.pop(context, ai ? 'AI_READ::$text' : text);
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -171,6 +175,11 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
                 _ctl.reload();
               },
               child: const Text('刷新'),
+            ),
+            // v1604b：AI读页——innerText交聊天页AI自行提取需要的内容
+            TextButton(
+              onPressed: () => _extract(ai: true),
+              child: const Text('AI读页'),
             ),
             if (widget.extractable)
               TextButton(
