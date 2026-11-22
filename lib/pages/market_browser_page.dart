@@ -69,6 +69,19 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setUserAgent(widget.desktopUa ? _desktopUa : _mobileUa)
       ..setNavigationDelegate(NavigationDelegate(
+        // v1609：导航防线——飞卢wap版openApp2021.js死机实证：拉APP
+        // scheme(flreader://)失败→兜底跳DownloadAPP2021.aspx→下载页又带
+        // 同款脚本→无限导航循环。未知scheme+下载落地页一律拦
+        onNavigationRequest: (req) {
+          final scheme = Uri.tryParse(req.url)?.scheme ?? '';
+          if (scheme != 'http' && scheme != 'https') {
+            return NavigationDecision.prevent;
+          }
+          if (req.url.contains('DownloadAPP2021.aspx')) {
+            return NavigationDecision.prevent;
+          }
+          return NavigationDecision.navigate;
+        },
         onPageFinished: (url) {
           setState(() => _loading = false);
           // v1606：网址栏同步当前URL+前进后退可用性（每页加载完刷新）
