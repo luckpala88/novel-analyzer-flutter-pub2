@@ -303,6 +303,27 @@ class _ChatPageState extends State<ChatPage>
                     '七猫排行榜', true, '七猫排行榜', true);
               },
             ),
+            // v1601：飞卢/七猫浏览入口——自动提取之外可以人工翻看页面
+            ListTile(
+              leading: const Icon(Icons.language),
+              title: const Text('飞卢·网页浏览（人工看，可提取）'),
+              onTap: () {
+                Navigator.pop(context);
+                _browseRank(state, 'https://b.faloo.com/Rank_1.html',
+                    '飞卢排行榜·网页', true, '飞卢排行榜·网页', false,
+                    desktopUa: true);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.language),
+              title: const Text('七猫·网页浏览（人工看，可提取）'),
+              onTap: () {
+                Navigator.pop(context);
+                _browseRank(state, 'https://www.qimao.com/paihang/',
+                    '七猫排行榜·网页', true, '七猫排行榜·网页', false,
+                    desktopUa: true);
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.public),
               title: const Text('起点·月票榜（自动提取，数字乱码）'),
