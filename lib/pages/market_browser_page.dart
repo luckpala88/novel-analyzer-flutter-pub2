@@ -33,10 +33,13 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
   late final WebViewController _ctl;
   bool _loading = true;
   bool _done = false; // v1595：已提取返回，轮询停止
+  // v1603：手机/电脑版切换态（初始跟随入口配置）
+  bool _desktop = false;
 
   @override
   void initState() {
     super.initState();
+    _desktop = widget.desktopUa;
     _ctl = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setUserAgent(widget.desktopUa ? _desktopUa : _mobileUa)
@@ -45,14 +48,15 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
           setState(() => _loading = false);
           // v1602：desktopUa不只骗服务器——番茄桌面站是响应式布局，窄视口
           // 仍排手机版；注入viewport width=1280强制桌面排布（请求桌面版网站
-          // 的标准手段）
-          if (widget.desktopUa) {
-            _ctl.runJavaScript(
-                "var mv=document.querySelector('meta[name=viewport]');"
-                "if(mv){mv.setAttribute('content','width=1280');}"
-                "else{var m=document.createElement('meta');m.name='viewport';"
-                "m.content='width=1280';document.head.appendChild(m);}");
-          }
+          // 的标准手段）。v1603：随切换态走，手机版还原device-width
+          final vp = _desktop
+              ? "var mv=document.querySelector('meta[name=viewport]');"
+                  "if(mv){mv.setAttribute('content','width=1280');}"
+                  "else{var m=document.createElement('meta');m.name='viewport';"
+                  "m.content='width=1280';document.head.appendChild(m);}"
+              : "var mv=document.querySelector('meta[name=viewport]');"
+                  "if(mv){mv.setAttribute('content','width=device-width, initial-scale=1.0');}";
+          _ctl.runJavaScript(vp);
           // v1595：自动提取模式——轮询提取（页面JS渲染榜单慢，固定2.5秒
           // 不可靠），每1.5秒试一次最多10次，出条目即返回；失败留本页手动兜底
           if (widget.autoExtract) {
@@ -80,6 +84,14 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
   // v1596：桌面UA——番茄手机UA=推广壳页
   static const _desktopUa =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+
+  /// v1603：换UA重载——切换手机/电脑版（UA骗服务器+viewport排布局，两道门都要换）
+  void _reload() {
+    setState(() => _loading = true);
+    _ctl.setUserAgent(_desktop ? _desktopUa : _mobileUa).then((_) {
+      _ctl.loadRequest(Uri.parse(widget.url));
+    });
+  }
 
   Future<void> _extract() async {
     if (_done) return;
@@ -136,6 +148,14 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
               ),
             )
           else ...[
+            // v1603：手机/电脑版切换——换UA重载+对应viewport注入
+            TextButton(
+              onPressed: () {
+                _desktop = !_desktop;
+                _reload();
+              },
+              child: Text(_desktop ? '切手机版' : '切电脑版'),
+            ),
             // 刷新（重载页面）
             TextButton(
               onPressed: () {
