@@ -1217,11 +1217,11 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
                       _saveNow();
                     },
                   ),
-                  const Flexible(
-                    child: Text(
-                      '开=先DeepSeek flash联网搜资料，回答仍由当前模型出（每轮多一次搜索5元/千次）',
-                      style: TextStyle(fontSize: 11, color: Colors.grey),
-                    ),
+                  // v1592：禁Flexible——Wrap是无界约束，Flexible直接布局异常
+                  // （v1591聊天面板打开即死机真凶）
+                  const Text(
+                    '开=先DeepSeek flash联网搜资料，回答仍由当前模型出（每轮多一次搜索5元/千次）',
+                    style: TextStyle(fontSize: 11, color: Colors.grey),
                   ),
                 ],
               ),
