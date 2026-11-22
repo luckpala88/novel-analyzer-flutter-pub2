@@ -356,6 +356,11 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
           list.removeAt(0);
         }
         storage.writeGlobalJson('qingtian_balance_history', list);
+        // v1590：落盘后通知页面——胶囊余额是build时读的历史，不notify就
+        // 要等下次重建（v1589用户实证：手动查完要再开▼列表才刷新）
+        if (mounted) {
+          context.read<AppState>().refresh();
+        }
       }
       final diffStr = diff == null
           ? ''
