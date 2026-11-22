@@ -321,10 +321,11 @@ class _ChatPageState extends State<ChatPage>
               title: const Text('七猫·网页浏览（人工看，可提取）'),
               onTap: () {
                 Navigator.pop(context);
+                // v1610：m.qimao.com已整体变作家助手门户（paihang返回签约
+                // 政策页实证），七猫无手机版网页——切换=同URL只切UA
                 _browseRank(state, 'https://www.qimao.com/paihang/',
                     '七猫排行榜·网页', true, '七猫排行榜·网页', false,
-                    desktopUa: true,
-                    mobileUrl: 'https://m.qimao.com/paihang/');
+                    desktopUa: true);
               },
             ),
             ListTile(
