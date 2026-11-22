@@ -309,11 +309,13 @@ class _ChatPageState extends State<ChatPage>
               title: const Text('飞卢·网页浏览（人工看，可提取）'),
               onTap: () {
                 Navigator.pop(context);
-                // v1608：双版本URL——wap版服务端直渲染且带作者+类别
+                // v1608：双版本URL——wap版服务端直渲染且带作者+类别。
+                // v1611：enableJs=false防openApp脚本ANR死机（飞卢提取走原生直抓）
                 _browseRank(state, 'https://b.faloo.com/Rank_1.html',
                     '飞卢排行榜·网页', true, '飞卢排行榜·网页', false,
                     desktopUa: true,
-                    mobileUrl: 'https://wap.faloo.com/rank_1.html');
+                    mobileUrl: 'https://wap.faloo.com/rank_1.html',
+                    enableJs: false);
               },
             ),
             ListTile(
@@ -409,7 +411,10 @@ class _ChatPageState extends State<ChatPage>
 
   Future<void> _browseRank(AppState state, String url, String title,
       bool extractable, String floorHeader, bool autoExtract,
-      {bool desktopUa = false, String? mobileUrl, String? desktopUrl}) async {
+      {bool desktopUa = false,
+      String? mobileUrl,
+      String? desktopUrl,
+      bool enableJs = true}) async {
     final text = await Navigator.push<String>(
       context,
       MaterialPageRoute(
@@ -421,6 +426,7 @@ class _ChatPageState extends State<ChatPage>
           desktopUa: desktopUa,
           mobileUrl: mobileUrl,
           desktopUrl: desktopUrl,
+          enableJs: enableJs,
         ),
       ),
     );

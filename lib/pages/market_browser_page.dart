@@ -21,9 +21,14 @@ class MarketBrowserPage extends StatefulWidget {
   final bool desktopUa; // v1596：番茄给手机UA的是下载APP推广壳页（用户截图实锤），桌面UA才有真榜单
   // v1608：手机版/电脑版网址——实测各站双版本=不同URL不同DOM（只换UA看不到
   // 变化；起点www重JS壳崩溃,wap/m.版服务端直渲染）。null=同URL只切UA/视口。
-  // url=初始加载的版本；desktopUrl=切电脑版用的URL（起点初始开m.版时提供）
+  // url=初始加载的版本；desktopUrl=切电脑版用的URL（起点初始开m.版时用）
   final String? mobileUrl;
   final String? desktopUrl;
+  // v1611：JS开关——飞卢wap版openApp2021.js死机(ANR实证)：拉APP scheme
+  // 失败→跳下载页→下载页同款脚本→导航风暴打爆主线程。飞卢双版内容均
+  // 服务端直渲染，JS关掉死机物理不可能；代价=页面提取键不可用（飞卢
+  // 提取走原生直抓不受影响）
+  final bool enableJs;
   const MarketBrowserPage({
     super.key,
     required this.url,
@@ -33,6 +38,7 @@ class MarketBrowserPage extends StatefulWidget {
     this.desktopUa = false,
     this.mobileUrl,
     this.desktopUrl,
+    this.enableJs = true,
   });
 
   @override
@@ -66,7 +72,10 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
     (ctl.platform as AndroidWebViewController)
         .setMixedContentMode(MixedContentMode.alwaysAllow);
     _ctl = ctl
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      // v1611：enableJs=false时禁JS——openApp2021.js类页面脚本不执行
+      ..setJavaScriptMode(widget.enableJs
+          ? JavaScriptMode.unrestricted
+          : JavaScriptMode.disabled)
       ..setUserAgent(widget.desktopUa ? _desktopUa : _mobileUa)
       ..setNavigationDelegate(NavigationDelegate(
         // v1609：导航防线——飞卢wap版openApp2021.js死机实证：拉APP
@@ -96,7 +105,9 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
           });
           // v1602：desktopUa不只骗服务器——番茄桌面站是响应式布局，窄视口
           // 仍排手机版；注入viewport width=1280强制桌面排布（请求桌面版网站
-          // 的标准手段）。v1603：随切换态走，手机版还原device-width
+          // 的标准手段）。v1603：随切换态走，手机版还原device-width。
+          // v1611：JS禁用页无法注入，跳过
+          if (widget.enableJs) {
           final vp = _desktop
               ? "var mv=document.querySelector('meta[name=viewport]');"
                   "if(mv){mv.setAttribute('content','width=1280');}"
@@ -105,6 +116,7 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
               : "var mv=document.querySelector('meta[name=viewport]');"
                   "if(mv){mv.setAttribute('content','width=device-width, initial-scale=1.0');}";
           _ctl.runJavaScript(vp);
+          }
           // v1595：自动提取模式——轮询提取（页面JS渲染榜单慢，固定2.5秒
           // 不可靠），每1.5秒试一次最多10次，出条目即返回；失败留本页手动兜底
           if (widget.autoExtract) {
@@ -149,6 +161,14 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
   /// 不依赖各站DOM结构）；ai=false走原路：原始innerText直接回填楼层
   Future<void> _extract({bool ai = false}) async {
     if (_done) return;
+    // v1611：JS禁用页提取不可用（innerText要走runJavaScript）
+    if (!widget.enableJs) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('该页面已禁JS防死机，提取不可用——飞卢请用「飞卢·三榜」原生直抓')));
+      }
+      return;
+    }
     try {
       // 全页innerText——榜单页导航杂讯Dart侧清洗，宽容优先（结构变了也不空转）
       final r = await _ctl.runJavaScriptReturningResult(
@@ -280,16 +300,19 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
               },
               child: const Text('刷新'),
             ),
-            // v1604b：AI读页——innerText交聊天页AI自行提取需要的内容
-            TextButton(
-              onPressed: () => _extract(ai: true),
-              child: const Text('AI读页'),
-            ),
-            if (widget.extractable)
+            // v1611：JS禁用页提取不可用（innerText要走JS），键直接隐藏
+            if (widget.enableJs) ...[
+              // v1604b：AI读页——innerText交聊天页AI自行提取需要的内容
               TextButton(
-                onPressed: _extract,
-                child: const Text('提取榜单'),
+                onPressed: () => _extract(ai: true),
+                child: const Text('AI读页'),
               ),
+              if (widget.extractable)
+                TextButton(
+                  onPressed: _extract,
+                  child: const Text('提取榜单'),
+                ),
+            ],
           ],
         ],
         ),
