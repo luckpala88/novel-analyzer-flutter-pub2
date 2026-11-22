@@ -1,7 +1,7 @@
 name: novel_analyzer
 description: "网文拆解器 - Flutter版"
 publish_to: 'none'
-version: 1.0.1592+1592
+version: 1.0.1593+1593
 
 environment:
   sdk: ^3.13.0
@@ -10,6 +10,8 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
+  webview_flutter: ^4.10.0 # v1593：内置浏览器——七猫/番茄榜单页（WAF只放行真浏览器）
+  fast_gbk: ^1.0.0 # v1593：飞卢gb2312页面解码
   cached_network_image: ^3.3.1
   provider: ^6.1.2
   http: ^1.2.2

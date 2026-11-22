@@ -23,6 +23,8 @@ import 'package:path_provider/path_provider.dart'; // v1343：磁盘缓存目录
 import '../widgets/api_config_panel.dart';
 import '../utils/prompt_preview.dart';
 import '../widgets/v119_ui.dart'; // showV119Sheet / MiniButton
+import '../services/market_rank.dart'; // v1593：市场榜单抓取
+import 'market_browser_page.dart'; // v1593：内置浏览器
 
 /// v833：AI聊天页——独立会话/独立API/单条复制/流式回复
 /// 独立ApiService实例：不与创作任务busy锁互斥，聊天/创作可并行
@@ -270,6 +272,107 @@ class _ChatPageState extends State<ChatPage>
         ),
       ),
     );
+  }
+
+  // v1593：市场榜单菜单——飞卢原生直抓（静态gbk页零反爬）；七猫/起点/番茄
+  // 走内置浏览器WebView（WAF按TLS指纹拦程序直连，curl/python/无头三连405
+  // 实证，手机WebView=真浏览器环境能过）
+  void _marketRankMenu(AppState state) {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final b in ['点击榜', '月票榜', '收藏榜'])
+              ListTile(
+                leading: const Icon(Icons.trending_up),
+                title: Text('飞卢·$b（原生直抓）'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _fetchFaloo(state, b);
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.public),
+              title: const Text('七猫·排行榜（自动提取，无需人工看）'),
+              onTap: () {
+                Navigator.pop(context);
+                _browseRank(state, 'https://www.qimao.com/paihang/',
+                    '七猫排行榜', true, '七猫排行榜', true);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.public),
+              title: const Text('起点·月票榜（自动提取，数字乱码）'),
+              onTap: () {
+                Navigator.pop(context);
+                _browseRank(state, 'https://www.qidian.com/rank/yuepiao/',
+                    '起点月票榜', true, '起点月票榜', true);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.public),
+              title: const Text('番茄·排行榜（仅看，字体加密提取无意义）'),
+              onTap: () {
+                Navigator.pop(context);
+                _browseRank(state, 'https://fanqienovel.com/rank',
+                    '番茄排行榜', false, '', false);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// v1593：榜单结果插入当前会话（tool角色=居中窄条样式，历史里标【工具结果】）
+  void _insertRankFloor(AppState state, String text) {
+    var sess = state.chatActive;
+    if (sess == null) {
+      state.newChatSession();
+      sess = state.chatActive;
+      if (sess == null) return;
+    }
+    setState(() {
+      sess!.messages.add(ChatMessage(
+        role: 'tool',
+        content: text,
+        ts: DateTime.now().millisecondsSinceEpoch,
+      ));
+    });
+    state.saveChatSessions();
+  }
+
+  Future<void> _fetchFaloo(AppState state, String board) async {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('正在抓取飞卢$board...')));
+    try {
+      final entries = await MarketRank.fetchFaloo(board);
+      _insertRankFloor(state, MarketRank.toFloorText('飞卢', board, entries));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('⛔ 抓取失败：$e')));
+    }
+  }
+
+  Future<void> _browseRank(AppState state, String url, String title,
+      bool extractable, String floorHeader, bool autoExtract) async {
+    final text = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MarketBrowserPage(
+          url: url,
+          title: title,
+          extractable: extractable,
+          autoExtract: autoExtract,
+        ),
+      ),
+    );
+    if (text == null || text.trim().isEmpty || !mounted) return;
+    _insertRankFloor(state, '📉$floorHeader（内置浏览器提取）\n$text');
   }
 
   /// 导出格式：--- 用户 --- / --- AI --- 分段（导入可回解析）
@@ -841,6 +944,8 @@ class _ChatPageState extends State<ChatPage>
           ),
           writerStyleButton(context, state), // v953：聚焦作家（聊天即训练场）
           MiniButton(label: '导出/导入', onTap: () => _exportImportMenu(state)),
+          // v1593：市场榜单——飞卢原生直抓/七猫番茄起点内置浏览器
+          MiniButton(label: '📉榜单', onTap: () => _marketRankMenu(state)),
           MiniButton(
               label: '新建',
               onTap: () {
@@ -1344,7 +1449,8 @@ class _ChatPageState extends State<ChatPage>
                       label: '重答',
                       onTap: () => _rerespondFromUser(state, idx),
                     ),
-                  if (!isUser && idx > 0) ...[
+                  // v1593：tool楼层（榜单/工具结果）无重答——重答语义只对AI回复
+                  if (!isUser && m.role != 'tool' && idx > 0) ...[
                     MiniButton(
                       compact: true,
                       dense: true,
