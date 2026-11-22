@@ -97,7 +97,14 @@ class _ScreenCapturePageState extends State<ScreenCapturePage> {
           if (l.isNotEmpty) lines.add(l);
         }
       } catch (e) {
-        lines.add('（第$i帧提取失败：$e）');
+        // v1598：首帧失败即中止——参数级错误逐帧复现毫无意义（v1594实证
+        // 一屏错误），用户裁决语义：失败一次就停
+        if (!mounted) return;
+        setState(() {
+          _extracting = false;
+          _progress = '⛔ 第$i帧提取失败即中止：$e';
+        });
+        return;
       }
     }
     if (!mounted) return;
@@ -137,7 +144,7 @@ class _ScreenCapturePageState extends State<ScreenCapturePage> {
       body: jsonEncode({
         'model': 'glm-4v-flash',
         'temperature': 0.2,
-        'max_tokens': 2000,
+        'max_tokens': 1024, // v1598：glm-4v-flash上限1024（2000参数非法实证）
         'messages': [
           {
             'role': 'user',
