@@ -17,6 +17,7 @@ class MainActivity : FlutterActivity() {
     private val REQUEST_CODE = 1001
     private var pendingResult: MethodChannel.Result? = null
     private var storagePermResult: MethodChannel.Result? = null // v386：存储权限异步回调
+    private var pendingCaptureResult: MethodChannel.Result? = null // v1594：录屏授权回调
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -112,6 +113,47 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+        // v1594：屏捕取榜通道——授权录屏+跳番茄APP+停止取帧
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.luckpala/screen_capture").setMethodCallHandler { call, result ->
+            when (call.method) {
+                "startCapture" -> {
+                    pendingCaptureResult = result
+                    val mpm = getSystemService(Context.MEDIA_PROJECTION_SERVICE)
+                            as android.media.projection.MediaProjectionManager
+                    startActivityForResult(mpm.createScreenCaptureIntent(), 3001)
+                }
+                "openApp" -> {
+                    val pkg = call.argument<String>("pkg") ?: ""
+                    try {
+                        val intent = packageManager.getLaunchIntentForPackage(pkg)
+                        if (intent != null) {
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            startActivity(intent)
+                            result.success(true)
+                        } else {
+                            result.success(false)
+                        }
+                    } catch (e: Exception) {
+                        result.success(false)
+                    }
+                }
+                "stopCapture" -> {
+                    try {
+                        val frames = ScreenCaptureService.stop(this)
+                        result.success(frames)
+                    } catch (e: Exception) {
+                        result.success(ArrayList<String>())
+                    }
+                }
+                "status" -> {
+                    result.success(mapOf(
+                        "running" to (ScreenCaptureService.instance != null),
+                        "frames" to (ScreenCaptureService.instance?.snapshotFrames()?.size ?: 0)
+                    ))
+                }
+                else -> result.notImplemented()
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -145,6 +187,18 @@ class MainActivity : FlutterActivity() {
                 pendingResult?.success(null)
             }
             pendingResult = null
+        }
+        // v1594：录屏授权结果——同意则启动屏捕前台服务（Android14要求FGS先起、
+        // getMediaProjection在服务内startForeground之后调用）
+        if (requestCode == 3001) {
+            val r = pendingCaptureResult
+            pendingCaptureResult = null
+            if (resultCode == RESULT_OK && data != null) {
+                val ok = ScreenCaptureService.start(this, resultCode, data)
+                r?.success(ok)
+            } else {
+                r?.success(false)
+            }
         }
     }
 

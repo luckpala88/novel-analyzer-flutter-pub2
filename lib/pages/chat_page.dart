@@ -25,6 +25,7 @@ import '../utils/prompt_preview.dart';
 import '../widgets/v119_ui.dart'; // showV119Sheet / MiniButton
 import '../services/market_rank.dart'; // v1593：市场榜单抓取
 import 'market_browser_page.dart'; // v1593：内置浏览器
+import 'screen_capture_page.dart'; // v1594：番茄APP屏捕取榜
 
 /// v833：AI聊天页——独立会话/独立API/单条复制/流式回复
 /// 独立ApiService实例：不与创作任务busy锁互斥，聊天/创作可并行
@@ -318,6 +319,22 @@ class _ChatPageState extends State<ChatPage>
                 Navigator.pop(context);
                 _browseRank(state, 'https://fanqienovel.com/rank',
                     '番茄排行榜', false, '', false);
+              },
+            ),
+            // v1594：番茄APP屏捕——你翻页+后台截帧+GLM-4V提取（字体反爬下
+            // OCR读像素是唯一明文通道）
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('番茄·APP屏捕（你翻页，GLM-4V看图提取）'),
+              onTap: () async {
+                Navigator.pop(context);
+                final text = await Navigator.push<String>(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const ScreenCapturePage()),
+                );
+                if (text == null || text.trim().isEmpty || !mounted) return;
+                _insertRankFloor(state, '📉番茄榜单（APP屏捕·GLM-4V提取）\n$text');
               },
             ),
           ],
