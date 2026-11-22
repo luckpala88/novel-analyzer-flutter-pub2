@@ -3,6 +3,9 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+// v1604：Android专用控制器——setMixedContentMode放开http图片（飞卢书封
+// img.faloo.com是http://老协议10张，https页面里被默认neverAllow拦掉）
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 import '../services/market_rank.dart';
 
@@ -40,7 +43,12 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
   void initState() {
     super.initState();
     _desktop = widget.desktopUa;
-    _ctl = WebViewController()
+    // v1604：Android平台参数建WebView，再从platform调setMixedContentMode
+    final ctl = WebViewController.fromPlatformCreationParams(
+        AndroidWebViewControllerCreationParams());
+    (ctl.platform as AndroidWebViewController)
+        .setMixedContentMode(MixedContentMode.alwaysAllow);
+    _ctl = ctl
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setUserAgent(widget.desktopUa ? _desktopUa : _mobileUa)
       ..setNavigationDelegate(NavigationDelegate(
