@@ -85,5 +85,7 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- v1599：包可见性——屏捕自动跳番茄需要显式声明（Android11+查不到=静默跳转失败） -->
+        <package android:name="com.dragon.read" />
     </queries>
 </manifest>
