@@ -72,6 +72,60 @@ class MarketRank {
     return '$v';
   }
 
+  /// v1595：七猫全页innerText清洗——去导航两遍/页脚备案噪音，状态机组
+  /// 紧凑条目。实测页面行序：名次(纯数字)/书名/作者/分类/连载状态/万字数/
+  /// 简介/最近更新…/蝉联/榜首(可选)/N万热度/加入书架
+  static String cleanQimao(String raw) {
+    final lines = raw
+        .split('\n')
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty)
+        .toList();
+    // 起点：榜单正文区（「基于昨日书籍热度排行」在当前tab的section头里）
+    var start = lines.indexWhere((l) => l.contains('基于昨日'));
+    if (start < 0) start = lines.indexWhere((l) => l.contains('热门作品排行'));
+    if (start < 0) return raw; // 结构变了——原样返回（宽容优先）
+    // 终点：页脚客服/备案
+    var end = lines.indexWhere((l) => l.contains('客服电话'));
+    if (end < 0) end = lines.indexWhere((l) => l.contains('沪ICP备'));
+    if (end < 0 || end <= start) end = lines.length;
+    final seg = lines.sublist(start, end);
+    final out = StringBuffer();
+    var rank = '';
+    var cur = <String>[];
+    void flush() {
+      if (rank.isEmpty || cur.isEmpty) {
+        cur = [];
+        return;
+      }
+      final book = cur.first;
+      final author = cur.length > 1 ? cur[1] : '';
+      final words = cur.where((l) => l.contains('万字')).toList();
+      final heat = cur.where((l) => l.contains('热度')).toList();
+      final upd = cur.where((l) => l.contains('最近更新')).toList();
+      out.writeln('$rank. $book'
+          '${author.isNotEmpty ? '｜$author' : ''}'
+          '${words.isNotEmpty ? '｜${words.first}' : ''}'
+          '${heat.isNotEmpty ? '｜${heat.first.replaceAll(' ', '')}' : ''}'
+          '${upd.isNotEmpty ? '｜${upd.first}' : ''}');
+      cur = [];
+    }
+
+    for (final l in seg) {
+      if (RegExp(r'^\d{1,3}$').hasMatch(l)) {
+        flush();
+        rank = l;
+      } else if (l == '加入书架' || l.startsWith('立即阅读')) {
+        flush();
+      } else if (rank.isNotEmpty) {
+        if (l == '蝉联' || l == '榜首') continue;
+        cur.add(l);
+      }
+    }
+    flush();
+    return out.toString();
+  }
+
   /// 榜单→聊天楼层文本
   static String toFloorText(String site, String board, List<({String title, int num})> entries) {
     final now = DateTime.now();

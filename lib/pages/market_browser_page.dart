@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+
+import '../services/market_rank.dart';
 
 /// v1593：内置浏览器——七猫/番茄榜单页。WAF按TLS指纹拦程序直连
 /// （curl/python/无头浏览器三连405实证），手机WebView=真浏览器环境能过。
@@ -27,6 +30,7 @@ class MarketBrowserPage extends StatefulWidget {
 class _MarketBrowserPageState extends State<MarketBrowserPage> {
   late final WebViewController _ctl;
   bool _loading = true;
+  bool _done = false; // v1595：已提取返回，轮询停止
 
   @override
   void initState() {
@@ -37,11 +41,21 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
       ..setNavigationDelegate(NavigationDelegate(
         onPageFinished: (_) {
           setState(() => _loading = false);
-          // v1593：自动提取模式——加载完等2.5秒（JS列表渲染）自动提取返回，
-          // 失败留在本页可手动「提取榜单」兜底
+          // v1595：自动提取模式——轮询提取（页面JS渲染榜单慢，固定2.5秒
+          // 不可靠），每1.5秒试一次最多10次，出条目即返回；失败留本页手动兜底
           if (widget.autoExtract) {
-            Future.delayed(const Duration(milliseconds: 2500), () {
-              if (mounted) _extract();
+            var tries = 0;
+            Timer.periodic(const Duration(milliseconds: 1500), (t) {
+              tries++;
+              if (!mounted || _done) {
+                t.cancel();
+                return;
+              }
+              if (tries >= 10) {
+                t.cancel();
+                return;
+              }
+              _extract();
             });
           }
         },
@@ -53,8 +67,9 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
       'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36';
 
   Future<void> _extract() async {
+    if (_done) return;
     try {
-      // 全页innerText——榜单页导航杂讯可接受，宽容优先（结构变了也不空转）
+      // 全页innerText——榜单页导航杂讯Dart侧清洗，宽容优先（结构变了也不空转）
       final r = await _ctl.runJavaScriptReturningResult(
           'document.body.innerText');
       var text = r is String ? r : r.toString();
@@ -63,6 +78,13 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
         text = jsonDecode(text) as String;
       }
       text = text.trim();
+      // v1595：七猫页面desktop布局黑屏不碍事——后台提取+清洗成紧凑条目
+      if (widget.url.contains('qimao')) {
+        text = MarketRank.cleanQimao(text);
+        // 清洗后不足3条=榜单还没渲染出来，继续轮询
+        final hits = RegExp(r'^\d+\. ', multiLine: true).allMatches(text);
+        if (hits.length < 3) return;
+      }
       if (text.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -71,6 +93,7 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
         return;
       }
       if (text.length > 6000) text = text.substring(0, 6000);
+      _done = true;
       if (mounted) Navigator.pop(context, text);
     } catch (e) {
       if (mounted) {

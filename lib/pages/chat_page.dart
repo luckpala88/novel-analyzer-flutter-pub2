@@ -317,7 +317,8 @@ class _ChatPageState extends State<ChatPage>
               title: const Text('番茄·排行榜（仅看，字体加密提取无意义）'),
               onTap: () {
                 Navigator.pop(context);
-                _browseRank(state, 'https://fanqienovel.com/rank',
+                // v1595：/rank是SPA空壳（用户实测空页），正确榜单URL带分类参数
+                _browseRank(state, 'https://fanqienovel.com/rank/0-0-0-0',
                     '番茄排行榜', false, '', false);
               },
             ),
