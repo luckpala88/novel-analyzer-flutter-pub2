@@ -93,6 +93,7 @@ class MarketRank {
       final d = details[i];
       sb.write('${i + 1}. ${e.title}（${fmtNum(e.num)}）');
       if (d != null) {
+        if (d.author.isNotEmpty) sb.write('｜${d.author}');
         if (d.cat.isNotEmpty) sb.write('｜${d.cat}');
         if (d.words.isNotEmpty) sb.write('｜${d.words}');
         if (d.intro.isNotEmpty) sb.write('｜简介: ${d.intro}');
@@ -102,8 +103,8 @@ class MarketRank {
     return sb.toString();
   }
 
-  /// 详情页→(类别, 字数, 简介)。gbk解码；正则宽容——缺哪项丢哪项
-  static Future<({String cat, String words, String intro})?>
+  /// 详情页→(类别, 作者, 字数, 简介)。gbk解码；正则宽容——缺哪项丢哪项
+  static Future<({String cat, String author, String words, String intro})?>
       _fetchFalooDetail(String id) async {
     try {
       final c = HttpClient();
@@ -116,25 +117,59 @@ class MarketRank {
       final bytes =
           await resp.fold<List<int>>(<int>[], (a, b) => a..addAll(b));
       final html = gbk.decode(bytes);
-      // 类别
+      // 作者+主分类：og:novel meta（v1600实测结构）
+      var author = '';
+      final am =
+          RegExp(r'og:novel:author" content="([^"]+)"').firstMatch(html);
+      if (am != null) author = am.group(1)!;
       var cat = '';
-      final cm = RegExp(r'类别：\s*([^\s<]{2,12})').firstMatch(html);
+      final cm =
+          RegExp(r'og:novel:category" content="([^"]+)"').firstMatch(html);
       if (cm != null) cat = cm.group(1)!;
-      // 字数（万）
-      var words = '';
-      final wm = RegExp(r'字数\s*([0-9.]+)\s*\(万\)').firstMatch(html);
-      if (wm != null) words = '${wm.group(1)!}万字';
-      // 简介：meta description，剥【飞卢小说网独家签约小说：书名】前缀
-      var intro = '';
-      final im =
-          RegExp(r'<meta name="description" content="([^"]+)"').firstMatch(html);
-      if (im != null) {
-        intro = im.group(1)!.replaceAllMapped(
-            RegExp(r'^【[^】]*】'), (m) => '');
-        intro = intro.replaceAll(RegExp(r'\s+'), ' ').trim();
-        if (intro.length > 80) intro = '${intro.substring(0, 80)}…';
+      // 细分类别：类别： <a>武侠修真</a> 系列标签（去重取前3）
+      final tags = <String>[];
+      for (final m in RegExp(r'类别：\s*<a[^>]*>([^<]{2,12})</a>')
+          .allMatches(html)) {
+        final v = m.group(1)!;
+        if (!tags.contains(v) && v != cat) tags.add(v);
+        if (tags.length >= 3) break;
       }
-      return (cat: cat, words: words, intro: intro);
+      if (cat.isNotEmpty) tags.insert(0, cat);
+      cat = tags.join('·');
+      // 字数：<div class="zi2">151<span>(万)</span>
+      var words = '';
+      final wm = RegExp(r'字数</div><div[^>]*>([0-9.]+)<span>\(万\)')
+          .firstMatch(html);
+      if (wm != null) words = '${wm.group(1)!}万字';
+      // 完整简介：正文区【签约前缀】之后到「点击阅读」，去免责声明。
+      // 前缀在页头meta里也出现——取最后一处=正文版（v1600本地三处实证）
+      var intro = '';
+      final pms =
+          RegExp(r'【飞卢小说网独家签约小说[^】]*】').allMatches(html).toList();
+      if (pms.isNotEmpty) {
+        final pm = pms.last;
+        final endI = html.indexOf('点击阅读', pm.end);
+        if (endI > pm.end) {
+          intro = html
+              .substring(pm.end, endI)
+              .replaceAll(RegExp(r'<[^>]+>'), ' ')
+              .replaceAll(RegExp(r'\s+'), ' ')
+              .replaceAll('飞卢小说网提醒您：本小说及人物纯属虚构，如有雷同，纯属巧合，切勿模仿。', '')
+              .trim();
+          if (intro.length > 150) intro = '${intro.substring(0, 150)}…';
+        }
+      }
+      if (intro.isEmpty) {
+        // 兜底：meta description（自身截断版）
+        final im = RegExp(r'<meta name="description" content="([^"]+)"')
+            .firstMatch(html);
+        if (im != null) {
+          intro = im.group(1)!.replaceAll(RegExp(r'^【[^】]*】'), '');
+          intro = intro.replaceAll(RegExp(r'\s+'), ' ').trim();
+          if (intro.length > 150) intro = '${intro.substring(0, 150)}…';
+        }
+      }
+      return (cat: cat, author: author, words: words, intro: intro);
     } catch (e) {
       return null;
     }
