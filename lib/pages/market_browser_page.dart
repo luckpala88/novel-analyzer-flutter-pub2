@@ -38,6 +38,16 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
   bool _done = false; // v1595：已提取返回，轮询停止
   // v1603：手机/电脑版切换态（初始跟随入口配置）
   bool _desktop = false;
+  // v1606：网址栏+前进后退
+  final _urlCtl = TextEditingController();
+  bool _canBack = false;
+  bool _canFwd = false;
+
+  @override
+  void dispose() {
+    _urlCtl.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -52,8 +62,18 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setUserAgent(widget.desktopUa ? _desktopUa : _mobileUa)
       ..setNavigationDelegate(NavigationDelegate(
-        onPageFinished: (_) {
+        onPageFinished: (url) {
           setState(() => _loading = false);
+          // v1606：网址栏同步当前URL+前进后退可用性（每页加载完刷新）
+          if (url != null && url.isNotEmpty && mounted) {
+            _urlCtl.text = url;
+          }
+          _ctl.canGoBack().then((v) {
+            if (mounted) setState(() => _canBack = v);
+          });
+          _ctl.canGoForward().then((v) {
+            if (mounted) setState(() => _canFwd = v);
+          });
           // v1602：desktopUa不只骗服务器——番茄桌面站是响应式布局，窄视口
           // 仍排手机版；注入viewport width=1280强制桌面排布（请求桌面版网站
           // 的标准手段）。v1603：随切换态走，手机版还原device-width
@@ -142,12 +162,66 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
     }
   }
 
+  /// v1606：地址栏跳转——无scheme补https://，非法输入不动作
+  void _goUrl(String v) {
+    final u = v.trim();
+    if (u.isEmpty) return;
+    final url = u.startsWith('http') ? u : 'https://$u';
+    setState(() => _loading = true);
+    _ctl.loadRequest(Uri.parse(url));
+    FocusScope.of(context).unfocus();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title, overflow: TextOverflow.ellipsis),
-        actions: [
+    // v1606：系统返回键接管——网页能退就退网页，退不动才退出浏览器
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (await _ctl.canGoBack()) {
+          _ctl.goBack();
+        } else if (mounted) {
+          Navigator.pop(context);
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(widget.title, overflow: TextOverflow.ellipsis),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(44),
+            child: Row(children: [
+              TextButton(
+                onPressed: _canBack ? () => _ctl.goBack() : null,
+                child: const Text('←'),
+              ),
+              TextButton(
+                onPressed: _canFwd ? () => _ctl.goForward() : null,
+                child: const Text('→'),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 4, vertical: 6),
+                  child: TextField(
+                    controller: _urlCtl,
+                    keyboardType: TextInputType.url,
+                    textInputAction: TextInputAction.go,
+                    onSubmitted: _goUrl,
+                    style: const TextStyle(fontSize: 12),
+                    decoration: const InputDecoration(
+                      hintText: '输入网址',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    ),
+                  ),
+                ),
+              ),
+            ]),
+          ),
+          actions: [
           // v1593：只看_loading——autoExtract失败后要露出「提取榜单」手动兜底
           if (_loading)
             const Padding(
@@ -188,8 +262,9 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
               ),
           ],
         ],
+        ),
+        body: WebViewWidget(controller: _ctl),
       ),
-      body: WebViewWidget(controller: _ctl),
     );
   }
 }
