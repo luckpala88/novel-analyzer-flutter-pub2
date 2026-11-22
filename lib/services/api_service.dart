@@ -271,17 +271,65 @@ class ApiService {
         '｜RPM${apiConfig.rpmLimit > 0 ? apiConfig.rpmLimit : "不限"}',
       );
     }
+    // v1591b联网通道（用户定稿：回答仍由当前模型出，flash只当搜资料跑腿）：
+    // ①当前就是DeepSeek官方→直接带工具调（工具仅deepseek-flash支持，强制模型）
+    // ②其他模型（carbon等）→先flash联网搜资料→资料注入system→当前模型
+    //   正常回答（每轮两次调用：搜索5元/千次+两份token费）
+    var webSearch = false;
+    var cfg = apiConfig;
+    var searchDigest = '';
+    if (apiConfig.webSearch) {
+      final stash = apiConfig.builtinStash['deepseek'];
+      final dsKey = (!apiConfig.useCustom && apiConfig.provider == 'deepseek')
+          ? apiConfig.apiKey
+          : (stash is Map ? (stash['apiKey'] ?? '') as String : '');
+      if (dsKey.isEmpty) {
+        _log('⚠️ 联网搜索开但未配置DeepSeek Key——按当前配置原样发送');
+      } else if (!apiConfig.useCustom && apiConfig.provider == 'deepseek') {
+        cfg = ApiConfig.fromJson(apiConfig.toJson());
+        cfg.model = 'deepseek-flash'; // 工具仅flash支持
+        webSearch = true;
+      } else {
+        _log('🌐 联网搜索：DeepSeek flash先搜资料...');
+        final sr = await call(
+          apiType: 'openai',
+          baseUrl: 'https://api.deepseek.com/v1',
+          apiKey: dsKey,
+          model: 'deepseek-flash',
+          systemPrompt:
+              '你是联网搜索助手。请使用联网搜索工具查找最新资料，输出要点式资料汇总，'
+              '每条要点末尾附来源链接。只输出资料本身，不要寒暄，不要自行回答问题。',
+          userPrompt: '请联网搜索并整理以下问题的资料：\n$userPrompt',
+          temperature: 0.3,
+          maxTokens: apiConfig.maxTokens < 8192 ? apiConfig.maxTokens : 8192,
+          formatMode: 'compatible',
+          streamEnabled: apiConfig.streamEnabled,
+          webSearch: true,
+          task: '联网搜索',
+        );
+        if (sr.isSuccess && sr.content.trim().isNotEmpty) {
+          searchDigest = sr.content.trim();
+          _log('🌐 搜索资料到手${searchDigest.length}字——注入当前模型上下文');
+        } else {
+          _log('⛔ 联网搜索失败（${sr.error}）——按无资料继续回答');
+        }
+      }
+    }
     final r = await call(
-      apiType: apiConfig.effectiveApiType,
-      baseUrl: apiConfig.effectiveApiBase,
-      apiKey: apiConfig.effectiveApiKey,
-      model: apiConfig.effectiveModel,
-      systemPrompt: systemPrompt,
+      apiType: cfg.effectiveApiType,
+      baseUrl: cfg.effectiveApiBase,
+      apiKey: cfg.effectiveApiKey,
+      model: cfg.effectiveModel,
+      systemPrompt: searchDigest.isEmpty
+          ? systemPrompt
+          : '$systemPrompt\n\n【联网参考资料（DeepSeek实时搜索整理，仅供参照，'
+              '采信与否由你自行判断，与资料冲突时以你的知识为准）】\n$searchDigest',
       userPrompt: userPrompt,
       temperature: effTemp,
-      maxTokens: apiConfig.maxTokens,
-      formatMode: apiConfig.formatMode,
-      streamEnabled: apiConfig.streamEnabled, // v1575：传输方式独立开关
+      maxTokens: cfg.maxTokens,
+      formatMode: cfg.formatMode,
+      streamEnabled: cfg.streamEnabled, // v1575：传输方式独立开关
+      webSearch: webSearch, // v1591：联网搜索工具注入（仅DeepSeek官方直连分支）
       onChunk: onChunk,
       images: images,
       task: task, // v1242：透传任务名——全景提取类重任务首字看门狗放宽180秒
@@ -310,6 +358,7 @@ class ApiService {
     int maxTokens = 8192,
     String formatMode = 'compatible',
     bool streamEnabled = true, // v1575：true=流式（默认防CF 524）false=整包
+    bool webSearch = false, // v1591：DeepSeek联网搜索工具注入（服务端执行）
     void Function(String chunk)? onChunk,
     List<({String mime, String base64})> images = const [], // v838：vision图片
     String task = '', // v1242：重任务（全景提取）首字看门狗放宽到180秒
@@ -436,6 +485,14 @@ class ApiService {
         if (formatMode == 'json') {
           body['response_format'] = {'type': 'json_object'};
         }
+        // v1591：DeepSeek联网搜索——搜索/抓取全在服务端执行，返回的即
+        // 带引用的最终答案，客户端无工具调用循环；搜不搜由模型自主判断
+        if (webSearch) {
+          body['tools'] = [
+            {'type': 'deepseek_web_search'},
+            {'type': 'deepseek_read_url'},
+          ];
+        }
       }
 
       // v1577：传输模式分流——流式只看用户开关（Claude例外：原生流是API类型行为）；
@@ -445,7 +502,8 @@ class ApiService {
       _log(
         '发送参数：模型${body['model']}｜温度${body['temperature']}'
         '｜max_tokens${body['max_tokens']}${body['stream'] == true ? '｜流式' : '｜整包'}'
-        '${body['response_format'] != null ? '｜JSON严格' : '｜兼容'}',
+        '${body['response_format'] != null ? '｜JSON严格' : '｜兼容'}'
+        '${body['tools'] != null ? '｜联网' : ''}',
       );
       _log('发送请求...');
       // v1299b：首字看门狗统一180秒（用户裁决17:23——分镜拆解90秒被掐

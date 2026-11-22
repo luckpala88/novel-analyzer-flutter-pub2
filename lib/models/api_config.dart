@@ -21,6 +21,9 @@ class ApiConfig {
   // v1575：传输方式独立开关（与formatMode解耦）——true=流式（默认，防CF 100s
   // 掐长回复连接524），false=整包；json严格模式强制流式不受此开关影响
   bool streamEnabled;
+  // v1591：联网搜索通道（仅聊天页开关）——开=请求强制改走DeepSeek官方
+  // 直连deepseek-flash+服务端搜索工具（模型自主决定何时搜，搜索5元/千次）
+  bool webSearch;
   String apiType; // 'openai' or 'claude'
   int rpmLimit; // 每分钟最大请求数（0=不限流；中转站RPM限制用）
   // v679：per-provider参数stash——{providerId: {temperature,maxTokens,formatMode,apiType,rpmLimit}}
@@ -70,6 +73,7 @@ class ApiConfig {
     this.maxTokens = 8192,
     this.formatMode = 'compatible',
     this.streamEnabled = true,
+    this.webSearch = false,
     this.apiType = 'openai',
     this.rpmLimit = 5,
     Map<String, dynamic>? paramStash,
@@ -96,6 +100,7 @@ class ApiConfig {
       maxTokens: json['maxTokens'] ?? 8192,
       formatMode: json['formatMode'] ?? 'compatible',
       streamEnabled: json['streamEnabled'] ?? true,
+      webSearch: json['webSearch'] == true,
       apiType: json['apiType'] ?? 'openai',
       rpmLimit: json['rpmLimit'] ?? 5,
       paramStash: json['paramStash'] is Map
@@ -120,6 +125,7 @@ class ApiConfig {
     'maxTokens': maxTokens,
     'formatMode': formatMode,
     'streamEnabled': streamEnabled,
+    'webSearch': webSearch,
     'rpmLimit': rpmLimit,
     'apiType': apiType,
     'builtinStash': builtinStash,

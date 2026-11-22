@@ -252,6 +252,17 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
   // v1530：余额历史（最近3次，全局存储按key掩码隔离，换key自动重置）
   List<Map<String, dynamic>> _balanceHistory = [];
 
+  /// v1591：DeepSeek Key是否缺失（联网搜索通道用）——当前供应商就是
+  /// deepseek看apiKey；否则看per-provider stash
+  bool get _dsKeyMissing {
+    if (!_config.useCustom && _config.provider == 'deepseek') {
+      return _config.apiKey.isEmpty;
+    }
+    final s = _config.builtinStash['deepseek'];
+    final k = s is Map ? s['apiKey'] : null;
+    return k is! String || k.isEmpty;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1187,6 +1198,42 @@ class _ApiConfigPanelState extends State<ApiConfigPanel> {
                 ),
               ],
             ),
+
+            // v1591：联网搜索（仅聊天页）——开=无论当前什么模型，请求强制
+            // 走DeepSeek官方直连deepseek-flash+服务端搜索工具；搜索5元/千次
+            if (widget.section == 'chat') ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  const Text('联网搜索:'),
+                  FilterChip(
+                    label: const Text('🌐开'),
+                    selected: _config.webSearch,
+                    onSelected: (v) {
+                      setState(() => _config.webSearch = v);
+                      _saveNow();
+                    },
+                  ),
+                  const Flexible(
+                    child: Text(
+                      '开=先DeepSeek flash联网搜资料，回答仍由当前模型出（每轮多一次搜索5元/千次）',
+                      style: TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                  ),
+                ],
+              ),
+              if (_config.webSearch && _dsKeyMissing)
+                const Padding(
+                  padding: EdgeInsets.only(top: 4),
+                  child: Text(
+                    '⚠️ 未配置DeepSeek Key——先切到DeepSeek供应商填入Key，否则联网开关不生效',
+                    style: TextStyle(fontSize: 11, color: Colors.orange),
+                  ),
+                ),
+            ],
 
             // v1580：擎天专属警告（json_object实测挂死——v1580定案：23:32那次
             // 39秒成功属偶发，01:01三连测带response_format全挂0字节，对照去掉
