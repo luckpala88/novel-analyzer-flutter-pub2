@@ -309,9 +309,11 @@ class _ChatPageState extends State<ChatPage>
               title: const Text('飞卢·网页浏览（人工看，可提取）'),
               onTap: () {
                 Navigator.pop(context);
+                // v1608：双版本URL——wap版服务端直渲染且带作者+类别
                 _browseRank(state, 'https://b.faloo.com/Rank_1.html',
                     '飞卢排行榜·网页', true, '飞卢排行榜·网页', false,
-                    desktopUa: true);
+                    desktopUa: true,
+                    mobileUrl: 'https://wap.faloo.com/rank_1.html');
               },
             ),
             ListTile(
@@ -321,7 +323,8 @@ class _ChatPageState extends State<ChatPage>
                 Navigator.pop(context);
                 _browseRank(state, 'https://www.qimao.com/paihang/',
                     '七猫排行榜·网页', true, '七猫排行榜·网页', false,
-                    desktopUa: true);
+                    desktopUa: true,
+                    mobileUrl: 'https://m.qimao.com/paihang/');
               },
             ),
             ListTile(
@@ -329,8 +332,12 @@ class _ChatPageState extends State<ChatPage>
               title: const Text('起点·月票榜（自动提取，数字乱码）'),
               onTap: () {
                 Navigator.pop(context);
-                _browseRank(state, 'https://www.qidian.com/rank/yuepiao/',
-                    '起点月票榜', true, '起点月票榜', true);
+                // v1608：默认开m.版（服务端直渲染73KB,www重JS壳WebView崩溃
+                // 实证）；切电脑版=www.qidian.com
+                _browseRank(state, 'https://m.qidian.com/rank/yuepiao/',
+                    '起点月票榜', true, '起点月票榜', true,
+                    desktopUa: false,
+                    desktopUrl: 'https://www.qidian.com/rank/yuepiao/');
               },
             ),
             ListTile(
@@ -401,7 +408,7 @@ class _ChatPageState extends State<ChatPage>
 
   Future<void> _browseRank(AppState state, String url, String title,
       bool extractable, String floorHeader, bool autoExtract,
-      {bool desktopUa = false}) async {
+      {bool desktopUa = false, String? mobileUrl, String? desktopUrl}) async {
     final text = await Navigator.push<String>(
       context,
       MaterialPageRoute(
@@ -411,6 +418,8 @@ class _ChatPageState extends State<ChatPage>
           extractable: extractable,
           autoExtract: autoExtract,
           desktopUa: desktopUa,
+          mobileUrl: mobileUrl,
+          desktopUrl: desktopUrl,
         ),
       ),
     );

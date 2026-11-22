@@ -19,6 +19,11 @@ class MarketBrowserPage extends StatefulWidget {
   final bool extractable; // 番茄=false（字体加密提取无意义）
   final bool autoExtract; // v1593：true=加载完自动提取并返回（无人值守）
   final bool desktopUa; // v1596：番茄给手机UA的是下载APP推广壳页（用户截图实锤），桌面UA才有真榜单
+  // v1608：手机版/电脑版网址——实测各站双版本=不同URL不同DOM（只换UA看不到
+  // 变化；起点www重JS壳崩溃,wap/m.版服务端直渲染）。null=同URL只切UA/视口。
+  // url=初始加载的版本；desktopUrl=切电脑版用的URL（起点初始开m.版时提供）
+  final String? mobileUrl;
+  final String? desktopUrl;
   const MarketBrowserPage({
     super.key,
     required this.url,
@@ -26,6 +31,8 @@ class MarketBrowserPage extends StatefulWidget {
     this.extractable = true,
     this.autoExtract = false,
     this.desktopUa = false,
+    this.mobileUrl,
+    this.desktopUrl,
   });
 
   @override
@@ -113,11 +120,15 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
   static const _desktopUa =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 
-  /// v1603：换UA重载——切换手机/电脑版（UA骗服务器+viewport排布局，两道门都要换）
+  /// v1603：换UA重载——切换手机/电脑版（UA骗服务器+viewport排布局，两道门都要换）。
+  /// v1608：有mobileUrl时切换=换URL（各站手机版/电脑版是不同网址不同DOM）
   void _reload() {
     setState(() => _loading = true);
     _ctl.setUserAgent(_desktop ? _desktopUa : _mobileUa).then((_) {
-      _ctl.loadRequest(Uri.parse(widget.url));
+      final u = _desktop
+          ? (widget.desktopUrl ?? widget.url)
+          : (widget.mobileUrl ?? widget.url);
+      _ctl.loadRequest(Uri.parse(u));
     });
   }
 
