@@ -43,6 +43,16 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
       ..setNavigationDelegate(NavigationDelegate(
         onPageFinished: (_) {
           setState(() => _loading = false);
+          // v1602：desktopUa不只骗服务器——番茄桌面站是响应式布局，窄视口
+          // 仍排手机版；注入viewport width=1280强制桌面排布（请求桌面版网站
+          // 的标准手段）
+          if (widget.desktopUa) {
+            _ctl.runJavaScript(
+                "var mv=document.querySelector('meta[name=viewport]');"
+                "if(mv){mv.setAttribute('content','width=1280');}"
+                "else{var m=document.createElement('meta');m.name='viewport';"
+                "m.content='width=1280';document.head.appendChild(m);}");
+          }
           // v1595：自动提取模式——轮询提取（页面JS渲染榜单慢，固定2.5秒
           // 不可靠），每1.5秒试一次最多10次，出条目即返回；失败留本页手动兜底
           if (widget.autoExtract) {
