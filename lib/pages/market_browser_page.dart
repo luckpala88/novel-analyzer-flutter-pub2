@@ -187,6 +187,12 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
       },
       child: Scaffold(
         appBar: AppBar(
+          // v1607：显式关闭键——直接退出浏览器回APP（左上角默认箭头被
+          // 返回键接管逻辑影响=先退网页历史，语义混淆）
+          leading: IconButton(
+            icon: const Text('✕', style: TextStyle(fontSize: 18)),
+            onPressed: () => Navigator.pop(context),
+          ),
           title: Text(widget.title, overflow: TextOverflow.ellipsis),
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(44),
