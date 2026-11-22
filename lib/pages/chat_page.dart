@@ -366,10 +366,11 @@ class _ChatPageState extends State<ChatPage>
   Future<void> _fetchFaloo(AppState state, String board) async {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('正在抓取飞卢$board...')));
+        .showSnackBar(SnackBar(content: Text('正在抓取飞卢$board（含前10详情）...')));
     try {
-      final entries = await MarketRank.fetchFaloo(board);
-      _insertRankFloor(state, MarketRank.toFloorText('飞卢', board, entries));
+      // v1597：一步到位——榜单+前10详情（类别/字数/简介），AI分析有料
+      final text = await MarketRank.fetchFalooFloor(board);
+      _insertRankFloor(state, text);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
