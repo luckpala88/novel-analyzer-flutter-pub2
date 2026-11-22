@@ -15,12 +15,14 @@ class MarketBrowserPage extends StatefulWidget {
   final String title;
   final bool extractable; // 番茄=false（字体加密提取无意义）
   final bool autoExtract; // v1593：true=加载完自动提取并返回（无人值守）
+  final bool desktopUa; // v1596：番茄给手机UA的是下载APP推广壳页（用户截图实锤），桌面UA才有真榜单
   const MarketBrowserPage({
     super.key,
     required this.url,
     required this.title,
     this.extractable = true,
     this.autoExtract = false,
+    this.desktopUa = false,
   });
 
   @override
@@ -37,7 +39,7 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
     super.initState();
     _ctl = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setUserAgent(_mobileUa)
+      ..setUserAgent(widget.desktopUa ? _desktopUa : _mobileUa)
       ..setNavigationDelegate(NavigationDelegate(
         onPageFinished: (_) {
           setState(() => _loading = false);
@@ -65,6 +67,9 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
 
   static const _mobileUa =
       'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36';
+  // v1596：桌面UA——番茄手机UA=推广壳页
+  static const _desktopUa =
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 
   Future<void> _extract() async {
     if (_done) return;

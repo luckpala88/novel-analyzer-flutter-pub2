@@ -318,8 +318,9 @@ class _ChatPageState extends State<ChatPage>
               onTap: () {
                 Navigator.pop(context);
                 // v1595：/rank是SPA空壳（用户实测空页），正确榜单URL带分类参数
+                // v1596：手机UA=下载APP推广壳页（截图实锤），番茄必须桌面UA
                 _browseRank(state, 'https://fanqienovel.com/rank/0-0-0-0',
-                    '番茄排行榜', false, '', false);
+                    '番茄排行榜', false, '', false, desktopUa: true);
               },
             ),
             // v1594：番茄APP屏捕——你翻页+后台截帧+GLM-4V提取（字体反爬下
@@ -377,7 +378,8 @@ class _ChatPageState extends State<ChatPage>
   }
 
   Future<void> _browseRank(AppState state, String url, String title,
-      bool extractable, String floorHeader, bool autoExtract) async {
+      bool extractable, String floorHeader, bool autoExtract,
+      {bool desktopUa = false}) async {
     final text = await Navigator.push<String>(
       context,
       MaterialPageRoute(
@@ -386,6 +388,7 @@ class _ChatPageState extends State<ChatPage>
           title: title,
           extractable: extractable,
           autoExtract: autoExtract,
+          desktopUa: desktopUa,
         ),
       ),
     );
