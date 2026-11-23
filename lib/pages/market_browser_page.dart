@@ -46,6 +46,10 @@ class MarketBrowserPage extends StatefulWidget {
   /// 正常渲染（人看/截图均明文），但innerText仍是PUA密文所以AI读页/
   /// 提取键隐藏，只给📸键
   final bool screenCapture;
+  /// v1634：代理管线保留脚本模式——番茄SSR数据埋在script里（剥=数据
+  /// 没了），fetchRender=true+keepScripts=true+JS开：代理抓页绕302、
+  /// React hydrate用SSR数据自己渲染
+  final bool keepScripts;
   const MarketBrowserPage({
     super.key,
     required this.url,
@@ -58,6 +62,7 @@ class MarketBrowserPage extends StatefulWidget {
     this.enableJs = true,
     this.fetchRender = false,
     this.screenCapture = false,
+    this.keepScripts = false,
   });
 
   @override
@@ -100,7 +105,10 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
       // v1611：enableJs=false时禁JS——openApp2021.js类页面脚本不执行。
       // v1615：fetchRender接管模式强制禁JS——脚本已物理剥除JS无显示作用
       // （v1611实证JS关=不死，v1612-14死机全在JS开状态）
-      ..setJavaScriptMode((widget.enableJs && !widget.fetchRender)
+      // v1634：keepScripts模式例外——脚本保留伺服，JS必须开让React
+      // hydrate渲染（站点无openApp类脚本+导航防线兜底）
+      ..setJavaScriptMode(
+              (widget.enableJs && !widget.fetchRender) || widget.keepScripts
           ? JavaScriptMode.unrestricted
           : JavaScriptMode.disabled)
       ..setNavigationDelegate(NavigationDelegate(
@@ -193,7 +201,9 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
         if (widget.fetchRender) {
           final port = await RenderProxy.start();
           _blog('代理就绪：$port，加载${widget.url}');
-          await _ctl.loadRequest(Uri.parse(RenderProxy.renderUrl(widget.url)));
+          await _ctl.loadRequest(Uri.parse(RenderProxy.renderUrl(
+              widget.url,
+              keepScripts: widget.keepScripts)));
         } else {
           _ctl.loadRequest(Uri.parse(widget.url));
         }
@@ -217,7 +227,8 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
             ? (widget.desktopUrl ?? widget.url)
             : (widget.mobileUrl ?? widget.url);
         _blog('切换加载：$target');
-        await _ctl.loadRequest(Uri.parse(RenderProxy.renderUrl(target)));
+        await _ctl.loadRequest(Uri.parse(
+            RenderProxy.renderUrl(target, keepScripts: widget.keepScripts)));
         return;
       }
       final u = _desktop
@@ -399,7 +410,8 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
                   _ctl.loadRequest(Uri.parse(RenderProxy.renderUrl(
                       _urlCtl.text.startsWith('http')
                           ? _urlCtl.text
-                          : widget.url)));
+                          : widget.url,
+                      keepScripts: widget.keepScripts)));
                 } else {
                   _ctl.reload();
                 }

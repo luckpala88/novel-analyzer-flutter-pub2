@@ -372,13 +372,18 @@ class _ChatPageState extends State<ChatPage>
                 // Android WebView请求自带X-Requested-With:包名头被番茄识破，
                 // curl无此头拿到真页。改走本地代理管线（Dart HttpClient无
                 // 此头+页面服务端直渲染关JS可显示）
-                // v1632：番茄字体加密埋在数据层（__INITIAL_STATE__书名
-                // 14字7个PUA字符沙盒实证）——JSON直抓也是密文。开JS让页面
-                // 正常渲染（人看/截图均明文），提取走📸屏捕GLM-4V读图。
-                // v1622的fetchRender代理管线废除（剥脚本反而剥掉数据层）
+                // v1634：番茄渲染路线定稿——①直连WebView必被302到推广壳
+                // （v1622实证：X-Requested-With包头被识破，v1632改直连是
+                // 我犯的错）②走本地代理抓页绕302 + keepScripts保留脚本
+                // （番茄SSR数据埋script里，v1632沙盒实证剥了=页面空）+
+                // JS开（React hydrate自己渲染）③提取走📸屏捕GLM-4V读图
+                // （DOM/JSON文字都是PUA密文，字体加密埋数据层）
                 _browseRank(state, 'https://fanqienovel.com/rank/1',
                     '番茄排行榜', false, '番茄排行榜', false,
-                    desktopUa: true, screenCapture: true);
+                    desktopUa: true,
+                    fetchRender: true,
+                    keepScripts: true,
+                    screenCapture: true);
               },
             ),
             // v1594：番茄APP屏捕——你翻页+后台截帧+GLM-4V提取（字体反爬下
@@ -461,7 +466,8 @@ class _ChatPageState extends State<ChatPage>
       String? desktopUrl,
       bool enableJs = true,
       bool fetchRender = false,
-      bool screenCapture = false}) async {
+      bool screenCapture = false,
+      bool keepScripts = false}) async {
     final text = await Navigator.push<String>(
       context,
       MaterialPageRoute(
@@ -476,6 +482,7 @@ class _ChatPageState extends State<ChatPage>
           enableJs: enableJs,
           fetchRender: fetchRender,
           screenCapture: screenCapture,
+          keepScripts: keepScripts,
         ),
       ),
     );

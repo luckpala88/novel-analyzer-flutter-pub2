@@ -51,9 +51,13 @@ class RenderProxy {
     _port = null;
   }
 
-  /// 页面URL→代理渲染URL
-  static String renderUrl(String target) =>
-      'http://127.0.0.1:$_port/render?u=${Uri.encodeComponent(target)}';
+  /// 页面URL→代理渲染URL。v1634：keepScripts=true保留脚本伺服——
+  /// 番茄SSR页数据埋在script里（剥=数据没了），JS开着让React hydrate
+  /// 自己渲染（人看/截图均明文），代理抓页本身绕X-Requested-With
+  /// 推广壳302（v1622）
+  static String renderUrl(String target, {bool keepScripts = false}) =>
+      'http://127.0.0.1:$_port/render?u=${Uri.encodeComponent(target)}'
+      '${keepScripts ? '&s=1' : ''}';
 
   /// 抓UA——桌面UA实机过WAF（v1614），wap双UA内容相同
   static const _ua =
@@ -107,30 +111,40 @@ class RenderProxy {
       c.close();
     }
     _log('抓取成功：${html.length}字符');
-    var out = html.replaceAll(
-        RegExp(r'<script[\s\S]*?</script>', caseSensitive: false), '');
-    out = out.replaceAll(
-        RegExp(r'<script[^>]*/>', caseSensitive: false), '');
+    // v1634：keepScripts模式（URL带s=1）跳过剥脚本+字号注入——番茄SSR
+    // 数据在script里要留着让React hydrate；字号注入是飞卢rem版式专用，
+    // 对番茄px版式反而有害
+    final keepScripts = req.uri.queryParameters['s'] == '1';
+    var out = html;
+    if (!keepScripts) {
+      out = out.replaceAll(
+          RegExp(r'<script[\s\S]*?</script>', caseSensitive: false), '');
+      out = out.replaceAll(
+          RegExp(r'<script[^>]*/>', caseSensitive: false), '');
+    }
     // v1619：双禁令——根字号flexible等效 + 全元素text-size-adjust禁
     // （Android WebView font boosting会无视根字号放大计算后字号=v1616
     // 字体很大实证；text-size-adjust:none是唯一关闭通道，全元素!important
     // 比站点html,body规则更强）
-    const inject =
-        '<style>html{font-size:min(calc(100vw/9),71.1px)!important;}'
-        '*{-webkit-text-size-adjust:none!important;text-size-adjust:none!important;}</style>'
-        // v1622：飞卢错位补丁（手机Chromium仿真复现+flex修复沙盒验证）——
-        // ①查看更多文字掉出按钮框②排名角标压书名。病根=无单位line-height
-        // 的行盒装不下内容（手机端行盒计算与桌面不同），flex居中绕开行盒
-        '<style>'
-        '.divReadMore{display:flex!important;align-items:center!important;justify-content:center!important;}'
-        '.readMore{line-height:normal!important;}'
-        '.hot24DivIndex{display:flex!important;align-items:center!important;justify-content:center!important;overflow:visible!important;}'
-        '.hot24Index{line-height:normal!important;display:block!important;}'
-        '</style>';
-    final i = out.toLowerCase().indexOf('<head>');
-    out = i >= 0
-        ? out.substring(0, i + 6) + inject + out.substring(i + 6)
-        : inject + out;
+    // v1634：keepScripts模式跳过字号注入（番茄px版式自洽，注入反而有害）
+    if (!keepScripts) {
+      const inject =
+          '<style>html{font-size:min(calc(100vw/9),71.1px)!important;}'
+          '*{-webkit-text-size-adjust:none!important;text-size-adjust:none!important;}</style>'
+          // v1622：飞卢错位补丁（手机Chromium仿真复现+flex修复沙盒验证）——
+          // ①查看更多文字掉出按钮框②排名角标压书名。病根=无单位line-height
+          // 的行盒装不下内容（手机端行盒计算与桌面不同），flex居中绕开行盒
+          '<style>'
+          '.divReadMore{display:flex!important;align-items:center!important;justify-content:center!important;}'
+          '.readMore{line-height:normal!important;}'
+          '.hot24DivIndex{display:flex!important;align-items:center!important;justify-content:center!important;overflow:visible!important;}'
+          '.hot24Index{line-height:normal!important;display:block!important;}'
+          '</style>';
+      final i = out.toLowerCase().indexOf('<head>');
+      out = i >= 0
+          ? out.substring(0, i + 6) + inject + out.substring(i + 6)
+          : inject + out;
+    }
     // 协议相对资源补https（localhost源下//host会变成http://host明文）
     out = out.replaceAll('="//', '="https://');
     // 根相对链接补主机名（防落到localhost上404）
