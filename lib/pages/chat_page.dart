@@ -361,7 +361,7 @@ class _ChatPageState extends State<ChatPage>
             ),
             ListTile(
               leading: const Icon(Icons.public),
-              title: const Text('番茄·排行榜（仅看，字体加密提取无意义）'),
+              title: const Text('番茄·排行榜（网页屏捕提取）'),
               onTap: () {
                 Navigator.pop(context);
                 // v1595：/rank是SPA空壳（用户实测空页），正确榜单URL带分类参数
@@ -372,12 +372,13 @@ class _ChatPageState extends State<ChatPage>
                 // Android WebView请求自带X-Requested-With:包名头被番茄识破，
                 // curl无此头拿到真页。改走本地代理管线（Dart HttpClient无
                 // 此头+页面服务端直渲染关JS可显示）
+                // v1632：番茄字体加密埋在数据层（__INITIAL_STATE__书名
+                // 14字7个PUA字符沙盒实证）——JSON直抓也是密文。开JS让页面
+                // 正常渲染（人看/截图均明文），提取走📸屏捕GLM-4V读图。
+                // v1622的fetchRender代理管线废除（剥脚本反而剥掉数据层）
                 _browseRank(state, 'https://fanqienovel.com/rank/1',
-                    '番茄排行榜', false, '', false,
-                    // v1622：代理管线（绕X-Requested-With推广壳302）
-                    // v1623：enableJs=false——番茄文本字体加密（沙盒提取
-                    // 实证标题简介缺字），提取/AI读页键隐藏，纯浏览
-                    desktopUa: true, enableJs: false, fetchRender: true);
+                    '番茄排行榜', false, '番茄排行榜', false,
+                    desktopUa: true, screenCapture: true);
               },
             ),
             // v1594：番茄APP屏捕——你翻页+后台截帧+GLM-4V提取（字体反爬下
@@ -459,7 +460,8 @@ class _ChatPageState extends State<ChatPage>
       String? mobileUrl,
       String? desktopUrl,
       bool enableJs = true,
-      bool fetchRender = false}) async {
+      bool fetchRender = false,
+      bool screenCapture = false}) async {
     final text = await Navigator.push<String>(
       context,
       MaterialPageRoute(
@@ -473,6 +475,7 @@ class _ChatPageState extends State<ChatPage>
           desktopUrl: desktopUrl,
           enableJs: enableJs,
           fetchRender: fetchRender,
+          screenCapture: screenCapture,
         ),
       ),
     );

@@ -1,7 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 // v1604：Android专用控制器——setMixedContentMode放开http图片（飞卢书封
 // img.faloo.com是http://老协议10张，https页面里被默认neverAllow拦掉）
@@ -37,6 +41,11 @@ class MarketBrowserPage extends StatefulWidget {
   // v1609防线拦scheme/下载页
   final bool enableJs;
   final bool fetchRender;
+  /// v1632：屏捕提取——DOM被字体加密的数据层加密站（番茄）专用：
+  /// RepaintBoundary截WebView画面→GLM-4V读图→回填楼层。JS开启页面
+  /// 正常渲染（人看/截图均明文），但innerText仍是PUA密文所以AI读页/
+  /// 提取键隐藏，只给📸键
+  final bool screenCapture;
   const MarketBrowserPage({
     super.key,
     required this.url,
@@ -48,6 +57,7 @@ class MarketBrowserPage extends StatefulWidget {
     this.desktopUrl,
     this.enableJs = true,
     this.fetchRender = false,
+    this.screenCapture = false,
   });
 
   @override
@@ -62,6 +72,7 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
   bool _desktop = false;
   // v1606：网址栏+前进后退
   final _urlCtl = TextEditingController();
+  final _captureKey = GlobalKey();
   bool _canBack = false;
   bool _canFwd = false;
 
@@ -395,8 +406,15 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
               },
               child: const Text('刷新'),
             ),
-            // v1611：JS禁用页提取不可用（innerText要走JS），键直接隐藏
-            if (widget.enableJs) ...[
+            // v1632：屏捕提取——字体加密数据层站（番茄）：截WebView画面
+            // 喂GLM-4V读图（屏捕同款免费glm-4v-flash），提取回填楼层。
+            // DOMinnerText=PUA密文所以AI读页/提取键不给
+            if (widget.screenCapture)
+              TextButton(
+                onPressed: _captureExtract,
+                child: const Text('📸屏捕提取'),
+              )
+            else if (widget.enableJs) ...[
               // v1604b：AI读页——innerText交聊天页AI自行提取需要的内容
               TextButton(
                 onPressed: () => _extract(ai: true),
@@ -411,8 +429,86 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
           ],
         ],
         ),
-        body: WebViewWidget(controller: _ctl),
+        body: RepaintBoundary(
+          key: _captureKey,
+          child: WebViewWidget(controller: _ctl),
+        ),
       ),
     );
+  }
+
+  /// v1632：屏捕提取——RepaintBoundary截WebView当前画面→PNG→GLM-4V读图
+  /// （屏捕同款glm-4v-flash免费通道，max_tokens上限1024），提取文本pop回
+  /// 聊天楼层。DOM数据层PUA密文的字体加密站唯一明文通道
+  static const _capPrompt = '这是内置浏览器打开的番茄小说网页版榜单页的截图。'
+      '提取图中榜单每一条：名次、书名、作者，以及图中可见数据（在读/热度/'
+      '收藏/字数等），按图中顺序。输出纯文本每行「N. 书名｜作者（数据）」，'
+      '只输出提取结果不要解释；图中没有榜单条目就只输出「无榜单」。';
+  Future<void> _captureExtract() async {
+    // Key策略与屏捕页一致：聊天API=智谱直接用，否则无Key不可用（glm-4v
+    // flash免费但必须智谱端点）
+    final cfg = context.read<AppState>().getApiConfig('chat');
+    if (cfg.providerId != 'zhipu') {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('屏捕提取需智谱Key（glm-4v-flash免费）——当前聊天API'
+              '非智谱，可改用「番茄·APP屏捕」入口粘贴Key')));
+      return;
+    }
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('截图识别中（GLM-4V）...')));
+    try {
+      final boundary =
+          _captureKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) throw Exception('截图对象不存在');
+      final image = await boundary.toImage(pixelRatio: 1.5);
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (data == null) throw Exception('截图编码失败');
+      final b64 = base64Encode(data.buffer.asUint8List());
+      final resp = await http
+          .post(
+            Uri.parse('https://open.bigmodel.cn/api/paas/v4/chat/completions'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ${cfg.apiKey}',
+            },
+            body: jsonEncode({
+              'model': 'glm-4v-flash',
+              'temperature': 0.2,
+              'max_tokens': 1024, // glm-4v-flash上限1024（2000参数非法实证）
+              'messages': [
+                {
+                  'role': 'user',
+                  'content': [
+                    {
+                      'type': 'image_url',
+                      'image_url': {'url': 'data:image/png;base64,$b64'}
+                    },
+                    {'type': 'text', 'text': _capPrompt},
+                  ],
+                }
+              ],
+            }),
+          )
+          .timeout(const Duration(seconds: 90));
+      final body = jsonDecode(utf8.decode(resp.bodyBytes)) as Map;
+      if (body['error'] != null) {
+        throw Exception(body['error']['message'] ?? body['error'].toString());
+      }
+      final choices = body['choices'] as List?;
+      final text = (choices == null || choices.isEmpty)
+          ? ''
+          : (choices[0]['message']['content'] ?? '').toString();
+      if (text.trim().isEmpty || text.contains('无榜单')) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('没识别到榜单条目——翻到榜单内容再试')));
+        return;
+      }
+      if (!mounted) return;
+      Navigator.pop(context, text.trim());
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('⛔ 屏捕提取失败：$e')));
+    }
   }
 }
