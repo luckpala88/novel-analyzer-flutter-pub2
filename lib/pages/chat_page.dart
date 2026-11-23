@@ -299,19 +299,12 @@ class _ChatPageState extends State<ChatPage>
                   _fetchFaloo(state, b);
                 },
               ),
-            ListTile(
-              leading: const Icon(Icons.public),
-              title: const Text('七猫·排行榜（自动提取，无需人工看）'),
-              onTap: () {
-                Navigator.pop(context);
-                _browseRank(state, 'https://www.qimao.com/paihang/',
-                    '七猫排行榜', true, '七猫排行榜', true);
-              },
-            ),
-            // v1601：飞卢/七猫浏览入口——自动提取之外可以人工翻看页面
+            // v1627：菜单去重——每个webview页内自带「提取榜单」键，与
+            // 「自动提取」条目同作用（差别仅自动关回vs手动点键），删两站
+            // 自动条目各留一条浏览入口
             ListTile(
               leading: const Icon(Icons.language),
-              title: const Text('飞卢·网页浏览（人工看，可提取）'),
+              title: const Text('飞卢·排行榜网页（人工看，可提取）'),
               onTap: () {
                 Navigator.pop(context);
                 // v1612：fetchRender接管渲染——原生抓HTML剥脚本+注入flexible
@@ -325,7 +318,7 @@ class _ChatPageState extends State<ChatPage>
             ),
             ListTile(
               leading: const Icon(Icons.language),
-              title: const Text('七猫·网页浏览（人工看，可提取）'),
+              title: const Text('七猫·排行榜（网页浏览，提取键抓取）'),
               onTap: () {
                 Navigator.pop(context);
                 // v1610：m.qimao.com已整体变作家助手门户（paihang返回签约
@@ -337,26 +330,15 @@ class _ChatPageState extends State<ChatPage>
             ),
             ListTile(
               leading: const Icon(Icons.public),
-              title: const Text('起点·月票榜（自动提取，数字乱码）'),
+              title: const Text('起点·月票榜（网页浏览，提取键抓取）'),
               onTap: () {
                 Navigator.pop(context);
                 // v1608：默认开m.版（服务端直渲染73KB,www重JS壳WebView崩溃
-                // 实证）；切电脑版=www.qidian.com。
-                // 注意：本入口自动提取成功即自动关闭返回（v1593设计非闪退）
+                // 实证）；切电脑版=www.qidian.com
+                // v1627：与原浏览条目合并——extractable=true放开提取键
+                // （原浏览条目=false纯看，自动条目删除后此为唯一入口）
                 _browseRank(state, 'https://m.qidian.com/rank/yuepiao/',
-                    '起点月票榜', true, '起点月票榜', true,
-                    desktopUa: false,
-                    desktopUrl: 'https://www.qidian.com/rank/yuepiao/');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.public),
-              title: const Text('起点·网页浏览（人工看，不自动关）'),
-              onTap: () {
-                Navigator.pop(context);
-                // v1616：浏览入口——m.版服务端直渲染稳定，无自动提取不自动关
-                _browseRank(state, 'https://m.qidian.com/rank/yuepiao/',
-                    '起点月票榜·网页', false, '起点月票榜·网页', false,
+                    '起点月票榜·网页', true, '起点月票榜·网页', false,
                     desktopUa: false,
                     desktopUrl: 'https://www.qidian.com/rank/yuepiao/');
               },
