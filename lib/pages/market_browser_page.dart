@@ -263,6 +263,10 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
     }
     try {
       text = text.trim();
+      // v1626：飞卢代理文本清洗——剥导航/tab/页脚，留节名+条目+简介全文
+      if (widget.url.contains('faloo')) {
+        text = MarketRank.cleanFaloo(text);
+      }
       // v1595：七猫页面desktop布局黑屏不碍事——后台提取+清洗成紧凑条目
       if (widget.url.contains('qimao')) {
         text = MarketRank.cleanQimao(text);

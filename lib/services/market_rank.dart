@@ -203,6 +203,37 @@ class MarketRank {
   /// v1595：七猫全页innerText清洗——去导航两遍/页脚备案噪音，状态机组
   /// 紧凑条目。实测页面行序：名次(纯数字)/书名/作者/分类/连载状态/万字数/
   /// 简介/最近更新…/蝉联/榜首(可选)/N万热度/加入书架
+  /// v1626：飞卢代理文本清洗（沙盒规则验证通过）——剥站点导航/tab/页脚
+  /// 分类串，保留榜单节名+排名+书名+作者+题材+简介全文（简介是AI分析
+  /// 主料不截断）。页脚从"女频阅读榜/榜单说明/统计时间"起整段切
+  static String cleanFaloo(String raw) {
+    const noise = {
+      '小说排行榜_热门小说排行榜|小说大全_飞卢小说网',
+      '|', '排行榜', '暂无', '标新榜', '总榜', '分类榜', '女生榜',
+      '查看更多', '更多', '返回', '首页', '书库', '客户端', '搜索', '我的',
+    };
+    final lines = raw
+        .split('\n')
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty)
+        .toList();
+    final out = StringBuffer();
+    for (final l in lines) {
+      if (noise.contains(l)) continue;
+      // 纯分隔符行（|·•—等）
+      if (RegExp(r'^[|·•\s\-—]+$').hasMatch(l)) continue;
+      // 页脚导航/说明起点——后面全切
+      if (l.startsWith('女频阅读榜') ||
+          l.startsWith('女频新书榜') ||
+          l.startsWith('榜单说明') ||
+          l.startsWith('统计时间')) {
+        break;
+      }
+      out.writeln(l);
+    }
+    return out.toString().trim();
+  }
+
   static String cleanQimao(String raw) {
     final lines = raw
         .split('\n')
