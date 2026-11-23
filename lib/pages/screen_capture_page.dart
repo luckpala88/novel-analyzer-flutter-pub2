@@ -121,7 +121,7 @@ class _ScreenCapturePageState extends State<ScreenCapturePage> {
       setState(() => _progress = 'GLM-4V提取中 $i/${frames.length}...');
       final sw = Stopwatch()..start();
       try {
-        final text = await _ocrFrame(key, b64, slog);
+        final text = await _ocrFrame(key, b64, _slog);
         final got = text.split('\n')
             .map((l) => l.trim())
             .where((l) => l.isNotEmpty)

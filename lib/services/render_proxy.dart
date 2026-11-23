@@ -20,6 +20,10 @@ class RenderProxy {
   static HttpServer? _srv;
   static int? _port;
 
+  /// v1639：镜像模式源站（keepScripts站点，全局单值——浏览器页同时只开
+  /// 一个，够用）
+  static String? _mirrorOrigin;
+
   /// v1622：最近伺服页面的纯文本+标题——提取榜单键的原生通道
   /// （fetchRender页JS强制禁用，runJavaScript拿不到innerText=
   /// v1621提取全null实证）
@@ -49,15 +53,30 @@ class RenderProxy {
     } catch (_) {}
     _srv = null;
     _port = null;
+    _mirrorOrigin = null;
   }
 
-  /// 页面URL→代理渲染URL。v1634：keepScripts=true保留脚本伺服——
-  /// 番茄SSR页数据埋在script里（剥=数据没了），JS开着让React hydrate
-  /// 自己渲染（人看/截图均明文），代理抓页本身绕X-Requested-With
-  /// 推广壳302（v1622）
-  static String renderUrl(String target, {bool keepScripts = false}) =>
-      'http://127.0.0.1:$_port/render?u=${Uri.encodeComponent(target)}'
-      '${keepScripts ? '&s=1' : ''}';
+  /// 页面URL→代理渲染URL。
+  /// 默认：/render?u=<完整URL>（剥脚本管线，飞卢用）。
+  /// v1639：keepScripts=true走镜像模式——原路径伺服
+  /// （http://127.0.0.1:port/rank/1）。为什么必须原路径：番茄是React
+  /// Router SPA，/render路径匹配不到路由→mount时清空整个#app（沙盒
+  /// 无头浏览器实证白屏）；原路径+剥secsdk防篡改脚本=与直连真站完全
+  /// 同构渲染（沙盒实证书目20链接+侧栏分类XHR全通）
+  static String renderUrl(String target, {bool keepScripts = false}) {
+    if (keepScripts) {
+      final u = Uri.parse(target);
+      _mirrorOrigin = '${u.scheme}://${u.host}';
+      return 'http://127.0.0.1:$_port$u.path${u.query.isEmpty ? '' : '?${u.query}'}';
+    }
+    return 'http://127.0.0.1:$_port/render?u=${Uri.encodeComponent(target)}';
+  }
+
+  /// v1639：镜像模式显示用源站（网址栏把本地路径拼回真实域名）
+  static String mirrorOriginForDisplay(String target) {
+    final u = Uri.parse(target);
+    return '${u.scheme}://${u.host}';
+  }
 
   /// 抓UA——桌面UA实机过WAF（v1614），wap双UA内容相同
   static const _ua =
@@ -68,6 +87,9 @@ class RenderProxy {
       final path = req.uri.path;
       if (path == '/render') {
         await _servePage(req);
+      } else if (_mirrorOrigin != null) {
+        // v1639：镜像模式——非/render路径全部映射到镜像源站
+        await _serveMirror(req);
       } else {
         req.response.statusCode = 404;
         await req.response.close();
@@ -78,6 +100,77 @@ class RenderProxy {
         req.response.statusCode = 500;
         await req.response.close();
       } catch (_) {}
+    }
+  }
+
+  /// v1639：镜像伺服——原路径转发源站。HTML剥secsdk防篡改脚本（沙盒
+  /// 实证：字节sec SDK检测域名非fanqienovel.com即清空整个body）+
+  /// 同站绝对链接转本地路径；资源类（js/css/图/字体）bytes原样透传
+  /// （正确content-type）。根相对资源/相对API同源直达本镜像（Dart转发
+  /// 无XWR头，API沙盒实证可用）
+  static final _resRe2 =
+      RegExp(r'\.(css|png|jpe?g|gif|ico|js|svg|woff2?|ttf|mp4)(\?|$)',
+          caseSensitive: false);
+  static final _secKill = [
+    'security-secsdk/runtime',
+    'rc-client-security',
+    'goofy/secsdk',
+    'captcha/index.js',
+    'secsdk-lastest',
+  ];
+
+  static Future<void> _serveMirror(HttpRequest req) async {
+    final origin = _mirrorOrigin!;
+    final path = req.uri.path +
+        (req.uri.query.isEmpty ? '' : '?${req.uri.query}');
+    final target = '$origin$path';
+    _log('镜像：$path');
+    final c = HttpClient();
+    c.userAgent = _ua;
+    c.connectionTimeout = const Duration(seconds: 20);
+    try {
+      final r = await c.getUrl(Uri.parse(target));
+      r.headers.set('Referer', '$origin/');
+      final resp = await r.close();
+      final bytes = await resp
+          .fold<List<int>>(<int>[], (a, b) => a..addAll(b))
+          .timeout(const Duration(seconds: 30));
+      final ct = resp.headers.value('content-type') ?? 'text/html';
+      var out = bytes;
+      if (ct.contains('text/html')) {
+        var html = utf8.decode(bytes, allowMalformed: true);
+        html = html.replaceAll('="//', '="https://');
+        // 剥secsdk整段script标签（src含关键词）
+        html = html.replaceAllMapped(
+            RegExp(r'<script[^>]*src="[^"]*"[^>]*>\s*</script>',
+                caseSensitive: false),
+            (m) {
+          final tag = m.group(0)!;
+          for (final k in _secKill) {
+            if (tag.contains(k)) return '';
+          }
+          return tag;
+        });
+        // 同站绝对链接→本地镜像路径（资源直连原站CDN）
+        html = html.replaceAllMapped(
+            RegExp('="(https?://[^"]*)"', caseSensitive: false), (m) {
+          final raw = m.group(1)!;
+          final u2 = Uri.parse(raw);
+          if (u2.host == Uri.parse(origin).host &&
+              !_resRe2.hasMatch(raw)) {
+            return '="${u2.path}${u2.query.isEmpty ? '' : '?${u2.query}'}"';
+          }
+          return '="$raw"';
+        });
+        out = utf8.encode(html);
+        _log('镜像HTML：${out.length}B（原${bytes.length}B）');
+      }
+      req.response.headers.set('Content-Type', ct);
+      req.response.headers.set('Content-Length', '${out.length}');
+      req.response.add(out);
+      await req.response.close();
+    } finally {
+      c.close();
     }
   }
 

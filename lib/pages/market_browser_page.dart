@@ -119,10 +119,17 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
           _blog('导航请求：${req.url.length > 90 ? req.url.substring(0, 90) : req.url}');
           // v1618：接管渲染模式——localhost代理页面放行（每次导航都经过
           // 剥脚本管线），其他http(s)一律不放行（openApp物理隔离）
+          // v1639：keepScripts镜像模式——本地任意路径均放行（原路径伺服，
+          // 站内导航全走镜像），外部真域名仍拦
           if (widget.fetchRender) {
             final u = Uri.tryParse(req.url);
-            if (u?.host == '127.0.0.1' &&
-                (u?.queryParameters['u']?.startsWith('http') ?? false)) {
+            if (u?.host != '127.0.0.1') {
+              return NavigationDecision.prevent;
+            }
+            if (widget.keepScripts) {
+              return NavigationDecision.navigate;
+            }
+            if (u?.queryParameters['u']?.startsWith('http') ?? false) {
               return NavigationDecision.navigate;
             }
             return NavigationDecision.prevent;
@@ -144,12 +151,22 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
           });
           // v1606：网址栏同步当前URL。v1618：代理模式下把/render?u=解码回
           // 真实网址显示；启动初未就绪的about:blank跳过
+          // v1639：镜像模式——本地路径拼回真实域名显示
           if (mounted && url != null) {
             if (widget.fetchRender) {
               final u = Uri.tryParse(url);
-              final real = u?.queryParameters['u'];
-              if (real != null && real.startsWith('http')) {
-                _urlCtl.text = real;
+              if (widget.keepScripts) {
+                if (u?.host == '127.0.0.1' && url.startsWith('http')) {
+                  final origin =
+                      RenderProxy.mirrorOriginForDisplay(widget.url);
+                  _urlCtl.text = '$origin${u!.path}'
+                      '${u.query.isEmpty ? '' : '?${u.query}'}';
+                }
+              } else {
+                final real = u?.queryParameters['u'];
+                if (real != null && real.startsWith('http')) {
+                  _urlCtl.text = real;
+                }
               }
             } else if (url.startsWith('http')) {
               _urlCtl.text = url;
