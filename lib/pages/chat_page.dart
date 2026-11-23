@@ -1588,10 +1588,12 @@ class _ChatPageState extends State<ChatPage>
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 3),
+        // v1624：AI楼层扩展到屏幕边缘（负边距抵消列表10px padding）——
+        // markdown表格/宽内容可读性；用户气泡保持0.82不贴边
+        margin: EdgeInsets.fromLTRB(isUser ? 0 : -10, 3, isUser ? 0 : -10, 3),
         padding: const EdgeInsets.fromLTRB(10, 7, 10, 7),
         constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.82),
+            maxWidth: MediaQuery.of(context).size.width * (isUser ? 0.82 : 1.0)),
         decoration: BoxDecoration(
           // v1566：白天恢复原版绿气泡；夜间深绿底+绿边可辨
           color: isUser ? V469Style.userBubbleBg : V469Style.surface,
@@ -1770,9 +1772,9 @@ class _ChatPageState extends State<ChatPage>
         if (m.start > cursor) {
           final txt = normContent.substring(cursor, m.start).trim();
           if (txt.isNotEmpty) {
-            parts.add(SelectableText.rich(
-              TextSpan(children: _mdSpans(txt)),
-              style: const TextStyle(fontSize: 14.5, height: 1.5),
+            parts.add(Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: _mdBlockWidgets(txt),
             ));
           }
         }
@@ -1793,9 +1795,9 @@ class _ChatPageState extends State<ChatPage>
       if (cursor < normContent.length) {
         final tail = content.substring(cursor).trim();
         if (tail.isNotEmpty) {
-          parts.add(SelectableText.rich(
-            TextSpan(children: _mdSpans(tail)),
-            style: const TextStyle(fontSize: 14.5, height: 1.5),
+          parts.add(Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: _mdBlockWidgets(tail),
           ));
         }
       }
@@ -1818,9 +1820,10 @@ class _ChatPageState extends State<ChatPage>
         return _jsonWidget(obj);
       } catch (_) {}
     }
-    return SelectableText.rich(
-      TextSpan(children: _mdSpans(trimmed)),
-      style: const TextStyle(fontSize: 14.5, height: 1.5),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      // v1624：表格块→真Table组件，其余文本段走原渲染
+      children: _mdBlockWidgets(trimmed),
     );
   }
 
@@ -4055,6 +4058,117 @@ Widget _chatImage(BuildContext context, String rawSrc) {
           },
         ),
       ),
+      ),
+    );
+  }
+
+  // ===== v1624：markdown表格块渲染 =====
+  // AI回复中的|表格原样显示竖条（截图实证）——按块切分：表格行→真Table
+  // 组件（列宽自适应+横向滚动），其余段落走原_mdSpans
+
+  /// 表格行判定：以|开头（尾|宽容），长度>2
+  bool _isTableLine(String l) {
+    final t = l.trim();
+    return t.startsWith('|') && t.length > 2;
+  }
+
+  /// 文本切成 表格Widget/文本SelectableText 混排块列表
+  List<Widget> _mdBlockWidgets(String text) {
+    final out = <Widget>[];
+    final lines = text.split('\n');
+    var buf = <String>[];
+    var tbl = <String>[];
+    void flushText() {
+      if (buf.isEmpty) return;
+      out.add(SelectableText.rich(
+        TextSpan(children: _mdSpans(buf.join('\n'))),
+        style: const TextStyle(fontSize: 14.5, height: 1.5),
+      ));
+      buf = [];
+    }
+
+    void flushTable() {
+      if (tbl.isEmpty) return;
+      out.add(_mdTable(tbl));
+      tbl = [];
+    }
+
+    for (final line in lines) {
+      if (_isTableLine(line)) {
+        flushText();
+        tbl.add(line);
+      } else {
+        flushTable();
+        buf.add(line);
+      }
+    }
+    flushText();
+    flushTable();
+    return out;
+  }
+
+  /// 行内符号净化（表格单元格只需去粗体/代码符）
+  String _stripCellInline(String s) =>
+      s.replaceAll('**', '').replaceAll('`', '').trim();
+
+  /// 表格块→Table组件：分隔行(:---)跳过，列数取各行最大，
+  /// IntrinsicColumnWidth自适应+横向滚动（7列表格手机竖屏可滑）
+  Widget _mdTable(List<String> lines) {
+    final rows = <List<String>>[];
+    for (final l in lines) {
+      final t = l.trim();
+      // 分隔行（|:---|:---|）
+      if (RegExp(r'^\|?[\s:|\-]+\|?$').hasMatch(t)) continue;
+      var cells = t.split('|');
+      // 首尾空段（边缘|切出的）去掉
+      if (cells.isNotEmpty && cells.first.trim().isEmpty) {
+        cells = cells.sublist(1);
+      }
+      if (cells.isNotEmpty && cells.last.trim().isEmpty) {
+        cells = cells.sublist(0, cells.length - 1);
+      }
+      rows.add(cells.map(_stripCellInline).toList());
+    }
+    if (rows.isEmpty) return const SizedBox.shrink();
+    var ncol = 0;
+    for (final r in rows) {
+      if (r.length > ncol) ncol = r.length;
+    }
+    final table = Table(
+      border: TableBorder.all(color: V469Style.jsonCardBorder, width: 0.6),
+      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+      columnWidths: {for (var i = 0; i < ncol; i++) i: IntrinsicColumnWidth()},
+      children: [
+        for (var i = 0; i < rows.length; i++)
+          TableRow(
+            decoration: i == 0
+                ? BoxDecoration(color: V469Style.jsonCardBg)
+                : (i.isOdd
+                    ? BoxDecoration(
+                        color: V469Style.jsonCardBg.withValues(alpha: 0.35))
+                    : null),
+            children: [
+              for (var c = 0; c < ncol; c++)
+                Padding(
+                  padding: const EdgeInsets.all(5),
+                  child: Text(c < rows[i].length ? rows[i][c] : '',
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          height: 1.3,
+                          fontWeight: i == 0 ? FontWeight.w600 : null)),
+                ),
+            ],
+          ),
+      ],
+    );
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 260),
+          child: table,
+        ),
       ),
     );
   }
