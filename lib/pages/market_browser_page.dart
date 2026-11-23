@@ -178,9 +178,16 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
     // v1613：同一URL在抓即跳过（重复导航请求去重）
     if (_renderFetching == url) return;
     _renderFetching = url;
+    // v1614：看门狗——抓取/渲染卡住15秒强制复位转圈，杜绝"永久卡死"
+    final watchdog = Timer(const Duration(seconds: 15), () {
+      if (mounted && _loading) setState(() => _loading = false);
+    });
     try {
-      final html = await MarketRank.fetchHtmlForBrowser(
-          url, _desktop ? _desktopUa : _mobileUa);
+      // v1614：统一桌面UA抓——b.faloo实机验证桌面UA可过WAF；wap页双UA
+      // 内容相同(curl实证同尺寸同标题)，手机UA疑被WAF挑战=v1613切手机
+      // 版卡死嫌疑。版式由注入CSS接管，抓取UA不影响显示
+      final html =
+          await MarketRank.fetchHtmlForBrowser(url, _desktopUa);
       var out = html.replaceAll(
           RegExp(r'<script[\s\S]*?</script>', caseSensitive: false), '');
       out = out.replaceAll(
@@ -199,13 +206,16 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
         _ctl.loadHtmlString(out, baseUrl: url);
       }
     } catch (e) {
+      // v1614：失败复位转圈（此前失败转圈永久卡死实证）
       if (mounted) {
+        setState(() => _loading = false);
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('页面加载失败：$e')));
       }
     } finally {
       // v1613：抓取完成/失败后清去重标记（刷新重抓需要）
       _renderFetching = null;
+      watchdog.cancel();
     }
   }
 
