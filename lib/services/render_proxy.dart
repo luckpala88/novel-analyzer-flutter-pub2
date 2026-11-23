@@ -67,7 +67,10 @@ class RenderProxy {
     if (keepScripts) {
       final u = Uri.parse(target);
       _mirrorOrigin = '${u.scheme}://${u.host}';
-      return 'http://127.0.0.1:$_port$u.path${u.query.isEmpty ? '' : '?${u.query}'}';
+      // v1639b：$u.path会插值成"Uri对象.toString()+字面.path"（设备白屏
+      // 真凶，宿主机test实证）——属性访问必须${}
+      return 'http://127.0.0.1:$_port${u.path}'
+          '${u.query.isEmpty ? '' : '?${u.query}'}';
     }
     return 'http://127.0.0.1:$_port/render?u=${Uri.encodeComponent(target)}';
   }
