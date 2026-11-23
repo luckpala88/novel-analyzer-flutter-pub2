@@ -375,7 +375,11 @@ class _ChatPageState extends State<ChatPage>
                 // curl无此头拿到真页。改走本地代理管线（Dart HttpClient无
                 // 此头+页面服务端直渲染关JS可显示）
                 _browseRank(state, 'https://fanqienovel.com/rank/1',
-                    '番茄排行榜', false, '', true, desktopUa: true);
+                    '番茄排行榜', false, '', false,
+                    // v1622：代理管线（绕X-Requested-With推广壳302）
+                    // v1623：enableJs=false——番茄文本字体加密（沙盒提取
+                    // 实证标题简介缺字），提取/AI读页键隐藏，纯浏览
+                    desktopUa: true, enableJs: false, fetchRender: true);
               },
             ),
             // v1594：番茄APP屏捕——你翻页+后台截帧+GLM-4V提取（字体反爬下
