@@ -299,6 +299,22 @@ class _ChatPageState extends State<ChatPage>
                   _fetchFaloo(state, b);
                 },
               ),
+            // v1630：晋江四榜原生直抓——topten.php静态gbk表无反爬（沙盒
+            // python实证200行8列含简介全文，书名在onebook锚title属性）
+            for (final b in [
+              ('官推言情榜', 'orderstr=1'),
+              ('官推纯爱衍生榜', 'orderstr=1&t=1'),
+              ('总分榜', 'orderstr=7'),
+              ('新晋作者榜', 'orderstr=3'),
+            ])
+              ListTile(
+                leading: const Icon(Icons.favorite),
+                title: Text('晋江·${b.$1}（原生直抓）'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _fetchJinjiang(state, b.$1, b.$2);
+                },
+              ),
             // v1627：菜单去重——每个webview页内自带「提取榜单」键，与
             // 「自动提取」条目同作用（差别仅自动关回vs手动点键），删两站
             // 自动条目各留一条浏览入口
@@ -404,6 +420,22 @@ class _ChatPageState extends State<ChatPage>
       ));
     });
     state.saveChatSessions();
+  }
+
+  /// v1630：晋江榜单——原生直抓（无反爬，勿走浏览器白绕WAF防线）
+  Future<void> _fetchJinjiang(
+      AppState state, String board, String query) async {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('正在抓取晋江$board...')));
+    try {
+      final text = await MarketRank.fetchJinjiangFloor(query, board);
+      _insertRankFloor(state, text);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('⛔ 抓取失败：$e')));
+    }
   }
 
   Future<void> _fetchFaloo(AppState state, String board) async {
@@ -4167,6 +4199,9 @@ Widget _chatImage(BuildContext context, String rawSrc) {
     // 实证）都断行成独立条目；保守前瞻规则，正文间隔号(人名/日期)不受伤
     text = text.replaceAll(
         RegExp(r'[ \t]*[·•・][ \t]*(?=(\*\*|《))'), '\n· ');
+    // v1630：·后跟#标题（AI用#当强调，行中挤在一起）——断行并去掉·，
+    // 行首#/##让标题样式接管（标题判定=#+空格，与headingM正则对齐）
+    text = text.replaceAll(RegExp(r'[ \t]*[·•・][ \t]*(?=#+[ \t])'), '\n');
     final spans = <InlineSpan>[];
     final lines = text.split('\n');
     var inCode = false;

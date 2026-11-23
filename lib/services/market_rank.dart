@@ -103,6 +103,73 @@ class MarketRank {
 
   /// v1597：飞卢楼层一步到位——抓榜+并发抓前10详情页（类别/字数/简介），
   /// AI分析需要题材简介不只书名
+  /// v1630：晋江榜单原生直抓——jjwxc.net/topten.php静态gbk表无反爬（沙盒
+  /// python实证可拿全表200行8列）。行结构：排名/作者(oneauthor锚)/
+  /// 书名+简介(onebook锚，title属性=书名，锚文本=简介全文)/题材
+  /// (原创-言情-…)/状态/字数/积分/时间
+  static Future<String> fetchJinjiangFloor(String query, String board) async {
+    final c = HttpClient();
+    c.userAgent = _ua;
+    c.connectionTimeout = const Duration(seconds: 12);
+    final req =
+        await c.getUrl(Uri.parse('https://www.jjwxc.net/topten.php?$query'));
+    final resp = await req.close().timeout(const Duration(seconds: 15));
+    final bytes = await resp.fold<List<int>>(<int>[], (a, b) => a..addAll(b));
+    final html = gbk.decode(bytes);
+    String txt(String s) => s
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll(RegExp(r'<[^>]+>'), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    // 含onebook锚的行=书目行（页头导航等不含），取前10
+    final rows = <String>[];
+    for (final m in RegExp(r'<tr[^>]*>([\s\S]*?)</tr>').allMatches(html)) {
+      final r = m.group(1)!;
+      if (r.contains('onebook.php')) rows.add(r);
+      if (rows.length >= 10) break;
+    }
+    final now = DateTime.now();
+    final t = '${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')} '
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    final sb = StringBuffer('晋江·$board（$t抓取实时）\n');
+    for (var i = 0; i < rows.length; i++) {
+      final row = rows[i];
+      // 书名：onebook锚的title属性（锚文本是简介，书名只存title里）
+      var title = '';
+      final tagM = RegExp(r'<a\s[^>]*onebook[^>]*>').firstMatch(row);
+      if (tagM != null) {
+        final tm = RegExp(r'title="([^"]+)"').firstMatch(tagM.group(0)!);
+        if (tm != null) title = tm.group(1)!;
+      }
+      // 作者：oneauthor锚文本
+      var author = '';
+      final aum = RegExp(r'<a[^>]*oneauthor[^>]*>([^<]+)</a>').firstMatch(row);
+      if (aum != null) author = aum.group(1)!.trim();
+      // 简介全文：onebook锚文本（不截断）
+      var intro = '';
+      final im =
+          RegExp(r'<a[^>]*onebook[^>]*>([\s\S]*?)</a>').firstMatch(row);
+      if (im != null) intro = txt(im.group(1)!);
+      // 后四列：题材/状态/字数/积分
+      final tds = row.split('</td>');
+      String cell(int i) => i < tds.length ? txt(tds[i]) : '';
+      final genre = cell(3);
+      final status = cell(4);
+      final words = cell(5);
+      final score = cell(6);
+      sb.write('${i + 1}. 《$title》');
+      if (author.isNotEmpty) sb.write('｜$author');
+      if (genre.isNotEmpty) sb.write('｜$genre');
+      if (status.isNotEmpty) sb.write('｜$status');
+      if (words.isNotEmpty) sb.write('｜${words}字');
+      if (score.isNotEmpty) sb.write('｜积分$score');
+      if (intro.isNotEmpty) sb.write('\n简介: $intro');
+      sb.writeln();
+    }
+    return sb.toString();
+  }
+
   static Future<String> fetchFalooFloor(String board) async {
     final entries = await fetchFaloo(board);
     // 并发抓详情（单本失败只丢那本的详情，条目仍在）
