@@ -336,9 +336,22 @@ class _ChatPageState extends State<ChatPage>
               onTap: () {
                 Navigator.pop(context);
                 // v1608：默认开m.版（服务端直渲染73KB,www重JS壳WebView崩溃
-                // 实证）；切电脑版=www.qidian.com
+                // 实证）；切电脑版=www.qidian.com。
+                // 注意：本入口自动提取成功即自动关闭返回（v1593设计非闪退）
                 _browseRank(state, 'https://m.qidian.com/rank/yuepiao/',
                     '起点月票榜', true, '起点月票榜', true,
+                    desktopUa: false,
+                    desktopUrl: 'https://www.qidian.com/rank/yuepiao/');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.public),
+              title: const Text('起点·网页浏览（人工看，不自动关）'),
+              onTap: () {
+                Navigator.pop(context);
+                // v1616：浏览入口——m.版服务端直渲染稳定，无自动提取不自动关
+                _browseRank(state, 'https://m.qidian.com/rank/yuepiao/',
+                    '起点月票榜·网页', false, '起点月票榜·网页', false,
                     desktopUa: false,
                     desktopUrl: 'https://www.qidian.com/rank/yuepiao/');
               },
