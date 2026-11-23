@@ -4194,6 +4194,8 @@ Widget _chatImage(BuildContext context, String rawSrc) {
 
   /// 简易markdown解析：#/##/###标题、**粗体**、`code`、-列表、1.列表、```代码块
   List<InlineSpan> _mdSpans(String text) {
+    // v1631：NBSP归一化——AI输出常见\u00A0，[ \t]类规则匹配不到会漏断行
+    text = text.replaceAll('\u00A0', ' ');
     // v1625：行中·分隔（AI把榜单条目挤进一个列表项）断行处理
     // v1629：扩规则——·后跟《书名》或**加粗词**（"）· **逻辑拆解**："截图
     // 实证）都断行成独立条目；保守前瞻规则，正文间隔号(人名/日期)不受伤
@@ -4243,6 +4245,10 @@ Widget _chatImage(BuildContext context, String rawSrc) {
           children: [
             const TextSpan(text: '• ', style: TextStyle(color: Color(0xFFC89137))),
             ..._inlineSpans(listM.group(2)!),
+            // v1631：列表项渲染后补换行——此前漏加，AI输出的markdown列表
+            // 全部连排成一段流（用户截图"还是没有换行"实证；plain分支
+            // 有'\n'而listM分支continue时没有，老bug）
+            const TextSpan(text: '\n'),
           ],
         ));
         continue;
