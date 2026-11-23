@@ -60,6 +60,8 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
   bool _canFwd = false;
   // v1612：接管渲染时的当前URL（loadHtmlString不产生真实URL，网址栏手动维护）
   String _curRenderUrl = '';
+  // v1613：渲染抓取去重（快速连点/重复导航请求防抓取风暴）
+  String? _renderFetching;
 
   @override
   void dispose() {
@@ -88,11 +90,13 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
         onNavigationRequest: (req) {
           // v1612：接管渲染模式——页内点击的链接也走剥脚本管线
           // （防止点进书页后openApp2021.js复活）；loadHtmlString自身的
-          // data:加载除外
-          if (widget.fetchRender &&
-              req.url.startsWith('http') &&
-              req.url != _curRenderUrl) {
-            _loadRender(req.url);
+          // data:加载除外。v1613：loadHtmlString的baseUrl会被部分WebView
+          // 版本误报为导航请求——放行=真加载带openApp的页面=v1612死机实证。
+          // 接管模式下http导航一律不放行：同URL拦截，异URL转剥脚本管线
+          if (widget.fetchRender && req.url.startsWith('http')) {
+            if (req.url != _curRenderUrl) {
+              _loadRender(req.url);
+            }
             return NavigationDecision.prevent;
           }
           final scheme = Uri.tryParse(req.url)?.scheme ?? '';
@@ -171,6 +175,9 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
   /// CSS→loadHtmlString(baseUrl=原URL,相对CSS/图片/链接照常解析)。
   /// 页面JS物理移除=openApp死机不可能；提取键可用（innerText走runJavaScript）
   Future<void> _loadRender(String url) async {
+    // v1613：同一URL在抓即跳过（重复导航请求去重）
+    if (_renderFetching == url) return;
+    _renderFetching = url;
     try {
       final html = await MarketRank.fetchHtmlForBrowser(
           url, _desktop ? _desktopUa : _mobileUa);
@@ -196,6 +203,9 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('页面加载失败：$e')));
       }
+    } finally {
+      // v1613：抓取完成/失败后清去重标记（刷新重抓需要）
+      _renderFetching = null;
     }
   }
 
