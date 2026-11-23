@@ -119,7 +119,10 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
         },
         onPageFinished: (url) {
           _blog('页面加载完：${url != null && url.length > 60 ? url.substring(0, 60) : (url ?? 'null')}');
-          setState(() => _loading = false);
+          setState(() {
+            _loading = false;
+            _done = false; // v1622：每次加载完重置提取闸（切页后可再次提取）
+          });
           // v1606：网址栏同步当前URL。v1618：代理模式下把/render?u=解码回
           // 真实网址显示；启动初未就绪的about:blank跳过
           if (mounted && url != null) {
@@ -217,23 +220,48 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
   /// 不依赖各站DOM结构）；ai=false走原路：原始innerText直接回填楼层
   Future<void> _extract({bool ai = false}) async {
     if (_done) return;
-    // v1611：JS禁用页提取不可用（innerText要走runJavaScript）
-    if (!widget.enableJs) {
+    String title = widget.title;
+    String text;
+    if (widget.fetchRender) {
+      // v1622：代理页JS强制禁用（v1615）——提取走代理伺服时缓存的
+      // 原生纯文本（runJavaScript拿不到innerText=v1621提取全null实证）
+      final t = RenderProxy.lastText;
+      if (t == null || t.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('页面内容为空——还没加载完，稍等再试')));
+        }
+        return;
+      }
+      text = t;
+      if (RenderProxy.lastTitle.isNotEmpty) title = RenderProxy.lastTitle;
+    } else if (!widget.enableJs) {
+      // v1611：JS禁用页提取不可用（innerText要走runJavaScript）
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('该页面已禁JS防死机，提取不可用——飞卢请用「飞卢·三榜」原生直抓')));
       }
       return;
+    } else {
+      try {
+        // 全页innerText——榜单页导航杂讯Dart侧清洗，宽容优先（结构变了也不空转）
+        final r = await _ctl.runJavaScriptReturningResult(
+            'document.body.innerText');
+        text = r is String ? r : r.toString();
+        // WebView返回JSON编码串（带首尾引号与转义），解一层
+        if (text.startsWith('"')) {
+          text = jsonDecode(text) as String;
+        }
+        title = await _ctl.getTitle() ?? title;
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('提取失败：$e')));
+        }
+        return;
+      }
     }
     try {
-      // 全页innerText——榜单页导航杂讯Dart侧清洗，宽容优先（结构变了也不空转）
-      final r = await _ctl.runJavaScriptReturningResult(
-          'document.body.innerText');
-      var text = r is String ? r : r.toString();
-      // WebView返回JSON编码串（带首尾引号与转义），解一层
-      if (text.startsWith('"')) {
-        text = jsonDecode(text) as String;
-      }
       text = text.trim();
       // v1595：七猫页面desktop布局黑屏不碍事——后台提取+清洗成紧凑条目
       if (widget.url.contains('qimao')) {

@@ -20,6 +20,12 @@ class RenderProxy {
   static HttpServer? _srv;
   static int? _port;
 
+  /// v1622：最近伺服页面的纯文本+标题——提取榜单键的原生通道
+  /// （fetchRender页JS强制禁用，runJavaScript拿不到innerText=
+  /// v1621提取全null实证）
+  static String? lastText;
+  static String lastTitle = '';
+
   /// 页面链接白名单后缀（其余视作资源不转代理）
   static final _resRe =
       RegExp(r'\.(css|png|jpe?g|gif|ico|js|svg|woff2?|ttf|mp4)(\?|$)',
@@ -111,7 +117,16 @@ class RenderProxy {
     // 比站点html,body规则更强）
     const inject =
         '<style>html{font-size:min(calc(100vw/9),71.1px)!important;}'
-        '*{-webkit-text-size-adjust:none!important;text-size-adjust:none!important;}</style>';
+        '*{-webkit-text-size-adjust:none!important;text-size-adjust:none!important;}</style>'
+        // v1622：飞卢错位补丁（手机Chromium仿真复现+flex修复沙盒验证）——
+        // ①查看更多文字掉出按钮框②排名角标压书名。病根=无单位line-height
+        // 的行盒装不下内容（手机端行盒计算与桌面不同），flex居中绕开行盒
+        '<style>'
+        '.divReadMore{display:flex!important;align-items:center!important;justify-content:center!important;}'
+        '.readMore{line-height:normal!important;}'
+        '.hot24DivIndex{display:flex!important;align-items:center!important;justify-content:center!important;overflow:visible!important;}'
+        '.hot24Index{line-height:normal!important;display:block!important;}'
+        '</style>';
     final i = out.toLowerCase().indexOf('<head>');
     out = i >= 0
         ? out.substring(0, i + 6) + inject + out.substring(i + 6)
@@ -138,6 +153,27 @@ class RenderProxy {
       return '="/render?u=${Uri.encodeComponent(raw)}"';
     });
     _log('处理后：${out.length}字符，伺服');
+    // v1622：缓存纯文本供提取榜单键（剥注释/标签→逐行去空）
+    var plain = out.replaceAll(
+        RegExp(r'<!--[\s\S]*?-->'), '');
+    plain = plain.replaceAll(
+        RegExp(r'<(style|script)[\s\S]*?</\1>', caseSensitive: false), '');
+    plain = plain.replaceAll(RegExp(r'<[^>]+>'), '\n');
+    const ents = {
+      '&nbsp;': ' ', '&amp;': '&', '&lt;': '<', '&gt;': '>',
+      '&quot;': '"', '&#39;': "'",
+    };
+    ents.forEach((k, v) => plain = plain.replaceAll(k, v));
+    lastText = plain
+        .split('\n')
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty)
+        .join('\n');
+    lastTitle = RegExp(r'<title[^>]*>([\s\S]*?)</title>', caseSensitive: false)
+            .firstMatch(out)
+            ?.group(1)
+            ?.trim() ??
+        target;
     req.response.headers.contentType =
         ContentType('text', 'html', charset: 'utf-8');
     req.response.write(out);

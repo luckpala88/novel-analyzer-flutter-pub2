@@ -370,8 +370,12 @@ class _ChatPageState extends State<ChatPage>
                 // v1596：手机UA=下载APP推广壳页（截图实锤），番茄必须桌面UA
                 // v1617：/rank/0-0-0-0老路由已废（SPA空壳零书目实证）——改
                 // /rank/1新路由（78KB服务端直渲染带书目，curl实证）
+                // v1622：直连WebView被302到推广壳（URL带?f实证）——真凶=
+                // Android WebView请求自带X-Requested-With:包名头被番茄识破，
+                // curl无此头拿到真页。改走本地代理管线（Dart HttpClient无
+                // 此头+页面服务端直渲染关JS可显示）
                 _browseRank(state, 'https://fanqienovel.com/rank/1',
-                    '番茄排行榜', false, '', false, desktopUa: true);
+                    '番茄排行榜', false, '', true, desktopUa: true);
               },
             ),
             // v1594：番茄APP屏捕——你翻页+后台截帧+GLM-4V提取（字体反爬下
