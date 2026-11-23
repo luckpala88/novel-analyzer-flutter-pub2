@@ -4162,9 +4162,11 @@ Widget _chatImage(BuildContext context, String rawSrc) {
 
   /// 简易markdown解析：#/##/###标题、**粗体**、`code`、-列表、1.列表、```代码块
   List<InlineSpan> _mdSpans(String text) {
-    // v1625：行中·分隔（AI把榜单条目挤进一个列表项，"）· 《书名》"连排）
-    // 断行处理——仅匹配 ·后跟《 的保守规则（书名间隔号/日期不受影响）
-    text = text.replaceAll(RegExp(r'[ \t]+[·•・][ \t]*(?=《)'), '\n· ');
+    // v1625：行中·分隔（AI把榜单条目挤进一个列表项）断行处理
+    // v1629：扩规则——·后跟《书名》或**加粗词**（"）· **逻辑拆解**："截图
+    // 实证）都断行成独立条目；保守前瞻规则，正文间隔号(人名/日期)不受伤
+    text = text.replaceAll(
+        RegExp(r'[ \t]*[·•・][ \t]*(?=(\*\*|《))'), '\n· ');
     final spans = <InlineSpan>[];
     final lines = text.split('\n');
     var inCode = false;
