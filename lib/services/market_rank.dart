@@ -49,7 +49,7 @@ class MarketRank {
           .fold<List<int>>(<int>[], (a, b) => a..addAll(b))
           .timeout(const Duration(seconds: 20));
       // 飞卢gb2312编码（charset=gb2312实证），fast_gbk解码
-      return gbk.decode(bytes);
+      return gbk.decode(bytes, allowMalformed: true);
     } finally {
       c.close();
     }
@@ -73,7 +73,7 @@ class MarketRank {
       try {
         return utf8.decode(bytes);
       } catch (_) {
-        return gbk.decode(bytes);
+        return gbk.decode(bytes, allowMalformed: true);
       }
     } finally {
       c.close();
@@ -115,7 +115,7 @@ class MarketRank {
         await c.getUrl(Uri.parse('https://www.jjwxc.net/topten.php?$query'));
     final resp = await req.close().timeout(const Duration(seconds: 15));
     final bytes = await resp.fold<List<int>>(<int>[], (a, b) => a..addAll(b));
-    final html = gbk.decode(bytes);
+    final html = gbk.decode(bytes, allowMalformed: true);
     String txt(String s) => s
         .replaceAll('&nbsp;', ' ')
         .replaceAll(RegExp(r'<[^>]+>'), '')
@@ -135,7 +135,9 @@ class MarketRank {
     final sb = StringBuffer('晋江·$board（$t抓取实时）\n');
     for (var i = 0; i < rows.length; i++) {
       final row = rows[i];
-      // 书名：onebook锚的title属性（锚文本是简介，书名只存title里）
+      // 书名：onebook锚的title属性（总分榜/字数榜等——锚文本是简介，
+      // 书名只存title里）。官推/新晋榜无title属性且锚文本=书名（v1633
+      // 沙盒实证），书名回退取锚文本、简介置空
       var title = '';
       final tagM = RegExp(r'<a\s[^>]*onebook[^>]*>').firstMatch(row);
       if (tagM != null) {
@@ -146,11 +148,16 @@ class MarketRank {
       var author = '';
       final aum = RegExp(r'<a[^>]*oneauthor[^>]*>([^<]+)</a>').firstMatch(row);
       if (aum != null) author = aum.group(1)!.trim();
-      // 简介全文：onebook锚文本（不截断）
+      // 锚文本：title属性存在时=简介全文（不截断）；无title属性的榜
+      // （官推/新晋）锚文本=书名本身，简介置空防书名简介重复
       var intro = '';
       final im =
           RegExp(r'<a[^>]*onebook[^>]*>([\s\S]*?)</a>').firstMatch(row);
       if (im != null) intro = txt(im.group(1)!);
+      if (title.isEmpty && intro.isNotEmpty) {
+        title = intro;
+        intro = '';
+      }
       // 后四列：题材/状态/字数/积分
       final tds = row.split('</td>');
       String cell(int i) => i < tds.length ? txt(tds[i]) : '';
@@ -208,7 +215,7 @@ class MarketRank {
       if (resp.statusCode != 200) return null;
       final bytes =
           await resp.fold<List<int>>(<int>[], (a, b) => a..addAll(b));
-      final html = gbk.decode(bytes);
+      final html = gbk.decode(bytes, allowMalformed: true);
       // 作者+主分类：og:novel meta（v1600实测结构）
       var author = '';
       final am =
