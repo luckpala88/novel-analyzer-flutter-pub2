@@ -143,6 +143,19 @@ class RenderProxy {
       if (ct.contains('text/html')) {
         var html = utf8.decode(bytes, allowMalformed: true);
         html = html.replaceAll('="//', '="https://');
+        // v1641：拆force_mobile跳转——番茄head内联脚本 windowWidth<600
+        // 就location.href拼?force_mobile=1→服务端回移动推广壳（设备截图
+        // 实证"暂无内容+去下载"）。onPageFinished注入viewport太晚
+        // （head脚本先跑），必须在代理侧HTML里直接拆判断（沙盒412宽
+        // 实测通过：不跳壳书目20正常渲染）
+        final fixed = html.replaceAll('windowWidth<600', 'windowWidth<0');
+        html = fixed;
+        // v1641：viewport提前到HTML里注入（width=1280桌面排布，比
+        // onPageFinished的runJavaScript早整个head解析期）
+        html = html.replaceAllMapped(
+            RegExp('(<meta name="viewport" content=")[^"]*(")',
+                caseSensitive: false),
+            (m) => '${m.group(1)}width=1280, initial-scale=1.0${m.group(2)}');
         // 剥secsdk整段script标签（src含关键词）
         html = html.replaceAllMapped(
             RegExp(r'<script[^>]*src="[^"]*"[^>]*>\s*</script>',
