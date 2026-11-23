@@ -26,7 +26,12 @@
     <application
         android:label="novel_analyzer"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
+        <!-- v1620：明文HTTP总开关——WebView里飞卢封面图img.faloo.com全是
+        http://老协议，targetSdk28+默认禁明文=断图巨字(alt占位文字撑爆布局)
+        v1604的mixedContentMode只管https页面混载http资源一层，管不到这个
+        总开关；Dart HttpClient不走此策略所以原生直抓一直正常 -->
         <!-- 生成任务前台服务：息屏/后台继续跑批量生成 -->
         <service
             android:name=".GenerationService"
