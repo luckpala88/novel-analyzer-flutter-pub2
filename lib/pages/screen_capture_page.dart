@@ -57,9 +57,14 @@ class _ScreenCapturePageState extends State<ScreenCapturePage> {
     });
   }
 
+  /// v1638：屏捕链路日志——整链此前零埋点，统一走apiLog（📷前缀）
+  void _slog(String m) => context.read<AppState>().apiLog('📷 $m');
+
   Future<void> _start() async {
+    _slog('授权请求中…');
     final ok = await ScreenCapture.startCapture();
     if (!mounted) return;
+    _slog(ok ? '授权通过，跳番茄APP' : '⛔ 未授权录屏/启动失败');
     if (!ok) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('⛔ 未授权录屏，无法屏捕')));
@@ -79,12 +84,17 @@ class _ScreenCapturePageState extends State<ScreenCapturePage> {
   Future<void> _stopAndExtract() async {
     _poll?.cancel();
     final frames = await ScreenCapture.stopCapture();
+    // v1638：屏捕链路日志——埋点走apiLog（📷前缀）
+    _slog('停止采集：${frames.length}帧');
     if (!mounted) return;
     setState(() {
       _running = false;
       if (frames.isEmpty) _progress = '未采集到任何帧';
     });
-    if (frames.isEmpty) return;
+    if (frames.isEmpty) {
+      _slog('⚠️ 帧0——服务没跑起来或授权没给（看启动日志）');
+      return;
+    }
     // GLM-4V逐帧提取
     final state = context.read<AppState>();
     final cfg = state.getApiConfig('chat');
@@ -109,13 +119,18 @@ class _ScreenCapturePageState extends State<ScreenCapturePage> {
     for (final b64 in frames) {
       i++;
       setState(() => _progress = 'GLM-4V提取中 $i/${frames.length}...');
+      final sw = Stopwatch()..start();
       try {
-        final text = await _ocrFrame(key, b64);
-        for (final line in text.split('\n')) {
-          final l = line.trim();
-          if (l.isNotEmpty) lines.add(l);
-        }
+        final text = await _ocrFrame(key, b64, slog);
+        final got = text.split('\n')
+            .map((l) => l.trim())
+            .where((l) => l.isNotEmpty)
+            .toList();
+        _slog('第$i帧：${sw.elapsedMilliseconds}ms，${got.length}行，'
+            '首行=${got.isEmpty ? '空' : got.first.substring(0, got.first.length > 24 ? 24 : got.first.length)}');
+        lines.addAll(got);
       } catch (e) {
+        _slog('⛔ 第$i帧失败：$e');
         // v1598：首帧失败即中止——参数级错误逐帧复现毫无意义（v1594实证
         // 一屏错误），用户裁决语义：失败一次就停
         if (!mounted) return;
@@ -135,6 +150,7 @@ class _ScreenCapturePageState extends State<ScreenCapturePage> {
       seen.add(k);
       return true;
     }).join('\n');
+    _slog('汇总：${lines.length}行→去重${merged.isEmpty ? 0 : merged.split('\n').length}行');
     setState(() {
       _extracting = false;
       _progress = '';
@@ -153,7 +169,8 @@ class _ScreenCapturePageState extends State<ScreenCapturePage> {
       '「N. 书名（数据）」，按图中顺序。只输出提取结果不要解释；'
       '图中没有榜单就只输出「无榜单」。';
 
-  Future<String> _ocrFrame(String key, String b64) async {
+  Future<String> _ocrFrame(
+      String key, String b64, void Function(String) slog) async {
     final resp = await http.post(
       Uri.parse('https://open.bigmodel.cn/api/paas/v4/chat/completions'),
       headers: {
@@ -178,12 +195,22 @@ class _ScreenCapturePageState extends State<ScreenCapturePage> {
         ],
       }),
     ).timeout(const Duration(seconds: 90));
+    // v1638：HTTP层日志——非200直接带响应体前150字符（key无效/欠费/参数错
+    // 都能从body定位，不再只有干巴巴的异常）
+    if (resp.statusCode != 200) {
+      final body = utf8.decode(resp.bodyBytes, allowMalformed: true);
+      _slog('HTTP ${resp.statusCode}：${body.length > 150 ? body.substring(0, 150) : body}');
+      throw Exception('HTTP ${resp.statusCode}');
+    }
     final data = jsonDecode(utf8.decode(resp.bodyBytes)) as Map;
     if (data['error'] != null) {
       throw Exception(data['error']['message'] ?? data['error'].toString());
     }
     final choices = data['choices'] as List?;
-    if (choices == null || choices.isEmpty) return '';
+    if (choices == null || choices.isEmpty) {
+      _slog('⚠️ choices空（响应keys=${data.keys.toList()}）');
+      return '';
+    }
     return ((choices[0]['message']['content'] ?? '')).toString();
   }
 
