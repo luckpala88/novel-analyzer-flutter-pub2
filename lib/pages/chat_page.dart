@@ -281,8 +281,13 @@ class _ChatPageState extends State<ChatPage>
   void _marketRankMenu(AppState state) {
     showModalBottomSheet(
       context: context,
-      builder: (_) => SafeArea(
-        child: Column(
+      // v1621：条目9个已超屏——限高75%+可滚动，底部条目不再被截
+      builder: (ctx) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.75),
+          child: SingleChildScrollView(
+            child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             for (final b in ['点击榜', '月票榜', '收藏榜'])
@@ -386,6 +391,8 @@ class _ChatPageState extends State<ChatPage>
               },
             ),
           ],
+        ),
+          ),
         ),
       ),
     );
