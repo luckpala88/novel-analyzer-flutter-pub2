@@ -24,11 +24,13 @@ class MarketBrowserPage extends StatefulWidget {
   // url=初始加载的版本；desktopUrl=切电脑版用的URL（起点初始开m.版时用）
   final String? mobileUrl;
   final String? desktopUrl;
-  // v1611：JS开关——飞卢wap版openApp2021.js死机(ANR实证)：拉APP scheme
-  // 失败→跳下载页→下载页同款脚本→导航风暴打爆主线程。飞卢双版内容均
-  // 服务端直渲染，JS关掉死机物理不可能；代价=页面提取键不可用（飞卢
-  // 提取走原生直抓不受影响）
+  // v1611：JS开关——飞卢wap版openApp2021.js死机(ANR实证)。v1612升级为
+  // fetchRender接管渲染：原生抓HTML剥全部<script>再loadHtmlString(baseUrl)
+  // ——页面脚本物理不存在(openApp零执行),注入flexible等效CSS(html font-size
+  // =100vw/9)版式正常；JS开着只跑我们的代码,提取键可用。连URL导航仍走
+  // v1609防线拦scheme/下载页
   final bool enableJs;
+  final bool fetchRender;
   const MarketBrowserPage({
     super.key,
     required this.url,
@@ -39,6 +41,7 @@ class MarketBrowserPage extends StatefulWidget {
     this.mobileUrl,
     this.desktopUrl,
     this.enableJs = true,
+    this.fetchRender = false,
   });
 
   @override
@@ -55,6 +58,8 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
   final _urlCtl = TextEditingController();
   bool _canBack = false;
   bool _canFwd = false;
+  // v1612：接管渲染时的当前URL（loadHtmlString不产生真实URL，网址栏手动维护）
+  String _curRenderUrl = '';
 
   @override
   void dispose() {
@@ -76,12 +81,20 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
       ..setJavaScriptMode(widget.enableJs
           ? JavaScriptMode.unrestricted
           : JavaScriptMode.disabled)
-      ..setUserAgent(widget.desktopUa ? _desktopUa : _mobileUa)
       ..setNavigationDelegate(NavigationDelegate(
         // v1609：导航防线——飞卢wap版openApp2021.js死机实证：拉APP
         // scheme(flreader://)失败→兜底跳DownloadAPP2021.aspx→下载页又带
         // 同款脚本→无限导航循环。未知scheme+下载落地页一律拦
         onNavigationRequest: (req) {
+          // v1612：接管渲染模式——页内点击的链接也走剥脚本管线
+          // （防止点进书页后openApp2021.js复活）；loadHtmlString自身的
+          // data:加载除外
+          if (widget.fetchRender &&
+              req.url.startsWith('http') &&
+              req.url != _curRenderUrl) {
+            _loadRender(req.url);
+            return NavigationDecision.prevent;
+          }
           final scheme = Uri.tryParse(req.url)?.scheme ?? '';
           if (scheme != 'http' && scheme != 'https') {
             return NavigationDecision.prevent;
@@ -93,8 +106,10 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
         },
         onPageFinished: (url) {
           setState(() => _loading = false);
-          // v1606：网址栏同步当前URL+前进后退可用性（每页加载完刷新）
-          if (url != null && url.isNotEmpty && mounted) {
+          // v1606：网址栏同步当前URL+前进后退可用性（每页加载完刷新）。
+          // v1612：接管渲染模式loadHtmlString无真实URL，网址栏由
+          // _loadRender维护，跳过http(s)之外的回写
+          if (url != null && url.startsWith('http') && mounted) {
             _urlCtl.text = url;
           }
           _ctl.canGoBack().then((v) {
@@ -106,8 +121,8 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
           // v1602：desktopUa不只骗服务器——番茄桌面站是响应式布局，窄视口
           // 仍排手机版；注入viewport width=1280强制桌面排布（请求桌面版网站
           // 的标准手段）。v1603：随切换态走，手机版还原device-width。
-          // v1611：JS禁用页无法注入，跳过
-          if (widget.enableJs) {
+          // v1611：JS禁用页无法注入，跳过。v1612：接管渲染页自带等效CSS也跳过
+          if (widget.enableJs && !widget.fetchRender) {
           final vp = _desktop
               ? "var mv=document.querySelector('meta[name=viewport]');"
                   "if(mv){mv.setAttribute('content','width=1280');}"
@@ -136,7 +151,14 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
           }
         },
       ))
-      ..loadRequest(Uri.parse(widget.url));
+      // v1612：接管渲染模式走原生抓取管线，其余直接加载
+      ..setUserAgent(widget.desktopUa ? _desktopUa : _mobileUa).then((_) {
+        if (widget.fetchRender) {
+          _loadRender(widget.url);
+        } else {
+          _ctl.loadRequest(Uri.parse(widget.url));
+        }
+      });
   }
 
   static const _mobileUa =
@@ -145,11 +167,50 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
   static const _desktopUa =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 
+  /// v1612：接管渲染——原生抓HTML→剥全部<script>→注入flexible等效根字号
+  /// CSS→loadHtmlString(baseUrl=原URL,相对CSS/图片/链接照常解析)。
+  /// 页面JS物理移除=openApp死机不可能；提取键可用（innerText走runJavaScript）
+  Future<void> _loadRender(String url) async {
+    try {
+      final html = await MarketRank.fetchHtmlForBrowser(
+          url, _desktop ? _desktopUa : _mobileUa);
+      var out = html.replaceAll(
+          RegExp(r'<script[\s\S]*?</script>', caseSensitive: false), '');
+      out = out.replaceAll(
+          RegExp(r'<script[^>]*/>', caseSensitive: false), '');
+      // flexible.js等效：手机UA根字号=视口宽/9(≤320为/8.8)，上限640/9
+      const inject =
+          '<style>html{font-size:min(calc(100vw/9),71.1px)!important;}</style>';
+      final i = out.toLowerCase().indexOf('<head>');
+      if (i >= 0) {
+        out = out.substring(0, i + 6) + inject + out.substring(i + 6);
+      } else {
+        out = inject + out;
+      }
+      if (mounted) {
+        setState(() => _curRenderUrl = url);
+        _ctl.loadHtmlString(out, baseUrl: url);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('页面加载失败：$e')));
+      }
+    }
+  }
+
   /// v1603：换UA重载——切换手机/电脑版（UA骗服务器+viewport排布局，两道门都要换）。
   /// v1608：有mobileUrl时切换=换URL（各站手机版/电脑版是不同网址不同DOM）
   void _reload() {
     setState(() => _loading = true);
     _ctl.setUserAgent(_desktop ? _desktopUa : _mobileUa).then((_) {
+      // v1612：接管渲染模式切换=抓对应版本URL渲染
+      if (widget.fetchRender) {
+        _loadRender(_desktop
+            ? (widget.desktopUrl ?? widget.url)
+            : (widget.mobileUrl ?? widget.url));
+        return;
+      }
       final u = _desktop
           ? (widget.desktopUrl ?? widget.url)
           : (widget.mobileUrl ?? widget.url);
@@ -292,11 +353,15 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
               },
               child: Text(_desktop ? '切手机版' : '切电脑版'),
             ),
-            // 刷新（重载页面）
+            // 刷新（重载页面）——v1612：接管渲染模式重抓当前URL
             TextButton(
               onPressed: () {
                 setState(() => _loading = true);
-                _ctl.reload();
+                if (widget.fetchRender) {
+                  _loadRender(_curRenderUrl.isEmpty ? widget.url : _curRenderUrl);
+                } else {
+                  _ctl.reload();
+                }
               },
               child: const Text('刷新'),
             ),

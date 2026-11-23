@@ -55,6 +55,31 @@ class MarketRank {
     }
   }
 
+  /// v1612：内置浏览器「接管渲染」用——抓任意URL原始HTML。
+  /// UTF-8严格解码优先（七猫/起点），失败回退GBK（飞卢wap gb2312）
+  static Future<String> fetchHtmlForBrowser(String url, String ua) async {
+    final c = HttpClient();
+    c.userAgent = ua;
+    c.connectionTimeout = const Duration(seconds: 20);
+    try {
+      final req = await c.getUrl(Uri.parse(url));
+      final resp = await req.close();
+      if (resp.statusCode != 200) {
+        throw Exception('HTTP ${resp.statusCode}');
+      }
+      final bytes = await resp
+          .fold<List<int>>(<int>[], (a, b) => a..addAll(b))
+          .timeout(const Duration(seconds: 20));
+      try {
+        return utf8.decode(bytes);
+      } catch (_) {
+        return gbk.decode(bytes);
+      }
+    } finally {
+      c.close();
+    }
+  }
+
   /// 截取某榜区块：从「<榜名>」标记到下一个榜标记（三大榜同页横排）
   static String _sliceBoard(String html, String name) {
     const order = ['点击榜', '月票榜', '收藏榜'];
