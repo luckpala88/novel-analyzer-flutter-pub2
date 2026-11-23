@@ -363,7 +363,9 @@ class _ChatPageState extends State<ChatPage>
                 Navigator.pop(context);
                 // v1595：/rank是SPA空壳（用户实测空页），正确榜单URL带分类参数
                 // v1596：手机UA=下载APP推广壳页（截图实锤），番茄必须桌面UA
-                _browseRank(state, 'https://fanqienovel.com/rank/0-0-0-0',
+                // v1617：/rank/0-0-0-0老路由已废（SPA空壳零书目实证）——改
+                // /rank/1新路由（78KB服务端直渲染带书目，curl实证）
+                _browseRank(state, 'https://fanqienovel.com/rank/1',
                     '番茄排行榜', false, '', false, desktopUa: true);
               },
             ),
