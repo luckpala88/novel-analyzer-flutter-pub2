@@ -278,6 +278,30 @@ class _ChatPageState extends State<ChatPage>
   // v1593：市场榜单菜单——飞卢原生直抓（静态gbk页零反爬）；七猫/起点/番茄
   // 走内置浏览器WebView（WAF按TLS指纹拦程序直连，curl/python/无头三连405
   // 实证，手机WebView=真浏览器环境能过）
+  //
+  // v1635：分组标题行——金棕小字站点名+抓取方式
+  Widget _groupHeader(String t) => Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Text(t,
+            style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF8B5E1E))),
+      );
+
+  // v1635：榜单胶囊——30高描边Stadium（13px字号，主导航要易点；
+  // MiniButton档位偏小是气泡操作行用的）
+  Widget _rankChip(String label, VoidCallback onTap) => OutlinedButton(
+        onPressed: onTap,
+        style: OutlinedButton.styleFrom(
+          shape: const StadiumBorder(),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          minimumSize: const Size(0, 30),
+          side: BorderSide(color: Colors.grey.shade400),
+        ),
+        child: Text(label, style: const TextStyle(fontSize: 13)),
+      );
+
   void _marketRankMenu(AppState state) {
     showModalBottomSheet(
       context: context,
@@ -290,117 +314,120 @@ class _ChatPageState extends State<ChatPage>
             child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            for (final b in ['点击榜', '月票榜', '收藏榜'])
-              ListTile(
-                leading: const Icon(Icons.trending_up),
-                title: Text('飞卢·$b（原生直抓）'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _fetchFaloo(state, b);
-                },
+            // v1635：按站分组——每站=金棕标题行+榜单胶囊Wrap（原12个
+            // ListTile连排高且散，用户截图点名整理）；点胶囊即抓
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _groupHeader('飞卢（原生直抓，含简介）'),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      for (final b in ['点击榜', '月票榜', '收藏榜'])
+                        _rankChip(b, () {
+                          Navigator.pop(context);
+                          _fetchFaloo(state, b);
+                        }),
+                      _rankChip('排行榜网页·可提取', () {
+                        Navigator.pop(context);
+                        // v1612：fetchRender接管渲染——openApp零执行不死机
+                        _browseRank(state, 'https://b.faloo.com/Rank_1.html',
+                            '飞卢排行榜·网页', true, '飞卢排行榜·网页', false,
+                            desktopUa: true,
+                            mobileUrl: 'https://wap.faloo.com/rank_1.html',
+                            fetchRender: true);
+                      }),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _groupHeader('晋江（原生直抓，含简介全文）'),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      // v1630：晋江静态gbk表无反爬（沙盒python实证200行8列）
+                      for (final b in [
+                        ('官推言情榜', 'orderstr=1'),
+                        ('官推纯爱衍生榜', 'orderstr=1&t=1'),
+                        ('总分榜', 'orderstr=7'),
+                        ('新晋作者榜', 'orderstr=3'),
+                      ])
+                        _rankChip(b.$1, () {
+                          Navigator.pop(context);
+                          _fetchJinjiang(state, b.$1, b.$2);
+                        }),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _groupHeader('七猫（浏览器打开，页内提取键抓取）'),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      _rankChip('排行榜网页', () {
+                        Navigator.pop(context);
+                        // v1610：m.qimao已变作家门户，七猫无手机版网页
+                        _browseRank(state, 'https://www.qimao.com/paihang/',
+                            '七猫排行榜·网页', true, '七猫排行榜·网页', false,
+                            desktopUa: true);
+                      }),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _groupHeader('起点（浏览器打开，页内提取键抓取）'),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      _rankChip('月票榜', () {
+                        Navigator.pop(context);
+                        // v1608：默认m.版（www重JS壳WebView崩），切电脑版=www
+                        _browseRank(state, 'https://m.qidian.com/rank/yuepiao/',
+                            '起点月票榜·网页', true, '起点月票榜·网页', false,
+                            desktopUa: false,
+                            desktopUrl: 'https://www.qidian.com/rank/yuepiao/');
+                      }),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _groupHeader('番茄（字体加密数据层，屏捕提取）'),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      // v1634：代理抓页绕302+keepScripts保留脚本（SSR数据埋
+                      // script里，React hydrate自渲染）+📸屏捕GLM-4V读图
+                      _rankChip('网页·屏捕提取', () {
+                        Navigator.pop(context);
+                        _browseRank(state, 'https://fanqienovel.com/rank/1',
+                            '番茄排行榜', false, '番茄排行榜', false,
+                            desktopUa: true,
+                            fetchRender: true,
+                            keepScripts: true,
+                            screenCapture: true);
+                      }),
+                      // v1594：你翻APP+后台截帧+GLM-4V提取（屏捕唯一明文通道）
+                      _rankChip('APP屏捕', () async {
+                        Navigator.pop(context);
+                        final text = await Navigator.push<String>(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const ScreenCapturePage()),
+                        );
+                        if (text == null || text.trim().isEmpty || !mounted) {
+                          return;
+                        }
+                        _insertRankFloor(state,
+                            '📉番茄榜单（APP屏捕·GLM-4V提取）\n$text');
+                      }),
+                    ],
+                  ),
+                ],
               ),
-            // v1630：晋江四榜原生直抓——topten.php静态gbk表无反爬（沙盒
-            // python实证200行8列含简介全文，书名在onebook锚title属性）
-            for (final b in [
-              ('官推言情榜', 'orderstr=1'),
-              ('官推纯爱衍生榜', 'orderstr=1&t=1'),
-              ('总分榜', 'orderstr=7'),
-              ('新晋作者榜', 'orderstr=3'),
-            ])
-              ListTile(
-                leading: const Icon(Icons.favorite),
-                title: Text('晋江·${b.$1}（原生直抓）'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _fetchJinjiang(state, b.$1, b.$2);
-                },
-              ),
-            // v1627：菜单去重——每个webview页内自带「提取榜单」键，与
-            // 「自动提取」条目同作用（差别仅自动关回vs手动点键），删两站
-            // 自动条目各留一条浏览入口
-            ListTile(
-              leading: const Icon(Icons.language),
-              title: const Text('飞卢·排行榜网页（人工看，可提取）'),
-              onTap: () {
-                Navigator.pop(context);
-                // v1612：fetchRender接管渲染——原生抓HTML剥脚本+注入flexible
-                // 等效CSS：openApp零执行(不死机)且版式正常(字不小)
-                _browseRank(state, 'https://b.faloo.com/Rank_1.html',
-                    '飞卢排行榜·网页', true, '飞卢排行榜·网页', false,
-                    desktopUa: true,
-                    mobileUrl: 'https://wap.faloo.com/rank_1.html',
-                    fetchRender: true);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.language),
-              title: const Text('七猫·排行榜（网页浏览，提取键抓取）'),
-              onTap: () {
-                Navigator.pop(context);
-                // v1610：m.qimao.com已整体变作家助手门户（paihang返回签约
-                // 政策页实证），七猫无手机版网页——切换=同URL只切UA
-                _browseRank(state, 'https://www.qimao.com/paihang/',
-                    '七猫排行榜·网页', true, '七猫排行榜·网页', false,
-                    desktopUa: true);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.public),
-              title: const Text('起点·月票榜（网页浏览，提取键抓取）'),
-              onTap: () {
-                Navigator.pop(context);
-                // v1608：默认开m.版（服务端直渲染73KB,www重JS壳WebView崩溃
-                // 实证）；切电脑版=www.qidian.com
-                // v1627：与原浏览条目合并——extractable=true放开提取键
-                // （原浏览条目=false纯看，自动条目删除后此为唯一入口）
-                _browseRank(state, 'https://m.qidian.com/rank/yuepiao/',
-                    '起点月票榜·网页', true, '起点月票榜·网页', false,
-                    desktopUa: false,
-                    desktopUrl: 'https://www.qidian.com/rank/yuepiao/');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.public),
-              title: const Text('番茄·排行榜（网页屏捕提取）'),
-              onTap: () {
-                Navigator.pop(context);
-                // v1595：/rank是SPA空壳（用户实测空页），正确榜单URL带分类参数
-                // v1596：手机UA=下载APP推广壳页（截图实锤），番茄必须桌面UA
-                // v1617：/rank/0-0-0-0老路由已废（SPA空壳零书目实证）——改
-                // /rank/1新路由（78KB服务端直渲染带书目，curl实证）
-                // v1622：直连WebView被302到推广壳（URL带?f实证）——真凶=
-                // Android WebView请求自带X-Requested-With:包名头被番茄识破，
-                // curl无此头拿到真页。改走本地代理管线（Dart HttpClient无
-                // 此头+页面服务端直渲染关JS可显示）
-                // v1634：番茄渲染路线定稿——①直连WebView必被302到推广壳
-                // （v1622实证：X-Requested-With包头被识破，v1632改直连是
-                // 我犯的错）②走本地代理抓页绕302 + keepScripts保留脚本
-                // （番茄SSR数据埋script里，v1632沙盒实证剥了=页面空）+
-                // JS开（React hydrate自己渲染）③提取走📸屏捕GLM-4V读图
-                // （DOM/JSON文字都是PUA密文，字体加密埋数据层）
-                _browseRank(state, 'https://fanqienovel.com/rank/1',
-                    '番茄排行榜', false, '番茄排行榜', false,
-                    desktopUa: true,
-                    fetchRender: true,
-                    keepScripts: true,
-                    screenCapture: true);
-              },
-            ),
-            // v1594：番茄APP屏捕——你翻页+后台截帧+GLM-4V提取（字体反爬下
-            // OCR读像素是唯一明文通道）
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('番茄·APP屏捕（你翻页，GLM-4V看图提取）'),
-              onTap: () async {
-                Navigator.pop(context);
-                final text = await Navigator.push<String>(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const ScreenCapturePage()),
-                );
-                if (text == null || text.trim().isEmpty || !mounted) return;
-                _insertRankFloor(state, '📉番茄榜单（APP屏捕·GLM-4V提取）\n$text');
-              },
             ),
           ],
         ),
