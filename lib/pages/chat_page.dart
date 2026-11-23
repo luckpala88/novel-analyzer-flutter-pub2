@@ -4133,11 +4133,16 @@ Widget _chatImage(BuildContext context, String rawSrc) {
               for (var c = 0; c < ncol; c++)
                 Padding(
                   padding: const EdgeInsets.all(5),
-                  child: Text(c < rows[i].length ? rows[i][c] : '',
-                      style: TextStyle(
-                          fontSize: 12.5,
-                          height: 1.3,
-                          fontWeight: i == 0 ? FontWeight.w600 : null)),
+                  // v1628：单元格宽度封顶170px——长内容换行（IntrinsicColumnWidth
+                  // 测出的列宽=min(内容宽,170)，卖点/简介列不再一行到底）
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 170),
+                    child: Text(c < rows[i].length ? rows[i][c] : '',
+                        style: TextStyle(
+                            fontSize: 12.5,
+                            height: 1.3,
+                            fontWeight: i == 0 ? FontWeight.w600 : null)),
+                  ),
                 ),
             ],
           ),
