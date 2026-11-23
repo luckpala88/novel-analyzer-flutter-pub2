@@ -165,7 +165,9 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
           // 仍排手机版；注入viewport width=1280强制桌面排布（请求桌面版网站
           // 的标准手段）。v1603：随切换态走，手机版还原device-width。
           // v1611：JS禁用页无法注入，跳过。v1612：接管渲染页自带等效CSS也跳过
-          if (widget.enableJs && !widget.fetchRender) {
+          // v1636：keepScripts例外放行——番茄SSR+hydrate页JS是开的，
+          // 桌面排布同样需要1280视口注入（fetchRender剥脚本模式才跳过）
+          if (widget.keepScripts || (widget.enableJs && !widget.fetchRender)) {
           final vp = _desktop
               ? "var mv=document.querySelector('meta[name=viewport]');"
                   "if(mv){mv.setAttribute('content','width=1280');}"
