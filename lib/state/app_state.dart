@@ -381,6 +381,8 @@ class AppState extends ChangeNotifier {
   bool userAborted = false;
   // v1221：朱雀AI浓度检测Key（腾讯EdgeOne Makers，手动按钮触发非自动烧）
   String zhuqueKey = '';
+  // v1637：GLM-4V屏捕提取Key（智谱）——持久化，屏捕页不再每次重填
+  String zhipuVisionKey = '';
   final ValueNotifier<double> apiTimerSeconds = ValueNotifier(0);
   // 生成状态（前台服务）
   int generationCount = 0;
@@ -1273,6 +1275,8 @@ class AppState extends ChangeNotifier {
     selectedWriterStyle = storage.readFile('writer_style.selected') ?? '';
     // v1221：朱雀AI浓度检测Key（全局，独立于LLM提供商；腾讯EdgeOne Makers）
     zhuqueKey = storage.readFile('zhuque.key') ?? '';
+    // v1637：屏捕提取Key持久化
+    zhipuVisionKey = storage.readFile('zhipu_vision.key') ?? '';
     // v755：防抄袭检测开关（默认开——旧装无flag文件时保持开启）
     writingPlagiarismCheck =
         storage.readFile('${p}writing_plagiarism_check.flag') != 'false';
@@ -2103,6 +2107,13 @@ class AppState extends ChangeNotifier {
   void setZhuqueKey(String v) {
     zhuqueKey = v.trim();
     storage.writeFile('zhuque.key', zhuqueKey);
+    notifyListeners();
+  }
+
+  /// v1637：屏捕GLM-4V提取Key持久化（智谱，独立于聊天提供商）
+  void setZhipuVisionKey(String v) {
+    zhipuVisionKey = v.trim();
+    storage.writeFile('zhipu_vision.key', zhipuVisionKey);
     notifyListeners();
   }
 

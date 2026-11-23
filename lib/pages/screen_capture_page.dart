@@ -27,6 +27,17 @@ class _ScreenCapturePageState extends State<ScreenCapturePage> {
   final _keyCtl = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    // v1637：预填历史key——屏捕key持久化（zhipu_vision.key），只填一次
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final k = context.read<AppState>().zhipuVisionKey;
+      if (k.isNotEmpty && _keyCtl.text.isEmpty) _keyCtl.text = k;
+    });
+  }
+
+  @override
   void dispose() {
     _poll?.cancel();
     _keyCtl.dispose();
@@ -75,12 +86,20 @@ class _ScreenCapturePageState extends State<ScreenCapturePage> {
     });
     if (frames.isEmpty) return;
     // GLM-4V逐帧提取
-    final cfg = context.read<AppState>().getApiConfig('chat');
+    final state = context.read<AppState>();
+    final cfg = state.getApiConfig('chat');
     var key = cfg.apiKey;
     if (cfg.providerId != 'zhipu') {
+      // v1637：key持久化——TextField预填上次存的值，非空即存回（下次免填）
       key = _keyCtl.text.trim();
+      if (key.isNotEmpty) state.setZhipuVisionKey(key);
       if (key.isEmpty) {
-        setState(() => _progress = '需要智谱Key——当前聊天API非智谱，请在下方粘贴');
+        key = state.zhipuVisionKey; // 本页空输入时回退用历史存的
+        _keyCtl.text = key;
+      }
+      if (key.isEmpty) {
+        setState(() =>
+            _progress = '需要智谱Key——当前聊天API非智谱，请在下方粘贴（只需一次，之后自动记住）');
         return;
       }
     }
