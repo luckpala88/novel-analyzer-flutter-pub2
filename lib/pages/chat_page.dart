@@ -4175,6 +4175,9 @@ Widget _chatImage(BuildContext context, String rawSrc) {
 
   /// 简易markdown解析：#/##/###标题、**粗体**、`code`、-列表、1.列表、```代码块
   List<InlineSpan> _mdSpans(String text) {
+    // v1625：行中·分隔（AI把榜单条目挤进一个列表项，"）· 《书名》"连排）
+    // 断行处理——仅匹配 ·后跟《 的保守规则（书名间隔号/日期不受影响）
+    text = text.replaceAll(RegExp(r'[ \t]+[·•・][ \t]*(?=《)'), '\n· ');
     final spans = <InlineSpan>[];
     final lines = text.split('\n');
     var inCode = false;
