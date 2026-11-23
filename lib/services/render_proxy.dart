@@ -105,9 +105,13 @@ class RenderProxy {
         RegExp(r'<script[\s\S]*?</script>', caseSensitive: false), '');
     out = out.replaceAll(
         RegExp(r'<script[^>]*/>', caseSensitive: false), '');
-    // flexible.js等效根字号（手机UA设计：视口宽/9，上限640/9）
+    // v1619：双禁令——根字号flexible等效 + 全元素text-size-adjust禁
+    // （Android WebView font boosting会无视根字号放大计算后字号=v1616
+    // 字体很大实证；text-size-adjust:none是唯一关闭通道，全元素!important
+    // 比站点html,body规则更强）
     const inject =
-        '<style>html{font-size:min(calc(100vw/9),71.1px)!important;}</style>';
+        '<style>html{font-size:min(calc(100vw/9),71.1px)!important;}'
+        '*{-webkit-text-size-adjust:none!important;text-size-adjust:none!important;}</style>';
     final i = out.toLowerCase().indexOf('<head>');
     out = i >= 0
         ? out.substring(0, i + 6) + inject + out.substring(i + 6)

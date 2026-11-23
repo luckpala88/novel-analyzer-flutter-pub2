@@ -81,6 +81,10 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
         AndroidWebViewControllerCreationParams());
     (ctl.platform as AndroidWebViewController)
         .setMixedContentMode(MixedContentMode.alwaysAllow);
+    // v1619：钉死textZoom=100——Android WebView默认跟随系统字体缩放
+    // （fontScale会整体放大网页字号=v1616字体很大嫌疑），显式100回到
+    // 网页设计字号
+    (ctl.platform as AndroidWebViewController).setTextZoom(100);
     _ctl = ctl
       // v1611：enableJs=false时禁JS——openApp2021.js类页面脚本不执行。
       // v1615：fetchRender接管模式强制禁JS——脚本已物理剥除JS无显示作用
