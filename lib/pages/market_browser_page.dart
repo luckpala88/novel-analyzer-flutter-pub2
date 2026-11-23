@@ -8,6 +8,11 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 import '../services/market_rank.dart';
+import '../state/app_state.dart';
+
+/// v1615：浏览器诊断日志——ANR死机连续三版无现场（apiLogs零记录实证），
+/// 导航/渲染全链路埋点，复现后上传日志可定位断点
+void _blog(String m) => AppState.instance.apiLog('🌐 $m');
 
 /// v1593：内置浏览器——七猫/番茄榜单页。WAF按TLS指纹拦程序直连
 /// （curl/python/无头浏览器三连405实证），手机WebView=真浏览器环境能过。
@@ -73,14 +78,17 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
   void initState() {
     super.initState();
     _desktop = widget.desktopUa;
+    _blog('浏览器打开：${widget.url}，fetchRender=${widget.fetchRender}，desktopUa=${widget.desktopUa}');
     // v1604：Android平台参数建WebView，再从platform调setMixedContentMode
     final ctl = WebViewController.fromPlatformCreationParams(
         AndroidWebViewControllerCreationParams());
     (ctl.platform as AndroidWebViewController)
         .setMixedContentMode(MixedContentMode.alwaysAllow);
     _ctl = ctl
-      // v1611：enableJs=false时禁JS——openApp2021.js类页面脚本不执行
-      ..setJavaScriptMode(widget.enableJs
+      // v1611：enableJs=false时禁JS——openApp2021.js类页面脚本不执行。
+      // v1615：fetchRender接管模式强制禁JS——脚本已物理剥除JS无显示作用
+      // （v1611实证JS关=不死，v1612-14死机全在JS开状态）
+      ..setJavaScriptMode((widget.enableJs && !widget.fetchRender)
           ? JavaScriptMode.unrestricted
           : JavaScriptMode.disabled)
       ..setNavigationDelegate(NavigationDelegate(
@@ -88,6 +96,7 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
         // scheme(flreader://)失败→兜底跳DownloadAPP2021.aspx→下载页又带
         // 同款脚本→无限导航循环。未知scheme+下载落地页一律拦
         onNavigationRequest: (req) {
+          _blog('导航请求：${req.url.length > 90 ? req.url.substring(0, 90) : req.url}');
           // v1612：接管渲染模式——页内点击的链接也走剥脚本管线
           // （防止点进书页后openApp2021.js复活）；loadHtmlString自身的
           // data:加载除外。v1613：loadHtmlString的baseUrl会被部分WebView
@@ -109,6 +118,7 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
           return NavigationDecision.navigate;
         },
         onPageFinished: (url) {
+          _blog('页面加载完：${url != null && url.length > 60 ? url.substring(0, 60) : (url ?? 'null')}');
           setState(() => _loading = false);
           // v1606：网址栏同步当前URL+前进后退可用性（每页加载完刷新）。
           // v1612：接管渲染模式loadHtmlString无真实URL，网址栏由
@@ -178,9 +188,13 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
     // v1613：同一URL在抓即跳过（重复导航请求去重）
     if (_renderFetching == url) return;
     _renderFetching = url;
+    _blog('接管渲染开始：$url');
     // v1614：看门狗——抓取/渲染卡住15秒强制复位转圈，杜绝"永久卡死"
     final watchdog = Timer(const Duration(seconds: 15), () {
-      if (mounted && _loading) setState(() => _loading = false);
+      if (mounted && _loading) {
+        _blog('看门狗触发：15秒未完成，复位转圈');
+        setState(() => _loading = false);
+      }
     });
     try {
       // v1614：统一桌面UA抓——b.faloo实机验证桌面UA可过WAF；wap页双UA
@@ -188,10 +202,12 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
       // 版卡死嫌疑。版式由注入CSS接管，抓取UA不影响显示
       final html =
           await MarketRank.fetchHtmlForBrowser(url, _desktopUa);
+      _blog('抓取成功：${html.length}字符');
       var out = html.replaceAll(
           RegExp(r'<script[\s\S]*?</script>', caseSensitive: false), '');
       out = out.replaceAll(
           RegExp(r'<script[^>]*/>', caseSensitive: false), '');
+      _blog('剥脚本：${html.length}→${out.length}字符');
       // flexible.js等效：手机UA根字号=视口宽/9(≤320为/8.8)，上限640/9
       const inject =
           '<style>html{font-size:min(calc(100vw/9),71.1px)!important;}</style>';
@@ -203,9 +219,11 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
       }
       if (mounted) {
         setState(() => _curRenderUrl = url);
+        _blog('loadHtmlString提交：baseUrl=$url，${out.length}字符');
         _ctl.loadHtmlString(out, baseUrl: url);
       }
     } catch (e) {
+      _blog('接管渲染失败：$e');
       // v1614：失败复位转圈（此前失败转圈永久卡死实证）
       if (mounted) {
         setState(() => _loading = false);
