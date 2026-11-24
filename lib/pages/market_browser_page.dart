@@ -102,6 +102,20 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
         "});})();";
     _ctl.runJavaScript(js);
   }
+
+  // v1653：工具键紧凑规格——v1651加A-/A+后六键挤爆AppBar与✕重叠
+  // （TA截图68815实证），统一28高13号字窄边距（对齐全页控件规格铁律）
+  Widget _tbtn(String label, VoidCallback? onTap) => TextButton(
+        onPressed: onTap,
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          minimumSize: const Size(0, 28),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          textStyle: const TextStyle(fontSize: 13),
+        ),
+        child: Text(label, overflow: TextOverflow.ellipsis, maxLines: 1),
+      );
+
   bool _done = false; // v1595：已提取返回，轮询停止
   // v1603：手机/电脑版切换态（初始跟随入口配置）
   bool _desktop = false;
@@ -473,74 +487,49 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
             // v1651：A-/A+页面缩放——桌面版页面（番茄reader正文页）字号大
             // 挡字，注入body.style.zoom缩小；代理模式JS禁用注入无效不显示
             if ((widget.enableJs && !widget.fetchRender) || widget.keepScripts)
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _zoom = (_zoom - 0.15).clamp(0.3, 1.5);
-                  });
-                  _applyZoom();
-                },
-                child: const Text('A-'),
-              ),
+              _tbtn('A-', () {
+                setState(() {
+                  _zoom = (_zoom - 0.15).clamp(0.3, 1.5);
+                });
+                _applyZoom();
+              }),
             if ((widget.enableJs && !widget.fetchRender) || widget.keepScripts)
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _zoom = (_zoom + 0.15).clamp(0.3, 1.5);
-                  });
-                  _applyZoom();
-                },
-                child: const Text('A+'),
-              ),
+              _tbtn('A+', () {
+                setState(() {
+                  _zoom = (_zoom + 0.15).clamp(0.3, 1.5);
+                });
+                _applyZoom();
+              }),
             // v1603：手机/电脑版切换——换UA重载+对应viewport注入
-            TextButton(
-              onPressed: () {
-                _desktop = !_desktop;
-                _reload();
-              },
-              child: Text(_desktop ? '切手机版' : '切电脑版'),
-            ),
+            _tbtn(_desktop ? '切手机版' : '切电脑版', () {
+              _desktop = !_desktop;
+              _reload();
+            }),
             // 刷新（重载页面）——v1618：接管渲染模式重走代理加载当前目标
-            TextButton(
-              onPressed: () {
-                setState(() => _loading = true);
-                if (widget.fetchRender) {
-                  _ctl.loadRequest(Uri.parse(RenderProxy.renderUrl(
-                      _urlCtl.text.startsWith('http')
-                          ? _urlCtl.text
-                          : widget.url,
-                      keepScripts: widget.keepScripts)));
-                } else {
-                  _ctl.reload();
-                }
-              },
-              child: const Text('刷新'),
-            ),
+            _tbtn('刷新', () {
+              setState(() => _loading = true);
+              if (widget.fetchRender) {
+                _ctl.loadRequest(Uri.parse(RenderProxy.renderUrl(
+                    _urlCtl.text.startsWith('http')
+                        ? _urlCtl.text
+                        : widget.url,
+                    keepScripts: widget.keepScripts)));
+              } else {
+                _ctl.reload();
+              }
+            }),
             // v1632：屏捕提取——字体加密数据层站（番茄）：截WebView画面
             // 喂GLM-4V读图（屏捕同款免费glm-4v-flash），提取回填楼层。
             // DOMinnerText=PUA密文所以AI读页/提取键不给
             if (widget.screenCapture) ...[
               // v1642：屏捕Key常驻入口（与APP屏捕页同源zhipu_vision.key）
-              TextButton(
-                onPressed: _pasteVisionKey,
-                child: const Text('🔑'),
-              ),
-              TextButton(
-                onPressed: _captureExtract,
-                child: const Text('📸屏捕提取'),
-              ),
+              _tbtn('🔑', _pasteVisionKey),
+              _tbtn('📸屏捕提取', _captureExtract),
             ]
             else if (widget.enableJs) ...[
               // v1604b：AI读页——innerText交聊天页AI自行提取需要的内容
-              TextButton(
-                onPressed: () => _extract(ai: true),
-                child: const Text('AI读页'),
-              ),
-              if (widget.extractable)
-                TextButton(
-                  onPressed: _extract,
-                  child: const Text('提取榜单'),
-                ),
+              _tbtn('AI读页', () => _extract(ai: true)),
+              if (widget.extractable) _tbtn('提取榜单', _extract),
             ],
           ],
         ],
