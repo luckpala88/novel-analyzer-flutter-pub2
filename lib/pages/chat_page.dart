@@ -428,8 +428,64 @@ class _ChatPageState extends State<ChatPage>
                             keepScripts: true,
                             screenCapture: true);
                       }),
-                      // v1647：APP屏捕入口下线（TA裁决）——分类榜直抓
-                      // 全明文上位，屏捕页ScreenCapturePage保留备用
+                      // v1649：APP榜单——APP独有的推荐/黑马/巅峰/完本等榜，
+                      // 程序直抓够不着（设备签名），屏捕读APP画面兜底
+                      _rankChip('📱APP榜单', () async {
+                        Navigator.pop(context);
+                        final text = await Navigator.push<String>(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const ScreenCapturePage()),
+                        );
+                        if (text == null || text.trim().isEmpty || !mounted) {
+                          return;
+                        }
+                        _insertRankFloor(
+                            state, '📉番茄APP榜单（屏捕·GLM-4V提取）\n$text');
+                      }),
+                      // v1649：搜书——书名→内置浏览器搜索页→📸屏捕提取
+                      // （搜索接口a_bogus签名+动态字体双墙，直抓不可行，
+                      //  22:51实测；读渲染像素全明文）
+                      _rankChip('🔍搜书', () async {
+                        Navigator.pop(context);
+                        final kw = await showDialog<String>(
+                          context: context,
+                          builder: (d) {
+                            final ctl = TextEditingController();
+                            return AlertDialog(
+                              title: const Text('番茄搜书'),
+                              content: TextField(
+                                controller: ctl,
+                                autofocus: true,
+                                decoration: const InputDecoration(
+                                    hintText: '输书名或作者名'),
+                                onSubmitted: (v) => Navigator.pop(d, v),
+                              ),
+                              actions: [
+                                TextButton(
+                                    onPressed: () => Navigator.pop(d),
+                                    child: const Text('取消')),
+                                FilledButton(
+                                    onPressed: () => Navigator.pop(d, ctl.text),
+                                    child: const Text('搜索')),
+                              ],
+                            );
+                          },
+                        );
+                        if (kw == null || kw.trim().isEmpty || !mounted) return;
+                        final enc = Uri.encodeComponent(kw.trim());
+                        _browseRank(
+                            state,
+                            'https://fanqienovel.com/search/$enc',
+                            '番茄搜书·$kw',
+                            false,
+                            '番茄搜书·$kw',
+                            false,
+                            desktopUa: true,
+                            fetchRender: true,
+                            keepScripts: true,
+                            screenCapture: true);
+                      }),
                     ],
                   ),
                 ],
