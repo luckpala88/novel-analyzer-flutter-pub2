@@ -512,7 +512,7 @@ class MarketRank {
     final t = '${now.month.toString().padLeft(2, '0')}-'
         '${now.day.toString().padLeft(2, '0')} '
         '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-    final sb = StringBuffer('$gname·$bname（$t抓取实时，全分类前10，API直抓明文）\n');
+    final sb = StringBuffer('番茄$gname·$bname（$t抓取实时，全分类前10，API直抓明文）\n');
     var fail = 0;
     for (final (cid, cname) in cats) {
       try {
