@@ -428,20 +428,8 @@ class _ChatPageState extends State<ChatPage>
                             keepScripts: true,
                             screenCapture: true);
                       }),
-                      // v1594：你翻APP+后台截帧+GLM-4V提取（屏捕唯一明文通道）
-                      _rankChip('APP屏捕', () async {
-                        Navigator.pop(context);
-                        final text = await Navigator.push<String>(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const ScreenCapturePage()),
-                        );
-                        if (text == null || text.trim().isEmpty || !mounted) {
-                          return;
-                        }
-                        _insertRankFloor(state,
-                            '📉番茄榜单（APP屏捕·GLM-4V提取）\n$text');
-                      }),
+                      // v1647：APP屏捕入口下线（TA裁决）——分类榜直抓
+                      // 全明文上位，屏捕页ScreenCapturePage保留备用
                     ],
                   ),
                 ],
