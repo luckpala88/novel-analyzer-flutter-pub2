@@ -393,4 +393,89 @@ class MarketRank {
     }
     return sb.toString();
   }
+
+  // ==================== 番茄分类榜（v1643原生直抓） ====================
+  // v1643：分类榜API零反爬直抓（沙盒curl实证code:0全明文）——书名/作者/
+  // 简介/在读/字数/状态全字段，一页limit=100。总榜SSR密文走屏捕（另有通道）
+  // 参数定案（沙盒枚举实证）：rank_list_type=3固定；gender 1男0女；
+  // rankMold 1新书2阅读（mold2在读高完结多=阅读榜，mold1连载多=新书榜）；
+  // 无category_id必报"分类类型错误"（总榜API前端参数本身就是坏的）
+  static const _fqMaleCats = [
+    ('1141', '西方奇幻'), ('1140', '东方仙侠'), ('8', '科幻末世'),
+    ('261', '都市日常'), ('124', '都市修真'), ('1014', '都市高武'),
+    ('273', '历史古代'), ('27', '战神赘婿'), ('263', '都市种田'),
+    ('258', '传统玄幻'), ('272', '历史脑洞'), ('539', '悬疑脑洞'),
+    ('262', '都市脑洞'), ('257', '玄幻脑洞'), ('751', '悬疑灵异'),
+    ('504', '抗战谍战'), ('746', '游戏体育'), ('718', '动漫衍生'),
+    ('1016', '男频衍生'),
+  ];
+  static const _fqFemaleCats = [
+    ('1139', '古风世情'), ('8', '科幻末世'), ('746', '游戏体育'),
+    ('1015', '女频衍生'), ('248', '玄幻言情'), ('23', '种田'),
+    ('79', '年代'), ('267', '现言脑洞'), ('246', '宫斗宅斗'),
+    ('539', '悬疑脑洞'), ('253', '古言脑洞'), ('24', '快穿'),
+    ('749', '青春甜宠'), ('745', '星光璀璨'), ('747', '女频悬疑'),
+    ('750', '职场婚恋'), ('748', '豪门总裁'), ('1017', '民国言情'),
+  ];
+
+  /// 抓番茄一个频道榜：gender(1男0女)+mold(1新书2阅读)→全分类×前10本
+  static Future<String> fetchFanqieFloor(int gender, int mold) async {
+    final cats = gender == 1 ? _fqMaleCats : _fqFemaleCats;
+    final gname = gender == 1 ? '男频' : '女频';
+    final bname = mold == 1 ? '新书榜' : '阅读榜';
+    final c = HttpClient();
+    c.userAgent = _ua;
+    c.connectionTimeout = const Duration(seconds: 12);
+    final now = DateTime.now();
+    final t = '${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')} '
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    final sb = StringBuffer('$gname·$bname（$t抓取实时，全分类前10，API直抓明文）\n');
+    var fail = 0;
+    for (final (cid, cname) in cats) {
+      try {
+        final url = 'https://fanqienovel.com/api/rank/category/list'
+            '?app_id=2503&rank_list_type=3&offset=0&limit=10'
+            '&category_id=$cid&rank_version=&gender=$gender&rankMold=$mold';
+        final req = await c.getUrl(Uri.parse(url));
+        req.headers.set('Referer', 'https://fanqienovel.com/');
+        final resp = await req.close().timeout(const Duration(seconds: 15));
+        final bytes =
+            await resp.fold<List<int>>(<int>[], (a, b) => a..addAll(b));
+        final d = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
+        final data = d['data'] as Map<String, dynamic>? ?? {};
+        final bl = (data['book_list'] as List?) ?? [];
+        sb.writeln('\n—— $cname（${data['total_num'] ?? bl.length}本）——');
+        for (var i = 0; i < bl.length && i < 10; i++) {
+          final b = bl[i] as Map<String, dynamic>;
+          final name = (b['bookName'] ?? '').toString();
+          final author = (b['author'] ?? '').toString();
+          final read = int.tryParse('${b['read_count'] ?? 0}') ?? 0;
+          final words = int.tryParse('${b['wordNumber'] ?? 0}') ?? 0;
+          final done = '${b['creationStatus'] ?? ''}' == '0' ? '完结' : '连载';
+          sb.write('${i + 1}. $name');
+          if (author.isNotEmpty) sb.write('｜$author');
+          sb.write('｜在读${fmtNum(read)}｜${fmtNum(words)}字｜$done');
+          final lc = (b['lastChapterTitle'] ?? '').toString();
+          if (lc.isNotEmpty) sb.write('｜最新:$lc');
+          sb.writeln();
+          // 分类Top1带简介（头部作品调研价值最高；全带楼层过长）
+          if (i == 0) {
+            final ab = (b['abstract'] ?? '').toString().trim();
+            if (ab.isNotEmpty) {
+              var intro = ab.replaceAll(RegExp(r'\s+'), ' ');
+              if (intro.length > 120) intro = '${intro.substring(0, 120)}…';
+              sb.writeln('简介: $intro');
+            }
+          }
+        }
+      } catch (_) {
+        fail++;
+        sb.writeln('\n—— $cname（抓取失败）——');
+      }
+    }
+    c.close();
+    if (fail > 0) sb.writeln('\n（$fail个分类抓取失败）');
+    return sb.toString();
+  }
 }

@@ -394,13 +394,31 @@ class _ChatPageState extends State<ChatPage>
                     ],
                   ),
                   const SizedBox(height: 12),
+                  // v1643：分类榜API零反爬直抓全明文（沙盒74榜7225条
+                  // 0失败实证）——比屏捕快且字段全，番茄调研主通道
+                  _groupHeader('番茄（原生直抓，全分类前10+明文简介）'),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      for (final (label, g, m) in [
+                        ('男频·阅读榜', 1, 2),
+                        ('男频·新书榜', 1, 1),
+                        ('女频·阅读榜', 0, 2),
+                        ('女频·新书榜', 0, 1),
+                      ])
+                        _rankChip(label, () {
+                          Navigator.pop(context);
+                          _fetchFanqie(state, g, m);
+                        }),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
                   _groupHeader('番茄（字体加密数据层，屏捕提取）'),
                   Wrap(
                     spacing: 8,
                     runSpacing: 6,
                     children: [
-                      // v1634：代理抓页绕302+keepScripts保留脚本（SSR数据埋
-                      // script里，React hydrate自渲染）+📸屏捕GLM-4V读图
                       _rankChip('网页·屏捕提取', () {
                         Navigator.pop(context);
                         _browseRank(state, 'https://fanqienovel.com/rank/1',
@@ -478,6 +496,24 @@ class _ChatPageState extends State<ChatPage>
     try {
       // v1597：一步到位——榜单+前10详情（类别/字数/简介），AI分析有料
       final text = await MarketRank.fetchFalooFloor(board);
+      _insertRankFloor(state, text);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('⛔ 抓取失败：$e')));
+    }
+  }
+
+  /// v1643：番茄分类榜直抓——gender(1男0女)+mold(1新书2阅读)，全分类
+  /// 前10本+Top1简介（API零反爬全明文，沙盒74榜7225条0失败实证）
+  Future<void> _fetchFanqie(AppState state, int gender, int mold) async {
+    if (!mounted) return;
+    final gn = gender == 1 ? '男频' : '女频';
+    final bn = mold == 1 ? '新书榜' : '阅读榜';
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('正在抓取番茄$gn$bn全分类（约10-20秒）...')));
+    try {
+      final text = await MarketRank.fetchFanqieFloor(gender, mold);
       _insertRankFloor(state, text);
     } catch (e) {
       if (!mounted) return;
