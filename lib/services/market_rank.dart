@@ -485,8 +485,19 @@ class MarketRank {
     0xE55A: '们', 0xE55B: '任',
   };
 
-  static String _fqDec(String s) => s.replaceAllMapped(
-      RegExp(r'[\uE000-\uF8FF]'), (m) => _fqPuaMap[m[0]!.codeUnitAt(0)] ?? '');
+  // v1645：改runes手写——v1644安卓Build APK挂（win成功，唯一差异=362条
+  // map+本函数），嫌疑RegExp\u区间在AOT环境问题；改纯整型判断绕开
+  static String _fqDec(String s) {
+    final sb = StringBuffer();
+    for (final ch in s.runes) {
+      if (ch >= 0xE000 && ch <= 0xF8FF) {
+        sb.write(_fqPuaMap[ch] ?? '');
+      } else {
+        sb.writeCharCode(ch);
+      }
+    }
+    return sb.toString();
+  }
 
 
   /// 抓番茄一个频道榜：gender(1男0女)+mold(1新书2阅读)→全分类×前10本
