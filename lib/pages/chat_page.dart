@@ -1078,10 +1078,22 @@ class _ChatPageState extends State<ChatPage>
     final state = context.watch<AppState>();
     final sess = state.chatActive;
 
-    return Scaffold(
+    // v1648：分栏版聊天栏顶部按键不换行修复——AppBar actions 的 SizedBox
+    // 此前写死全屏宽（手机竖屏=全屏没问题），分栏时聊天栏只有1/N屏宽，
+    // Wrap拿到过宽约束永不换行且右侧按键被挤出可视区（TA截图实锤）。
+    // 修法=LayoutBuilder拿本栏真实宽度传给AppBar（LayoutBuilder必须在
+    // Scaffold外层，AppBar内部拿不到分栏约束）
+    return LayoutBuilder(builder: (context, cons) {
+      final pageW = cons.maxWidth;
+      // v1648：分栏判定——本栏宽度小于整屏=处于分栏容器（ Expanded 1/N屏）
+      final isPane = pageW < MediaQuery.of(context).size.width - 1;
+      return Scaffold(
       // v1566：恢复原版白天色+夜间统一黑棕
       backgroundColor: V469Style.chatBg,
-      appBar: AppBar(
+      // v1648：分栏时去AppBar（空actions也占76高=顶部空条），对齐其它栏
+      appBar: isPane
+          ? null
+          : AppBar(
         backgroundColor: V469Style.chatBarBg,
         titleSpacing: 0,
         toolbarHeight: 76, // v1358：两行收紧
@@ -1090,134 +1102,26 @@ class _ChatPageState extends State<ChatPage>
         title: const SizedBox.shrink(),
         // v1010：动作键横向滚动区（占屏55%且reverse=右缘对齐）——会话下拉
         // 恢复可见宽度（此前动作键过宽把标题挤成一条缝，用户截图实锤）
-        actions: [
-          SizedBox(
-            width: MediaQuery.of(context).size.width - 16,
-            child: Wrap(
-              alignment: WrapAlignment.start, // v1358：靠左排（用户裁决）
-              runSpacing: 2,
-              spacing: 4, // v1013：按键间距（此前紧贴）
-              children: [
-              // v1567：不独占一行——与其他键挤一行，Wrap自动换行
-              ApiModelButton(config: state.getApiConfig('chat'), section: 'chat', title: 'API设置 · AI聊天'),
-          // v1545：词链开关（背景色=开，与其余页一致）
-          MiniButton(
-            label: '词链',
-            primary: state.chatPromptPreview,
-            onTap: () => state.setChatPromptPreview(!state.chatPromptPreview),
-          ),
-          // v1011：会话切换键（替代原Expanded下拉，点开弹层看全标题）
-          MiniButton(
-            label: '会话 ▾',
-            primary: false, // v1565：动作键不填色（会话有无不作为颜色态）
-            onTap: () => _showSessionPicker(state),
-          ),
-          ContentFontButtons(
-            pageKey: 'chat',
-            scale: _chatFontScale,
-            onChanged: (v) {
-              setState(() => _chatFontScale = v);
-              ContentFont.save('chat', v);
-            },
-          ),
-          writerStyleButton(context, state), // v953：聚焦作家（聊天即训练场）
-          MiniButton(label: '导出/导入', onTap: () => _exportImportMenu(state)),
-          // v1593：市场榜单——飞卢原生直抓/七猫番茄起点内置浏览器
-          MiniButton(label: '📉榜单', onTap: () => _marketRankMenu(state)),
-          MiniButton(
-              label: '新建',
-              onTap: () {
-                state.newChatSession();
-                setState(() {});
-              }),
-          // v1505：刷新键——从盘上重读会话（保持当前会话），卡顿/丢楼层时点一下救
-          MiniButton(
-              label: '刷新',
-              onTap: () {
-                final cur = state.chatActiveId;
-                state.loadChatSessions();
-                if (state.chatSessions.any((s) => s.id == cur)) {
-                  state.chatActiveId = cur;
-                }
-                setState(() {});
-              }),
-          // v1358：插图三键原子组（同转行不拆散，粘一起用户裁决）
-          SizedBox(
-            child: Row(mainAxisSize: MainAxisSize.min, spacing: 4, children: [
-          MiniButton(
-            label: state.chatImageGen ? '插图开' : '插图关',
-            onTap: () {
-              state.setChatImageGen(!state.chatImageGen);
-              setState(() {});
-            },
-          ),
-          MiniButton(
-            label: state.chatImageEngine == 'silicon'
-                ? '硅基'
-                : state.chatImageEngine == 'cf'
-                    ? 'CF'
-                    : state.chatImageEngine == 'mj'
-                        ? 'MJ公'
-                        : state.chatImageEngine == 'mjpro'
-                            ? 'MJ企'
-                            : '野生',
-            enabled: state.chatImageGen,
-            // v1454：弹出菜单直接选引擎（原循环切换要跨野生，18:23用户定稿）
-            onTap: state.chatImageGen
-                ? () async {
-                    final order = [
-                      ['silicon', '硅基'],
-                      ['cf', 'CF'],
-                      ['mj', 'MJ公'],
-                      ['mjpro', 'MJ企'],
-                      ['pollination', '野生'],
-                    ];
-                    final pick = await showDialog<String>(
-                      context: context,
-                      builder: (d) => SimpleDialog(
-                        title: const Text('选择绘图引擎',
-                            style: TextStyle(fontSize: 16)),
-                        children: [
-                          for (final e in order)
-                            RadioListTile<String>(
-                              value: e[0],
-                              groupValue: state.chatImageEngine,
-                              onChanged: (v) => Navigator.pop(d, v),
-                              title: Text(e[1]),
-                            ),
-                        ],
-                      ),
-                    );
-                    if (pick != null && pick != state.chatImageEngine) {
-                      state.setChatImageEngine(pick);
-                      setState(() {});
-                    }
-                  }
-                : null,
-          ),
-          MiniButton(
-            label: (state.chatImageEngine == 'silicon'
-                    ? state.chatSiliconKey
-                    : state.chatImageEngine == 'mjpro'
-                        ? state.chatMjProKey
-                        : state.chatCfKey)
-                .isEmpty
-                ? '🔑填Key'
-                : '🔑已配',
-            enabled: state.chatImageGen && state.chatImageEngine != 'pollination',
-            onTap: state.chatImageGen && state.chatImageEngine != 'pollination'
-                ? () => _editImageKeys(state)
-                : null,
-          ),
-            ]),
-          ),
-                ],
-              ),
-            ),
+        actions: isPane
+            ? const []
+            : [
+                SizedBox(
+                  width: pageW - 16, // v1648：本栏真实宽度（分栏=栏宽，手机=屏宽）
+                  child: _chatToolbar(state),
+                ),
               ],
-            ),
+      ),
       body: Column(
         children: [
+          // v1648：分栏窄栏工具栏下移body——AppBar高度固定76装不下多行Wrap，
+          // 手机竖屏版保持AppBar actions原样（用户调好的两行收紧布局）
+          if (isPane)
+            Container(
+              width: double.infinity,
+              color: V469Style.chatBarBg,
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              child: _chatToolbar(state),
+            ),
           Expanded(
             // v979：聊天消息区字号缩放（ContentFont持久化key='chat'）
             child: ContentFont.area(
@@ -1519,7 +1423,134 @@ class _ChatPageState extends State<ChatPage>
         ],
       ),
     );
+    }); // v1648：LayoutBuilder收尾
   }
+
+  /// v1648：聊天工具栏Wrap——手机版放AppBar actions（固定76高两行收紧），
+  /// 分栏版放body顶部（AppBar高度Flutter硬限制必须预给定，装不下多行）
+  Widget _chatToolbar(AppState state) {
+    return Wrap(
+      alignment: WrapAlignment.start, // v1358：靠左排（用户裁决）
+      runSpacing: 2,
+      spacing: 4, // v1013：按键间距（此前紧贴）
+      children: [
+              // v1567：不独占一行——与其他键挤一行，Wrap自动换行
+              ApiModelButton(config: state.getApiConfig('chat'), section: 'chat', title: 'API设置 · AI聊天'),
+          // v1545：词链开关（背景色=开，与其余页一致）
+          MiniButton(
+            label: '词链',
+            primary: state.chatPromptPreview,
+            onTap: () => state.setChatPromptPreview(!state.chatPromptPreview),
+          ),
+          // v1011：会话切换键（替代原Expanded下拉，点开弹层看全标题）
+          MiniButton(
+            label: '会话 ▾',
+            primary: false, // v1565：动作键不填色（会话有无不作为颜色态）
+            onTap: () => _showSessionPicker(state),
+          ),
+          ContentFontButtons(
+            pageKey: 'chat',
+            scale: _chatFontScale,
+            onChanged: (v) {
+              setState(() => _chatFontScale = v);
+              ContentFont.save('chat', v);
+            },
+          ),
+          writerStyleButton(context, state), // v953：聚焦作家（聊天即训练场）
+          MiniButton(label: '导出/导入', onTap: () => _exportImportMenu(state)),
+          // v1593：市场榜单——飞卢原生直抓/七猫番茄起点内置浏览器
+          MiniButton(label: '📉榜单', onTap: () => _marketRankMenu(state)),
+          MiniButton(
+              label: '新建',
+              onTap: () {
+                state.newChatSession();
+                setState(() {});
+              }),
+          // v1505：刷新键——从盘上重读会话（保持当前会话），卡顿/丢楼层时点一下救
+          MiniButton(
+              label: '刷新',
+              onTap: () {
+                final cur = state.chatActiveId;
+                state.loadChatSessions();
+                if (state.chatSessions.any((s) => s.id == cur)) {
+                  state.chatActiveId = cur;
+                }
+                setState(() {});
+              }),
+          // v1358：插图三键原子组（同转行不拆散，粘一起用户裁决）
+          SizedBox(
+            child: Row(mainAxisSize: MainAxisSize.min, spacing: 4, children: [
+          MiniButton(
+            label: state.chatImageGen ? '插图开' : '插图关',
+            onTap: () {
+              state.setChatImageGen(!state.chatImageGen);
+              setState(() {});
+            },
+          ),
+          MiniButton(
+            label: state.chatImageEngine == 'silicon'
+                ? '硅基'
+                : state.chatImageEngine == 'cf'
+                    ? 'CF'
+                    : state.chatImageEngine == 'mj'
+                        ? 'MJ公'
+                        : state.chatImageEngine == 'mjpro'
+                            ? 'MJ企'
+                            : '野生',
+            enabled: state.chatImageGen,
+            // v1454：弹出菜单直接选引擎（原循环切换要跨野生，18:23用户定稿）
+            onTap: state.chatImageGen
+                ? () async {
+                    final order = [
+                      ['silicon', '硅基'],
+                      ['cf', 'CF'],
+                      ['mj', 'MJ公'],
+                      ['mjpro', 'MJ企'],
+                      ['pollination', '野生'],
+                    ];
+                    final pick = await showDialog<String>(
+                      context: context,
+                      builder: (d) => SimpleDialog(
+                        title: const Text('选择绘图引擎',
+                            style: TextStyle(fontSize: 16)),
+                        children: [
+                          for (final e in order)
+                            RadioListTile<String>(
+                              value: e[0],
+                              groupValue: state.chatImageEngine,
+                              onChanged: (v) => Navigator.pop(d, v),
+                              title: Text(e[1]),
+                            ),
+                        ],
+                      ),
+                    );
+                    if (pick != null && pick != state.chatImageEngine) {
+                      state.setChatImageEngine(pick);
+                      setState(() {});
+                    }
+                  }
+                : null,
+          ),
+          MiniButton(
+            label: (state.chatImageEngine == 'silicon'
+                    ? state.chatSiliconKey
+                    : state.chatImageEngine == 'mjpro'
+                        ? state.chatMjProKey
+                        : state.chatCfKey)
+                .isEmpty
+                ? '🔑填Key'
+                : '🔑已配',
+            enabled: state.chatImageGen && state.chatImageEngine != 'pollination',
+            onTap: state.chatImageGen && state.chatImageEngine != 'pollination'
+                ? () => _editImageKeys(state)
+                : null,
+          ),
+            ]),
+          ),
+      ],
+    );
+  }
+
 
   /// v1542：楼层内容实测高度（操作行删除键按"超半屏才显示"用）
   final Map<int, double> _floorBodyH = {};
