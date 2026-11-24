@@ -89,6 +89,19 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
     if (_zoom == 1.0) return;
     _ctl.runJavaScript('document.body.style.zoom=$_zoom');
   }
+
+  // v1652：底部悬浮键避让——网页贴底fixed元素（番茄详情页「开始阅读/
+  // 下载APP」悬浮条）被手机系统手势条压住下半截（TA截图68809实证）。
+  // Android WebView不透传safe-area-inset（恒0），env()无效——遍历贴底
+  // fixed元素直接bottom抬28px
+  void _liftBottomFloaters() {
+    const js = "(function(){document.querySelectorAll("
+        "'div,section,footer,nav,aside,a').forEach(function(el){"
+        "var s=getComputedStyle(el);"
+        "if(s.position==='fixed'&&s.bottom==='0px'){el.style.bottom='28px';}"
+        "});})();";
+    _ctl.runJavaScript(js);
+  }
   bool _done = false; // v1595：已提取返回，轮询停止
   // v1603：手机/电脑版切换态（初始跟随入口配置）
   bool _desktop = false;
@@ -226,6 +239,11 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
           // v1651：切页后保留缩放档——重新注入CSS zoom
           if ((widget.enableJs && !widget.fetchRender) || widget.keepScripts) {
             _applyZoom();
+            // v1652：底部悬浮键避让手势条——React渲染悬浮条晚于
+            // onPageFinished，延时1.5秒补一针
+            Future.delayed(const Duration(milliseconds: 1500), () {
+              if (mounted) _liftBottomFloaters();
+            });
           }
           // v1595：自动提取模式——轮询提取（页面JS渲染榜单慢，固定2.5秒
           // 不可靠），每1.5秒试一次最多10次，出条目即返回；失败留本页手动兜底
