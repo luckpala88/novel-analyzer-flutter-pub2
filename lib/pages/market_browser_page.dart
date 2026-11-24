@@ -80,6 +80,15 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
   late final WebViewController _ctl;
   bool _loading = true;
   bool _warmed = false; // v1649：预热页是否已跳转（只跳一次）
+  // v1651：页面缩放——桌面版reader页字号大+悬浮按钮挡字（TA截图05:43
+  // 实证），A-/A+注入CSS zoom（Chrome WebView支持body.zoom）。跨页保留，
+  // 每次页面加载完重新注入。范围0.3~1.5步进0.15
+  double _zoom = 1.0;
+
+  void _applyZoom() {
+    if (_zoom == 1.0) return;
+    _ctl.runJavaScript('document.body.style.zoom=$_zoom');
+  }
   bool _done = false; // v1595：已提取返回，轮询停止
   // v1603：手机/电脑版切换态（初始跟随入口配置）
   bool _desktop = false;
@@ -213,6 +222,10 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
               : "var mv=document.querySelector('meta[name=viewport]');"
                   "if(mv){mv.setAttribute('content','width=device-width, initial-scale=1.0');}";
           _ctl.runJavaScript(vp);
+          }
+          // v1651：切页后保留缩放档——重新注入CSS zoom
+          if ((widget.enableJs && !widget.fetchRender) || widget.keepScripts) {
+            _applyZoom();
           }
           // v1595：自动提取模式——轮询提取（页面JS渲染榜单慢，固定2.5秒
           // 不可靠），每1.5秒试一次最多10次，出条目即返回；失败留本页手动兜底
@@ -439,6 +452,28 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
               ),
             )
           else ...[
+            // v1651：A-/A+页面缩放——桌面版页面（番茄reader正文页）字号大
+            // 挡字，注入body.style.zoom缩小；代理模式JS禁用注入无效不显示
+            if ((widget.enableJs && !widget.fetchRender) || widget.keepScripts)
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _zoom = (_zoom - 0.15).clamp(0.3, 1.5);
+                  });
+                  _applyZoom();
+                },
+                child: const Text('A-'),
+              ),
+            if ((widget.enableJs && !widget.fetchRender) || widget.keepScripts)
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _zoom = (_zoom + 0.15).clamp(0.3, 1.5);
+                  });
+                  _applyZoom();
+                },
+                child: const Text('A+'),
+              ),
             // v1603：手机/电脑版切换——换UA重载+对应viewport注入
             TextButton(
               onPressed: () {
