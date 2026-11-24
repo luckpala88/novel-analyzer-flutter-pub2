@@ -474,6 +474,9 @@ class _ChatPageState extends State<ChatPage>
                         );
                         if (kw == null || kw.trim().isEmpty || !mounted) return;
                         final enc = Uri.encodeComponent(kw.trim());
+                        // v1650：直连+首页预热——代理模式localhost页发搜索
+                        // XHR被CORS拦=0项（TA截图实证）；直开搜索页又被
+                        // 风控清空（ttwid没种）→先开首页种cookie再跳
                         _browseRank(
                             state,
                             'https://fanqienovel.com/search/$enc',
@@ -482,9 +485,8 @@ class _ChatPageState extends State<ChatPage>
                             '番茄搜书·$kw',
                             false,
                             desktopUa: true,
-                            fetchRender: true,
-                            keepScripts: true,
-                            screenCapture: true);
+                            screenCapture: true,
+                            warmupUrl: 'https://fanqienovel.com/');
                       }),
                     ],
                   ),
@@ -574,7 +576,8 @@ class _ChatPageState extends State<ChatPage>
       bool enableJs = true,
       bool fetchRender = false,
       bool screenCapture = false,
-      bool keepScripts = false}) async {
+      bool keepScripts = false,
+      String? warmupUrl}) async {
     final text = await Navigator.push<String>(
       context,
       MaterialPageRoute(
@@ -590,6 +593,7 @@ class _ChatPageState extends State<ChatPage>
           fetchRender: fetchRender,
           screenCapture: screenCapture,
           keepScripts: keepScripts,
+          warmupUrl: warmupUrl,
         ),
       ),
     );

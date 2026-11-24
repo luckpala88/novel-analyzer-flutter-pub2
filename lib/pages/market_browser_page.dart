@@ -50,6 +50,12 @@ class MarketBrowserPage extends StatefulWidget {
   /// 没了），fetchRender=true+keepScripts=true+JS开：代理抓页绕302、
   /// React hydrate用SSR数据自己渲染
   final bool keepScripts;
+  /// v1649：预热URL——直连模式专用。番茄搜索页直开被风控清空（ttwid
+  /// cookie没种，23:56 TA截图0结果实证），先加载预热页种cookie，加载
+  /// 完延时3秒（ttwid由页面JS异步写）再跳真实URL。注意：需要XHR取数的
+  /// 页面（搜索）不能用fetchRender代理模式——localhost页发外部域XHR被
+  /// CORS拦=数据必空，必须直连+预热
+  final String? warmupUrl;
   const MarketBrowserPage({
     super.key,
     required this.url,
@@ -63,6 +69,7 @@ class MarketBrowserPage extends StatefulWidget {
     this.fetchRender = false,
     this.screenCapture = false,
     this.keepScripts = false,
+    this.warmupUrl,
   });
 
   @override
@@ -72,6 +79,7 @@ class MarketBrowserPage extends StatefulWidget {
 class _MarketBrowserPageState extends State<MarketBrowserPage> {
   late final WebViewController _ctl;
   bool _loading = true;
+  bool _warmed = false; // v1649：预热页是否已跳转（只跳一次）
   bool _done = false; // v1595：已提取返回，轮询停止
   // v1603：手机/电脑版切换态（初始跟随入口配置）
   bool _desktop = false;
@@ -145,6 +153,18 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
         },
         onPageFinished: (url) {
           _blog('页面加载完：${url != null && url.length > 60 ? url.substring(0, 60) : (url ?? 'null')}');
+          // v1649：预热页加载完——延时3秒（ttwid由页面JS异步调/ttwid/check/
+          // 写cookie，onPageFinished时刻还没种完）再跳真实URL
+          if (widget.warmupUrl != null && !_warmed) {
+            _warmed = true;
+            _blog('预热完成，3秒后跳真实页');
+            Future.delayed(const Duration(seconds: 3), () {
+              if (!mounted) return;
+              setState(() => _loading = true);
+              _ctl.loadRequest(Uri.parse(widget.url));
+            });
+            return;
+          }
           setState(() {
             _loading = false;
             _done = false; // v1622：每次加载完重置提取闸（切页后可再次提取）
@@ -217,6 +237,12 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
       // v1618：loadHtmlString连续渲染ANR实证弃用——改本地代理伺服
       // （loadRequest=稳定路径），先起代理再loadRequest
       ..setUserAgent(widget.desktopUa ? _desktopUa : _mobileUa).then((_) async {
+        // v1649：预热模式——先加载warmup页种cookie，onPageFinished里跳真URL
+        if (widget.warmupUrl != null) {
+          _blog('预热加载：${widget.warmupUrl}');
+          await _ctl.loadRequest(Uri.parse(widget.warmupUrl!));
+          return;
+        }
         if (widget.fetchRender) {
           final port = await RenderProxy.start();
           _blog('代理就绪：$port，加载${widget.url}');
