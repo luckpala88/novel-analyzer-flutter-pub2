@@ -440,11 +440,17 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
             // v1632：屏捕提取——字体加密数据层站（番茄）：截WebView画面
             // 喂GLM-4V读图（屏捕同款免费glm-4v-flash），提取回填楼层。
             // DOMinnerText=PUA密文所以AI读页/提取键不给
-            if (widget.screenCapture)
+            if (widget.screenCapture) ...[
+              // v1642：屏捕Key常驻入口（与APP屏捕页同源zhipu_vision.key）
+              TextButton(
+                onPressed: _pasteVisionKey,
+                child: const Text('🔑'),
+              ),
               TextButton(
                 onPressed: _captureExtract,
                 child: const Text('📸屏捕提取'),
-              )
+              ),
+            ]
             else if (widget.enableJs) ...[
               // v1604b：AI读页——innerText交聊天页AI自行提取需要的内容
               TextButton(
@@ -475,14 +481,66 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
       '提取图中榜单每一条：名次、书名、作者，以及图中可见数据（在读/热度/'
       '收藏/字数等），按图中顺序。输出纯文本每行「N. 书名｜作者（数据）」，'
       '只输出提取结果不要解释；图中没有榜单条目就只输出「无榜单」。';
+  /// v1642：屏捕Key粘贴框——存全局zhipu_vision.key（与APP屏捕页同源，
+  /// 只填一次处处可用）。thenExtract=true时保存后立即重跑提取
+  Future<void> _pasteVisionKey({bool thenExtract = false}) async {
+    final st = context.read<AppState>();
+    final ctl = TextEditingController(text: st.zhipuVisionKey);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dctx) => AlertDialog(
+        title: const Text('📸 屏捕Key（智谱）'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('glm-4v-flash免费，只填一次自动记住（APP屏捕入口'
+              '通用）',
+              style: TextStyle(fontSize: 12)),
+          const SizedBox(height: 10),
+          TextField(
+            controller: ctl,
+            obscureText: true,
+            decoration: const InputDecoration(
+              hintText: '粘贴智谱Key',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+        ]),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dctx, false),
+              child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(dctx, true),
+              child: const Text('保存')),
+        ],
+      ),
+    );
+    if (ok == true && mounted && ctl.text.trim().isNotEmpty) {
+      st.setZhipuVisionKey(ctl.text);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('屏捕Key已保存')));
+      }
+      if (thenExtract) await _captureExtract();
+    }
+  }
+
   Future<void> _captureExtract() async {
-    // Key策略与屏捕页一致：聊天API=智谱直接用，否则无Key不可用（glm-4v
-    // flash免费但必须智谱端点）
-    final cfg = context.read<AppState>().getApiConfig('chat');
-    if (cfg.providerId != 'zhipu') {
+    // v1642：Key策略三级——聊天API=智谱直接用 → 全局屏捕Key
+    // （zhipu_vision.key，APP屏捕页/浏览器🔑同源）→ 都没有弹粘贴框。
+    // 旧逻辑只认聊天API=智谱，APP屏捕入口填的key读不到=用户实测
+    // "填了也不行"
+    final st = context.read<AppState>();
+    final cfg = st.getApiConfig('chat');
+    String key;
+    if (cfg.providerId == 'zhipu') {
+      key = cfg.apiKey;
+    } else if (st.zhipuVisionKey.isNotEmpty) {
+      key = st.zhipuVisionKey;
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('屏捕提取需智谱Key（glm-4v-flash免费）——当前聊天API'
-              '非智谱，可改用「番茄·APP屏捕」入口粘贴Key')));
+          content: Text('屏捕提取需智谱Key（glm-4v-flash免费）——粘贴一次自动记住')));
+      await _pasteVisionKey(thenExtract: true);
       return;
     }
     ScaffoldMessenger.of(context)
@@ -500,7 +558,7 @@ class _MarketBrowserPageState extends State<MarketBrowserPage> {
             Uri.parse('https://open.bigmodel.cn/api/paas/v4/chat/completions'),
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': 'Bearer ${cfg.apiKey}',
+              'Authorization': 'Bearer $key',
             },
             body: jsonEncode({
               'model': 'glm-4v-flash',
