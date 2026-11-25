@@ -437,7 +437,15 @@ class _ChatPageState extends State<ChatPage>
                           MaterialPageRoute(
                               builder: (_) => const ScreenCapturePage()),
                         );
-                        if (text == null || text.trim().isEmpty || !mounted) {
+                        if (!mounted) return;
+                        // v1654：失败可见化——屏捕页任何路径（未授权/帧0/
+                        // Key缺失/提取失败/空结果/直接返回）聊天页必回一条
+                        // 消息，不再静默（TA 09:12实证：聊天页连null都没有）
+                        if (text == null || text.trim().isEmpty) {
+                          _insertRankFloor(
+                              state,
+                              '⚠️ 番茄APP屏捕未返回内容——屏捕页内可能有'
+                              '提示（未授权录屏/没采到帧/缺智谱Key/中途退出）');
                           return;
                         }
                         _insertRankFloor(

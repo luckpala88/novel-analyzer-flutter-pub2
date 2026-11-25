@@ -91,8 +91,12 @@ class _ScreenCapturePageState extends State<ScreenCapturePage> {
       _running = false;
       if (frames.isEmpty) _progress = '未采集到任何帧';
     });
+    // v1654：失败带原因pop回聊天页——任何路径聊天页必有消息（TA 09:12
+    // 实证：聊天页静默），不再只停在屏捕页等用户看提示
     if (frames.isEmpty) {
-      _slog('⚠️ 帧0——服务没跑起来或授权没给（看启动日志）');
+      _slog('⚠️ 帧0——服务没跑起来或授权没给');
+      Navigator.pop(context,
+          '⚠️ 屏捕没采到任何帧——录屏授权没给或服务没启动，重进再试');
       return;
     }
     // GLM-4V逐帧提取
@@ -108,8 +112,10 @@ class _ScreenCapturePageState extends State<ScreenCapturePage> {
         _keyCtl.text = key;
       }
       if (key.isEmpty) {
-        setState(() =>
-            _progress = '需要智谱Key——当前聊天API非智谱，请在下方粘贴（只需一次，之后自动记住）');
+        // v1654：Key缺失也pop回聊天页（之前只在本页红字+return=聊天页静默）
+        Navigator.pop(context,
+            '⚠️ 需要智谱Key才能提取（glm-4v-flash免费）——当前聊天API非智谱，'
+            '屏捕页下方粘贴Key后重试');
         return;
       }
     }
@@ -133,11 +139,8 @@ class _ScreenCapturePageState extends State<ScreenCapturePage> {
         _slog('⛔ 第$i帧失败：$e');
         // v1598：首帧失败即中止——参数级错误逐帧复现毫无意义（v1594实证
         // 一屏错误），用户裁决语义：失败一次就停
-        if (!mounted) return;
-        setState(() {
-          _extracting = false;
-          _progress = '⛔ 第$i帧提取失败即中止：$e';
-        });
+        // v1654：失败原因pop回聊天页
+        Navigator.pop(context, '⛔ 第$i帧提取失败：$e');
         return;
       }
     }
@@ -156,8 +159,10 @@ class _ScreenCapturePageState extends State<ScreenCapturePage> {
       _progress = '';
     });
     if (merged.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('⚠️ 未提取到榜单内容——翻页时请停在榜单页')));
+      // v1654：空结果也pop回聊天页（带帧数线索），聊天页必回消息
+      Navigator.pop(context,
+          '⚠️ 采到${frames.length}帧但没提取到榜单内容——GLM读不出条目'
+          '（翻页时请停在榜单列表页）');
       return;
     }
     Navigator.pop(context, merged);
