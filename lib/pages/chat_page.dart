@@ -25,7 +25,6 @@ import '../utils/prompt_preview.dart';
 import '../widgets/v119_ui.dart'; // showV119Sheet / MiniButton
 import '../services/market_rank.dart'; // v1593：市场榜单抓取
 import 'market_browser_page.dart'; // v1593：内置浏览器
-import 'screen_capture_page.dart'; // v1594：番茄APP屏捕取榜
 
 /// v833：AI聊天页——独立会话/独立API/单条复制/流式回复
 /// 独立ApiService实例：不与创作任务busy锁互斥，聊天/创作可并行
@@ -428,29 +427,10 @@ class _ChatPageState extends State<ChatPage>
                             keepScripts: true,
                             screenCapture: true);
                       }),
-                      // v1649：APP榜单——APP独有的推荐/黑马/巅峰/完本等榜，
-                      // 程序直抓够不着（设备签名），屏捕读APP画面兜底
-                      _rankChip('📱APP榜单', () async {
-                        Navigator.pop(context);
-                        final text = await Navigator.push<String>(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const ScreenCapturePage()),
-                        );
-                        if (!mounted) return;
-                        // v1654：失败可见化——屏捕页任何路径（未授权/帧0/
-                        // Key缺失/提取失败/空结果/直接返回）聊天页必回一条
-                        // 消息，不再静默（TA 09:12实证：聊天页连null都没有）
-                        if (text == null || text.trim().isEmpty) {
-                          _insertRankFloor(
-                              state,
-                              '⚠️ 番茄APP屏捕未返回内容——屏捕页内可能有'
-                              '提示（未授权录屏/没采到帧/缺智谱Key/中途退出）');
-                          return;
-                        }
-                        _insertRankFloor(
-                            state, '📉番茄APP榜单（屏捕·GLM-4V提取）\n$text');
-                      }),
+                      // v1655：APP榜单屏捕入口下线（TA裁决"算了不用做"）
+                      // ——ScreenCapturePage本体保留，失败可见化（v1654）
+                      // 也在，未来要用随时恢复chip；🍅APP独有榜（推荐/黑马/
+                      // 巅峰/完本）先不覆盖，网站四直抓已够用
                       // v1649：搜书——书名→内置浏览器搜索页→📸屏捕提取
                       // （搜索接口a_bogus签名+动态字体双墙，直抓不可行，
                       //  22:51实测；读渲染像素全明文）
