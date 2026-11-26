@@ -454,6 +454,8 @@ class _ChatPageState extends State<ChatPage>
                   const SizedBox(height: 12),
                   // v1657：掌阅直抓（curl双UA侦察SSR明文零反爬）——
                   // rank/list/{id}，li条目data-name+dd.author+dd.content
+                  // v1658b：武道为王榜19267空壳0条目（沙盒实证）弃，
+                  // 换主编推荐/畅销/特价折扣三榜（各20条实测）
                   _groupHeader('掌阅（原生直抓，含简介）'),
                   Wrap(
                     spacing: 8,
@@ -463,7 +465,9 @@ class _ChatPageState extends State<ChatPage>
                         '男频热销榜',
                         '男频完结榜',
                         '男频免费榜',
-                        '武林为王榜',
+                        '主编推荐榜',
+                        '畅销榜',
+                        '特价折扣榜',
                         '女频热销榜',
                         '女频完结榜',
                         '女频免费榜',
