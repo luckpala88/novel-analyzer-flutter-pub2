@@ -113,6 +113,20 @@ class _ChatPageState extends State<ChatPage>
     if (n == 0 || !_listCtl.hasClients) return;
     final pos = _listCtl.position;
     if (pos.maxScrollExtent <= 0) return;
+    // v1658：↑从底部起步先对齐最后一层头部（TA 13:05定稿）——视口贴底
+    // 时最后一层只露尾部，直接跳n-2会跳过它；第一步滚到最后一层头部
+    // （begin对顶），锚定后继续↑才依次减层；⏬到底后同理（锚仍null）。
+    // 顶部按↑：target=0 clamp保持#1不越界
+    if (delta < 0 && _curFloorAnchor == null) {
+      final atBottom = pos.pixels >= pos.maxScrollExtent - 2;
+      if (atBottom) {
+        await _listCtl.scrollToIndex(n - 1,
+            preferPosition: AutoScrollPosition.begin,
+            duration: const Duration(milliseconds: 180));
+        _curFloorAnchor = n - 1;
+        return;
+      }
+    }
     final curEst =
         ((pos.pixels / pos.maxScrollExtent) * (n - 1)).round().clamp(0, n - 1);
     // v941：有锚优先用锚（跳转序列内逐层准确）；无锚才用比例估算
@@ -1418,6 +1432,8 @@ class _ChatPageState extends State<ChatPage>
                       children: [
                         _navBtn('⏫', () {
                           _bumpNav();
+                          // v1658：到顶=显示#1头部，锚定0（后续↑保持#1不越界）
+                          _curFloorAnchor = 0;
                           if (_listCtl.hasClients) _listCtl.jumpTo(0);
                         }),
                         _navBtn('↑', () {
