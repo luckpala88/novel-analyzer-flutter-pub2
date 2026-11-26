@@ -321,80 +321,6 @@ class _ChatPageState extends State<ChatPage>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _groupHeader('飞卢（原生直抓，含简介）'),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    children: [
-                      for (final b in ['点击榜', '月票榜', '收藏榜'])
-                        _rankChip(b, () {
-                          Navigator.pop(context);
-                          _fetchFaloo(state, b);
-                        }),
-                      _rankChip('排行榜网页·可提取', () {
-                        Navigator.pop(context);
-                        // v1612：fetchRender接管渲染——openApp零执行不死机
-                        _browseRank(state, 'https://b.faloo.com/Rank_1.html',
-                            '飞卢排行榜·网页', true, '飞卢排行榜·网页', false,
-                            desktopUa: true,
-                            mobileUrl: 'https://wap.faloo.com/rank_1.html',
-                            fetchRender: true);
-                      }),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _groupHeader('晋江（原生直抓，含简介全文）'),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    children: [
-                      // v1630：晋江静态gbk表无反爬（沙盒python实证200行8列）
-                      for (final b in [
-                        ('官推言情榜', 'orderstr=1'),
-                        ('官推纯爱衍生榜', 'orderstr=1&t=1'),
-                        ('总分榜', 'orderstr=7'),
-                        ('新晋作者榜', 'orderstr=3'),
-                      ])
-                        _rankChip(b.$1, () {
-                          Navigator.pop(context);
-                          _fetchJinjiang(state, b.$1, b.$2);
-                        }),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _groupHeader('七猫（浏览器打开，页内提取键抓取）'),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    children: [
-                      _rankChip('排行榜网页', () {
-                        Navigator.pop(context);
-                        // v1610：m.qimao已变作家门户，七猫无手机版网页
-                        _browseRank(state, 'https://www.qimao.com/paihang/',
-                            '七猫排行榜·网页', true, '七猫排行榜·网页', false,
-                            desktopUa: true);
-                      }),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _groupHeader('起点（浏览器打开，页内提取键抓取）'),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    children: [
-                      _rankChip('月票榜', () {
-                        Navigator.pop(context);
-                        // v1608：默认m.版（www重JS壳WebView崩），切电脑版=www
-                        _browseRank(state, 'https://m.qidian.com/rank/yuepiao/',
-                            '起点月票榜·网页', true, '起点月票榜·网页', false,
-                            desktopUa: false,
-                            desktopUrl: 'https://www.qidian.com/rank/yuepiao/');
-                      }),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  // v1643：分类榜API零反爬直抓全明文（沙盒74榜7225条
-                  // 0失败实证）——比屏捕快且字段全，番茄调研主通道
                   _groupHeader('番茄（原生直抓，全分类前10+明文简介）'),
                   Wrap(
                     spacing: 8,
@@ -476,6 +402,82 @@ class _ChatPageState extends State<ChatPage>
                             screenCapture: true,
                             warmupUrl: 'https://fanqienovel.com/');
                       }),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // v1656：菜单重排——番茄第一/起点第二/七猫第三（TA 12:38
+                  // 定序），飞卢/晋江殿后
+                  _groupHeader('起点（浏览器打开，页内提取键抓取）'),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      _rankChip('月票榜', () {
+                        Navigator.pop(context);
+                        // v1608：默认m.版（www重JS壳WebView崩），切电脑版=www
+                        _browseRank(state, 'https://m.qidian.com/rank/yuepiao/',
+                            '起点月票榜·网页', true, '起点月票榜·网页', false,
+                            desktopUa: false,
+                            desktopUrl: 'https://www.qidian.com/rank/yuepiao/');
+                      }),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _groupHeader('七猫（浏览器打开，页内提取键抓取）'),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      _rankChip('排行榜网页', () {
+                        Navigator.pop(context);
+                        // v1610：m.qimao已变作家门户，七猫无手机版网页
+                        _browseRank(state, 'https://www.qimao.com/paihang/',
+                            '七猫排行榜·网页', true, '七猫排行榜·网页', false,
+                            desktopUa: true);
+                      }),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _groupHeader('飞卢（原生直抓，含简介）'),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      for (final b in ['点击榜', '月票榜', '收藏榜'])
+                        _rankChip(b, () {
+                          Navigator.pop(context);
+                          _fetchFaloo(state, b);
+                        }),
+                      _rankChip('排行榜网页·可提取', () {
+                        Navigator.pop(context);
+                        // v1612：fetchRender接管渲染——openApp零执行不死机
+                        _browseRank(state, 'https://b.faloo.com/Rank_1.html',
+                            '飞卢排行榜·网页', true, '飞卢排行榜·网页', false,
+                            desktopUa: true,
+                            mobileUrl: 'https://wap.faloo.com/rank_1.html',
+                            fetchRender: true);
+                      }),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _groupHeader('晋江（原生直抓，含简介全文）'),
+                  // v1643：分类榜API零反爬直抓全明文（沙盒74榜7225条
+                  // 0失败实证）——比屏捕快且字段全，番茄调研主通道
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      // v1630：晋江静态gbk表无反爬（沙盒python实证200行8列）
+                      for (final b in [
+                        ('官推言情榜', 'orderstr=1'),
+                        ('官推纯爱衍生榜', 'orderstr=1&t=1'),
+                        ('总分榜', 'orderstr=7'),
+                        ('新晋作者榜', 'orderstr=3'),
+                      ])
+                        _rankChip(b.$1, () {
+                          Navigator.pop(context);
+                          _fetchJinjiang(state, b.$1, b.$2);
+                        }),
                     ],
                   ),
                 ],
