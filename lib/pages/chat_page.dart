@@ -438,6 +438,100 @@ class _ChatPageState extends State<ChatPage>
                     ],
                   ),
                   const SizedBox(height: 12),
+                  // v1657：掌阅直抓（curl双UA侦察SSR明文零反爬）——
+                  // rank/list/{id}，li条目data-name+dd.author+dd.content
+                  _groupHeader('掌阅（原生直抓，含简介）'),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      for (final b in [
+                        '男频热销榜',
+                        '男频完结榜',
+                        '男频免费榜',
+                        '武林为王榜',
+                        '女频热销榜',
+                        '女频完结榜',
+                        '女频免费榜',
+                      ])
+                        _rankChip(b, () async {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('正在抓取掌阅$b...')));
+                          try {
+                            final text = await MarketRank.fetchZhangyueFloor(b);
+                            _insertRankFloor(state, text);
+                          } catch (e) {
+                            if (!mounted) return;
+                            _insertRankFloor(state, '⛔ 掌阅$b抓取失败: $e');
+                          }
+                        }),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // v1657：潇湘直抓（页面嵌JSON bookList，python沙盒99条全通）
+                  _groupHeader('潇湘书院（原生直抓，含简介）'),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      for (final b in [
+                        '潇湘票榜',
+                        '新书榜',
+                        '畅销榜',
+                        '完结榜',
+                        '阅读榜',
+                        '收藏榜',
+                      ])
+                        _rankChip(b, () async {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('正在抓取潇湘$b...')));
+                          try {
+                            final text =
+                                await MarketRank.fetchXiaoxiangFloor(b);
+                            _insertRankFloor(state, text);
+                          } catch (e) {
+                            if (!mounted) return;
+                            _insertRankFloor(state, '⛔ 潇湘$b抓取失败: $e');
+                          }
+                        }),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // v1657：红袖/咪咕——JS渲染壳直抓无数据（红袖页面"无显示
+                  // 数据"、咪咕554KB全CSS），走七猫同款浏览器提取
+                  _groupHeader('红袖·咪咕（浏览器打开，页内提取键抓取）'),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      _rankChip('红袖热销榜', () {
+                        Navigator.pop(context);
+                        _browseRank(state, 'https://www.hongxiu.com/rank/hotsales',
+                            '红袖热销榜·网页', true, '红袖热销榜·网页', false,
+                            desktopUa: true);
+                      }),
+                      _rankChip('红袖全部榜单', () {
+                        Navigator.pop(context);
+                        _browseRank(state, 'https://www.hongxiu.com/rank',
+                            '红袖全部榜单·网页', true, '红袖全部榜单·网页', false,
+                            desktopUa: true);
+                      }),
+                      _rankChip('咪咕排行榜', () {
+                        Navigator.pop(context);
+                        _browseRank(
+                            state,
+                            'https://wap.cmread.com/iread/rank/index.htm',
+                            '咪咕排行榜·网页',
+                            true,
+                            '咪咕排行榜·网页',
+                            false,
+                            desktopUa: false);
+                      }),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
                   _groupHeader('飞卢（原生直抓，含简介）'),
                   Wrap(
                     spacing: 8,

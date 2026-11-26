@@ -8,6 +8,148 @@ import 'package:fast_gbk/fast_gbk.dart';
 /// 无头浏览器三连405实证），见market_browser_page.dart
 class MarketRank {
   static const _falooUrl = 'https://www.faloo.com/';
+
+  // ===== v1657：掌阅直抓（m.zhangyue.com SSR明文，curl实证零反爬）=====
+  // 榜单ID来自rank主页锚（19258男热销/19265男完结/19272男免费/19267
+  // 武林为王；19261/19264/19269女频同序）。条目：li data-id块内
+  // data-name=书名、dd.author=作者、dd.content=简介，20条/页
+  static Future<String> fetchZhangyueFloor(String board) async {
+    const ids = {
+      '男频热销榜': '19258',
+      '男频完结榜': '19265',
+      '男频免费榜': '19272',
+      '武林为王榜': '19267',
+      '女频热销榜': '19261',
+      '女频完结榜': '19264',
+      '女频免费榜': '19269',
+    };
+    final id = ids[board];
+    if (id == null) throw Exception('未知掌阅榜单: $board');
+    final c = HttpClient();
+    c.userAgent = _ua;
+    c.connectionTimeout = const Duration(seconds: 12);
+    final req = await c.getUrl(
+        Uri.parse('https://m.zhangyue.com/rank/list/$id'));
+    final resp = await req.close().timeout(const Duration(seconds: 15));
+    final html = await resp.transform(utf8.decoder).join();
+    if (resp.statusCode != 200) {
+      throw Exception('掌阅HTTP ${resp.statusCode}');
+    }
+    final lis =
+        RegExp(r'<li data-id="\d+">([\s\S]*?)</li>').allMatches(html);
+    if (lis.isEmpty) throw Exception('掌阅未解析到条目');
+    String txt(String s) => s
+        .replaceAll(RegExp(r'<[^>]+>'), '')
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&amp;', '&')
+        .trim();
+    final sb = StringBuffer('【掌阅$board】\n');
+    var i = 0;
+    for (final m in lis) {
+      final row = m.group(1)!;
+      i++;
+      final nameM =
+          RegExp(r'data-name="([^"]+)"').firstMatch(row);
+      final title = nameM?.group(1) ?? '';
+      if (title.isEmpty) continue;
+      final author = RegExp(r'<dd class="author">([^<]*)</dd>')
+              .firstMatch(row)
+              ?.group(1)
+              ?.trim() ??
+          '';
+      final intro = RegExp(
+              r'<dd class="content[^"]*">([\s\S]*?)</dd>')
+          .firstMatch(row)
+          ?.group(1);
+      sb.write('$i. 《$title》');
+      if (author.isNotEmpty) sb.write('｜$author');
+      if (intro != null && intro.trim().isNotEmpty) {
+        sb.write('\n简介: ${txt(intro)}');
+      }
+      sb.writeln();
+    }
+    return sb.toString();
+  }
+
+  // ===== v1657：潇湘书院直抓（m.xxsy.net页面嵌JSON bookList，curl实证）=====
+  // 每榜JSON段：name=榜名，bookList[]内title/author/intro/num/unit/
+  // totalWords/finished全明文
+  static Future<String> fetchXiaoxiangFloor(String board) async {
+    const paths = {
+      '潇湘票榜': '/rank/xxyuepiao',
+      '新书榜': '/rank/new',
+      '畅销榜': '/rank/bestsales',
+      '完结榜': '/rank/finish',
+      '阅读榜': '/rank/reading',
+      '收藏榜': '/rank/collect',
+    };
+    final p = paths[board];
+    if (p == null) throw Exception('未知潇湘榜单: $board');
+    final c = HttpClient();
+    c.userAgent = _ua;
+    c.connectionTimeout = const Duration(seconds: 12);
+    final req = await c.getUrl(Uri.parse('https://m.xxsy.net$p'));
+    final resp = await req.close().timeout(const Duration(seconds: 15));
+    final html = await resp.transform(utf8.decoder).join();
+    if (resp.statusCode != 200) {
+      throw Exception('潇湘HTTP ${resp.statusCode}');
+    }
+    // 页面嵌各榜JSON块（name→bookList）：title/author/intro/totalWords/
+    // finished/num(榜数值)/ext.unit(数值单位)——bookList内有嵌套数组
+    // （bookTagInfo），括号计数定数组边界再jsonDecode（python沙盒验证
+    // 99条全通）
+    final sb = StringBuffer('【潇湘书院$board】\n');
+    var count = 0;
+    for (final m0 in '"bookList":['.allMatches(html)) {
+      final seg = html.substring(m0.end - 1);
+      // bookList内嵌套数组（bookTagInfo），括号计数找配对右括号
+      var depth = 0;
+      var endIdx = -1;
+      for (var i = 0; i < seg.length; i++) {
+        final ch = seg[i];
+        if (ch == '[') depth++;
+        if (ch == ']') {
+          depth--;
+          if (depth == 0) {
+            endIdx = i;
+            break;
+          }
+        }
+      }
+      if (endIdx < 0) continue;
+      final dynamic arr;
+      try {
+        arr = jsonDecode(seg.substring(0, endIdx + 1));
+      } catch (_) {
+        continue;
+      }
+      if (arr is! List) continue;
+      for (final e in arr) {
+        if (e is! Map) continue;
+        count++;
+        final title = (e['title'] ?? '').toString();
+        final author = (e['author'] ?? '').toString();
+        final intro = (e['intro'] ?? '').toString().replaceAll('\n', ' ');
+        final words = e['totalWords'];
+        final finished = e['finished'];
+        final rankNum = e['num'];
+        final ext = e['ext'];
+        final unit = ext is Map ? (ext['unit'] ?? '').toString() : '';
+        sb.write('$count. 《$title》');
+        if (author.isNotEmpty) sb.write('｜$author');
+        if (finished == 1) sb.write('｜完结');
+        if (words is num && words > 0) sb.write('｜${(words ~/ 10000)}万字');
+        if (rankNum is num && rankNum > 0 && unit.isNotEmpty) {
+          sb.write('｜$unit$rankNum');
+        }
+        if (intro.isNotEmpty) sb.write('\n简介: $intro');
+        sb.writeln();
+      }
+    }
+    if (count == 0) throw Exception('潇湘未解析到条目');
+    return sb.toString();
+  }
+
   // 桌面UA——桌面版HTML结构稳定（移动版另爬）
   static const _ua =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
