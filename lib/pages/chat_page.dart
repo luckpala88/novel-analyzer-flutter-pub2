@@ -14,6 +14,7 @@ import '../widgets/content_font.dart'; // v979：聊天页字号持久化
 import 'package:provider/provider.dart';
 import '../models/chat_session.dart';
 import '../services/api_service.dart';
+import '../services/tts_service.dart'; // v1662：楼层朗读（state.tts同款单例）
 import '../services/chat_agent.dart';
 import '../utils/prompt_builder.dart';
 import '../state/app_state.dart';
@@ -151,28 +152,100 @@ class _ChatPageState extends State<ChatPage>
   }
 
   int? _ttsFloor; // v1660：正在朗读的楼层idx（null=空闲）
+
+  // v1662：逐句朗读+高亮（电子书同款机制）——整段单请求长文会超时/
+  // 音频过大失败（TA 17:01实测跳跃读不完），改分句循环：prefetch下一
+  // 句缓存+当前句内嵌高亮（楼层切纯文本渲染，停止恢复markdown）
+  List<List<int>>? _ttsSpans; // 每句[start,end]（相对朗读纯文本）
+  String _ttsText = '';
+  int _ttsIdx = 0;
+  int _ttsHlStart = -1;
+  int _ttsHlEnd = -1;
+
+  /// v1662：v468同款分句（保留标点和引号）——保留全量span（含纯空白
+  /// 段），渲染层按全量拼接防段落空行丢失（v1302教训）；朗读循环跳空句
+  List<List<int>> _splitTtsSpans(String text) {
+    final spans = <List<int>>[];
+    final re =
+        RegExp(r'[^。！？!?.\n　]+[。！？!?.\n　]*[“”‘’「」『』]*');
+    for (final m in re.allMatches(text)) {
+      if (m.start < m.end) spans.add([m.start, m.end]);
+    }
+    return spans;
+  }
+
+  void _stopTts() {
+    state_tts?.stop();
+    _ttsSpans = null;
+    _ttsText = '';
+    _ttsIdx = 0;
+    _ttsHlStart = -1;
+    _ttsHlEnd = -1;
+    _ttsFloor = null;
+    if (mounted) setState(() {});
+  }
+
+  TTSService? state_tts;
+
+  Future<void> _playNextTts() async {
+    final spans = _ttsSpans;
+    if (spans == null || _ttsIdx >= spans.length) {
+      _stopTts();
+      return;
+    }
+    final s = spans[_ttsIdx][0];
+    final e = spans[_ttsIdx][1];
+    final raw = _ttsText.substring(s, e);
+    // 空句（纯空白段）不请求不朗读，直接推进
+    if (raw.trim().isEmpty) {
+      _ttsIdx++;
+      _playNextTts();
+      return;
+    }
+    setState(() {
+      _ttsHlStart = s;
+      _ttsHlEnd = e;
+    });
+    final sentence = raw;
+    final tts = state_tts!;
+    // 预取下一句（电子书同款先缓存防断流）
+    if (_ttsIdx + 1 < spans.length) {
+      tts.prefetch(_ttsText.substring(spans[_ttsIdx + 1][0],
+          spans[_ttsIdx + 1][1]));
+    }
+    await tts.speak(sentence, onDone: () {
+      if (_ttsSpans == null || _ttsFloor == null) return;
+      _ttsIdx++;
+      _playNextTts();
+    }, onError: () {
+      // 单句失败不中断整段：跳过该句继续（比电子书多一层兜底——
+      // 聊天楼层文本更杂，个别句请求失败不该全停）
+      if (_ttsSpans == null || _ttsFloor == null) return;
+      _ttsIdx++;
+      _playNextTts();
+    });
+  }
+
   // v1660：朗读本条消息文字——TTSService单例（state.tts，硅基key同主页
   // 电子书，App启动时从全局配置读入tts.engine/tts.siliconKey）
   Future<void> _toggleTts(AppState state, ChatMessage m, int idx) async {
     final tts = state.tts;
     if (_ttsFloor == idx) {
-      await tts.stop();
-      if (mounted) setState(() => _ttsFloor = null);
+      _stopTts();
       return;
     }
     final text = _copyPlain(m.content);
     if (text.isEmpty) return;
     await tts.stop(); // 打断其他在播（含阅读器遗留）
     if (!mounted) return;
-    setState(() => _ttsFloor = idx);
-    await tts.speak(text, onDone: () {
-      if (mounted) setState(() => _ttsFloor = null);
-    }, onError: () {
-      if (mounted) setState(() => _ttsFloor = null);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('⛔ 朗读失败——检查硅基TTS key/网络'),
-          duration: Duration(seconds: 2)));
+    setState(() {
+      _ttsFloor = idx;
+      state_tts = tts;
+      _ttsText = text;
+      _ttsSpans = _splitTtsSpans(text);
+      _ttsIdx = 0;
     });
+    _playNextTts();
   }
 
   int get state_msgCount =>
@@ -1796,7 +1869,7 @@ class _ChatPageState extends State<ChatPage>
                 });
               }
             },
-            child: _bubbleBody(state, m, isUser),
+            child: _bubbleBody(state, m, isUser, idx),
           ),
           // v863：气泡下操作行——复制（全部消息）+重新回答（AI消息）
           if (!_sending && m.content != '…')
@@ -1890,7 +1963,27 @@ class _ChatPageState extends State<ChatPage>
     );
   }
 
-  Widget _bubbleBody(AppState state, ChatMessage m, bool isUser) {
+  /// v1662：朗读态正文——纯文本渲染+当前句金棕高亮（阅读器同款底色）
+  /// 用_copyPlain后文本（与分句span同坐标，与朗读内容严格一致）
+  Widget _ttsHighlightBody() {
+    const hlBg = Color(0x40C89137); // 金棕浅底（阅读器高亮同族）
+    return SelectableText.rich(
+      TextSpan(
+        style: const TextStyle(fontSize: 14.5, height: 1.5),
+        children: [
+          for (final sp in _ttsSpans!)
+            TextSpan(
+              text: _ttsText.substring(sp[0], sp[1]),
+              style: sp[0] == _ttsHlStart
+                  ? const TextStyle(backgroundColor: hlBg)
+                  : null,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _bubbleBody(AppState state, ChatMessage m, bool isUser, int idx) {
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
@@ -1950,10 +2043,14 @@ class _ChatPageState extends State<ChatPage>
             Stack(
               children: [
                 // v836：富文本渲染（JSON美化/简易markdown），单条复制保留
+                // v1662：朗读态切纯文本渲染内嵌高亮当前句（电子书同款
+                // 感知：读到哪句一目了然），停止恢复markdown
                 Padding(
                   padding: const EdgeInsets.only(right: 22),
-                  child: _richContent(state, m.content,
-                      msgCreatedAt: m.ts),
+                  child: _ttsFloor == idx && _ttsSpans != null
+                      ? _ttsHighlightBody()
+                      : _richContent(state, m.content,
+                          msgCreatedAt: m.ts),
                 ),
                 Positioned(
                   right: 0,
