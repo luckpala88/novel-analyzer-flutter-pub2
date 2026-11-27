@@ -164,10 +164,11 @@ class _ChatPageState extends State<ChatPage>
 
   /// v1662：v468同款分句（保留标点和引号）——保留全量span（含纯空白
   /// 段），渲染层按全量拼接防段落空行丢失（v1302教训）；朗读循环跳空句
+  /// v1663：断句只按全角。！？（TA 04:38实测"每个标点都断句"——半角
+  /// .!?.在中文文本里多见于数字/URL/省略号附着，全去掉，句粒度加大）
   List<List<int>> _splitTtsSpans(String text) {
     final spans = <List<int>>[];
-    final re =
-        RegExp(r'[^。！？!?.\n　]+[。！？!?.\n　]*[“”‘’「」『』]*');
+    final re = RegExp(r'[^。！？\n　]+[。！？\n　]*[“”‘’「」『』]*');
     for (final m in re.allMatches(text)) {
       if (m.start < m.end) spans.add([m.start, m.end]);
     }
@@ -208,10 +209,15 @@ class _ChatPageState extends State<ChatPage>
     });
     final sentence = raw;
     final tts = state_tts!;
-    // 预取下一句（电子书同款先缓存防断流）
-    if (_ttsIdx + 1 < spans.length) {
-      tts.prefetch(_ttsText.substring(spans[_ttsIdx + 1][0],
-          spans[_ttsIdx + 1][1]));
+    // 预取后3句并发（v1663：TA 04:38实测句间停几秒——硅基合成1-3秒/
+    // 句，只提前1句赶不上播放节奏，窗口3句并发兜住长句连播）
+    for (var k = 1; k <= 3; k++) {
+      final ni = _ttsIdx + k;
+      if (ni >= spans.length) break;
+      final ntxt =
+          _ttsText.substring(spans[ni][0], spans[ni][1]);
+      if (ntxt.trim().isEmpty) continue;
+      tts.prefetch(ntxt);
     }
     await tts.speak(sentence, onDone: () {
       if (_ttsSpans == null || _ttsFloor == null) return;
