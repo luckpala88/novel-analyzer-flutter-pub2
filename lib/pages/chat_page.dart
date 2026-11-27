@@ -150,6 +150,31 @@ class _ChatPageState extends State<ChatPage>
     _curFloorAnchor = target;
   }
 
+  int? _ttsFloor; // v1660：正在朗读的楼层idx（null=空闲）
+  // v1660：朗读本条消息文字——TTSService单例（state.tts，硅基key同主页
+  // 电子书，App启动时从全局配置读入tts.engine/tts.siliconKey）
+  Future<void> _toggleTts(AppState state, ChatMessage m, int idx) async {
+    final tts = state.tts;
+    if (_ttsFloor == idx) {
+      await tts.stop();
+      if (mounted) setState(() => _ttsFloor = null);
+      return;
+    }
+    final text = _copyPlain(m.content);
+    if (text.isEmpty) return;
+    await tts.stop(); // 打断其他在播（含阅读器遗留）
+    if (!mounted) return;
+    setState(() => _ttsFloor = idx);
+    await tts.speak(text, onDone: () {
+      if (mounted) setState(() => _ttsFloor = null);
+    }, onError: () {
+      if (mounted) setState(() => _ttsFloor = null);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('⛔ 朗读失败——检查硅基TTS key/网络'),
+          duration: Duration(seconds: 2)));
+    });
+  }
+
   int get state_msgCount =>
       context.read<AppState>().chatActive?.messages.length ?? 0;
 
@@ -1846,6 +1871,13 @@ class _ChatPageState extends State<ChatPage>
                       label: '删除',
                       onTap: () => _deleteFloor(state, idx),
                     ),
+                  // v1660：朗读本条——复用阅读器TTSService单例（state.tts，
+                  // 硅基key同主页电子书），键放操作行最右（TA 11-27定）
+                  MiniButton(
+                    dense: true,
+                    label: _ttsFloor == idx ? '⏹停止' : '🔊朗读',
+                    onTap: () => _toggleTts(state, m, idx),
+                  ),
                 ],
               ),
             ),
