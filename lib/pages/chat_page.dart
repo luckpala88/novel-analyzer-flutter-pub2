@@ -1479,6 +1479,9 @@ class _ChatPageState extends State<ChatPage>
                           // 异步布局追加了新高度就再跟一轮，直到稳定（jumpTo
                           // 一次性设值会错过异步追加的高度，v941延时法只是
                           // 打补丁，这个是正路：手指拖动就是持续跟最新的）
+                          // v1661：到底后锚定最后一层——不清锚时旧锚残留
+                          // （先↑到#2再⏬，按↓会从#2跳#3而不是原地不动，
+                          // TA 10:53实测跳#2案）
                           Future<void> chase(int round) async {
                             if (!_listCtl.hasClients || round > 5) return;
                             final target = _listCtl.position.maxScrollExtent;
@@ -1491,6 +1494,7 @@ class _ChatPageState extends State<ChatPage>
                               await chase(round + 1);
                             } else {
                               _listCtl.jumpTo(now);
+                              _curFloorAnchor = state_msgCount - 1;
                             }
                           }
 
