@@ -107,6 +107,10 @@ class TTSService {
     final gen = ++_nativeQueueGen;
     _nativeQueueCount = 0;
     final tts = _getNativeTts();
+    // 关键：flutter_tts默认QUEUE_FLUSH——speaking时连续speak被直接丢弃
+    // （Kotlin源码"result.success(0)"分支，TA 16:41实测只剩最后一句）
+    // 改QUEUE_ADD=1真排队，全句入队按序无缝播
+    await tts.setQueueMode(1);
     await tts.stop(); // 清旧队列
     tts.setStartHandler(() {
       if (gen != _nativeQueueGen) return;
