@@ -251,7 +251,39 @@ class _ChatPageState extends State<ChatPage>
       _ttsSpans = _splitTtsSpans(text);
       _ttsIdx = 0;
     });
+    // v1665：native引擎走整块直读（逐句stop/speak往返=句间停顿，
+    // TA 09:45实测）——progress逐字回调映射分句高亮
+    if (tts.engine == 'native') {
+      tts.onNativeProgress = (s, e) => _ttsNativeHighlight(s);
+      await tts.speakNativeChunked(text, spans: _ttsSpans!,
+          onDone: () {
+            tts.onNativeProgress = null;
+            _stopTts();
+          },
+          onError: () {
+            tts.onNativeProgress = null;
+            _stopTts();
+          });
+      return;
+    }
     _playNextTts();
+  }
+
+  /// v1665：native整块直读的高亮映射——progress偏移→包含它的分句span
+  void _ttsNativeHighlight(int s) {
+    final spans = _ttsSpans;
+    if (spans == null) return;
+    for (final sp in spans) {
+      if (s >= sp[0] && s < sp[1]) {
+        if (_ttsHlStart != sp[0]) {
+          setState(() {
+            _ttsHlStart = sp[0];
+            _ttsHlEnd = sp[1];
+          });
+        }
+        return;
+      }
+    }
   }
 
   int get state_msgCount =>
