@@ -251,39 +251,38 @@ class _ChatPageState extends State<ChatPage>
       _ttsSpans = _splitTtsSpans(text);
       _ttsIdx = 0;
     });
-    // v1665：native引擎走整块直读（逐句stop/speak往返=句间停顿，
-    // TA 09:45实测）——progress逐字回调映射分句高亮
+    // v1666：native引擎整队直读（v1665整块progress方案废——
+    // progressHandler Android不触发，TA 12:36实测无高亮）——
+    // 全句一次入队无缝连播，startHandler按句序回调映射高亮
     if (tts.engine == 'native') {
-      tts.onNativeProgress = (s, e) => _ttsNativeHighlight(s);
-      await tts.speakNativeChunked(text, spans: _ttsSpans!,
+      final sentences = <String>[];
+      final nsSpans = <List<int>>[];
+      for (final sp in _ttsSpans!) {
+        final t = text.substring(sp[0], sp[1]);
+        if (t.trim().isEmpty) continue;
+        sentences.add(t);
+        nsSpans.add(sp);
+      }
+      tts.onNativeSentenceStart = (i) {
+        if (i < nsSpans.length && nsSpans[i][0] != _ttsHlStart) {
+          setState(() {
+            _ttsHlStart = nsSpans[i][0];
+            _ttsHlEnd = nsSpans[i][1];
+          });
+        }
+      };
+      await tts.speakNativeQueue(sentences,
           onDone: () {
-            tts.onNativeProgress = null;
+            tts.onNativeSentenceStart = null;
             _stopTts();
           },
           onError: () {
-            tts.onNativeProgress = null;
+            tts.onNativeSentenceStart = null;
             _stopTts();
           });
       return;
     }
     _playNextTts();
-  }
-
-  /// v1665：native整块直读的高亮映射——progress偏移→包含它的分句span
-  void _ttsNativeHighlight(int s) {
-    final spans = _ttsSpans;
-    if (spans == null) return;
-    for (final sp in spans) {
-      if (s >= sp[0] && s < sp[1]) {
-        if (_ttsHlStart != sp[0]) {
-          setState(() {
-            _ttsHlStart = sp[0];
-            _ttsHlEnd = sp[1];
-          });
-        }
-        return;
-      }
-    }
   }
 
   int get state_msgCount =>

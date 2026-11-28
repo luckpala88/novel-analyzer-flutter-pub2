@@ -211,25 +211,28 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
   }
 
   Future<void> _playNextSentence() async {
-    // v1665：native整块直读——逐句stop/speak往返=句间明显停顿（TA 09:45
-    // 实测电子书同病）。系统TTS一次读大块，progress回调映射分句高亮；
-    // 翻页模式无自动翻页跟随（高亮只在滚动模式完全跟随）
+    // v1666：native整队直读（v1665整块progress方案废——progressHandler
+    // Android不触发，TA 12:36实测无高亮）——全句一次入队无缝连播，
+    // startHandler按句序回调映射高亮；翻页模式无自动翻页跟随
     final stNative = context.read<AppState>();
     if (stNative.tts.engine == 'native' && _ttsPlaying) {
       final content = widget.chapters[_currentIndex].content;
-      stNative.tts.onNativeProgress = (s, e) {
-        for (final sp in _ttsSpans) {
-          if (s >= sp[0] && s < sp[1]) {
-            if (_ttsHlStart != sp[0]) {
-              _ttsHlStart = sp[0];
-              _ttsHlEnd = sp[1];
-              if (mounted) setState(() {});
-            }
-            return;
-          }
+      final sentences = <String>[];
+      final nsSpans = <List<int>>[];
+      for (final sp in _ttsSpans) {
+        final t = content.substring(sp[0], sp[1]);
+        if (t.trim().isEmpty) continue;
+        sentences.add(t);
+        nsSpans.add(sp);
+      }
+      stNative.tts.onNativeSentenceStart = (i) {
+        if (i < nsSpans.length && nsSpans[i][0] != _ttsHlStart) {
+          _ttsHlStart = nsSpans[i][0];
+          _ttsHlEnd = nsSpans[i][1];
+          if (mounted) setState(() {});
         }
       };
-      await stNative.tts.speakNativeChunked(content, spans: _ttsSpans,
+      await stNative.tts.speakNativeQueue(sentences,
           onDone: () => _stopTTS(),
           onError: () {
             _ttsPlaying = false;
@@ -294,7 +297,7 @@ class _ChapterReaderPageState extends State<ChapterReaderPage> {
     _ttsHlStart = -1;
     _ttsHlEnd = -1;
     final state = context.read<AppState>();
-    state.tts.onNativeProgress = null; // v1665：native整块直读回调清理
+    state.tts.onNativeSentenceStart = null; // v1666：native整队回调清理
     state.tts.setMediaSession(active: false); // v561：媒体会话已撤，空操作
     await state.tts.stop();
     setState(() {});

@@ -41,10 +41,6 @@ class TTSService {
     _flutterTts!.setSpeechRate(0.5);
     _flutterTts!.setVolume(1.0);
     _flutterTts!.setPitch(1.0);
-    // v1665：progress逐字回调（Android）——整块直读时上层映射分句高亮
-    _flutterTts!.setProgressHandler((text, start, end, word) {
-      _onNativeUtteranceProgress?.call(start, end);
-    });
     return _flutterTts!;
   }
 
@@ -89,74 +85,60 @@ class TTSService {
     }
   }
 
-  // v1665：native整块直读——逐句stop/speak往返=句间明显停顿（TA 09:45
-  // 实测，电子书同病）。系统TTS本地合成无需预取，按句组装成块直读：
-  // 块内引擎自然衔接零停顿；块边界仅换utterance（gap可忽略）。
-  // Android TTS单次有约4000字符上限，块上限2800留余量。
-  // 高亮：progressHandler逐字回调（utterance内偏移）→加块偏移=绝对偏移
-  // →onNativeProgress交上层映射分句span。
-  void Function(int start, int end)? onNativeProgress; // 绝对偏移回调（上层设）
-  void Function(int start, int end)? _onNativeUtteranceProgress; // 块内偏移
-  int _nativeChainGen = 0; // v1665：块链代际——stop()++中止推进（防停止后
-  // completion回调把下一块拉起来继续读）
+  // v1666：native整队直读（v1665整块+progress方案废——progressHandler
+  // Android不触发，TA 12:36实测无高亮）。原理：flutter_tts的speak在
+  // Android是立即入队（QUEUE_ADD）不等待播完——全部句子循环speak一次
+  // 排满队列，引擎按序无缝连播（utterance间毫秒级gap，无flush往返）；
+  // startHandler每个utterance开始触发（按序可靠），计数映射分句高亮。
+  // completion是per-utterance的，靠计数≥总数判读完整队。
+  void Function(int sentenceIndex)? onNativeSentenceStart; // 第i个非空句开始（0基）
+  int _nativeQueueGen = 0; // stop()++中止（防幽灵续读）
+  int _nativeQueueCount = 0;
 
-  Future<void> speakNativeChunked(
-    String text, {
-    required List<List<int>> spans,
+  Future<void> speakNativeQueue(
+    List<String> sentences, {
     VoidCallback? onDone,
     VoidCallback? onError,
   }) async {
-    final gen = ++_nativeChainGen;
-    void chainDone(VoidCallback? cb) {
-      if (gen == _nativeChainGen) cb?.call();
-    }
-
-    // 组装块：非空句累计≤2800字成一块
-    final blocks = <List<int>>[]; // [start,end)
-    int bs = -1, be = -1, len = 0;
-    for (final sp in spans) {
-      final s = sp[0], e = sp[1];
-      if (text.substring(s, e).trim().isEmpty) continue;
-      if (bs < 0) {
-        bs = s; be = e; len = e - s;
-        continue;
-      }
-      if (len + (e - s) > 2800) {
-        blocks.add([bs, be]);
-        bs = s; be = e; len = e - s;
-      } else {
-        be = e;
-        len += e - s;
-      }
-    }
-    if (bs >= 0) blocks.add([bs, be]);
-    if (blocks.isEmpty) {
+    if (sentences.isEmpty) {
       onDone?.call();
       return;
     }
-    Future<void> next(int i) async {
-      final b = blocks[i];
-      _onNativeUtteranceProgress = (s, e) =>
-          onNativeProgress?.call(b[0] + s, b[0] + e);
-      await _speakNative(text.substring(b[0], b[1]),
-          onDone: () {
-            if (i + 1 < blocks.length) {
-              chainDone(() => next(i + 1));
-            } else {
-              chainDone(onDone);
-            }
-          },
-          onError: () {
-            // 单块失败不中断：跳过继续下一块（同硅基路径跳句兜底）
-            if (i + 1 < blocks.length) {
-              chainDone(() => next(i + 1));
-            } else {
-              chainDone(onError);
-            }
-          });
+    final gen = ++_nativeQueueGen;
+    _nativeQueueCount = 0;
+    final tts = _getNativeTts();
+    await tts.stop(); // 清旧队列
+    tts.setStartHandler(() {
+      if (gen != _nativeQueueGen) return;
+      onNativeSentenceStart?.call(_nativeQueueCount++);
+    });
+    tts.setCompletionHandler(() {
+      if (gen != _nativeQueueGen) return;
+      if (_nativeQueueCount >= sentences.length) {
+        _playing = false;
+        onNativeSentenceStart = null;
+        onDone?.call();
+      }
+    });
+    tts.setErrorHandler((msg) {
+      if (gen != _nativeQueueGen) return;
+      // 单句错误当跳过（队列继续）；计数到头按完成收尾
+      if (_nativeQueueCount >= sentences.length) {
+        _playing = false;
+        onNativeSentenceStart = null;
+        onDone?.call();
+      }
+    });
+    _playing = true;
+    for (final s in sentences) {
+      final r = await tts.speak(s);
+      if (r != 1) {
+        _playing = false;
+        onNativeSentenceStart = null;
+        onError?.call();
+        return;
+      }
     }
-
-    await next(0);
   }
 
   /// 过滤特殊字符（同v468）— 供API请求用，返回null表示无需朗读
@@ -298,10 +280,9 @@ class TTSService {
   Future<void> stop() async {
     _playing = false;
     _playGeneration++; // 使所有pending回调失效
-    _nativeChainGen++; // v1665：中止native块链推进
+    _nativeQueueGen++; // v1666：中止native队列（start/completion全失效）
     await _completeSub?.cancel();
     _completeSub = null;
-    _onNativeUtteranceProgress = null; // v1665：块链中止
     if (engine == 'native') {
       await _flutterTts?.stop();
     }
