@@ -2874,6 +2874,7 @@ class AppState extends ChangeNotifier {
     'scene_prompt_preview.flag', 'shot_prompt_preview.flag',
     'scan_prompt_preview.flag', // v1157：弧线页词链
     'wb_prompt_preview.flag', 'detect_prompt_preview.flag',
+    'chat_sessions.json', // v1664：聊天会话随书备份/恢复（TA 09:19实测平板恢复无聊天记录——清单漏了此文件）
   ];
 
   /// v318兼容的全局key列表
