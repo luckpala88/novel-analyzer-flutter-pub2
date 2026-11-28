@@ -1740,6 +1740,16 @@ class _ChatPageState extends State<ChatPage>
       children: [
               // v1567：不独占一行——与其他键挤一行，Wrap自动换行
               ApiModelButton(config: state.getApiConfig('chat'), section: 'chat', title: 'API设置 · AI聊天'),
+          MiniButton(label: '导出/导入', onTap: () => _exportImportMenu(state)),
+          // v1593：市场榜单——飞卢原生直抓/七猫番茄起点内置浏览器
+          MiniButton(label: '📉榜单', onTap: () => _marketRankMenu(state)),
+          // v1666：新建与词链对调位置（TA 12:34）——新建提前到榜单后
+          MiniButton(
+              label: '新建',
+              onTap: () {
+                state.newChatSession();
+                setState(() {});
+              }),
           // v1545：词链开关（背景色=开，与其余页一致）
           MiniButton(
             label: '词链',
@@ -1764,12 +1774,6 @@ class _ChatPageState extends State<ChatPage>
           MiniButton(label: '导出/导入', onTap: () => _exportImportMenu(state)),
           // v1593：市场榜单——飞卢原生直抓/七猫番茄起点内置浏览器
           MiniButton(label: '📉榜单', onTap: () => _marketRankMenu(state)),
-          MiniButton(
-              label: '新建',
-              onTap: () {
-                state.newChatSession();
-                setState(() {});
-              }),
           // v1505：刷新键——从盘上重读会话（保持当前会话），卡顿/丢楼层时点一下救
           MiniButton(
               label: '刷新',
